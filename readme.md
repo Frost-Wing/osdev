@@ -106,5 +106,5 @@ FrostWing is open-source software released under the [CC0-1.0 License](LICENSE).
 Happy coding, and let's make FrostWing even more awesome together! 😎🚀
 
 ## FrostWing Team
-- Owner and founder - Pradosh (@PradoshGame)
+- Owner and founder - Pradosh ([@PradoshGame](https://twitter.com/@PradoshGame))
 - Head Developer - Not here yet.
