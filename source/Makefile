@@ -104,6 +104,19 @@ else ifeq ($(ARCH),aarch64)
         -mgeneral-regs-only
     override LDFLAGS += \
         -m aarch64elf
+else ifeq ($(ARCH),aarch32) # Especially for Raspberry PI
+    ifeq ($(CC_IS_CLANG),yes)
+        override CC += \
+            -target arm-elf
+    else
+        override CC += \
+            -march=armv6 -mfloat-abi=soft
+    endif
+    override CFLAGS += \
+        -marm -mthumb
+    override LDFLAGS += \
+        -m armelf
+endif
 else ifeq ($(ARCH),riscv64)
     ifeq ($(CC_IS_CLANG),yes)
         override CC += \
