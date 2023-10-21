@@ -1,0 +1,7 @@
+limine
+disk_root
+source/obj
+FrostWing.iso
+*.elf
+*.o
+*.d
