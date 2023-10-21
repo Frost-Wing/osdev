@@ -45,6 +45,9 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 Before you start building FrostWing, ensure that you have the following dependencies installed:
 
 - Latest Version of [Limine Bootloader](https://github.com/limine-bootloader/limine)
+```bash
+git clone https://github.com/limine-bootloader/limine.git --branch=v5.x-branch-binary --depth=1
+```
 - A suitable cross-compiler for your target architecture (x86_64, ARM64, or RISC-V).
 - QEMU System Emulator
 
