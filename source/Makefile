@@ -116,7 +116,6 @@ else ifeq ($(ARCH),aarch32) # Especially for Raspberry PI
         -marm -mthumb
     override LDFLAGS += \
         -m armelf
-endif
 else ifeq ($(ARCH),riscv64)
     ifeq ($(CC_IS_CLANG),yes)
         override CC += \
