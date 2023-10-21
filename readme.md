@@ -101,7 +101,7 @@ We welcome contributions to FrostWing! If you'd like to contribute code, report 
 
 ## License
 
-FrostWing is open-source software released under the [MIT License](LICENSE). Feel free to use, modify, and distribute it as per the terms of this license.
+FrostWing is open-source software released under the [CC0-1.0 License](LICENSE). Feel free to use, modify, and distribute it as per the terms of this license.
 
 Happy coding, and let's make FrostWing even more awesome together! 😎🚀
 
