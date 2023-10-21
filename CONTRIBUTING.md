@@ -55,6 +55,6 @@ We expect all contributors to adhere to the following guidelines:
 
 If you witness or experience any behavior that violates these guidelines, please report it to the project maintainers at [pradoshgame@gmail.com].
 
-Let's work together to create a positive and inclusive community for AwesomeOS.
+Let's work together to create a positive and inclusive community for FrostWing.
 
 Thank you for your cooperation.
