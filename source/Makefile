@@ -62,7 +62,7 @@ override CFLAGS += \
     -fno-stack-check \
     -fno-lto \
     -fPIE \
-    -I includes
+    -I includes \
 
 # Internal C preprocessor flags that should not be changed by the user.
 override CPPFLAGS := \

@@ -6,3 +6,5 @@ FrostWing.iso
 *.o
 *.d
 doxygen-1.9.8
+*.log
+.vscode

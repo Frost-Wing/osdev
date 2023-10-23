@@ -8,6 +8,10 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
+#include <stdint.h>
+#include <stddef.h>
+
+typedef char symbol[];
 /**
  * @brief Calculate the length of a null-terminated string.
  *
@@ -17,4 +21,9 @@
  * @param s The input string.
  * @return The length of the string.
  */
-int strlen(char s[]);
+int strlen_(char s[]);
+
+char *strcpy(char *dest, const char *src);
+char *strncpy(char *dest, const char *src, size_t n);
+int strcmp(const char *s1, const char *s2);
+int strncmp(const char *s1, const char *s2, size_t n);
