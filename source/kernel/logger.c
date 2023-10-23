@@ -85,10 +85,20 @@ void done(const char *message, const char* file) {
     print(ANSI_COLOR_RESET "\n");
 }
 
+/**
+ * @brief Prints a char, using print(&c);
+ * 
+ * @param c char to print
+ */
 void putc(char c) {
     print(&c);
 }
 
+/**
+ * @brief Prints decimal numbers
+ * 
+ * @param num the number to be printed
+ */
 void printdec(size_t num) {
     int i;
     char buf[21] = {0};
@@ -107,12 +117,24 @@ void printdec(size_t num) {
     print(buf + i);
 }
 
+/**
+ * @brief Prints Hexadecimal number
+ * 
+ * @param hex the hexadecimal number to be printed.
+ */
 void printhex(int hex){
     char hex_str[16];
     itoa(hex, hex_str, 16, 16);
     print(hex_str);
 }
 
+/**
+ * @brief More uniform print function.
+ * Supports any number of arguments (va_list)
+ * 
+ * @param format 
+ * @param ... 
+ */
 void printf(const char *format, ...) {
     va_list argp;
     va_start(argp, format);

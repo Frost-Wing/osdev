@@ -1,10 +1,20 @@
+/**
+ * @file pci.c
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief The PCI Code for the kernel
+ * @version 0.1
+ * @date 2023-10-23
+ * 
+ * @copyright Copyright (c) Pradosh 2023
+ * 
+ */
 #include <stdint.h>
 #include <stdio.h>
 #include <hal.h>
 #include <pci.h>
 
-const char* display_adapter_name = "GoGX Generic Display Adapter";
-const char* GPUName[1] = {"GoGX Generic Display Adapter"}; //Max 2 GPUs allowed
+const char* display_adapter_name = "Frost Generic Display Adapter";
+const char* GPUName[1] = {"Frost Generic Display Adapter"}; //Max 2 GPUs allowed
 
 uint16_t pci_read_word(uint16_t bus, uint16_t slot, uint16_t func, uint16_t offset)
 {

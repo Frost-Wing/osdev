@@ -1,3 +1,13 @@
+/**
+ * @file typescript-loader.c
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief This file contains the pre-defines functions and variables for typescript.
+ * @version 0.1
+ * @date 2023-10-23
+ * 
+ * @copyright Copyright (c) Pradosh 2023
+ * 
+ */
 #include <stdint.h>
 
 /**
