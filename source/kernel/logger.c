@@ -84,3 +84,55 @@ void done(const char *message, const char* file) {
     print(file);
     print(ANSI_COLOR_RESET "\n");
 }
+
+void putc(char c) {
+    print(&c);
+}
+
+void printdec(size_t num) {
+    int i;
+    char buf[21] = {0};
+
+    if (!num) {
+        putc('0');
+        return;
+    }
+
+    for (i = 19; num; i--) {
+        buf[i] = (num % 10) + 0x30;
+        num = num / 10;
+    }
+
+    i++;
+    print(buf + i);
+}
+
+void printhex(int hex){
+    char hex_str[16];
+    itoa(hex, hex_str, 16, 16);
+    print(hex_str);
+}
+
+void printf(const char *format, ...) {
+    va_list argp;
+    va_start(argp, format);
+
+    while (*format != '\0') {
+        if (*format == '%') {
+            format++;
+            if (*format == 'x') {
+                printhex(va_arg(argp, size_t));
+            } else if (*format == 'd') {
+                printdec(va_arg(argp, size_t));
+            } else if (*format == 's') {
+                print(va_arg(argp, char*));
+            }
+        } else {
+            putc(*format);
+        }
+        format++;
+    }
+
+    putc('\n');
+    va_end(argp);
+}

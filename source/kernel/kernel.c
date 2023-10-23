@@ -21,6 +21,8 @@
 
 // #define assert(expression) if(!(expression))error("")
 
+extern int typescript_main(void);
+
 // The Limine requests can be placed anywhere, but it is important that
 // the compiler does not optimise them away, so, usually, they should
 // be made volatile or equivalent.
@@ -56,6 +58,8 @@ void main(void) {
     gdt_init();
     acpi_init();
     for (size_t i = 0; i < 10000000; i++) inb(0x80);
+    load_typescript();
+    probe_pci();
     // We have no more process to handle.
     hcf(); // Doing this to avoid Reboot
 }
@@ -69,6 +73,10 @@ void print(const char* msg){
     flanterm_write(ft_ctx, msg, strlen_(msg));
 }
 
+/**
+ * @brief ACPI Shutdown code.
+ * 
+ */
 void shutdown(){
     acpi_shutdown_hack(hhdm_req.response->offset, acpi_find_sdt, inb, inw, outb, outw);
 }

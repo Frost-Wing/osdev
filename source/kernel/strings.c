@@ -113,3 +113,54 @@ int strncmp(const char *s1, const char *s2, size_t n) {
 
     return 0;
 }
+
+/**
+ * @brief The OEM itoa function from C
+ * 
+ * @param num 
+ * @param str
+ * @param len
+ * @param base Base of the numbers (eg. 16, 10, 8, 2)
+ * @return int 
+ */
+int itoa(int num, unsigned char* str, int len, int base)
+{
+	int sum = num;
+	int i = 0;
+	int digit;
+	if (len == 0)
+		return -1;
+	do
+	{
+		digit = sum % base;
+		if (digit < 0xA)
+			str[i++] = '0' + digit;
+		else
+			str[i++] = 'A' + digit - 0xA;
+		sum /= base;
+	}while (sum && (i < (len - 1)));
+	if (i == (len - 1) && sum)
+		return -1;
+	str[i] = '\0';
+	strrev(str);
+	return 0;
+}
+
+/**
+ * @brief The OEM strrev in C
+ * 
+ * @param str 
+ */
+void strrev(unsigned char *str)
+{
+	int i;
+	int j;
+	unsigned char a;
+	unsigned len = strlen_((const char *)str);
+	for (i = 0, j = len - 1; i < j; i++, j--)
+	{
+		a = str[i];
+		str[i] = str[j];
+		str[j] = a;
+	}
+}
