@@ -13,63 +13,62 @@
 #include <limine.h>
 #include <memory.h>
 #include <strings.h>
- 
+#include <kernel.h>
+#include <flanterm/flanterm.h>
+#include <fb.h>
+#include <hal.h>
+#include <acpi.h>
+
+// #define assert(expression) if(!(expression))error("")
+
 // The Limine requests can be placed anywhere, but it is important that
 // the compiler does not optimise them away, so, usually, they should
 // be made volatile or equivalent.
-static volatile struct limine_terminal_request terminal_request = {
-    .id = LIMINE_TERMINAL_REQUEST,
-    .revision = 0
-};
-
 static volatile struct limine_framebuffer_request framebuffer_request = {
     .id = LIMINE_FRAMEBUFFER_REQUEST,
     .revision = 0
 };
 
-/**
- * @brief Halt and catch fire function.
- * 
- */
-static void hcf(void) {
-    for (;;) {
-        #if defined (__x86_64__)
-            asm ("hlt");
-        #elif defined (__aarch64__) || defined (__riscv)
-            asm ("wfi");
-        #endif
-    }
-}
+static volatile struct limine_hhdm_request hhdm_req = {
+    LIMINE_HHDM_REQUEST, 0, NULL
+};
 
-struct limine_terminal *terminal = NULL;
+struct flanterm_context *ft_ctx = NULL;
 
 /**
  * @brief The main kernel function
  * renaming main() to something else, make sure to change the linker script accordingly.
  */
 void main(void) {
-    // Make sure we have a framebuffer to work with
-    if (framebuffer_request.response == NULL || framebuffer_request.response->framebuffer_count < 1) hcf();
-
+     if (framebuffer_request.response == NULL) {
+        hcf();
+    }
     // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
-
-
-    // Note: we assume the framebuffer model is RGB with 32-bit pixels.
     volatile uint32_t *fb_ptr = framebuffer->address;
-    for (size_t i = 0; i < 400; i++) {
-        fb_ptr[i * (framebuffer->pitch / 4) + i] = 0xffffff;
+
+    ft_ctx = flanterm_fb_simple_init(
+        fb_ptr, framebuffer->width, framebuffer->height, framebuffer->pitch
+    );
+    if(framebuffer_request.response->framebuffer_count < 1){
+        warn("Multiple framebuffers detected! Using Framebuffer[0] (You probably have 2 monitors)");
     }
+    gdt_init();
+    acpi_init();
+    for (size_t i = 0; i < 10000000; i++) inb(0x80);
     // We have no more process to handle.
     hcf(); // Doing this to avoid Reboot
 }
 
 /**
- * @brief The function to access the terminal from framebuffer and print text to.
+ * @brief The basic print function.
  * 
- * @param msg (char[]) Message to be displayed
- * @deprecated This is dependent for old limine v5.x, now it is not needed.
+ * @param msg The message to be printed
  */
-void print(char msg[]){
-    terminal_request.response->write(terminal, msg, 8);
+void print(const char* msg){
+    flanterm_write(ft_ctx, msg, strlen_(msg));
+}
+
+void shutdown(){
+    acpi_shutdown_hack(hhdm_req.response->offset, acpi_find_sdt, inb, inw, outb, outw);
 }

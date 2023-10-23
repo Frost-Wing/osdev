@@ -48,6 +48,10 @@ Before you start building FrostWing, ensure that you have the following dependen
 ```bash
 git clone https://github.com/limine-bootloader/limine.git --branch=v5.x-branch-binary --depth=1
 ```
+- Compile the Limine bootloader
+```bash
+make -C limine
+```
 - A suitable cross-compiler for your target architecture (x86_64, ARM64, or RISC-V).
 - QEMU System Emulator
 
@@ -109,4 +113,8 @@ Happy coding, and let's make FrostWing even more awesome together! 😎🚀
 
 ## FrostWing Team
 - Owner and founder - Pradosh ([@PradoshGame](https://twitter.com/@PradoshGame))
-- Head Developer - Not here yet.
+- Head Developer - GAMINGNOOB ([@GAMINGNOOBdev](https://github.com/GAMINGNOOBdev))
+    - Helped in creation of `outw`, `inw`, `outl` and `inl` in [source/kernel/hal.c](https://github.com/pradosh-arduino/FrostWing/tree/main/source/kernel/hal.c)
+- Sources
+    - [Flanterm](https://github.com/mintsuki/flanterm/tree/trunk) from Mintsuki
+    - [ACPI and Shutdown](https://github.com/mintsuki/acpi-shutdown-hack) from Mintsuki
