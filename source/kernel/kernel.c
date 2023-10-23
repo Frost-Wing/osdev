@@ -18,6 +18,7 @@
 #include <fb.h>
 #include <hal.h>
 #include <acpi.h>
+#include <graphics.h>
 
 // #define assert(expression) if(!(expression))error("")
 
@@ -69,6 +70,11 @@ void main(void) {
         *data = 42;
     }
 
+    // line, empty triangle and filled triangle testing (leaving it here to demonstrate how to use these functions)
+    // draw_line((ivec2){0, 0}, (ivec2){10, 30}, 0xffbaddad);
+    // draw_triangle((ivec2){10, 10}, (ivec2){100, 100}, (ivec2){100, 10}, 0xffdadbad, false);
+    // draw_triangle((ivec2){110, 110}, (ivec2){200, 200}, (ivec2){200, 110}, 0xffdadbad, true);
+
     // Free memory
     deallocate(data);
     get_cpu_name();
@@ -78,17 +84,6 @@ void main(void) {
     display_time();
     // We have no more process to handle.
     hcf(); // Doing this to avoid Reboot
-}
-/**
- * @brief Temporary
- * 
- * @param x 
- * @param y 
- * @param color 8-bit color
- */
-void put_pixel(int x, int y, uint32_t color){
-    volatile uint32_t *fb_ptr = framebuffer->address;
-    fb_ptr[y * framebuffer->width + x] = color;
 }
 
 /**

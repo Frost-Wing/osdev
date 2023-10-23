@@ -87,6 +87,14 @@ make -C limine
     make
     ```
 
+### Building the FrostWind Doxygen documentation
+
+If you want to have the doxygen documentation (for some reason), it's enough to just run
+```bash
+doxygen
+```
+inside the repository folder. A directory called `docs` will be created which should contain the generated html documentation.
+
 ### Running FrostWing
 
 After building FrostWing, you can run it using a virtual machine or on real hardware. The specific steps for running it will depend on your chosen target architecture. Read the main Markdown to run FrostWing.
