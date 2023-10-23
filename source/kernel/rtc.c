@@ -1,3 +1,14 @@
+/**
+ * @file rtc.c
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief Real time clock code.
+ * @version 0.1
+ * @date 2023-10-23
+ * 
+ * @copyright Copyright (c) Pradosh 2023
+ * 
+ */
+
 #include <stdint.h>
 
 // The I/O ports for RTC
