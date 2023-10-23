@@ -86,7 +86,7 @@ void main(void) {
  * @param y 
  * @param color 8-bit color
  */
-void put_pixel(int x, int y, uint8_t color){
+void put_pixel(int x, int y, uint32_t color){
     volatile uint32_t *fb_ptr = framebuffer->address;
     fb_ptr[y * framebuffer->width + x] = color;
 }
