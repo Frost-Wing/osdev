@@ -56,7 +56,6 @@ void main(void) {
     if(framebuffer_request.response->framebuffer_count < 1){
         warn("Multiple framebuffers detected! Using Framebuffer[0] (You probably have 2 monitors)");
     }
-
     gdt_init();
     acpi_init();
     for (size_t i = 0; i < 10000000; i++) inb(0x80);
@@ -74,6 +73,8 @@ void main(void) {
     get_cpu_name();
     print_cpu();
     L1_cache_size();
+    init_rtc();
+    display_time();
     // We have no more process to handle.
     hcf(); // Doing this to avoid Reboot
 }
