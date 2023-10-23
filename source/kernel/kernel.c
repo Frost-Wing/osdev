@@ -60,6 +60,15 @@ void main(void) {
     for (size_t i = 0; i < 10000000; i++) inb(0x80);
     load_typescript();
     probe_pci();
+    initialize_heap();
+
+    int* data = (int*)allocate(sizeof(int));
+    if (data) {
+        *data = 42;
+    }
+
+    // Free memory
+    deallocate(data);
     // We have no more process to handle.
     hcf(); // Doing this to avoid Reboot
 }
