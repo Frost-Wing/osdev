@@ -36,6 +36,7 @@ static volatile struct limine_hhdm_request hhdm_req = {
 };
 
 struct flanterm_context *ft_ctx = NULL;
+struct limine_framebuffer *framebuffer = NULL;
 
 /**
  * @brief The main kernel function
@@ -46,7 +47,7 @@ void main(void) {
         hcf();
     }
     // Fetch the first framebuffer.
-    struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
+    framebuffer = framebuffer_request.response->framebuffers[0];
     volatile uint32_t *fb_ptr = framebuffer->address;
 
     ft_ctx = flanterm_fb_simple_init(
@@ -77,6 +78,17 @@ void main(void) {
     display_time();
     // We have no more process to handle.
     hcf(); // Doing this to avoid Reboot
+}
+/**
+ * @brief Temporary
+ * 
+ * @param x 
+ * @param y 
+ * @param color 8-bit color
+ */
+void put_pixel(int x, int y, uint8_t color){
+    volatile uint32_t *fb_ptr = framebuffer->address;
+    fb_ptr[y * framebuffer->width + x] = color;
 }
 
 /**
