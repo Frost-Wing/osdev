@@ -52,9 +52,11 @@ void main(void) {
     ft_ctx = flanterm_fb_simple_init(
         fb_ptr, framebuffer->width, framebuffer->height, framebuffer->pitch
     );
+
     if(framebuffer_request.response->framebuffer_count < 1){
         warn("Multiple framebuffers detected! Using Framebuffer[0] (You probably have 2 monitors)");
     }
+
     gdt_init();
     acpi_init();
     for (size_t i = 0; i < 10000000; i++) inb(0x80);
