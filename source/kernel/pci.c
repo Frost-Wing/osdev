@@ -186,7 +186,8 @@ void probe_pci(){
         }
     }
     done("Successfully completed probe!", __FILE__);
-    printf("Graphics Card (GPU0) : %s", GPUName[0]);
-    printf("Graphics Card (GPU1) : %s", GPUName[1]);
-    printf("Display Adapter      : %s", display_adapter_name);
+    printf("\033[1;34mGraphics Card (GPU0) : \033[1;32m%s", GPUName[0]);
+    printf("\033[1;34mGraphics Card (GPU1) : \033[1;32m%s", GPUName[1]);
+    printf("\033[1;34mDisplay Adapter      : \033[1;32m%s", display_adapter_name);
+    print("\033[0m");
 }
