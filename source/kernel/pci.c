@@ -53,41 +53,14 @@ uint16_t getSubClassId(uint16_t bus, uint16_t device, uint16_t function)
         return (r0 & ~0xFF00);
 }
 
-int LoadNvidiaGPU(uint16_t bus, uint16_t function, uint16_t device){
-    for(uint32_t bus = 0; bus < 256; bus++)
-    {
-        for(uint32_t device = 0; device < 32; device++)
-        {
-            for(uint32_t function = 0; function < 8; function++)
-            {
-                uint16_t vendorID = getVendorID(bus, device, function);
-                if(vendorID == 0x10DE)
-                {
-                    uint16_t deviceID = getDeviceID(bus, device, function);
-                    if(deviceID == 0x0040) {display_adapter_name = "NV40 [GeForce 6800 Ultra]";}
-                    else if(deviceID == 0x0041) {display_adapter_name = "NV40 [GeForce 6800]";   }
-                    else if(deviceID == 0x0042) {display_adapter_name = "NV40 [GeForce 6800 LE]";}
-                    else if(deviceID == 0x0043) {display_adapter_name = "NV40 [GeForce 6800 XE]";}
-                    else if(deviceID == 0x0044) {display_adapter_name = "NV40 [GeForce 6800 XT]";}
-                    else if(deviceID == 0x0045) {display_adapter_name = "NV40 [GeForce 6800 GT]";}
-                    else if(deviceID == 0x0046) {display_adapter_name = "NV40 [GeForce 6800 GS]";}
-                    else if(deviceID == 0x0090) {display_adapter_name = "G70 [GeForce 7800 GTX]";}
-                    else if(deviceID == 0x0091) {display_adapter_name = "G70 [GeForce 7800 GTX]";}
-                    else if(deviceID == 0x0092) {display_adapter_name = "G70 [GeForce 7800 GT]";}
-                    else if(deviceID == 0x0093) {display_adapter_name = "G70 [GeForce 7800 GS]";}
-                    else if(deviceID == 0x0094) {display_adapter_name = "G70 [GeForce 7800 SLI]";}
-                    else {display_adapter_name = "GoGX Generic Display Adapter"; return 0;}
-                }
-            }
-        }
-    }
-    return 0;
-}
-
 char* vendorNames[512];
 char* deviceNames[512];
 char* classNames[512];
 
+/**
+ * @brief Scans (Probes) PCI Devices
+ * 
+ */
 void probe_pci(){
     info("Probe has been started!", __FILE__);
     int i;
@@ -176,6 +149,23 @@ void probe_pci(){
                     else if(vendor == 5549 && device == 1029){display_adapter_name = deviceName = GPUName[0] = "VMware SVGA Graphics";}
                     else if(vendor == 4115 && device == 184){display_adapter_name = deviceName = GPUName[0] = "Cirrus Graphics";}
                     else {deviceName = "Unknown";}
+
+                    if(vendor == 0x10DE)
+                    {
+                        if(device == 0x0040) {display_adapter_name = "NV40 [GeForce 6800 Ultra]";}
+                        else if(device == 0x0041) {display_adapter_name = "NV40 [GeForce 6800]";   }
+                        else if(device == 0x0042) {display_adapter_name = "NV40 [GeForce 6800 LE]";}
+                        else if(device == 0x0043) {display_adapter_name = "NV40 [GeForce 6800 XE]";}
+                        else if(device == 0x0044) {display_adapter_name = "NV40 [GeForce 6800 XT]";}
+                        else if(device == 0x0045) {display_adapter_name = "NV40 [GeForce 6800 GT]";}
+                        else if(device == 0x0046) {display_adapter_name = "NV40 [GeForce 6800 GS]";}
+                        else if(device == 0x0090) {display_adapter_name = "G70 [GeForce 7800 GTX]";}
+                        else if(device == 0x0091) {display_adapter_name = "G70 [GeForce 7800 GTX]";}
+                        else if(device == 0x0092) {display_adapter_name = "G70 [GeForce 7800 GT]";}
+                        else if(device == 0x0093) {display_adapter_name = "G70 [GeForce 7800 GS]";}
+                        else if(device == 0x0094) {display_adapter_name = "G70 [GeForce 7800 SLI]";}
+                        else {display_adapter_name = "Frost Generic Display Adapter"; return 0;}
+                    }
 
                     printf("\x1b[0;32mVendor: %s\t--- Device: %s\t--- Class: %s", vendorName, deviceName, className);
                     vendorNames[i] = vendorName;
