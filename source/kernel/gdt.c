@@ -27,7 +27,35 @@ struct gdt_pointer {
 };
 
 // Function to load the GDT
-extern void load_gdt(struct gdt_pointer*);
+void load_gdt(struct gdt_pointer* gdt_ptr) {
+    #if defined (__x86_64__)
+        asm volatile(
+            "lgdt (%0)"
+            :
+            : "r"(gdt_ptr)
+        );
+    #elif defined (__aarch64__)
+        asm volatile(
+            "msr ttbr0_el1, %0" // AARCH64-specific assembly code
+            :
+            : "r"(gdt_ptr)
+        );
+    #elif defined (__arm__) || defined (__aarch32__)
+        asm volatile(
+            "mcr p15, 0, %0, c2, c0, 0" // AARCH32-specific assembly code
+            :
+            : "r"(gdt_ptr)
+        );
+    #elif defined(__riscv)
+        asm volatile(
+            "lw t0, 0(%0)\n"
+            "csrw sstatus, t0"
+            :
+            : "r"(gdt_ptr)
+            : "t0"
+        );
+    #endif
+}
 
 // Global Descriptor Table (GDT) entries
 struct gdt_entry gdt[3];
