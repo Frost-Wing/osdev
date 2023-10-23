@@ -71,6 +71,9 @@ void main(void) {
 
     // Free memory
     deallocate(data);
+    get_cpu_name();
+    print_cpu();
+    L1_cache_size();
     // We have no more process to handle.
     hcf(); // Doing this to avoid Reboot
 }
