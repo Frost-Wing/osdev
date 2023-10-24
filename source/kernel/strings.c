@@ -23,16 +23,6 @@ int strlen_(char s[]) {
     return i;
 }
 
-/**
- * @brief Copies a C string (src) to another C string (dest).
- *
- * This function copies the characters from the source string `src` to the
- * destination string `dest` until a null terminator is encountered in `src`.
- *
- * @param dest The destination string where the copy will be stored.
- * @param src The source string to be copied.
- * @return A pointer to the destination string `dest`.
- */
 char *strcpy(char *dest, const char *src) {
     size_t i;
 
@@ -44,18 +34,6 @@ char *strcpy(char *dest, const char *src) {
     return dest;
 }
 
-/**
- * @brief Copies at most `n` characters from a source string (src) to a destination string (dest).
- *
- * This function copies at most `n` characters from the source string `src` to the
- * destination string `dest`. If `src` is shorter than `n`, it copies all characters
- * and pads the rest with null terminators.
- *
- * @param dest The destination string where the copy will be stored.
- * @param src The source string to be copied.
- * @param n The maximum number of characters to copy.
- * @return A pointer to the destination string `dest`.
- */
 char *strncpy(char *dest, const char *src, size_t n) {
     size_t i;
 
@@ -67,18 +45,6 @@ char *strncpy(char *dest, const char *src, size_t n) {
     return dest;
 }
 
-/**
- * @brief Compares two strings lexicographically.
- *
- * This function compares two strings `s1` and `s2` lexicographically. It returns
- * a negative value if `s1` is less than `s2`, a positive value if `s1` is greater
- * than `s2`, and zero if they are equal.
- *
- * @param s1 The first string to be compared.
- * @param s2 The second string to be compared.
- * @return An integer less than, equal to, or greater than zero, depending on the
- *         comparison result.
- */
 int strcmp(const char *s1, const char *s2) {
     for (size_t i = 0; ; i++) {
         char c1 = s1[i], c2 = s2[i];
@@ -89,19 +55,6 @@ int strcmp(const char *s1, const char *s2) {
     }
 }
 
-/**
- * @brief Compares two strings, up to a specified number of characters.
- *
- * This function compares the first `n` characters of two strings `s1` and `s2`.
- * It returns a negative value if `s1` is less than `s2`, a positive value if `s1`
- * is greater than `s2`, and zero if they are equal.
- *
- * @param s1 The first string to be compared.
- * @param s2 The second string to be compared.
- * @param n The maximum number of characters to compare.
- * @return An integer less than, equal to, or greater than zero, depending on the
- *         comparison result.
- */
 int strncmp(const char *s1, const char *s2, size_t n) {
     for (size_t i = 0; i < n; i++) {
         char c1 = s1[i], c2 = s2[i];

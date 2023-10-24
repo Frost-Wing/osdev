@@ -19,31 +19,41 @@ struct facp {
 };
 
 static inline uint8_t parse_integer(uint8_t* s5_addr, uint64_t* value) {
-    uint8_t op = *s5_addr++;
-    if (op == 0x0) { // ZeroOp
-        *value = 0;
-        return 1; // 1 Op Byte
-    } else if (op == 0x1) { // OneOp
-        *value = 1;
-        return 1; // 1 Op Byte
-    } else if (op == 0xFF) { // OnesOp
-        *value = ~0;
-        return 1; // 1 Op Byte
-    } else if (op == 0xA) { // ByteConst
-        *value = s5_addr[0];
-        return 2; // 1 Type Byte, 1 Data Byte
-    } else if (op == 0xB) { // WordConst
-        *value = s5_addr[0] | ((uint16_t)s5_addr[1] << 8);
-        return 3; // 1 Type Byte, 3 Data Bytes
-    } else if (op == 0xC) { // DWordConst
-        *value = s5_addr[0] | ((uint32_t)s5_addr[1] << 8) | ((uint32_t)s5_addr[2] << 16) | ((uint32_t)s5_addr[3] << 24);
-        return 5; // 1 Type Byte, 4 Data Bytes
-    } else if (op == 0xE) { // QWordConst
-        *value = s5_addr[0] | ((uint64_t)s5_addr[1] << 8) | ((uint64_t)s5_addr[2] << 16) | ((uint64_t)s5_addr[3] << 24) \
-               | ((uint64_t)s5_addr[4] << 32) | ((uint64_t)s5_addr[5] << 40) | ((uint64_t)s5_addr[6] << 48) | ((uint64_t)s5_addr[7] << 56);
-        return 9; // 1 Type Byte, 8 Data Bytes
-    } else {
-        return 0; // No Integer, so something weird
+    uint8_t operation = *s5_addr++;
+
+    switch(operation)
+    {
+        case 0x0: // ZeroOperation
+            *value = 0;
+            return 1;
+
+        case 0x1: // 1 Op Byte
+            *value = 1;
+            return 1; // 1 Op Byte
+
+        case 0xA: // ByteConst
+            *value = s5_addr[0];
+            return 2; // 1 Type Byte, 1 Data Byte
+
+        case 0xB: // WordConst
+            *value = s5_addr[0] | ((uint16_t)s5_addr[1] << 8);
+            return 3; // 1 Type Byte, 3 Data Bytes
+
+        case 0xC: // DWordConst
+            *value = s5_addr[0] | ((uint32_t)s5_addr[1] << 8) | ((uint32_t)s5_addr[2] << 16) | ((uint32_t)s5_addr[3] << 24);
+            return 5; // 1 Type Byte, 4 Data Bytes
+
+        case 0xE: // QWordConst
+            *value = s5_addr[0] | ((uint64_t)s5_addr[1] << 8) | ((uint64_t)s5_addr[2] << 16) | ((uint64_t)s5_addr[3] << 24) \
+                | ((uint64_t)s5_addr[4] << 32) | ((uint64_t)s5_addr[5] << 40) | ((uint64_t)s5_addr[6] << 48) | ((uint64_t)s5_addr[7] << 56);
+            return 9; // 1 Type Byte, 8 Data Bytes
+
+        case 0xFF: // OnesOp
+            *value = ~0;
+            return 1; // 1 Op Byte
+
+        default:
+            return 0; // No Integer, so something weird
     }
 }
 
