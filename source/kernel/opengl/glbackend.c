@@ -1,12 +1,18 @@
-#include <graphics.h>
-#include <limine.h>
+#include <opengl/glbackend.h>
+#include <opengl/glcontext.h>
 
-extern struct limine_framebuffer *framebuffer;
-
-void put_pixel(int x, int y, uint32_t color)
+void glWritePixel(uvec2 pixel, uint32_t color)
 {
-    volatile uint32_t *fb_ptr = framebuffer->address;
-    fb_ptr[y * framebuffer->width + x] = color;
+    if (!glContextInitialized())
+        return;
+
+    GET_CURRENT_GL_CONTEXT(context);
+
+    if (pixel.x >= context->ColorBuffer->width || pixel.x >= context->ColorBuffer->height)
+        return;
+
+    volatile uint32_t *fb_ptr = context->ColorBuffer->address;
+    fb_ptr[pixel.y * context->ColorBuffer->width + pixel.x] = color;
 }
 
 static int abs(int value)
@@ -17,9 +23,12 @@ static int abs(int value)
     return value;
 }
 
-void draw_line(ivec2 p1, ivec2 p2, uint32_t col)
+void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col)
 {
-    ivec2 pdraw;
+    if (!glContextInitialized())
+        return;
+
+    uvec2 pdraw;
     ivec2 distance;
     ivec2 absoluteDistance;
     ivec2 p, e;
@@ -43,7 +52,7 @@ void draw_line(ivec2 p1, ivec2 p2, uint32_t col)
             e.x = p1.x;
         }
 
-        put_pixel(pdraw.x, pdraw.y, col);
+        glWritePixel(pdraw, col);
 
         for (i = 0; pdraw.x < e.x; i++) {
             pdraw.x++;
@@ -57,7 +66,7 @@ void draw_line(ivec2 p1, ivec2 p2, uint32_t col)
                 }
                 p.x = p.x + 2 * (absoluteDistance.y - absoluteDistance.x);
             }
-            put_pixel(pdraw.x, pdraw.y, col);
+            glWritePixel(pdraw, col);
         }
     }
     else
@@ -74,7 +83,7 @@ void draw_line(ivec2 p1, ivec2 p2, uint32_t col)
             pdraw.y = p2.y;
             e.y = p1.y;
         }
-        put_pixel(pdraw.y, pdraw.y, col);
+        glWritePixel((uvec2){pdraw.y, pdraw.y}, col);
 
         for (i = 0; pdraw.y < e.y; i++) {
             pdraw.y++;
@@ -88,7 +97,7 @@ void draw_line(ivec2 p1, ivec2 p2, uint32_t col)
                 }
                 p.y = p.y + 2 * (absoluteDistance.x - absoluteDistance.y);
             }
-            put_pixel(pdraw.x, pdraw.y, col);
+            glWritePixel(pdraw, col);
         }
     }
 }
@@ -98,17 +107,20 @@ void draw_line(ivec2 p1, ivec2 p2, uint32_t col)
             var2 = var1;        \
             var1 = tmp;
 
-void draw_triangle(ivec2 t0, ivec2 t1, ivec2 t2, uint32_t col, bool fill)
+void glDrawTriangle(uvec2 t0, uvec2 t1, uvec2 t2, uint32_t col, bool fill)
 {
+    if (!glContextInitialized())
+        return;
+
     if (!fill)
     {
-        draw_line(t0, t1, col);
-        draw_line(t1, t2, col);
-        draw_line(t2, t0, col);
+        glDrawLine(t0, t1, col);
+        glDrawLine(t1, t2, col);
+        glDrawLine(t2, t0, col);
         return;
     }
 
-    ivec2 t, tp, d1, d2;
+    uvec2 t, tp, d1, d2;
     int y, minx, maxx;
     bool change0 = false;
     bool change1 = false;
@@ -249,7 +261,7 @@ void draw_triangle(ivec2 t0, ivec2 t1, ivec2 t2, uint32_t col, bool fill)
             maxx = t.y;
 
         for (int j = minx; j <= maxx; j++)
-            put_pixel(j, y, col);
+            glWritePixel((uvec2){j, y}, col);
 
         if (!change0)
             t.x += sign_x1;
@@ -364,7 +376,7 @@ nextHalf:
             maxx = t.y;
 
         for (int j = minx; j <= maxx; j++)
-            put_pixel(j, y, col);
+            glWritePixel((uvec2){j, y}, col);
 
         if (!change0)
             t.x += sign_x1;

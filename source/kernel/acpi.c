@@ -32,25 +32,28 @@ static volatile struct limine_rsdp_request rsdp_req = {
     LIMINE_RSDP_REQUEST, 0, NULL
 };
 
-/* This function should look for all the ACPI tables and index them for
-   later use */
-void acpi_init(void) {
+void acpi_init()
+{
     struct rsdp *rsdp = rsdp_req.response->address;
     info("Found RSDP address!", __FILE__);
-    if (rsdp->rev >= 2 && rsdp->xsdt_addr) {
+    if (rsdp->rev >= 2 && rsdp->xsdt_addr)
+    {
         use_xsdt = true;
         rsdt = (struct rsdt *)((uintptr_t)rsdp->xsdt_addr);
         info("Using XSDT!", __FILE__);
-    } else {
+    }
+    else
+    {
         use_xsdt = false;
         rsdt = (struct rsdt *)((uintptr_t)rsdp->rsdt_addr);
         warn(" XSDT Not found! But we can ignore that!", __FILE__);
     }
+
     done("Successfully loaded!", __FILE__);
 }
 
-/* Find SDT by signature */
-void *acpi_find_sdt(const char *signature, size_t index) {
+void *acpi_find_sdt(const char *signature, size_t index)
+{
     size_t cnt = 0;
 
     for (size_t i = 0; i < rsdt->sdt.length - sizeof(struct sdt); i++) {
@@ -60,9 +63,8 @@ void *acpi_find_sdt(const char *signature, size_t index) {
         else
             ptr = (struct sdt *)(uintptr_t)((uint32_t *)rsdt->ptrs_start)[i];
 
-        if (!strncmp(ptr->signature, signature, 4) && cnt++ == index) {
+        if (!strncmp(ptr->signature, signature, 4) && cnt++ == index)
             return (void *)ptr;
-        }
     }
 
     return NULL;
