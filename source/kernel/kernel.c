@@ -83,8 +83,14 @@ void main(void) {
     L3_cache_size();
     init_rtc();
     display_time();
-    // We have no more process to handle.
-    hcf(); // Doing this to avoid Reboot
+    // * We have no more process to handle. - Depreciated
+    // hcf(); // Doing this to avoid Reboot
+    done("No process pending, press \'F10\' to call ACPI Shutdown.", __FILE__);
+    while(1){
+        if(inb(0x60) == 0x44){ // F10 Key
+            shutdown();
+        }
+    }
 }
 
 /**
