@@ -49,10 +49,9 @@ void main(void) {
     }
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
-    volatile uint32_t *fb_ptr = framebuffer->address;
 
     ft_ctx = flanterm_fb_simple_init(
-        fb_ptr, framebuffer->width, framebuffer->height, framebuffer->pitch
+        framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
     );
 
     if(framebuffer_request.response->framebuffer_count < 1){
@@ -80,6 +79,8 @@ void main(void) {
     get_cpu_name();
     print_cpu();
     L1_cache_size();
+    L2_cache_size();
+    L3_cache_size();
     init_rtc();
     display_time();
     // We have no more process to handle.
