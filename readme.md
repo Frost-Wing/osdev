@@ -122,7 +122,6 @@ Happy coding, and let's make FrostWing even more awesome together! 😎🚀
 ## FrostWing Team
 - Owner and founder - Pradosh ([@PradoshGame](https://twitter.com/@PradoshGame))
 - Head Developer - GAMINGNOOB ([@GAMINGNOOBdev](https://github.com/GAMINGNOOBdev))
-    - Helped in creation of `outw`, `inw`, `outl` and `inl` in [source/kernel/hal.c](https://github.com/pradosh-arduino/FrostWing/tree/main/source/kernel/hal.c)
 - Sources
     - [Flanterm](https://github.com/mintsuki/flanterm/tree/trunk) from Mintsuki
     - [ACPI and Shutdown](https://github.com/mintsuki/acpi-shutdown-hack) from Mintsuki
