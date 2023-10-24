@@ -39,6 +39,8 @@ git push origin feature/your-feature
 
 - Write clear and concise commit messages.
 
+- Do not use plain inline assembly in C source file, create a function check the kernel architecture and run instructions based on it
+
 ## Issues and Bug Reports
 
 If you find a bug or want to propose an enhancement, please open an issue on the GitHub issue tracker. When reporting a bug, include as much detail as possible, such as the steps to reproduce, expected behavior, and the actual behavior.
