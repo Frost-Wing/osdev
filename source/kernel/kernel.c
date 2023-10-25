@@ -91,6 +91,10 @@ void main(void) {
     L3_cache_size();
     init_rtc();
     display_time();
+
+    // Meltdown screen for demo
+    // meltdown_screen("Dummy error!", __FILE__, __LINE__, 0xdeadbeef);
+
     // * We have no more process to handle. - Depreciated
     // hcf(); // Doing this to avoid Reboot
     asm("hlt");
