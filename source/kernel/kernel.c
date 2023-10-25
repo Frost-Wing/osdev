@@ -22,6 +22,9 @@
 #include <opengl/glcontext.h>
 #include <opengl/glbackend.h>
 
+int terminal_rows = 0;
+int terminal_columns = 0;
+
 /**
  * @brief Assert Definition
  * @authors GAMINGNOOB (Coded Original) & Pradosh (Modified it)
@@ -59,7 +62,8 @@ void main(void) {
     ft_ctx = flanterm_fb_simple_init(
         framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
     );
-
+    terminal_rows = ft_ctx->rows;
+    terminal_columns = ft_ctx->cols;
     if(framebuffer_request.response->framebuffer_count < 1){
         warn("Multiple framebuffers detected! Using Framebuffer[0] (You probably have 2 monitors)");
     }
@@ -89,6 +93,7 @@ void main(void) {
     display_time();
     // * We have no more process to handle. - Depreciated
     // hcf(); // Doing this to avoid Reboot
+    asm("hlt");
     done("No process pending, press \'F10\' to call ACPI Shutdown.", __FILE__);
     while(1){
         if(inb(0x60) == 0x44){ // F10 Key

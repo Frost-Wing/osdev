@@ -15,3 +15,6 @@ extern uint64_t* kend;
 void hcf();
 void clear_interrupts();
 void high_level_halt();
+
+extern int terminal_rows;
+extern int terminal_columns;
