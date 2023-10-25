@@ -97,7 +97,6 @@ void main(void) {
 
     // * We have no more process to handle. - Depreciated
     // hcf(); // Doing this to avoid Reboot
-    asm("hlt");
     done("No process pending, press \'F10\' to call ACPI Shutdown.", __FILE__);
     while(1){
         if(inb(0x60) == 0x44){ // F10 Key
