@@ -73,12 +73,6 @@ void main(void) {
     // Assert demo
     //assert(0 == 3, __FILE__, __LINE__);
 
-<<<<<<< HEAD
-    // line, empty triangle and filled triangle testing (leaving it here to demonstrate how to use these functions)
-    // draw_line((ivec2){0, 0}, (ivec2){10, 30}, 0xffbaddad);
-    // draw_triangle((ivec2){10, 10}, (ivec2){100, 100}, (ivec2){100, 10}, 0xffdadbad, false);
-    // draw_triangle((ivec2){110, 110}, (ivec2){200, 200}, (ivec2){200, 110}, 0xffdadbad, true);
-=======
     // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
     // glCreateContext();
     // glDrawLine((uvec2){0, 0}, (uvec2){10, 30}, 0xffbaddad);
@@ -86,9 +80,6 @@ void main(void) {
     // glDrawTriangle((uvec2){110, 110}, (uvec2){200, 200}, (uvec2){200, 110}, 0xffdadbad, true);
     // glDestroyContext(NULL);
 
-    // Free memory
-    deallocate(data);
->>>>>>> 3e73603e45c81f90f6bd4f3fc946955744de4437
     get_cpu_name();
     print_cpu();
     L1_cache_size();
