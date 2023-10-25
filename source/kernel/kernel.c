@@ -20,7 +20,11 @@
 #include <acpi.h>
 #include <graphics.h>
 
-// #define assert(expression) if(!(expression))error("")
+/**
+ * @brief Assert Definition
+ * @authors GAMINGNOOB (Coded Original) & Pradosh (Modified it)
+ */
+#define assert(expression, file, line) if(!(expression)){printf("\x1b[31mAssert Failed! at \x1b[36m%s:%d\x1b[0m => \x1b[32m%s\x1b[0m", file, line, #expression); hcf();}
 
 extern int typescript_main(void);
 
@@ -64,18 +68,13 @@ void main(void) {
     probe_pci();
     initialize_heap();
 
-    int* data = (int*)allocate(sizeof(int));
-    if (data) {
-        *data = 42;
-    }
+    // Assert demo
+    //assert(0 == 3, __FILE__, __LINE__);
 
     // line, empty triangle and filled triangle testing (leaving it here to demonstrate how to use these functions)
     // draw_line((ivec2){0, 0}, (ivec2){10, 30}, 0xffbaddad);
     // draw_triangle((ivec2){10, 10}, (ivec2){100, 100}, (ivec2){100, 10}, 0xffdadbad, false);
     // draw_triangle((ivec2){110, 110}, (ivec2){200, 200}, (ivec2){200, 110}, 0xffdadbad, true);
-
-    // Free memory
-    deallocate(data);
     get_cpu_name();
     print_cpu();
     L1_cache_size();
