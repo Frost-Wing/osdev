@@ -10,8 +10,7 @@
  * 
  */
 
-#include <stdint.h>
-#include <stddef.h>
+#include <math/fpu.h>
 
 /**
  * @brief Set the FPU Control Word
