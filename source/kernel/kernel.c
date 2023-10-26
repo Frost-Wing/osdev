@@ -53,7 +53,7 @@ struct limine_framebuffer *framebuffer = NULL;
  * renaming main() to something else, make sure to change the linker script accordingly.
  */
 void main(void) {
-     if (framebuffer_request.response == NULL) {
+    if (framebuffer_request.response == NULL) {
         hcf();
     }
     // Fetch the first framebuffer.

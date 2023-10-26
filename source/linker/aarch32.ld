@@ -9,10 +9,10 @@ ENTRY(_start)
 /* MMU permissions */
 PHDRS
 {
-    text PT_LOAD FLAGS(5 | 6) ; /* Execute + Read */
-    rodata PT_LOAD FLAGS(4) ; /* Read only */
-    data PT_LOAD FLAGS(2 | 4) ; /* Write + Read */
-    dynamic PT_DYNAMIC FLAGS(2 | 4) ; /* Dynamic PHDR for relocations */
+    text    PT_LOAD     FLAGS(5 | 6) ; /* Execute + Read */
+    rodata  PT_LOAD     FLAGS(4) ; /* Read only */
+    data    PT_LOAD     FLAGS(2 | 4) ; /* Write + Read */
+    dynamic PT_DYNAMIC  FLAGS(2 | 4) ; /* Dynamic PHDR for relocations */
 }
 
 SECTIONS

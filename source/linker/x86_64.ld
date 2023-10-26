@@ -37,7 +37,7 @@ SECTIONS
  
     /* Move to the next memory page for .data */
     . += CONSTANT(MAXPAGESIZE);
- 
+
     .data : {
         *(.data .data.*)
     } :data
