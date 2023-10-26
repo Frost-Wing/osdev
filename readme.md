@@ -125,3 +125,4 @@ Happy coding, and let's make FrostWing even more awesome together! 😎🚀
 - Sources
     - [Flanterm](https://github.com/mintsuki/flanterm/tree/trunk) from Mintsuki
     - [ACPI and Shutdown](https://github.com/mintsuki/acpi-shutdown-hack) from Mintsuki
+    - [Floating Point Arithmetic](https://github.com/stevej/osdev/blob/master/kernel/devices/fpu.c) from Kevin Lange
