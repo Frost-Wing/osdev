@@ -92,6 +92,11 @@ void main(void) {
     init_rtc();
     display_time();
 
+    enable_fpu();
+
+    float x = 10.5f * 23.0f;
+    float y = 10.5f / 23.0f;
+    
     // Meltdown screen for demo
     // meltdown_screen("Dummy error!", __FILE__, __LINE__, 0xdeadbeef);
 
