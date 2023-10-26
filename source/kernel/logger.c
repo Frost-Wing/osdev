@@ -91,7 +91,9 @@ void done(const char *message, const char* file) {
  * @param c char to print
  */
 void putc(char c) {
-    print(&c);
+    char dummy[1];
+    dummy[0] = c;
+    print(dummy);
 }
 
 /**
