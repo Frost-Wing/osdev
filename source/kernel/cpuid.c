@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
-
+ 
 static inline int cpuid_string(int code, int where[4]) {
   __asm__ volatile ("cpuid":"=a"(*where),"=b"(*(where+0)),
                "=d"(*(where+1)),"=c"(*(where+2)):"a"(code));
@@ -29,7 +29,7 @@ char* get_cpu_name() {
 }
 
 void print_cpu(){
-    printf("\033[1;34mCPU Vendor: \033[1;32m%s%s", vendor, "\033[0m");
+    printf("\033[1;34mCPU Vendor: \033[1;32m%s\n\033[1;34mCPU String: \033[1;32m%s%s", vendor, cpu_string(),"\033[0m");
 }
 
 void L1_cache_size() {

@@ -97,7 +97,7 @@ void main(void) {
 
     check_sse();
     load_complete_sse();
-    
+
     // Meltdown screen for demo
     // meltdown_screen("Dummy error!", __FILE__, __LINE__, 0xdeadbeef);
 
