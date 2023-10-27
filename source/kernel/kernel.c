@@ -17,6 +17,7 @@
 #include <flanterm/flanterm.h>
 #include <fb.h>
 #include <hal.h>
+#include <sse.h>
 #include <acpi.h>
 #include <graphics.h>
 #include <opengl/glcontext.h>
@@ -94,8 +95,8 @@ void main(void) {
 
     enable_fpu();
 
-    float x = 10.5f * 23.0f;
-    float y = 10.5f / 23.0f;
+    check_sse();
+    load_complete_sse();
     
     // Meltdown screen for demo
     // meltdown_screen("Dummy error!", __FILE__, __LINE__, 0xdeadbeef);
