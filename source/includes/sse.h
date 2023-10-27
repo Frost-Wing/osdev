@@ -9,6 +9,8 @@
  * 
  */
 #include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
 
 extern char fxsave_region[512] __attribute__((aligned(16)));
 
