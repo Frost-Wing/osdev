@@ -49,6 +49,31 @@ static volatile struct limine_hhdm_request hhdm_req = {
 struct flanterm_context *ft_ctx = NULL;
 struct limine_framebuffer *framebuffer = NULL;
 
+uint64_t* back_buffer;
+uint64_t* front_buffer;
+int current_buffer = 0;
+
+void swapBuffers(uint64_t address) {
+    // Swap the buffer index
+    current_buffer = 1 - current_buffer;
+    
+    // Update the front and back buffer pointers
+    if (current_buffer == 0) {
+        front_buffer = back_buffer;
+        back_buffer = (uint64_t*)address;
+    } else {
+        front_buffer = (uint64_t*)address;
+        back_buffer = back_buffer;
+    }
+}
+
+void render(int width, int height) {
+    // Copy the back buffer to the front buffer
+    for (int i = 0; i < width * height; i++) {
+        front_buffer[i] = back_buffer[i];
+    }
+}
+
 /**
  * @brief The main kernel function
  * renaming main() to something else, make sure to change the linker script accordingly.
@@ -60,20 +85,32 @@ void main(void) {
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
-    ft_ctx = flanterm_fb_simple_init(
-        framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
-    );
+    
+    front_buffer = (uint64_t*)framebuffer->address;
+    uint64_t temp_buffer[framebuffer->width * framebuffer->height];
+    back_buffer = (uint64_t*)temp_buffer;
+    if(back_buffer == NULL){
+        ft_ctx = flanterm_fb_simple_init(
+            front_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
+        );
+        warn("Back framebuffer returned `NULL` double_buffering: false", __FILE__);
+    }else{
+        ft_ctx = flanterm_fb_simple_init(
+            back_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
+        );
+    }
+
     terminal_rows = ft_ctx->rows;
     terminal_columns = ft_ctx->cols;
     if(framebuffer_request.response->framebuffer_count < 1){
         warn("Multiple framebuffers detected! Using Framebuffer[0] (You probably have 2 monitors)");
     }
+    initialize_heap();
     gdt_init();
     acpi_init();
     for (size_t i = 0; i < 10000000; i++) inb(0x80);
     load_typescript();
     probe_pci();
-    initialize_heap();
 
     // Assert demo
     //assert(0 == 3, __FILE__, __LINE__);
@@ -101,9 +138,11 @@ void main(void) {
     // Meltdown screen for demo
     // meltdown_screen("Dummy error!", __FILE__, __LINE__, 0xdeadbeef);
 
-    // * We have no more process to handle. - Depreciated
-    // hcf(); // Doing this to avoid Reboot
     done("No process pending, press \'F10\' to call ACPI Shutdown.", __FILE__);
+    if(back_buffer != NULL){
+        swapBuffers(framebuffer->address);
+        render(framebuffer->width, framebuffer->height);
+    }
     while(1){
         if(inb(0x60) == 0x44){ // F10 Key
             shutdown();
