@@ -18,3 +18,6 @@ void high_level_halt();
 
 extern int terminal_rows;
 extern int terminal_columns;
+
+extern uint64_t* back_buffer;
+extern uint64_t* front_buffer;
