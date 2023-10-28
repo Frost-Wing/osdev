@@ -131,6 +131,13 @@ void main(void) {
 
     // Meltdown screen for demo
     // meltdown_screen("Dummy error!", __FILE__, __LINE__, 0xdeadbeef);
+    
+    // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
+    glCreateContext();
+    glDrawLine((uvec2){0, 0}, (uvec2){10, 30}, 0xffbaddad);
+    glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
+    glDrawTriangle((uvec2){110, 110}, (uvec2){200, 200}, (uvec2){200, 110}, 0xffdadbad, true);
+    glDestroyContext(NULL);
 
     done("No process pending, press \'F10\' to call ACPI Shutdown.", __FILE__);
     if(back_buffer != NULL){
@@ -138,12 +145,6 @@ void main(void) {
         render(framebuffer->width, framebuffer->height);
     }
 
-    // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
-    // glCreateContext();
-    // glDrawLine((uvec2){0, 0}, (uvec2){10, 30}, 0xffbaddad);
-    // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
-    // glDrawTriangle((uvec2){110, 110}, (uvec2){200, 200}, (uvec2){200, 110}, 0xffdadbad, true);
-    // glDestroyContext(NULL);
 
     while(1){
         if(inb(0x60) == 0x44){ // F10 Key

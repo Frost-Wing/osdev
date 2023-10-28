@@ -1,5 +1,6 @@
 #include <opengl/glbackend.h>
 #include <opengl/glcontext.h>
+#include <kernel.h>
 
 void glWritePixel(uvec2 pixel, uint32_t color)
 {
@@ -11,7 +12,7 @@ void glWritePixel(uvec2 pixel, uint32_t color)
     if (pixel.x >= context->ColorBuffer->width || pixel.x >= context->ColorBuffer->height)
         return;
 
-    volatile uint32_t *fb_ptr = context->ColorBuffer->address;
+    volatile uint32_t *fb_ptr = back_buffer;
     fb_ptr[pixel.y * context->ColorBuffer->width + pixel.x] = color;
 }
 
