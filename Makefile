@@ -7,7 +7,7 @@ all:
 	@./limine/limine bios-install FrostWing.iso
 
 run-x86:
-	@qemu-system-x86_64 -rtc base=2023-10-23T12:00:00 -cdrom FrostWing.iso -m 512
+	@qemu-system-x86_64 -rtc base=2023-10-23T12:00:00 -cdrom FrostWing.iso -m 1024
 
 run-aarch:
 	@qemu-system-aarch64 -cdrom FrostWing.iso -m 512

@@ -36,7 +36,7 @@ void L1_cache_size() {
     uint32_t eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
-        printf("L1 Cache not present.\n");
+        print("L1 Cache not present.\n");
         return;
     }
     printf("\033[1;34mCPU Line Size: \033[1;32m%d B, \033[1;34mAssoc. Type: \033[1;32m%d; \033[1;34mCache Size: \033[1;32m%d KB. \033[0m(L1 INFO)", ecx & 0xff, (ecx >> 12) & 0x07, (ecx >> 16) & 0xffff);
@@ -46,7 +46,7 @@ void L2_cache_size() {
     uint32_t eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
-        printf("L2 Cache not present.\n");
+        print("L2 Cache not present.\n");
         return;
     }
     printf("\033[1;34mCPU Line Size: \033[1;32m%d B, \033[1;34mAssoc. Type: \033[1;32m%d; \033[1;34mCache Size: \033[1;32m%d KB. \033[0m(L2 INFO)", ecx & 0xff, (ecx >> 12) & 0x0F, (ecx >> 16) & 0xFFFF);
@@ -56,7 +56,7 @@ void L3_cache_size() {
     uint32_t eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
-        printf("L3 Cache not present.\n");
+        print("L3 Cache not present.\n");
         return;
     }
     printf("\033[1;34mCPU Line Size: \033[1;32m%d B, \033[1;34mAssoc. Type: \033[1;32m%d; \033[1;34mCache Size: \033[1;32m%d KB. \033[0m(L3 INFO)", edx & 0xff, (edx >> 12) & 0x0F, (edx >> 16) & 0xFFFF);
