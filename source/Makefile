@@ -63,6 +63,7 @@ override CFLAGS += \
     -fPIE \
     -Wno-implicit-function-declaration \
     -I includes \
+    -O3 \
 
 # Internal C preprocessor flags that should not be changed by the user.
 override CPPFLAGS := \
