@@ -61,6 +61,7 @@ override CFLAGS += \
     -fno-stack-check \
     -fno-lto \
     -fPIE \
+    -Wno-implicit-function-declaration \
     -I includes \
 
 # Internal C preprocessor flags that should not be changed by the user.
