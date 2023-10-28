@@ -51,20 +51,18 @@ struct limine_framebuffer *framebuffer = NULL;
 
 uint64_t* back_buffer;
 uint64_t* front_buffer;
-int current_buffer = 0;
 
-void swapBuffers(uint64_t address) {
-    // Swap the buffer index
-    current_buffer = 1 - current_buffer;
-    
-    // Update the front and back buffer pointers
-    if (current_buffer == 0) {
-        front_buffer = back_buffer;
-        back_buffer = (uint64_t*)address;
-    } else {
-        front_buffer = (uint64_t*)address;
-        back_buffer = back_buffer;
-    }
+void copy_buffers(uint64_t address) {    
+    // ! Depreciated 
+    // if (current_buffer == 0) {
+    //     front_buffer = back_buffer;
+    //     back_buffer = (uint64_t*)address;
+    // } else {
+    //     front_buffer = (uint64_t*)address;
+    //     back_buffer = back_buffer;
+    // }
+
+    memcpy(front_buffer, back_buffer, sizeof(back_buffer));
 }
 
 void render(int width, int height) {
@@ -141,10 +139,15 @@ void main(void) {
 
     done("No process pending, press \'F10\' to call ACPI Shutdown.", __FILE__);
     if(back_buffer != NULL){
-        swapBuffers(framebuffer->address);
+        copy_buffers(framebuffer->address);
         render(framebuffer->width, framebuffer->height);
     }
-
+    // * Sample code to update
+    // print("loloolololoool, hehehehehehe");
+    // if(back_buffer != NULL){
+    //     copy_buffers(framebuffer->address);
+    //     render(framebuffer->width, framebuffer->height);
+    // }
     while(1){
         if(inb(0x60) == 0x44){ // F10 Key
             shutdown();
