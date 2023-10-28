@@ -8,6 +8,7 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
   - [Directory hierarchy](#directory-hierarchy)
   - [Prerequisites](#prerequisites)
   - [Building FrostWing](#building-FrostWing)
+  - [Building FrostWing Documentations](#building-the-frostwing-doxygen-documentation)
   - [Running FrostWing](#running-FrostWing)
   - [Booting to real machine](#Booting-to-real-machine)
 - [Features](#features)
@@ -87,7 +88,7 @@ make -C limine
     make
     ```
 
-### Building the FrostWind Doxygen documentation
+### Building the FrostWing Doxygen documentation
 
 If you want to have the doxygen documentation (for some reason), it's enough to just run
 ```bash
