@@ -115,10 +115,10 @@ void probe_pci(){
                     else if(device == 0x2922) deviceName = "6 port SATA Controller [AHCI mode]";
                     else if(device == 0x2930) deviceName = "SMBus Controller";
                     else if(vendor == 0x1234 && device == 0x4321) deviceName = "Human Interface Device";
-                    else if(vendor == 0x1002 && device == 0x10280810 && classid == 0x03) {display_adapter_name = deviceName = "AMD Radeon 530";}
-                    else if(vendor == 0x1002 && device == 0x0128079c && classid == 0x03) {display_adapter_name = deviceName = "AMD Radeon R7 465X";}
-                    else if(vendor == 0x1002 && device == 0x10020124 && classid == 0x03) {display_adapter_name = deviceName = "Radeon HD 6470M";}
-                    else if(vendor == 0x1002 && device == 0x10020134 && classid == 0x03) {display_adapter_name = deviceName = "Radeon HD 6470M";}
+                    else if(vendor == 0x1002 && device == 0x10280810 && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "AMD Radeon 530";}
+                    else if(vendor == 0x1002 && device == 0x0128079c && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "AMD Radeon R7 465X";}
+                    else if(vendor == 0x1002 && device == 0x10020124 && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "Radeon HD 6470M";}
+                    else if(vendor == 0x1002 && device == 0x10020134 && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "Radeon HD 6470M";}
                     else if(vendor == 0x1002 && device == 0x6900 && classid == 0x03) {display_adapter_name = deviceName = "Radeon R7 M260/M265 / M340/M360 / M440/M445";}
                     else if(vendor == 0x8086 && device == 0x1606 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics";}
                     else if(vendor == 0x8086 && device == 0x1612 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics 5600";}
@@ -151,18 +151,20 @@ void probe_pci(){
 
                     if(vendor == 0x10DE)
                     {
-                        if(device == 0x0040) {display_adapter_name = "NV40 [GeForce 6800 Ultra]";}
-                        else if(device == 0x0041) {display_adapter_name = "NV40 [GeForce 6800]";   }
-                        else if(device == 0x0042) {display_adapter_name = "NV40 [GeForce 6800 LE]";}
-                        else if(device == 0x0043) {display_adapter_name = "NV40 [GeForce 6800 XE]";}
-                        else if(device == 0x0044) {display_adapter_name = "NV40 [GeForce 6800 XT]";}
-                        else if(device == 0x0045) {display_adapter_name = "NV40 [GeForce 6800 GT]";}
-                        else if(device == 0x0046) {display_adapter_name = "NV40 [GeForce 6800 GS]";}
-                        else if(device == 0x0090) {display_adapter_name = "G70 [GeForce 7800 GTX]";}
-                        else if(device == 0x0091) {display_adapter_name = "G70 [GeForce 7800 GTX]";}
-                        else if(device == 0x0092) {display_adapter_name = "G70 [GeForce 7800 GT]";}
-                        else if(device == 0x0093) {display_adapter_name = "G70 [GeForce 7800 GS]";}
-                        else if(device == 0x0094) {display_adapter_name = "G70 [GeForce 7800 SLI]";}
+                        if(device == 0x0040)      {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 Ultra]";}
+                        else if(device == 0x0041) {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800]";   }
+                        else if(device == 0x0042) {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 LE]";}
+                        else if(device == 0x0043) {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 XE]";}
+                        else if(device == 0x0044) {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 XT]";}
+                        else if(device == 0x0045) {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 GT]";}
+                        else if(device == 0x0046) {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 GS]";}
+                        else if(device == 0x0090) {display_adapter_name = deviceName = GPUName[1] =  "G70 [GeForce 7800 GTX]";}
+                        else if(device == 0x0091) {display_adapter_name = deviceName = GPUName[1] =  "G70 [GeForce 7800 GTX]";}
+                        else if(device == 0x0092) {display_adapter_name = deviceName = GPUName[1] =  "G70 [GeForce 7800 GT]";}
+                        else if(device == 0x0093) {display_adapter_name = deviceName = GPUName[1] =  "G70 [GeForce 7800 GS]";}
+                        else if(device == 0x0094) {display_adapter_name = deviceName = GPUName[1] =  "G70 [GeForce 7800 SLI]";}
+                        else if(device == 0x1b83) {display_adapter_name = deviceName = GPUName[1] =  "GP104 [GeForce GTX 1060 6GB]";} // My fav GPU for this OS
+                        else if(device == 0x1b84) {display_adapter_name = deviceName = GPUName[1] =  "GP104 [GeForce GTX 1060 3GB]";}
                         else {display_adapter_name = "Frost Generic Display Adapter"; return 0;}
                     }
 
@@ -175,6 +177,12 @@ void probe_pci(){
         }
     }
     done("Successfully completed probe!", __FILE__);
+    info("Verifying probe size...", __FILE__);
+    printf("Vendors : %d", sizeof(vendorNames));
+    printf("Devices : %d", sizeof(deviceNames));
+    printf("Classes : %d", sizeof(classNames));
+    printf("Test Vendor Located in this device: %s", vendorNames[0]);
+    done("Successfully saved to a array! and verified.", __FILE__);
     printf("\033[1;34mGraphics Card (GPU0) : \033[1;32m%s", GPUName[0]);
     printf("\033[1;34mGraphics Card (GPU1) : \033[1;32m%s", GPUName[1]);
     printf("\033[1;34mDisplay Adapter      : \033[1;32m%s", display_adapter_name);
