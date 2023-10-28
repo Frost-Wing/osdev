@@ -29,7 +29,7 @@ char* get_cpu_name() {
 }
 
 void print_cpu(){
-    printf("\033[1;34mCPU Vendor: \033[1;32m%s\n\033[1;34mCPU String: \033[1;32m%s%s", vendor, cpu_string(),"\033[0m");
+    printf("CPU Vendor: %s\nCPU String: %s", vendor, cpu_string());
 }
 
 void L1_cache_size() {
@@ -39,7 +39,7 @@ void L1_cache_size() {
         print("L1 Cache not present.\n");
         return;
     }
-    printf("\033[1;34mCPU Line Size: \033[1;32m%d B, \033[1;34mAssoc. Type: \033[1;32m%d; \033[1;34mCache Size: \033[1;32m%d KB. \033[0m(L1 INFO)", ecx & 0xff, (ecx >> 12) & 0x07, (ecx >> 16) & 0xffff);
+    printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L1 INFO)", ecx & 0xff, (ecx >> 12) & 0x07, (ecx >> 16) & 0xffff);
 }
 
 void L2_cache_size() {
@@ -49,7 +49,7 @@ void L2_cache_size() {
         print("L2 Cache not present.\n");
         return;
     }
-    printf("\033[1;34mCPU Line Size: \033[1;32m%d B, \033[1;34mAssoc. Type: \033[1;32m%d; \033[1;34mCache Size: \033[1;32m%d KB. \033[0m(L2 INFO)", ecx & 0xff, (ecx >> 12) & 0x0F, (ecx >> 16) & 0xFFFF);
+    printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L2 INFO)", ecx & 0xff, (ecx >> 12) & 0x0F, (ecx >> 16) & 0xFFFF);
 }
 
 void L3_cache_size() {
@@ -59,5 +59,5 @@ void L3_cache_size() {
         print("L3 Cache not present.\n");
         return;
     }
-    printf("\033[1;34mCPU Line Size: \033[1;32m%d B, \033[1;34mAssoc. Type: \033[1;32m%d; \033[1;34mCache Size: \033[1;32m%d KB. \033[0m(L3 INFO)", edx & 0xff, (edx >> 12) & 0x0F, (edx >> 16) & 0xFFFF);
+    printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L3 INFO)", edx & 0xff, (edx >> 12) & 0x0F, (edx >> 16) & 0xFFFF);
 }
