@@ -1,10 +1,12 @@
+# FrostWing Documentations
+
 ## Welcome to FrostWing 📚 documentation page!
 This page contains all the header files and documentations required to start collaborating with FrostWing team
 
 ### Prerequisites
 Wait before you start! have you read [contributing.md](https://github.com/Frost-Wing/osdev/blob/main/CONTRIBUTING.md)? make sure you study that before you start contributing
 
-> [!NOTE]  
+> **Note** 
 > This is not an introduction page for FrostWing, if you wanted to know more about the actual operating system itself please visit [readme.md](https://github.com/Frost-Wing/osdev/blob/main/readme.md). This website is dedicated to guide people while using, browsing, editing, FrostWing OS
 
 ### Information contained in this page
