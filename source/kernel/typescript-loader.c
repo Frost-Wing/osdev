@@ -8,7 +8,7 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include <stdint.h>
+#include <typescript-loader.h>
 
 /**
  * @brief This function call a pre-compiled typescript code.

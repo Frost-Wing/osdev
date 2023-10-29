@@ -66,7 +66,7 @@ void main(void) {
     terminal_rows = ft_ctx->rows;
     terminal_columns = ft_ctx->cols;
     if(framebuffer_request.response->framebuffer_count < 1){
-        warn("Multiple framebuffers detected! Using Framebuffer[0] (You probably have 2 monitors)");
+        warn("Multiple framebuffers detected! Using Framebuffer[0] (You probably have 2 monitors)", __FILE__);
     }
     gdt_init();
     acpi_init();
