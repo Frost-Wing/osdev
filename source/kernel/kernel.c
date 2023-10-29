@@ -8,20 +8,7 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include <stdint.h>
-#include <stddef.h>
-#include <limine.h>
-#include <memory.h>
-#include <strings.h>
 #include <kernel.h>
-#include <flanterm/flanterm.h>
-#include <fb.h>
-#include <hal.h>
-#include <sse.h>
-#include <acpi.h>
-#include <graphics.h>
-#include <opengl/glcontext.h>
-#include <opengl/glbackend.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
