@@ -30,7 +30,7 @@ void hcf() {
 }
 
 /**
- * @brief The clear interrupts command for all arch.
+ * @brief The clear interrupts command for all architectures.
  * 
  */
 void clear_interrupts() {

@@ -15,15 +15,6 @@
 const char* display_adapter_name = "Frost Generic Display Adapter";
 const char* GPUName[1] = {"Frost Generic Display Adapter"}; //Max 2 GPUs allowed
 
-/**
- * @brief 
- * 
- * @param bus 
- * @param slot 
- * @param func 
- * @param offset 
- * @return uint16_t 
- */
 uint16_t pci_read_word(uint16_t bus, uint16_t slot, uint16_t func, uint16_t offset)
 {
 	uint64_t address;

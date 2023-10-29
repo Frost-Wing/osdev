@@ -14,5 +14,14 @@
 
 extern char fxsave_region[512] __attribute__((aligned(16)));
 
+/**
+ * @brief Loads the SEE fully with fxsave
+ * 
+ */
 void load_complete_sse();
+
+/**
+ * @brief Checks if CPU is compatible with SSE
+ * 
+ */
 void check_sse();
