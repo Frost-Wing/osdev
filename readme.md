@@ -95,6 +95,7 @@ If you want to have the doxygen documentation (for some reason), it's enough to 
 doxygen
 ```
 inside the repository folder. A directory called `docs` will be created which should contain the generated html documentation.
+The main html file is located at: `docs/html/index.html`
 
 ### Running FrostWing
 
@@ -105,7 +106,6 @@ This process is in pending and we have not tried it yet.
 
 ## Features
 
-- Multiboot-compliant, making it compatible with a wide range of bootloaders, including Limine.
 - Modular architecture for extensibility and maintainability.
 - Support for multiple target architectures: x86_64, ARM64 (aarch64), and RISC-V (riscv64).
 - Simple and clean codebase with documentation.
