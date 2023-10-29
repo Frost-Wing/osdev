@@ -1,3 +1,13 @@
+/**
+ * @file acpi-shutdown.h
+ * @author Mintsuki (https://github.com/mintsuki)
+ * @brief The ACPI Shutdown Header for Wing kernel, this is not the full ACPI
+ * @version 0.1
+ * @date 2023-10-29
+ * 
+ * @copyright Copyright (C) 2019-2023 mintsuki and contributors.
+ * 
+ */
 #ifndef _ACPI_SHUTDOWN_HACK_H
 #define _ACPI_SHUTDOWN_HACK_H
 

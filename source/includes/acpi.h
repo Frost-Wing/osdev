@@ -1,3 +1,13 @@
+/**
+ * @file acpi.h
+ * @author Mintsuki (https://github.com/mintsuki)
+ * @brief The ACPI Header
+ * @version 0.1
+ * @date 2023-10-29
+ * 
+ * @copyright Copyright (C) 2019-2023 mintsuki and contributors.
+ * 
+ */
 #ifndef __ACPI_H_
 #define __ACPI_H_ 1
 

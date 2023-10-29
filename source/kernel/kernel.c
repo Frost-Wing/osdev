@@ -77,7 +77,7 @@ void main(void) {
         front_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
     );
     // clear the buffer so that it doesn't have random data in it
-    memset(back_buffer, 0, sizeof(uint32_t) * framebuffer->width * framebuffer->height);
+    // memset(back_buffer, 0, sizeof(uint32_t) * framebuffer->width * framebuffer->height);
 
     terminal_rows = ft_ctx->rows;
     terminal_columns = ft_ctx->cols;
