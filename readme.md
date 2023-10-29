@@ -59,6 +59,7 @@ make -C limine
 ```
 > [!NOTE]
 > A suitable cross-compiler for your target architecture (x86_64, ARM64, or RISC-V) is always recommened but the os is never tested with a cross-compiler and therefore it is optional
+
 - QEMU System Emulator
 
 - run the following bash command to avoid getting errors while compiling
@@ -100,14 +101,17 @@ touch ./source/typescript/typescript-source.c
 
 ### Building the FrostWing Doxygen documentation
 > [!NOTE]
-> Slower Method
->
->If you want to have the doxygen documentation (for some reason), it's enough to just run
->```bash
->doxygen
->```
->inside the repository folder. A directory called `docs` will be created which should contain the generated html documentation.
+> Slower Method below
+
+If you want to have the doxygen documentation (for some reason), it's enough to just run
+```bash
+ doxygen
+```
+inside the repository folder. A directory called `docs` will be created which should contain the generated html documentation.
 The main html file is located at: `docs/html/index.html`
+
+> [!NOTE]
+> Better Method below
 
 Visit [Doxygen Documentation for FrostWing](https://frost-wing.github.io/doxygen-docs/) for pre-compiled documentations
 
@@ -135,11 +139,11 @@ Boot Disk information:
 
 ## Contributing
 
-We welcome contributions to FrostWing! If you'd like to contribute code, report bugs, or suggest enhancements, please check our [contribution guidelines](CONTRIBUTING.md).
+We welcome contributions to FrostWing! If you'd like to contribute code, report bugs, or suggest enhancements, please check our [contribution guidelines](https://github.com/Frost-Wing/osdev/blob/main/CONTRIBUTING.md).
 
 ## License
 
-FrostWing is open-source software released under the [CC0-1.0 License](LICENSE). Feel free to use, modify, and distribute it as per the terms of this license.
+FrostWing is open-source software released under the [CC0-1.0 License](https://github.com/Frost-Wing/osdev/blob/main/LICENSE). Feel free to use, modify, and distribute it as per the terms of this license.
 
 Happy coding, and let's make FrostWing even more awesome together! 😎🚀
 
