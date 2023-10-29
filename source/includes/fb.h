@@ -37,6 +37,8 @@ extern "C" {
 
 #include <flanterm/flanterm.h>
 
+#include <unifont.h>
+
 #define FLANTERM_FB_FONT_GLYPHS 256
 
 extern const uint8_t builtin_font[];

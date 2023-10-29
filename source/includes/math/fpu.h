@@ -11,5 +11,15 @@
 #include <stdint.h>
 #include <stddef.h>
 
+/**
+ * @brief Set the FPU Control Word
+ * 
+ * @param cw 
+ */
 void set_fpu_cw(const uint16_t cw);
+
+/**
+ * @brief Enables the Floating point arithmetic unit for x86-64
+ * 
+ */
 void enable_fpu();
