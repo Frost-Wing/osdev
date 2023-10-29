@@ -25,7 +25,12 @@
 #include <strings.h>
 #include <math/fpu.h>
 #include <sse.h>
+#include <typescript-loader.h>
 
+/**
+ * @brief The memory address pointer where the kernel ends.
+ * 
+ */
 extern uint64_t* kend;
 
 /**
@@ -47,7 +52,16 @@ void clear_interrupts();
  */
 void high_level_halt();
 
+/**
+ * @brief An integer value which stores terminal's rows
+ * 
+ */
 extern int terminal_rows;
+
+/**
+ * @brief An integer value which stores terminal's columns
+ * 
+ */
 extern int terminal_columns;
 
 /**
