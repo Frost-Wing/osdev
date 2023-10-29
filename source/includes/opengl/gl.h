@@ -13,4 +13,10 @@
 
 #define GLAPI
 
+#define GL_COLOR_BUFFER_BIT 1 << 0
+#define GL_DEPTH_BUFFER_BIT 1 << 1
+#define GL_STENCIL_BUFFER_BIT 1 << 2
+
+typedef int GLenum;
+
 #endif
