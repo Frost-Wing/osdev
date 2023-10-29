@@ -16,7 +16,9 @@
 
 struct GLContext
 {
-    struct limine_framebuffer* ColorBuffer;
+    uint32_t* ColorBuffer;
+    uint32_t ColorBufferWidth;
+    uint32_t ColorBufferHeight;
     bool Initialized;
 };
 
@@ -31,6 +33,20 @@ struct GLContext
  * @returns The current active "OpenGL" context
  */
 GLAPI struct GLContext* glCreateContext();
+
+/**
+ * @brief Initializes an "OpenGL" context
+ * 
+ * Initializes an "OpenGL" context, if there isn't an active one it will create one.
+ * In case there is an active context, the active context will be returned instead.
+ * 
+ * @param buffer Pointer to the Framebuffer
+ * @param width Width of the framebuffer
+ * @param height Height of the framebuffer
+ * 
+ * @returns The current active "OpenGL" context
+ */
+GLAPI struct GLContext* glCreateContextCustom(uint32_t* buffer, uint32_t width, uint32_t height);
 
 /**
  * @brief Gets the current active "OpenGL" context

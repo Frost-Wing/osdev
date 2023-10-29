@@ -28,6 +28,23 @@
 GLAPI void glWritePixel(uvec2 pixel, uint32_t color);
 
 /**
+ * @brief Sets the color with which the `glClear` function clears a given buffer
+ * 
+ * @param r Red-channel value 
+ * @param g Green-channel value 
+ * @param b Blue-channel value 
+ * @param a Alpha-channel value
+ */
+GLAPI void glClearColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+
+/**
+ * @brief Clears a specific buffer
+ * 
+ * @param mask Buffer mask
+ */
+GLAPI void glClear(GLenum mask);
+
+/**
  * @brief  Line drawing function
  * 
  * @author GAMINGNOOBdev (https://github.com/GAMINGNOOBdev)

@@ -1,6 +1,9 @@
 #include <opengl/glbackend.h>
 #include <opengl/glcontext.h>
+#include <memory.h>
 #include <kernel.h>
+
+uint32_t g_glClearColor = 0;
 
 void glWritePixel(uvec2 pixel, uint32_t color)
 {
@@ -9,11 +12,29 @@ void glWritePixel(uvec2 pixel, uint32_t color)
 
     GET_CURRENT_GL_CONTEXT(context);
 
-    if (pixel.x >= context->ColorBuffer->width || pixel.x >= context->ColorBuffer->height)
+    if (pixel.x >= context->ColorBufferWidth || pixel.x >= context->ColorBufferHeight)
         return;
 
-    volatile uint32_t *fb_ptr = back_buffer;
-    fb_ptr[pixel.y * context->ColorBuffer->width + pixel.x] = color;
+    context->ColorBuffer[pixel.y * context->ColorBufferWidth + pixel.x] = color;
+}
+
+void glClearColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+    if (!glContextInitialized())
+        return;
+    
+    g_glClearColor = (a << 24) | (r << 16) | (g << 8) | b;
+}
+
+void glClear(GLenum mask)
+{
+    if (!glContextInitialized())
+        return;
+    
+    GET_CURRENT_GL_CONTEXT(context);
+
+    if (mask & GL_COLOR_BUFFER_BIT)
+        memset(context->ColorBuffer, g_glClearColor, context->ColorBufferWidth * context->ColorBufferHeight * sizeof(uint32_t));
 }
 
 static int abs(int value)
