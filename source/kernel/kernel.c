@@ -9,6 +9,18 @@
  * 
  */
 #include <kernel.h>
+#include <flanterm/flanterm.h>
+#include <fb.h>
+#include <hal.h>
+#include <sse.h>
+#include <acpi.h>
+#include <graphics.h>
+#include <opengl/glcontext.h>
+#include <opengl/glbackend.h>
+#include <stddef.h>
+#include <limine.h>
+#include <memory.h>
+#include <strings.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
@@ -65,12 +77,11 @@ void render(int width, int height) {
  */
 void main(void) {
     if (framebuffer_request.response == NULL) {
-        hcf();
+        asm("hlt");
     }
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
-    
     front_buffer = (uint64_t*)framebuffer->address;
     uint64_t temp_buffer[framebuffer->width * framebuffer->height];
     back_buffer = (uint64_t*)temp_buffer;
