@@ -9,6 +9,18 @@
  * 
  */
 #include <stdint.h>
+#include <flanterm/flanterm.h>
+#include <fb.h>
+#include <hal.h>
+#include <sse.h>
+#include <acpi.h>
+#include <graphics.h>
+#include <opengl/glcontext.h>
+#include <opengl/glbackend.h>
+#include <stddef.h>
+#include <limine.h>
+#include <memory.h>
+#include <strings.h>
 
 extern uint64_t* kend;
 

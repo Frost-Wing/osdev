@@ -1,3 +1,11 @@
+/**
+ * @file acpi-shutdown.h
+ * @author Mintsuki (https://github.com/mintsuki)
+ * @brief The Header files for ACPI Shutdown
+ * @version 0.1
+ * @date 2023-10-29
+ * 
+ */
 #ifndef _ACPI_SHUTDOWN_HACK_H
 #define _ACPI_SHUTDOWN_HACK_H
 
