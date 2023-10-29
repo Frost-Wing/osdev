@@ -93,21 +93,34 @@ make -C limine
     ```
 
 ### Building the FrostWing Doxygen documentation
-
-If you want to have the doxygen documentation (for some reason), it's enough to just run
-```bash
-doxygen
-```
-inside the repository folder. A directory called `docs` will be created which should contain the generated html documentation.
+> [!NOTE]
+> Slower Method
+>
+>If you want to have the doxygen documentation (for some reason), it's enough to just run
+>```bash
+>doxygen
+>```
+>inside the repository folder. A directory called `docs` will be created which should contain the generated html documentation.
 The main html file is located at: `docs/html/index.html`
+
+Visit [Doxygen Documentation for FrostWing](https://frost-wing.github.io/doxygen-docs/) for pre-compiled documentations
 
 ### Running FrostWing
 
 After building FrostWing, you can run it using a virtual machine or on real hardware. The specific steps for running it will depend on your chosen target architecture. Read the main Markdown to run FrostWing.
 
 ### Booting to real machine
-This process is in pending and we have not tried it yet.
+This operating system is real machine **bootable** and tested under the following circumstances:
 
+Boot Disk information:
+- Using 32 GB Pendrive
+- GPT Disk (MBR Also works)
+- Both BIOS / UEFI supported
+- Ventoy loaded
+- FrostWing.iso in the root directory
+
+> [!IMPORTANT]
+> It is recommended to use Ventoy because you will not have the risk of flashing and failing of USB-Drives
 ## Features
 
 - Modular architecture for extensibility and maintainability.
