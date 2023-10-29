@@ -4,6 +4,7 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 
 ## Table of Contents
 
+- [Images](#images)
 - [Getting Started](#getting-started)
   - [Directory hierarchy](#directory-hierarchy)
   - [Prerequisites](#prerequisites)
@@ -15,6 +16,9 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 - [Contributing](#contributing)
 - [License](#license)
 - [FrostWing Team](#frostwing-team)
+
+## Images
+[![https://imgur.com/6CN4F98.png](https://imgur.com/6CN4F98.png)](https://imgur.com/6CN4F98.png)
 
 ## Getting Started
 
