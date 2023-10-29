@@ -9,22 +9,6 @@
  * 
  */
 #include <kernel.h>
-#include <flanterm/flanterm.h>
-#include <fb.h>
-#include <hal.h>
-#include <acpi.h>
-#include <acpi-shutdown.h>
-#include <pci.h>
-#include <unifont.h>
-#include <graphics.h>
-#include <opengl/glcontext.h>
-#include <opengl/glbackend.h>
-#include <stddef.h>
-#include <limine.h>
-#include <memory.h>
-#include <strings.h>
-#include <math/fpu.h>
-#include <sse.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;

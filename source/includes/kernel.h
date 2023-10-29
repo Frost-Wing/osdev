@@ -8,7 +8,23 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
+#include <flanterm/flanterm.h>
+#include <fb.h>
+#include <hal.h>
+#include <acpi.h>
+#include <acpi-shutdown.h>
+#include <pci.h>
+#include <unifont.h>
+#include <graphics.h>
+#include <opengl/glcontext.h>
+#include <opengl/glbackend.h>
+#include <stddef.h>
 #include <stdint.h>
+#include <limine.h>
+#include <memory.h>
+#include <strings.h>
+#include <math/fpu.h>
+#include <sse.h>
 
 extern uint64_t* kend;
 
