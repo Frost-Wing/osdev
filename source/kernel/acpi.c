@@ -1,3 +1,14 @@
+/**
+ * @file acpi.c
+ * @author Mintsuki (https://github.com/mintsuki)
+ * @brief The full ACPI Source
+ * @version 0.1
+ * @date 2023-10-29
+ * 
+ * @copyright Copyright (C) 2019-2023 mintsuki and contributors.
+ * 
+ */
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
