@@ -104,7 +104,7 @@ char* classNames[512];
  */
 void probe_pci(){
     info("Probe has been started!", __FILE__);
-    int i;
+    int i = 0;
     for(uint32_t bus = 0; bus < 256; bus++)
     {
         for(uint32_t slot = 0; slot < 32; slot++)
