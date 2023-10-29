@@ -612,7 +612,7 @@ struct flanterm_context *flanterm_fb_init(
         if (ctx->font_bits == NULL) {
             goto fail;
         }
-        memcpy(ctx->font_bits, thin_font, ctx->font_bits_size);
+        memcpy(ctx->font_bits, unifont, ctx->font_bits_size);
         // second_font: memcpy(ctx->font_bits, builtin_font, ctx->font_bits_size);
     }
 

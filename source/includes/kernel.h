@@ -14,7 +14,6 @@
 #include <acpi.h>
 #include <acpi-shutdown.h>
 #include <pci.h>
-#include <unifont.h>
 #include <graphics.h>
 #include <opengl/glcontext.h>
 #include <opengl/glbackend.h>
