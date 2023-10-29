@@ -57,8 +57,14 @@ git clone https://github.com/limine-bootloader/limine.git --branch=v5.x-branch-b
 ```bash
 make -C limine
 ```
-- A suitable cross-compiler for your target architecture (x86_64, ARM64, or RISC-V).
+> [!NOTE]
+> A suitable cross-compiler for your target architecture (x86_64, ARM64, or RISC-V) is always recommened but the os is never tested with a cross-compiler and therefore it is optional
 - QEMU System Emulator
+
+- run the following bash command to avoid getting errors while compiling
+```bash
+touch ./source/typescript/typescript-source.c
+```
 
 ### Building FrostWing
 
