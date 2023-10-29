@@ -41,6 +41,28 @@ void *memcpy(void *dest, const void *src, size_t n) {
 }
 
 /**
+ * @brief Copies a block of memory from a source location to a destination location.
+ *
+ * This function copies 'n' bytes of memory from 'src' to 'dest'. The source and destination
+ * memory areas should not overlap.
+ *
+ * @param dest Pointer to the destination memory location.
+ * @param src Pointer to the source memory location.
+ * @param n Number of bytes to copy.
+ * @return A pointer to the destination memory location 'dest'.
+ */
+void *memcpy64(void *dest, const void *src, size_t n) {
+    uint64_t *pdest = (uint64_t *)dest;
+    const uint64_t *psrc = (const uint64_t *)src;
+ 
+    for (size_t i = 0; i < n; i++) {
+        pdest[i] = psrc[i];
+    }
+ 
+    return dest;
+}
+
+/**
  * @brief Sets a block of memory to a specified value.
  *
  * This function sets the first 'n' bytes of the memory block at 's' to the value 'c'.

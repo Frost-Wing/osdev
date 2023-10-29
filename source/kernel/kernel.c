@@ -12,8 +12,10 @@
 #include <flanterm/flanterm.h>
 #include <fb.h>
 #include <hal.h>
-#include <sse.h>
 #include <acpi.h>
+#include <acpi-shutdown.h>
+#include <pci.h>
+#include <unifont.h>
 #include <graphics.h>
 #include <opengl/glcontext.h>
 #include <opengl/glbackend.h>
@@ -21,6 +23,8 @@
 #include <limine.h>
 #include <memory.h>
 #include <strings.h>
+#include <math/fpu.h>
+#include <sse.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
@@ -51,17 +55,8 @@ struct limine_framebuffer *framebuffer = NULL;
 uint64_t* back_buffer;
 uint64_t* front_buffer;
 
-void copy_buffers(uint64_t address) {    
-    // ! Depreciated 
-    // if (current_buffer == 0) {
-    //     front_buffer = back_buffer;
-    //     back_buffer = (uint64_t*)address;
-    // } else {
-    //     front_buffer = (uint64_t*)address;
-    //     back_buffer = back_buffer;
-    // }
-
-    memcpy(front_buffer, back_buffer, sizeof(back_buffer));
+void copy_buffers() {    
+    memcpy64(front_buffer, back_buffer, sizeof(back_buffer));
 }
 
 void render(int width, int height) {
@@ -85,16 +80,9 @@ void main(void) {
     front_buffer = (uint64_t*)framebuffer->address;
     uint64_t temp_buffer[framebuffer->width * framebuffer->height];
     back_buffer = (uint64_t*)temp_buffer;
-    if(back_buffer == NULL){
-        ft_ctx = flanterm_fb_simple_init(
-            front_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
-        );
-        warn("Back framebuffer returned `NULL` double_buffering: false", __FILE__);
-    }else{
-        ft_ctx = flanterm_fb_simple_init(
-            back_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
-        );
-    }
+    ft_ctx = flanterm_fb_simple_init(
+        front_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
+    );
 
     terminal_rows = ft_ctx->rows;
     terminal_columns = ft_ctx->cols;
@@ -109,7 +97,6 @@ void main(void) {
 
     // Assert demo
     //assert(0 == 3, __FILE__, __LINE__);
-
 
     get_cpu_name();
     print_cpu();
@@ -135,10 +122,8 @@ void main(void) {
     // glDestroyContext(NULL);
 
     done("No process pending, press \'F10\' to call ACPI Shutdown.", __FILE__);
-    if(back_buffer != NULL){
-        copy_buffers(framebuffer->address);
-        render(framebuffer->width, framebuffer->height);
-    }
+    // copy_buffers();
+    // render(framebuffer->width, framebuffer->height);
     // * Sample code to update
     // print("loloolololoool, hehehehehehe");
     // if(back_buffer != NULL){
