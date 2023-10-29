@@ -6,6 +6,9 @@ all:
 
 	@./limine/limine bios-install FrostWing.iso
 
+tarball:
+	@tar -czvf FrostWing.iso.tar.gz FrostWing.iso
+
 run-x86:
 	@qemu-system-x86_64 -rtc base=2023-10-23T12:00:00 -cdrom FrostWing.iso -m 1024
 
