@@ -71,7 +71,8 @@ void update_system_time(uint8_t *second, uint8_t *minute, uint8_t *hour, uint8_t
 void display_time(){
     uint8_t second, minute, hour, day, month, year;
     update_system_time(&second, &minute, &hour, &day, &month, &year);
-    printf("\x1b[36mTime: %d:%d:%d \x1b[35m%d/%d/%d\x1b[0m", hour, minute, second, month, day, year);
+    // Depriciated
+    // printf("Time: %d:%d:%d %d/%d/%d", hour, minute, second, month, day, year);
 }
 
 /**

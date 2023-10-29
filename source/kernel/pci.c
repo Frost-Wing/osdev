@@ -210,7 +210,13 @@ void probe_pci(){
                         else {display_adapter_name = "Frost Generic Display Adapter"; return 0;}
                     }
 
-                    printf("\x1b[0;32mVendor: %s\t--- Device: %s\t--- Class: %s", vendorName, deviceName, className);
+                    print(vendorName);
+                    print("\t");
+                    print(deviceName);
+                    print("\t");
+                    print(className);
+                    print("\n");
+
                     vendorNames[i] = vendorName;
                     deviceNames[i] = deviceName;
                     classNames[i] = classNames;
@@ -219,14 +225,12 @@ void probe_pci(){
         }
     }
     done("Successfully completed probe!", __FILE__);
-    info("Verifying probe size...", __FILE__);
-    printf("Vendors : %d", sizeof(vendorNames));
-    printf("Devices : %d", sizeof(deviceNames));
-    printf("Classes : %d", sizeof(classNames));
-    printf("Test Vendor Located in this device: %s", vendorNames[0]);
     done("Successfully saved to a array! and verified.", __FILE__);
-    printf("\033[1;34mGraphics Card (GPU0) : \033[1;32m%s", GPUName[0]);
-    printf("\033[1;34mGraphics Card (GPU1) : \033[1;32m%s", GPUName[1]);
-    printf("\033[1;34mDisplay Adapter      : \033[1;32m%s", display_adapter_name);
-    print("\033[0m");
+    print("Graphics Card (GPU0) :");
+    print(GPUName[0]);
+    print("\nGraphics Card (GPU1) :");
+    print(GPUName[1]);
+    print("\nDisplay Adapter      :");
+    print(display_adapter_name);
+    print("\n");
 }

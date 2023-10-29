@@ -40,8 +40,8 @@ void check_sse(){
         warn("SSE Not detected!", __FILE__);
     }else{
         int sseVersion = (ecx >> 25) & 0x7;
-        print("SSE Version: ");
-        printf("%d", sseVersion);
+        // print("SSE Version: ");
+        // printf("%d", sseVersion);
         done("SSE detected!", __FILE__);
     }
 }
