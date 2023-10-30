@@ -39,8 +39,10 @@ struct limine_framebuffer *framebuffer = NULL;
 uint64_t* back_buffer;
 uint64_t* front_buffer;
 
-void render(int width, int height) {
-    memcpy(front_buffer, back_buffer, sizeof(uint64_t) * framebuffer->width * framebuffer->height);
+void render(int width, int height){
+    for(int i = 0; i < width * height; i++){
+        front_buffer[i] = back_buffer[i];
+    }
 }
 
 /**
@@ -54,14 +56,13 @@ void main(void) {
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
-    front_buffer = (uint64_t*)framebuffer->address;
     uint64_t temp_buffer[framebuffer->width * framebuffer->height];
+    front_buffer = (uint64_t*)framebuffer->address;
+    back_buffer = front_buffer;
     back_buffer = (uint64_t*)temp_buffer;
     ft_ctx = flanterm_fb_simple_init(
         front_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
     );
-    // clear the buffer so that it doesn't have random data in it
-    // memset(back_buffer, 0, sizeof(uint32_t) * framebuffer->width * framebuffer->height);
 
     terminal_rows = ft_ctx->rows;
     terminal_columns = ft_ctx->cols;
@@ -70,12 +71,8 @@ void main(void) {
     }
     gdt_init();
     acpi_init();
-    for (size_t i = 0; i < 10000000; i++) inb(0x80);
     load_typescript();
     probe_pci();
-
-    // Assert demo
-    //assert(0 == 3, __FILE__, __LINE__);
 
     get_cpu_name();
     print_cpu();
@@ -90,9 +87,6 @@ void main(void) {
     check_sse();
     load_complete_sse();
 
-    // Meltdown screen for demo
-    // meltdown_screen("Dummy error!", __FILE__, __LINE__, 0xdeadbeef);
-
     // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
     // glCreateContext();
     // glDrawLine((uvec2){0, 0}, (uvec2){10, 30}, 0xffbaddad);
@@ -101,9 +95,6 @@ void main(void) {
     // glDestroyContext(NULL);
 
     done("No process pending, press \'F10\' to call ACPI Shutdown.", __FILE__);
-    //render(framebuffer->width, framebuffer->height);
-    //* Sample code to update
-    //print("loloolololoool, hehehehehehe");
 
     // glCreateContext();
     // glCreateContextCustom(back_buffer, framebuffer->width, framebuffer->height);
@@ -112,9 +103,7 @@ void main(void) {
     // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
     // glDestroyContext(NULL);
 
-    // if(back_buffer != NULL){
-    //     render(framebuffer->width, framebuffer->height);
-    // }
+    // render(framebuffer->width, framebuffer->height);
 
     while(1){
         if(inb(0x60) == 0x44){ // F10 Key
