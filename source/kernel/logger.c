@@ -25,6 +25,17 @@ void warn(const char *message, const char* file) {
     print(" at " ANSI_COLOR_BLUE);
     print(file);
     print(ANSI_COLOR_RESET "\n");
+
+    debug_print(warn_message);
+    debug_print(message);
+    debug_print(" at " ANSI_COLOR_BLUE);
+    debug_print(file);
+    debug_print(ANSI_COLOR_RESET "\n");
+
+    serial_print(message);
+    serial_print(" at ");
+    serial_print(file);
+    serial_print("\n");
 }
 
 /**
@@ -42,6 +53,17 @@ void error(const char *message, const char* file) {
     print(" at " ANSI_COLOR_BLUE);
     print(file);
     print(ANSI_COLOR_RESET "\n");
+
+    debug_print(err_message);
+    debug_print(message);
+    debug_print(" at " ANSI_COLOR_BLUE);
+    debug_print(file);
+    debug_print(ANSI_COLOR_RESET "\n");
+
+    serial_print(message);
+    serial_print(" at ");
+    serial_print(file);
+    serial_print("\n");
 }
 
 /**
@@ -59,6 +81,17 @@ void info(const char *message, const char* file) {
     print(" at " ANSI_COLOR_BLUE);
     print(file);
     print(ANSI_COLOR_RESET "\n");
+
+    debug_print(info_message);
+    debug_print(message);
+    debug_print(" at " ANSI_COLOR_BLUE);
+    debug_print(file);
+    debug_print(ANSI_COLOR_RESET "\n");
+
+    serial_print(message);
+    serial_print(" at ");
+    serial_print(file);
+    serial_print("\n");
 }
 
 /**
@@ -76,6 +109,17 @@ void done(const char *message, const char* file) {
     print(" at " ANSI_COLOR_BLUE);
     print(file);
     print(ANSI_COLOR_RESET "\n");
+
+    debug_print(done_message);
+    debug_print(message);
+    debug_print(" at " ANSI_COLOR_BLUE);
+    debug_print(file);
+    debug_print(ANSI_COLOR_RESET "\n");
+
+    serial_print(message);
+    serial_print(" at ");
+    serial_print(file);
+    serial_print("\n");
 }
 
 /**

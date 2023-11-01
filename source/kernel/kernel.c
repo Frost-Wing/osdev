@@ -63,13 +63,15 @@ void main(void) {
     ft_ctx = flanterm_fb_simple_init(
         front_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
     );
+    
+    probe_serial();
 
     terminal_rows = ft_ctx->rows;
     terminal_columns = ft_ctx->cols;
     if(framebuffer_request.response->framebuffer_count < 1){
         warn("Multiple framebuffers detected! Using Framebuffer[0] (You probably have 2 monitors)", __FILE__);
     }
-    gdt_init();
+    // gdt_init();
     acpi_init();
     load_typescript();
     probe_pci();
@@ -97,7 +99,7 @@ void main(void) {
     done("No process pending, press \'F10\' to call ACPI Shutdown.", __FILE__);
 
     // glCreateContext();
-    // glCreateContextCustom(back_buffer, framebuffer->width, framebuffer->height);
+    // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
     // glClearColor(0, 0, 0, 0xff);
     // glClear(GL_COLOR_BUFFER_BIT);
     // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
@@ -106,7 +108,9 @@ void main(void) {
     // render(framebuffer->width, framebuffer->height);
 
     while(1){
-        if(inb(0x60) == 0x44){ // F10 Key
+        int keyboard = inb(0x60);
+        // printf("%d", keyboard);
+        if(keyboard == 0x44){ // F10 Key
             shutdown();
         }
     }
