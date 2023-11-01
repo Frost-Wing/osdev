@@ -25,6 +25,8 @@
 #include <math/fpu.h>
 #include <sse.h>
 #include <typescript-loader.h>
+#include <debugger.h>
+#include <drivers/serial.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.
