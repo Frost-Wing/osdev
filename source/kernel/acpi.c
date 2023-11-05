@@ -39,6 +39,10 @@ struct rsdt {
 static bool use_xsdt;
 static struct rsdt *rsdt;
 
+char* oem_name = "";
+
+bool virtualized = false;
+
 static volatile struct limine_rsdp_request rsdp_req = {
     LIMINE_RSDP_REQUEST, 0, NULL
 };
@@ -61,6 +65,15 @@ void acpi_init()
     }
 
     done("Successfully loaded!", __FILE__);
+    oem_name = rsdp->oem_id;
+    printf("OEM Name: %s", oem_name);
+    if(contains(oem_name, "BOCHS") || contains(oem_name, "VBOX") || contains(oem_name, "QEMU") || contains(oem_name, "VMWARE")){
+        warn("Currently running in a virtualized environment.", __FILE__);
+        virtualized = true;
+    }else{
+        info("Currently running in a real computer.", __FILE__);
+        virtualized = false;
+    }
 }
 
 void *acpi_find_sdt(const char *signature, size_t index)

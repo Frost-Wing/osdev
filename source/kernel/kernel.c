@@ -64,15 +64,17 @@ void main(void) {
         front_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
     );
     
-    probe_serial();
 
     terminal_rows = ft_ctx->rows;
     terminal_columns = ft_ctx->cols;
     if(framebuffer_request.response->framebuffer_count < 1){
         warn("Multiple framebuffers detected! Using Framebuffer[0] (You probably have 2 monitors)", __FILE__);
     }
-    // gdt_init();
     acpi_init();
+    if(virtualized){ // The code inside this will not work on a real machine.
+        gdt_init();
+        probe_serial();
+    }
     load_typescript();
     probe_pci();
 
@@ -108,11 +110,12 @@ void main(void) {
     // render(framebuffer->width, framebuffer->height);
 
     while(1){
-        int keyboard = inb(0x60);
-        // printf("%d", keyboard);
-        if(keyboard == 0x44){ // F10 Key
-            shutdown();
-        }
+        set_keyboard_leds(2); // Num lock
+        sleep(1);
+        set_keyboard_leds(4); // Caps lock
+        sleep(1);
+        set_keyboard_leds(1); // Scroll lock
+        sleep(1);
     }
 }
 
@@ -131,4 +134,13 @@ void print(const char* msg){
  */
 void shutdown(){
     acpi_shutdown_hack(hhdm_req.response->offset, acpi_find_sdt, inb, inw, outb, outw);
+}
+
+/**
+ * @brief control for keyboard LEDs just for an easter egg lol
+ * 
+ */
+void set_keyboard_leds(int LEDs) {
+    outb(0x64, 0xED);
+    outb(0x60, LEDs);
 }

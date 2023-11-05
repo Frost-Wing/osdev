@@ -14,6 +14,10 @@
 #include <stdint.h>
 #include <stddef.h>
 
+extern char* oem_name;
+
+extern bool virtualized;
+
 struct sdt {
     char signature[4];
     uint32_t length;

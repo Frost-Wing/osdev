@@ -118,7 +118,11 @@ void probe_pci(){
                     else if(vendor == 0x1002) vendorName = "AMD";
                     else if(vendor == 0x1234) vendorName = "Brain Actuated Technologies";
                     else if(vendor == 0x168c) vendorName = "Qualcomm Atheros";
-                    else vendor == "Unknown";
+                    else {
+                        unsigned char str[20];
+                        itoa(vendor, str, sizeof(str), 16);
+                        vendorName = str;
+                    }
 
                     if(classid == 0x01) className = "Mass Storage Controller";
                     else if(classid == 0x02) className = "Network Controller";
@@ -141,7 +145,11 @@ void probe_pci(){
                     else if(classid == 0x13) className = "Non-Essential Instrumentation";
                     else if(classid == 0x40) className = "Video Device";
                     else if(classid == 0x80) className = "Unassigned";
-                    else className = "Unknown";
+                    else {
+                        unsigned char str[20];
+                        itoa(classid, str, sizeof(str), 16);
+                        className = str;
+                    }
 
                     if(device == 0x29C0) deviceName = "Express DRAM Controller";
                     else if(device == 0x2918) deviceName = "LPC Interface Controller";
@@ -180,7 +188,11 @@ void probe_pci(){
                     else if(vendor == 0x04e8 && device == 0x7081){deviceName = "Human Interface Device";}
                     else if(vendor == 5549 && device == 1029){display_adapter_name = deviceName = GPUName[0] = "VMware SVGA Graphics";}
                     else if(vendor == 4115 && device == 184){display_adapter_name = deviceName = GPUName[0] = "Cirrus Graphics";}
-                    else {deviceName = "Unknown";}
+                    else {
+                        unsigned char str[20];
+                        itoa(device, str, sizeof(str), 16);
+                        deviceName = str;
+                    }
 
                     if(vendor == 0x10DE)
                     {
