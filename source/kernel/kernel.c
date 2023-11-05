@@ -110,12 +110,7 @@ void main(void) {
     // render(framebuffer->width, framebuffer->height);
 
     while(1){
-        set_keyboard_leds(2); // Num lock
-        sleep(1);
-        set_keyboard_leds(4); // Caps lock
-        sleep(1);
-        set_keyboard_leds(1); // Scroll lock
-        sleep(1);
+        process_keyboard(); // If you can't find where this is defined, it is defined in ./rtc.c
     }
 }
 
@@ -134,13 +129,4 @@ void print(const char* msg){
  */
 void shutdown(){
     acpi_shutdown_hack(hhdm_req.response->offset, acpi_find_sdt, inb, inw, outb, outw);
-}
-
-/**
- * @brief control for keyboard LEDs just for an easter egg lol
- * 
- */
-void set_keyboard_leds(int LEDs) {
-    outb(0x64, 0xED);
-    outb(0x60, LEDs);
 }
