@@ -85,6 +85,8 @@ void sleep(int seconds) {
     update_system_time(&start_second, &start_minute, &start_hour, &start_day, &start_month, &start_year);
 
     while (1) {
+        process_keyboard();
+        
         uint8_t current_second, current_minute, current_hour, current_day, current_month, current_year;
         update_system_time(&current_second, &current_minute, &current_hour, &current_day, &current_month, &current_year);
 
@@ -97,4 +99,15 @@ void sleep(int seconds) {
             break;  // Exit the loop after the specified sleep duration
         }
     }
+}
+
+/**
+ * @brief This is a function that is ran even when the sleep() function is called
+ * 
+ */
+void process_keyboard(){
+    int keyboard = inb(0x60);
+        if(keyboard == 0x44){ // F10 Key
+            shutdown();
+        }
 }

@@ -10,6 +10,7 @@
  */
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 typedef char symbol[];
 
@@ -71,3 +72,14 @@ int strcmp(const char *s1, const char *s2);
  *         comparison result.
  */
 int strncmp(const char *s1, const char *s2, size_t n);
+
+/**
+ * @brief Check if a substring is found within a string.
+ *
+ * This function searches for the presence of a substring within a given string.
+ *
+ * @param str The string to search within.
+ * @param substr The substring to search for.
+ * @return true if the substring is found in the string, false otherwise.
+ */
+bool contains(const char *str, const char *substr);

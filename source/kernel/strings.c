@@ -8,8 +8,10 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
+#include <strings.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 /**
  * @brief The same strlen function from OEM
@@ -116,4 +118,34 @@ void strrev(unsigned char *str)
 		str[i] = str[j];
 		str[j] = a;
 	}
+}
+
+/**
+ * @brief Check if a substring is found within a string.
+ *
+ * This function searches for the presence of a substring within a given string.
+ *
+ * @param str The string to search within.
+ * @param substr The substring to search for.
+ * @return true if the substring is found in the string, false otherwise.
+ */
+bool contains(const char *str, const char *substr) {
+    if (str == NULL || substr == NULL) {
+        return false;  // Handle invalid input.
+    }
+
+    size_t str_len = strlen_(str);
+    size_t substr_len = strlen_(substr);
+
+    if (substr_len > str_len) {
+        return false;  // Substring is longer than the string, so it can't be found.
+    }
+
+    for (size_t i = 0; i <= str_len - substr_len; i++) {
+        if (strncmp(str + i, substr, substr_len) == 0) {
+            return true;  // Substring found.
+        }
+    }
+
+    return false;  // Substring not found in the string.
 }
