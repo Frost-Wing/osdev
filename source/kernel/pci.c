@@ -113,7 +113,7 @@ void probe_pci(){
                     const char* className;
 
                     if(vendor == 0x8086 || vendor == 0x8087) vendorName = "Intel Corp.";
-                    if(vendor == 0x03e7) vendorName = "Intel";
+                    else if(vendor == 0x03e7) vendorName = "Intel";
                     else if(vendor == 0x10DE) vendorName = "NVIDIA";
                     else if(vendor == 0x1002) vendorName = "AMD";
                     else if(vendor == 0x1234) vendorName = "Brain Actuated Technologies";
