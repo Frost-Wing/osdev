@@ -9,21 +9,22 @@
  * 
  */
 #include <stdint.h>
+#include <basics.h>
 
 // Define a GDT entry structure
 struct gdt_entry {
-    uint16_t limit_low;
-    uint16_t base_low;
-    uint8_t base_middle;
-    uint8_t access;
-    uint8_t granularity;
-    uint8_t base_high;
+    int16 limit_low;
+    int16 base_low;
+    int8 base_middle;
+    int8 access;
+    int8 granularity;
+    int8 base_high;
 };
 
 // Define a GDT pointer structure
 struct gdt_pointer {
-    uint16_t limit;
-    uint64_t base;
+    int16 limit;
+    int64 base;
 };
 
 // Function to load the GDT
@@ -98,7 +99,7 @@ void gdt_init() {
     // Set up GDT pointer
     struct gdt_pointer gdtp;
     gdtp.limit = sizeof(gdt) - 1;
-    gdtp.base = (uint64_t)&gdt;
+    gdtp.base = (int64)&gdt;
 
     info("Setting up pointers....", __FILE__);
 

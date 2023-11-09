@@ -14,22 +14,22 @@
 
 struct facp {
     char     signature[4];
-    uint32_t length;
-    uint8_t  unneeded1[40 - 8];
-    uint32_t dsdt;
-    uint8_t  unneeded2[48 - 44];
-    uint32_t SMI_CMD;
-    uint8_t  ACPI_ENABLE;
-    uint8_t  ACPI_DISABLE;
-    uint8_t  unneeded3[64 - 54];
-    uint32_t PM1a_CNT_BLK;
-    uint32_t PM1b_CNT_BLK;
-    uint8_t  unneeded4[89 - 72];
-    uint8_t  PM1_CNT_LEN;
+    int32 length;
+    int8  unneeded1[40 - 8];
+    int32 dsdt;
+    int8  unneeded2[48 - 44];
+    int32 SMI_CMD;
+    int8  ACPI_ENABLE;
+    int8  ACPI_DISABLE;
+    int8  unneeded3[64 - 54];
+    int32 PM1a_CNT_BLK;
+    int32 PM1b_CNT_BLK;
+    int8  unneeded4[89 - 72];
+    int8  PM1_CNT_LEN;
 };
 
-static inline uint8_t parse_integer(uint8_t* s5_addr, uint64_t* value) {
-    uint8_t operation = *s5_addr++;
+static inline int8 parse_integer(int8* s5_addr, int64* value) {
+    int8 operation = *s5_addr++;
 
     switch(operation)
     {
@@ -46,16 +46,16 @@ static inline uint8_t parse_integer(uint8_t* s5_addr, uint64_t* value) {
             return 2; // 1 Type Byte, 1 Data Byte
 
         case 0xB: // WordConst
-            *value = s5_addr[0] | ((uint16_t)s5_addr[1] << 8);
+            *value = s5_addr[0] | ((int16)s5_addr[1] << 8);
             return 3; // 1 Type Byte, 3 Data Bytes
 
         case 0xC: // DWordConst
-            *value = s5_addr[0] | ((uint32_t)s5_addr[1] << 8) | ((uint32_t)s5_addr[2] << 16) | ((uint32_t)s5_addr[3] << 24);
+            *value = s5_addr[0] | ((int32)s5_addr[1] << 8) | ((int32)s5_addr[2] << 16) | ((int32)s5_addr[3] << 24);
             return 5; // 1 Type Byte, 4 Data Bytes
 
         case 0xE: // QWordConst
-            *value = s5_addr[0] | ((uint64_t)s5_addr[1] << 8) | ((uint64_t)s5_addr[2] << 16) | ((uint64_t)s5_addr[3] << 24) \
-                | ((uint64_t)s5_addr[4] << 32) | ((uint64_t)s5_addr[5] << 40) | ((uint64_t)s5_addr[6] << 48) | ((uint64_t)s5_addr[7] << 56);
+            *value = s5_addr[0] | ((int64)s5_addr[1] << 8) | ((int64)s5_addr[2] << 16) | ((int64)s5_addr[3] << 24) \
+                | ((int64)s5_addr[4] << 32) | ((int64)s5_addr[5] << 40) | ((int64)s5_addr[6] << 48) | ((int64)s5_addr[7] << 56);
             return 9; // 1 Type Byte, 8 Data Bytes
 
         case 0xFF: // OnesOp
@@ -69,18 +69,18 @@ static inline uint8_t parse_integer(uint8_t* s5_addr, uint64_t* value) {
 
 int acpi_shutdown_hack(
         uintptr_t direct_map_base,
-        void     *(*find_sdt)(const char *signature, size_t index),
-        uint8_t   (*inb)(uint16_t port),
-        uint16_t  (*inw)(uint16_t port),
-        void      (*outb)(uint16_t port, uint8_t value),
-        void      (*outw)(uint16_t port, uint16_t value)
+        void     *(*find_sdt)(cstring signature, size_t index),
+        int8   (*inb)(int16 port),
+        int16  (*inw)(int16 port),
+        void      (*outb)(int16 port, int8 value),
+        void      (*outw)(int16 port, int16 value)
     ) {
     struct facp *facp = find_sdt("FACP", 0);
 
-    uint8_t *dsdt_ptr = (uint8_t *)(uintptr_t)facp->dsdt + 36 + direct_map_base;
-    size_t   dsdt_len = *((uint32_t *)((uintptr_t)facp->dsdt + 4 + direct_map_base)) - 36;
+    int8 *dsdt_ptr = (int8 *)(uintptr_t)facp->dsdt + 36 + direct_map_base;
+    size_t   dsdt_len = *((int32 *)((uintptr_t)facp->dsdt + 4 + direct_map_base)) - 36;
 
-    uint8_t *s5_addr = 0;
+    int8 *s5_addr = 0;
     for (size_t i = 0; i < dsdt_len; i++) {
         if ((dsdt_ptr + i)[0] == '_'
          && (dsdt_ptr + i)[1] == 'S'
@@ -100,12 +100,12 @@ s5_found:
     if (*s5_addr++ < 2) // Make sure there are at least 2 elements, which we need, normally there are 4
         return -1;
 
-    uint64_t value = 0;
-    uint8_t size = parse_integer(s5_addr, &value);
+    int64 value = 0;
+    int8 size = parse_integer(s5_addr, &value);
     if (size == 0) // Wasn't able to parse it
         return -1;
 
-    uint16_t SLP_TYPa = value << 10;
+    int16 SLP_TYPa = value << 10;
     s5_addr += size;
 
 
@@ -113,7 +113,7 @@ s5_found:
     if (size == 0) // Wasn't able to parse it
         return -1;
 
-    uint16_t SLP_TYPb = value << 10;
+    int16 SLP_TYPb = value << 10;
     s5_addr += size;
 
     if(facp->SMI_CMD != 0 && facp->ACPI_ENABLE != 0) { // This PC has SMM and we need to enable ACPI mode first

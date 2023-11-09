@@ -19,7 +19,7 @@
  * @param port  The 16-bit I/O port number.
  * @param value The 8-bit value to be sent to the port.
  */
-void outb(uint16_t port, uint8_t value){
+void outb(int16 port, int8 value){
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
@@ -31,8 +31,8 @@ void outb(uint16_t port, uint8_t value){
  * @param port The 16-bit I/O port number.
  * @return    The 8-bit value read from the port.
  */
-uint8_t inb(uint16_t port){
-    uint8_t returnVal;
+int8 inb(int16 port){
+    int8 returnVal;
     __asm__ volatile ("inb %1, %0" : "=a"(returnVal) : "Nd"(port));
     return returnVal;
 }
@@ -45,7 +45,7 @@ uint8_t inb(uint16_t port){
  * @param portNumber The 16-bit I/O port number.
  * @param data       The 16-bit value to be sent to the port.
  */
-void outw(uint16_t portNumber, uint16_t data) {
+void outw(int16 portNumber, int16 data) {
     __asm__ volatile("outw %0, %1" : : "a"(data), "Nd"(portNumber));
 }
 
@@ -67,8 +67,8 @@ void io_wait(){
  * @param portNumber The 16-bit I/O port number.
  * @return           The 16-bit value read from the port.
  */
-uint16_t inw(uint16_t portNumber) {
-    uint16_t data;
+int16 inw(int16 portNumber) {
+    int16 data;
     __asm__ volatile("inw %1, %0" : "=a"(data) : "Nd"(portNumber));
     return data;
 }
@@ -81,8 +81,8 @@ uint16_t inw(uint16_t portNumber) {
  * @param portNumber The 16-bit I/O port number.
  * @return           The 32-bit value read from the port.
  */
-uint32_t inl(uint16_t portNumber) {
-    uint32_t data;
+int32 inl(int16 portNumber) {
+    int32 data;
     __asm__ volatile("inl %1, %0" : "=a"(data) : "Nd"(portNumber));
     return data;
 }
@@ -95,7 +95,7 @@ uint32_t inl(uint16_t portNumber) {
  * @param portNumber The 16-bit I/O port number.
  * @param data       The 32-bit value to be sent to the port.
  */
-void outl(uint16_t portNumber, uint32_t data) {
+void outl(int16 portNumber, int32 data) {
     __asm__ volatile("outl %0, %1" : : "a"(data), "Nd"(portNumber));
 }
 

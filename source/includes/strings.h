@@ -11,8 +11,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <basics.h>
 
-typedef char symbol[];
+// typedef char symbol[];
 
 /**
  * @brief Calculate the length of a null-terminated string.
@@ -32,7 +33,7 @@ int strlen_(char s[]);
  * @param src Source string
  * @returns The resulting copy of the string `src`
  */
-char *strcpy(char *dest, const char *src);
+string strcpy(string dest, cstring src);
 
 /**
  * @brief Copies `n` characters from `src` to `dest`
@@ -42,7 +43,7 @@ char *strcpy(char *dest, const char *src);
  * @param n Number of characters that will be copies
  * @returns The resulting copy of the string `src`
  */
-char *strncpy(char *dest, const char *src, size_t n);
+string strncpy(string dest, cstring src, size_t n);
 
 /**
  * @brief Compares two strings lexicographically.
@@ -56,7 +57,7 @@ char *strncpy(char *dest, const char *src, size_t n);
  * @returns An integer less than, equal to, or greater than zero, depending on the
  *         comparison result.
  */
-int strcmp(const char *s1, const char *s2);
+int strcmp(cstring s1, cstring s2);
 
 /**
  * @brief Compares two strings, up to a specified number of characters.
@@ -71,7 +72,7 @@ int strcmp(const char *s1, const char *s2);
  * @return An integer less than, equal to, or greater than zero, depending on the
  *         comparison result.
  */
-int strncmp(const char *s1, const char *s2, size_t n);
+int strncmp(cstring s1, cstring s2, size_t n);
 
 /**
  * @brief Check if a substring is found within a string.
@@ -82,4 +83,4 @@ int strncmp(const char *s1, const char *s2, size_t n);
  * @param substr The substring to search for.
  * @return true if the substring is found in the string, false otherwise.
  */
-bool contains(const char *str, const char *substr);
+bool contains(cstring str, cstring substr);

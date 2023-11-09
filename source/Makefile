@@ -54,7 +54,7 @@ $(eval $(call DEFAULT_VAR,LDFLAGS,$(DEFAULT_LDFLAGS)))
 
 # Internal C flags that should not be changed by the user.
 override CFLAGS += \
-    -Wall \
+    -w \
     -std=gnu11 \
     -ffreestanding \
     -fno-stack-protector \
@@ -163,6 +163,7 @@ all: ./kernel/typescript/compile.sh $(KERNEL)
 $(KERNEL): linker/$(ARCH).ld $(OBJ)
 	@mkdir -p "$$(dirname $@)"
 	@$(LD) $(OBJ) $(LDFLAGS) -o $@
+	@echo "\033[1;32mLinking using\033[0m $<"
 
 # Include header dependencies.
 -include $(HEADER_DEPS)
@@ -170,16 +171,19 @@ $(KERNEL): linker/$(ARCH).ld $(OBJ)
 # Compilation rules for *.c files.
 obj/%.c.o: %.c includes/limine.h
 	@mkdir -p "$$(dirname $@)"
+	@echo "\033[1;34mCompiling\033[0m $<"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 # Compilation rules for *.S files.
 obj/%.S.o: %.S
 	@mkdir -p "$$(dirname $@)"
+	@echo "\033[1;34mAssembling\033[0m $<"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 # Compilation rules for *.asm (nasm) files.
 obj/%.asm.o: %.asm
 	@mkdir -p "$$(dirname $@)"
+	@echo "\033[1;34mAssembling\033[0m $<"
 	@nasm $(NASMFLAGS) $< -o $@
 
 # Remove object files
