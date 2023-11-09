@@ -10,6 +10,7 @@
  */
 #include <stdint.h>
 #include <stddef.h>
+#include <basics.h>
 #include <hal.h>
 
 /**
@@ -32,4 +33,4 @@ void debug_putc(char c);
  * 
  * @param msg 
  */
-void debug_print(const char * msg);
+void debug_print(cstring msg);

@@ -18,19 +18,19 @@
  * @param message The warning message to be displayed.
  * @param file The file name where the warning occurred.
  */
-void warn(const char *message, const char* file) {
-    const char *warn_message = ANSI_COLOR_YELLOW "[Warning] → " ANSI_COLOR_RESET;
+void warn(cstring message, cstring file) {
+    cstring warn_message = yellow_color "[Warning] → " reset_color;
     print(warn_message);
     print(message);
-    print(" at " ANSI_COLOR_BLUE);
+    print(" at " blue_color);
     print(file);
-    print(ANSI_COLOR_RESET "\n");
+    print(reset_color "\n");
 
     debug_print(warn_message);
     debug_print(message);
-    debug_print(" at " ANSI_COLOR_BLUE);
+    debug_print(" at " blue_color);
     debug_print(file);
-    debug_print(ANSI_COLOR_RESET "\n");
+    debug_print(reset_color "\n");
 
     serial_print(message);
     serial_print(" at ");
@@ -46,19 +46,19 @@ void warn(const char *message, const char* file) {
  * @param message The error message to be displayed.
  * @param file The file name where the error occurred.
  */
-void error(const char *message, const char* file) {
-    const char *err_message = ANSI_COLOR_RED "[Error] → " ANSI_COLOR_RESET;
+void error(cstring message, cstring file) {
+    cstring err_message = red_color "[Error] → " reset_color;
     print(err_message);
     print(message);
-    print(" at " ANSI_COLOR_BLUE);
+    print(" at " blue_color);
     print(file);
-    print(ANSI_COLOR_RESET "\n");
+    print(reset_color "\n");
 
     debug_print(err_message);
     debug_print(message);
-    debug_print(" at " ANSI_COLOR_BLUE);
+    debug_print(" at " blue_color);
     debug_print(file);
-    debug_print(ANSI_COLOR_RESET "\n");
+    debug_print(reset_color "\n");
 
     serial_print(message);
     serial_print(" at ");
@@ -74,19 +74,19 @@ void error(const char *message, const char* file) {
  * @param message The informational message to be displayed.
  * @param file The file name where the information is coming from.
  */
-void info(const char *message, const char* file) {
-    const char *info_message = ANSI_COLOR_BLUE "[Info] → " ANSI_COLOR_RESET;
+void info(cstring message, cstring file) {
+    cstring info_message = blue_color "[Info] → " reset_color;
     print(info_message);
     print(message);
-    print(" at " ANSI_COLOR_BLUE);
+    print(" at " blue_color);
     print(file);
-    print(ANSI_COLOR_RESET "\n");
+    print(reset_color "\n");
 
     debug_print(info_message);
     debug_print(message);
-    debug_print(" at " ANSI_COLOR_BLUE);
+    debug_print(" at " blue_color);
     debug_print(file);
-    debug_print(ANSI_COLOR_RESET "\n");
+    debug_print(reset_color "\n");
 
     serial_print(message);
     serial_print(" at ");
@@ -102,19 +102,19 @@ void info(const char *message, const char* file) {
  * @param message The success message to be displayed.
  * @param file The file name associated with the success.
  */
-void done(const char *message, const char* file) {
-    const char *done_message = ANSI_COLOR_GREEN "[Success] → " ANSI_COLOR_RESET;
+void done(cstring message, cstring file) {
+    cstring done_message = green_color "[Success] → " reset_color;
     print(done_message);
     print(message);
-    print(" at " ANSI_COLOR_BLUE);
+    print(" at " blue_color);
     print(file);
-    print(ANSI_COLOR_RESET "\n");
+    print(reset_color "\n");
 
     debug_print(done_message);
     debug_print(message);
-    debug_print(" at " ANSI_COLOR_BLUE);
+    debug_print(" at " blue_color);
     debug_print(file);
-    debug_print(ANSI_COLOR_RESET "\n");
+    debug_print(reset_color "\n");
 
     serial_print(message);
     serial_print(" at ");
@@ -174,7 +174,7 @@ void printhex(int hex){
  * @param format 
  * @param ... 
  */
-void printf(const char *format, ...) {
+void printf(cstring format, ...) {
     va_list argp;
     va_start(argp, format);
 

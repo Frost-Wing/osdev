@@ -18,17 +18,19 @@
 #include <acpi.h>
 #include <limine.h>
 
+typedef char symbol[];
+
 struct rsdp {
     char signature[8];
-    uint8_t checksum;
+    int8 checksum;
     char oem_id[6];
-    uint8_t rev;
-    uint32_t rsdt_addr;
+    int8 rev;
+    int32 rsdt_addr;
     // ver 2.0 only
-    uint32_t length;
-    uint64_t xsdt_addr;
-    uint8_t ext_checksum;
-    uint8_t reserved[3];
+    int32 length;
+    int64 xsdt_addr;
+    int8 ext_checksum;
+    int8 reserved[3];
 } __attribute__((packed));
 
 struct rsdt {
@@ -83,9 +85,9 @@ void *acpi_find_sdt(const char *signature, size_t index)
     for (size_t i = 0; i < rsdt->sdt.length - sizeof(struct sdt); i++) {
         struct sdt *ptr;
         if (use_xsdt)
-            ptr = (struct sdt *)(uintptr_t)((uint64_t *)rsdt->ptrs_start)[i];
+            ptr = (struct sdt *)(uintptr_t)((int64 *)rsdt->ptrs_start)[i];
         else
-            ptr = (struct sdt *)(uintptr_t)((uint32_t *)rsdt->ptrs_start)[i];
+            ptr = (struct sdt *)(uintptr_t)((int32 *)rsdt->ptrs_start)[i];
 
         if (!strncmp(ptr->signature, signature, 4) && cnt++ == index)
             return (void *)ptr;

@@ -30,14 +30,14 @@ static volatile struct limine_framebuffer_request framebuffer_request = {
 };
 
 static volatile struct limine_hhdm_request hhdm_req = {
-    LIMINE_HHDM_REQUEST, 0, NULL
+    LIMINE_HHDM_REQUEST, 0, null
 };
 
-struct flanterm_context *ft_ctx = NULL;
-struct limine_framebuffer *framebuffer = NULL;
+struct flanterm_context *ft_ctx = null;
+struct limine_framebuffer *framebuffer = null;
 
-uint64_t* back_buffer;
-uint64_t* front_buffer;
+int64* back_buffer;
+int64* front_buffer;
 
 void render(int width, int height){
     for(int i = 0; i < width * height; i++){
@@ -50,16 +50,16 @@ void render(int width, int height){
  * renaming main() to something else, make sure to change the linker script accordingly.
  */
 void main(void) {
-    if (framebuffer_request.response == NULL) {
+    if (framebuffer_request.response == null) {
         asm("hlt");
     }
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
-    uint64_t temp_buffer[framebuffer->width * framebuffer->height];
-    front_buffer = (uint64_t*)framebuffer->address;
+    int64 temp_buffer[framebuffer->width * framebuffer->height];
+    front_buffer = (int64*)framebuffer->address;
     back_buffer = front_buffer;
-    back_buffer = (uint64_t*)temp_buffer;
+    back_buffer = (int64*)temp_buffer;
     ft_ctx = flanterm_fb_simple_init(
         front_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
     );
@@ -96,16 +96,16 @@ void main(void) {
     // glDrawLine((uvec2){0, 0}, (uvec2){10, 30}, 0xffbaddad);
     // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
     // glDrawTriangle((uvec2){110, 110}, (uvec2){200, 200}, (uvec2){200, 110}, 0xffdadbad, true);
-    // glDestroyContext(NULL);
+    // glDestroyContext(null);
 
-    done("No process pending, press \'F10\' to call ACPI Shutdown.", __FILE__);
+    done("No process pending.\npress \'F10\' to call ACPI Shutdown.\n\t", __FILE__);
 
     // glCreateContext();
     // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
     // glClearColor(0, 0, 0, 0xff);
     // glClear(GL_COLOR_BUFFER_BIT);
     // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
-    // glDestroyContext(NULL);
+    // glDestroyContext(null);
 
     // render(framebuffer->width, framebuffer->height);
 

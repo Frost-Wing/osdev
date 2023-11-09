@@ -27,12 +27,13 @@
 #include <typescript-loader.h>
 #include <debugger.h>
 #include <drivers/serial.h>
+#include <basics.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.
  * 
  */
-extern uint64_t* kend;
+extern int64* kend;
 
 /**
  * @brief Halt and catch fire function.
@@ -69,10 +70,10 @@ extern int terminal_columns;
  * @brief The fake or pseudo frame buffer in the memory which will be queued for next frame update
  * 
  */
-extern uint64_t* back_buffer;
+extern int64* back_buffer;
 
 /**
  * @brief Direct pointer to framebuffer->address. It doesn't queue, directly writes to the memory
  * 
  */
-extern uint64_t* front_buffer;
+extern int64* front_buffer;

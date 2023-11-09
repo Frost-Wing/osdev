@@ -15,13 +15,14 @@
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <basics.h>
 
 // ANSI color codes for text formatting
-#define ANSI_COLOR_RESET "\x1b[0m"
-#define ANSI_COLOR_RED "\x1b[91m"
-#define ANSI_COLOR_YELLOW "\x1b[93m"
-#define ANSI_COLOR_BLUE "\x1b[36m"
-#define ANSI_COLOR_GREEN "\x1b[32m"
+#define reset_color  "\x1b[0m"
+#define red_color    "\x1b[91m"
+#define yellow_color "\x1b[93m"
+#define blue_color   "\x1b[36m"
+#define green_color  "\x1b[32m"
 
 /**
  * @brief Display a warning message.
@@ -31,7 +32,7 @@
  * @param message The warning message to be displayed.
  * @param file The file name where the warning occurred.
  */
-void warn(const char *message, const char* file);
+void warn(cstring message, cstring  file);
 
 /**
  * @brief Display an error message.
@@ -41,7 +42,7 @@ void warn(const char *message, const char* file);
  * @param message The error message to be displayed.
  * @param file The file name where the error occurred.
  */
-void error(const char *message, const char* file);
+void error(cstring message, cstring  file);
 
 /**
  * @brief Display an informational message.
@@ -51,7 +52,7 @@ void error(const char *message, const char* file);
  * @param message The informational message to be displayed.
  * @param file The file name where the information is coming from.
  */
-void info(const char *message, const char* file);
+void info(cstring message, cstring  file);
 
 /**
  * @brief Display a success message.
@@ -61,7 +62,7 @@ void info(const char *message, const char* file);
  * @param message The success message to be displayed.
  * @param file The file name associated with the success.
  */
-void done(const char *message, const char* file);
+void done(cstring message, cstring  file);
 
 /* Normal Hybrid printing functions ahead */
 
@@ -93,6 +94,6 @@ void printhex(int hex);
  * @param format 
  * @param ... 
  */
-void printf(const char *format, ...);
+void printf(cstring format, ...);
 
 #endif
