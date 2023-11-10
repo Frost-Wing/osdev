@@ -2,11 +2,16 @@
 
 Welcome to FrostWing, a lightweight and flexible operating system designed for x86_64, ARM64 (aarch64), and RISC-V (riscv64) architectures. This README will guide you through the process of building and running FrostWing, along with an overview of its features and architecture.
 
+![GitHub all releases](https://img.shields.io/github/downloads/Frost-Wing/osdev/total?style=flat-square&label=Downloads)
+![GitHub](https://img.shields.io/github/license/Frost-Wing/osdev?style=flat-square&label=License)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Frost-Wing/osdev?style=flat-square)
+![GitHub repo size](https://img.shields.io/github/repo-size/Frost-Wing/osdev?style=flat-square&label=Repository%20Size)
+
+
 ## Table of Contents
 
 - [Images](#images)
 - [Getting Started](#getting-started)
-  - [Directory hierarchy](#directory-hierarchy)
   - [Prerequisites](#prerequisites)
   - [Building FrostWing](#building-FrostWing)
   - [Building FrostWing Documentations](#building-the-frostwing-doxygen-documentation)
@@ -22,29 +27,6 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 
 ## Getting Started
 
-### Directory Hierarchy
-```c
-├── disk_root
-│   └── // The files that are going to go to the ISO.
-├── limine
-│   └── // Bootloader files
-├── source
-│   ├── boot
-│   │   └── // Configurations, fonts, background
-│   ├── includes
-│   │   └── // Header files
-│   ├── kernel
-│   │   └── // Main kernel code
-│   ├── linker
-│   │   ├── x86_64.ld
-│   │   ├── aarch64.ld
-│   │   └── riscv64.ld
-│   ├── obj
-│   │   └── // Object files
-│   ├── Makefile
-│   └── wing_kernel.elf
-└── ...
-```
 ### Prerequisites
 
 Before you start building FrostWing, ensure that you have the following dependencies installed:
