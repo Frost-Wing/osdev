@@ -24,7 +24,7 @@ jobs:
       run: make -C limine
 
     - name: Build The Operating System itself
-      run: ./test.sh
+      run: cd source && make -j4 clean && cd ../ && make -j4 -C source && make -j4
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
