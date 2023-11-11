@@ -15,6 +15,18 @@
 extern cstring display_adapter_name;
 extern cstring GPUName[1]; //Max 2 GPUs allowed
 
+/**
+ * @brief Read a 16-bit value from a PCI configuration register.
+ *
+ * This function reads a 16-bit value from a specified PCI configuration register
+ * using the provided bus, slot, function, and offset parameters.
+ *
+ * @param bus The PCI bus number.
+ * @param slot The PCI slot number.
+ * @param func The PCI function number.
+ * @param offset The offset within the PCI configuration register to read.
+ * @return The 16-bit value read from the specified PCI configuration register.
+ */
 int16 pci_read_word(int16 bus, int16 slot, int16 func, int16 offset);
 
 /**

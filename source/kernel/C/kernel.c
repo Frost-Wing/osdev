@@ -36,14 +36,7 @@ static volatile struct limine_hhdm_request hhdm_req = {
 struct flanterm_context *ft_ctx = null;
 struct limine_framebuffer *framebuffer = null;
 
-int64* back_buffer;
-int64* front_buffer;
-
-void render(int width, int height){
-    for(int i = 0; i < width * height; i++){
-        front_buffer[i] = back_buffer[i];
-    }
-}
+bool isBufferReady = no;
 
 /**
  * @brief The main kernel function
@@ -56,14 +49,10 @@ void main(void) {
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
-    int64 temp_buffer[framebuffer->width * framebuffer->height];
-    front_buffer = (int64*)framebuffer->address;
-    back_buffer = front_buffer;
-    back_buffer = (int64*)temp_buffer;
     ft_ctx = flanterm_fb_simple_init(
-        front_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
+        framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
     );
-    
+    isBufferReady = yes;
 
     terminal_rows = ft_ctx->rows;
     terminal_columns = ft_ctx->cols;
@@ -78,18 +67,27 @@ void main(void) {
     load_typescript();
     probe_pci();
 
-    get_cpu_name();
-    print_cpu();
-    L1_cache_size();
-    L2_cache_size();
-    L3_cache_size();
+    print_cpu_info();
+    print_L1_cache_info();
+    print_L2_cache_info();
+    print_L3_cache_info();
     init_rtc();
     display_time();
 
+    init_heap(2 MB);
+
+    int64* num = (int64*)malloc(sizeof(int64));
+    int64* num1 = (int64*)malloc(sizeof(int64));
+    int64* num2 = (int64*)malloc(sizeof(int64));
+    int64* num3 = (int64*)malloc(sizeof(int64));
+    int64* num4 = (int64*)malloc(sizeof(int64));
+    
     enable_fpu();
 
     check_sse();
     load_complete_sse();
+
+    flush_heap();
 
     // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
     // glCreateContext();
@@ -107,8 +105,6 @@ void main(void) {
     // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
     // glDestroyContext(null);
 
-    // render(framebuffer->width, framebuffer->height);
-
     while(1){
         process_keyboard(); // If you can't find where this is defined, it is defined in ./rtc.c
     }
@@ -120,6 +116,7 @@ void main(void) {
  * @param msg The message to be printed
  */
 void print(const char* msg){
+    if(!isBufferReady) return;
     flanterm_write(ft_ctx, msg, strlen_(msg));
 }
 
