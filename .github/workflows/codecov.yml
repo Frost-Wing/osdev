@@ -1,5 +1,6 @@
 name: Upload coverage reports to Codecov
 uses: codecov/codecov-action@v3
 on: [push]
-env:
-  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+jobs:
+  env:
+    CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
