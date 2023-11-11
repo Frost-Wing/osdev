@@ -13,21 +13,34 @@
 #include <pci.h>
 
 const char* display_adapter_name = "Frost Generic Display Adapter";
-const char* GPUName[1] = {"Frost Generic Display Adapter"}; //Max 2 GPUs allowed
+const char* GPUName[1] = {"Frost Generic Display Driver for Graphics Processing Unit."}; //Max 2 GPUs allowed
 
-uint16_t pci_read_word(uint16_t bus, uint16_t slot, uint16_t func, uint16_t offset)
+/**
+ * @brief Read a 16-bit value from a PCI configuration register.
+ *
+ * This function reads a 16-bit value from a specified PCI configuration register
+ * using the provided bus, slot, function, and offset parameters.
+ *
+ * @param bus The PCI bus number.
+ * @param slot The PCI slot number.
+ * @param func The PCI function number.
+ * @param offset The offset within the PCI configuration register to read.
+ * @return The 16-bit value read from the specified PCI configuration register.
+ */
+int16 pci_read_word(int16 bus, int16 slot, int16 func, int16 offset)
 {
-	uint64_t address;
-    uint64_t lbus = (uint64_t)bus;
-    uint64_t lslot = (uint64_t)slot;
-    uint64_t lfunc = (uint64_t)func;
-    uint16_t tmp = 0;
-    address = (uint64_t)((lbus << 16) | (lslot << 11) |
-              (lfunc << 8) | (offset & 0xfc) | ((uint32_t)0x80000000));
-    outl (0xCF8, address);
-    tmp = (uint16_t)((inl (0xCFC) >> ((offset & 2) * 8)) & 0xffff);
+    int64 address;
+    int64 lbus = (int64)bus;
+    int64 lslot = (int64)slot;
+    int64 lfunc = (int64)func;
+    int16 tmp = 0;
+    address = (int64)((lbus << 16) | (lslot << 11) |
+              (lfunc << 8) | (offset & 0xfc) | ((int32)0x80000000));
+    outl(0xCF8, address);
+    tmp = (int16)((inl(0xCFC) >> ((offset & 2) * 8)) & 0xffff);
     return (tmp);
 }
+
 
 /**
  * @brief Gets the Vendor ID from PCI
@@ -35,11 +48,11 @@ uint16_t pci_read_word(uint16_t bus, uint16_t slot, uint16_t func, uint16_t offs
  * @param bus 
  * @param device 
  * @param function 
- * @return uint16_t Vendor ID
+ * @return int16 Vendor ID
  */
-uint16_t getVendorID(uint16_t bus, uint16_t device, uint16_t function)
+int16 getVendorID(int16 bus, int16 device, int16 function)
 {
-        uint32_t r0 = pci_read_word(bus,device,function,0);
+        int32 r0 = pci_read_word(bus,device,function,0);
         return r0;
 }
 
@@ -49,11 +62,11 @@ uint16_t getVendorID(uint16_t bus, uint16_t device, uint16_t function)
  * @param bus 
  * @param device 
  * @param function 
- * @return uint16_t  Device ID
+ * @return int16  Device ID
  */
-uint16_t getDeviceID(uint16_t bus, uint16_t device, uint16_t function)
+int16 getDeviceID(int16 bus, int16 device, int16 function)
 {
-        uint32_t r0 = pci_read_word(bus,device,function,2);
+        int32 r0 = pci_read_word(bus,device,function,2);
         return r0;
 }
 
@@ -63,11 +76,11 @@ uint16_t getDeviceID(uint16_t bus, uint16_t device, uint16_t function)
  * @param bus 
  * @param device 
  * @param function 
- * @return uint16_t Class ID
+ * @return int16 Class ID
  */
-uint16_t getClassId(uint16_t bus, uint16_t device, uint16_t function)
+int16 getClassId(int16 bus, int16 device, int16 function)
 {
-        uint32_t r0 = pci_read_word(bus,device,function,0xA);
+        int32 r0 = pci_read_word(bus,device,function,0xA);
         return (r0 & ~0x00FF) >> 8;
 }
 
@@ -77,11 +90,11 @@ uint16_t getClassId(uint16_t bus, uint16_t device, uint16_t function)
  * @param bus 
  * @param device 
  * @param function 
- * @return uint16_t Sub-class ID
+ * @return int16 Sub-class ID
  */
-uint16_t getSubClassId(uint16_t bus, uint16_t device, uint16_t function)
+int16 getSubClassId(int16 bus, int16 device, int16 function)
 {
-        uint32_t r0 = pci_read_word(bus,device,function,0xA);
+        int32 r0 = pci_read_word(bus,device,function,0xA);
         return (r0 & ~0xFF00);
 }
 
@@ -96,17 +109,17 @@ char* classNames[512];
 void probe_pci(){
     info("Probe has been started!", __FILE__);
     int i = 0;
-    for(uint32_t bus = 0; bus < 256; bus++)
+    for(int32 bus = 0; bus < 256; bus++)
     {
-        for(uint32_t slot = 0; slot < 32; slot++)
+        for(int32 slot = 0; slot < 32; slot++)
         {
-            for(uint32_t function = 0; function < 8; function++)
+            for(int32 function = 0; function < 8; function++)
             {
-                    uint16_t vendor = getVendorID(bus, slot, function);
+                    int16 vendor = getVendorID(bus, slot, function);
                     if(vendor == 0xffff) continue;
-                    uint16_t device = getDeviceID(bus, slot, function);
-                    uint16_t classid = getClassId(bus, slot, function);
-                    uint16_t subclassid = getSubClassId(bus, slot, function);
+                    int16 device = getDeviceID(bus, slot, function);
+                    int16 classid = getClassId(bus, slot, function);
+                    int16 subclassid = getSubClassId(bus, slot, function);
 
                     const char* vendorName;
                     const char* deviceName;

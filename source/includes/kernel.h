@@ -28,6 +28,8 @@
 #include <debugger.h>
 #include <drivers/serial.h>
 #include <basics.h>
+#include <cpuid2.h>
+#include <heap.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.

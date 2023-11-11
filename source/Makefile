@@ -63,6 +63,7 @@ override CFLAGS += \
     -fPIE \
     -Wno-implicit-function-declaration \
     -I includes \
+    -fmax-include-depth=1000 \
     -O3 \
 
 # Internal C preprocessor flags that should not be changed by the user.

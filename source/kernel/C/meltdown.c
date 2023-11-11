@@ -8,10 +8,7 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include <stdint.h>
-#include <graphics.h>
-#include <kernel.h>
-#include <opengl/glbackend.h>
+#include <meltdown.h>
 
 /**
  * @brief The Meltdown (Panic) Screen
@@ -35,10 +32,17 @@ void meltdown_screen(const char * message, const char* file, int line, uint64_t 
     uint8_t second, minute, hour, day, month, year;
     update_system_time(&second, &minute, &hour, &day, &month, &year);
 
-    printf("Timestamp     : %d:%d:%d %d/%d/%d\n", hour, minute, second, month, day, year);
-    printf("Error Message : %s", message);
-    printf("Error Code    : %d\n", error_code);
+    // printf("Timestamp     : %d:%d:%d %d/%d/%d\n", hour, minute, second, month, day, year);
+    print("Error Message : \"");
+    print(message);
+    print("\"\n");
+    print("Error Code    : ");
+    printf("%d", error_code);
+    print("\n");
     print("=[ Handler Information ]=\n\t");
-    printf("File name   : %s", file);
-    printf("\tLine number : %d", line);
+    print("File name   : ");
+    print(file);
+    print("\n");
+    print("\tLine number : ");
+    printf("%d", line);
 }

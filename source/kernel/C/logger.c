@@ -178,22 +178,29 @@ void printf(cstring format, ...) {
     va_list argp;
     va_start(argp, format);
 
-    while (*format != '\0') {
+    while (*format) {
         if (*format == '%') {
             format++;
-            if (*format == 'x') {
-                printhex(va_arg(argp, size_t));
-            } else if (*format == 'd') {
-                printdec(va_arg(argp, size_t));
-            } else if (*format == 's') {
-                print(va_arg(argp, char*));
+            switch (*format) {
+                case 'x':
+                    printhex(va_arg(argp, size_t));
+                    break;
+                case 'd':
+                    printdec(va_arg(argp, int));
+                    break;
+                case 's':
+                    print(va_arg(argp, char*));
+                    break;
+                default:
+                    putc('%');
+                    putc(*format);
+                    break;
             }
         } else {
             putc(*format);
         }
         format++;
     }
-
-    putc('\n');
+    print("\n");
     va_end(argp);
 }
