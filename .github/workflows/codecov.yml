@@ -1,6 +1,26 @@
-name: Upload coverage reports to Codecov
-on: [push]
+name: Frosted Workflow
+
+on: [push, pull_request]
+
 jobs:
-  uses: codecov/codecov-action@v3
-  env:
-    CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  build:
+    runs-on: ubuntu-latest
+    name: FrostWing
+    steps:
+    - uses: actions/checkout@v1
+    - name: Update packages
+      run: sudo apt update
+    - name: Install Binutils
+      run: sudo apt-get -y install binutils
+    - name: Install Build essential
+      run: sudo apt install build-essential
+    - name: Get NASM
+      run: sudo apt-get -y install nasm
+    - name: Install other dependencies
+      run: setup-ubuntu.sh
+    - name: Upload coverage reports to Codecov
+      run: |
+        # Options are `alpine`, `linux`, `macos`, `windows`
+        curl -Os https://uploader.codecov.io/latest/linux/codecov
+        chmod +x codecov
+        ./codecov -t ${CODECOV_TOKEN}
