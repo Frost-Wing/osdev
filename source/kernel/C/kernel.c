@@ -96,6 +96,8 @@ void main(void) {
     // glDrawTriangle((uvec2){110, 110}, (uvec2){200, 200}, (uvec2){200, 110}, 0xffdadbad, true);
     // glDestroyContext(null);
 
+    beep(1000, 1);
+
     done("No process pending.\npress \'F10\' to call ACPI Shutdown.\n", __FILE__);
 
     // glCreateContext();

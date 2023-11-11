@@ -106,7 +106,7 @@ void sleep(int seconds) {
  */
 void process_keyboard(){
     int keyboard = inb(0x60);
-        if(keyboard == 0x44){ // F10 Key
-            shutdown();
-        }
+    if(keyboard == 0x44){ // F10 Key
+        shutdown();
+    }
 }
