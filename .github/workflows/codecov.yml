@@ -12,10 +12,16 @@ jobs:
       run: sudo apt update
 
     - name: Install other dependencies
-      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen
+      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git
     
     - name: Build Doxygen Documentations
       run: doxygen
+
+    - name: Obtain the Limine Bootloader
+      run: git clone https://github.com/limine-bootloader/limine.git --branch=v5.x-branch-binary --depth=1
+
+    - name: Build the Limine Bootloader
+      run: make -C limine
 
     - name: Build The Operating System itself
       run: ./test.sh
