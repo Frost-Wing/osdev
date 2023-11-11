@@ -11,7 +11,7 @@ jobs:
     - name: Update packages
       run: sudo apt update
     - name: Install other dependencies
-      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar build-essential binutils
+      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar build-essential binutils doxygen
     - name: Run Doxygen
       run: doxygen
       env:
