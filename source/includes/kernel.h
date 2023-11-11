@@ -30,6 +30,7 @@
 #include <basics.h>
 #include <cpuid2.h>
 #include <heap.h>
+#include <drivers/pc-speaker.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.
