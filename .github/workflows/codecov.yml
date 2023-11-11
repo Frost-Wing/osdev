@@ -17,7 +17,7 @@ jobs:
     - name: Get NASM
       run: sudo apt-get -y install nasm
     - name: Install other dependencies
-      run: setup-ubuntu.sh
+      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar
     - name: Upload coverage reports to Codecov
       run: |
         # Options are `alpine`, `linux`, `macos`, `windows`
