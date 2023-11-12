@@ -47,7 +47,7 @@ git clone https://github.com/limine-bootloader/limine.git --branch=v5.x-branch-b
 make -C limine
 ```
 > [!NOTE]
-> A suitable cross-compiler for your target architecture (x86_64, ARM64, or RISC-V) is always recommened but the os is never tested with a cross-compiler and therefore it is optional
+> A suitable cross-compiler for your target architecture (x86_64, ARM64, or RISC-V) is always recommended but the os is never tested with a cross-compiler and therefore it is optional
 
 - QEMU System Emulator
 
