@@ -6,7 +6,10 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 ![GitHub](https://img.shields.io/github/license/Frost-Wing/osdev?style=flat-square&label=License)
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Frost-Wing/osdev?style=flat-square)
 ![GitHub repo size](https://img.shields.io/github/repo-size/Frost-Wing/osdev?style=flat-square&label=Repository%20Size)
-
+<a href="https://scan.coverity.com/projects/frost-wing-osdev">
+  <img alt="Coverity Scan Build Status"
+       src="https://img.shields.io/coverity/scan/29364.svg?style=flat-square"/>
+</a>
 
 ## Table of Contents
 
