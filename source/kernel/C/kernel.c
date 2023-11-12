@@ -117,7 +117,7 @@ void main(void) {
  * 
  * @param msg The message to be printed
  */
-void print(const char* msg){
+void print(cstring msg){
     if(!isBufferReady) return;
     flanterm_write(ft_ctx, msg, strlen_(msg));
 }

@@ -128,9 +128,9 @@ void done(cstring message, cstring file) {
  * @param c char to print
  */
 void putc(char c) {
-    char dummy[1];
-    dummy[0] = c;
-    print(dummy);
+    char _c[1];
+    _c[0] = c;
+    print(_c);
 }
 
 /**
@@ -139,21 +139,21 @@ void putc(char c) {
  * @param num the number to be printed
  */
 void printdec(size_t num) {
-    int i;
-    char buf[21] = {0};
-
-    if (!num) {
+    if (num == 0) {
         putc('0');
         return;
     }
 
-    for (i = 19; num; i--) {
-        buf[i] = (num % 10) + 0x30;
-        num = num / 10;
+    char buf[21]; // Sufficient for a 64-bit number
+    int i = sizeof(buf) - 1;
+    buf[i] = '\0';
+
+    while (num > 0) {
+        buf[--i] = (num % 10) + '0';
+        num /= 10;
     }
 
-    i++;
-    print(buf + i);
+    print(&buf[i]);
 }
 
 /**
@@ -161,12 +161,18 @@ void printdec(size_t num) {
  * 
  * @param hex the hexadecimal number to be printed.
  */
-void printhex(int hex){
-    char hex_str[16];
-    itoa(hex, hex_str, 16, 16);
+void printhex(int hex) {
+    char hex_str[9]; // Assuming 32-bit integer
+    char hex_digits[] = "0123456789ABCDEF";
+
+    for (int i = 0; i < 8; i++) {
+        int nibble = (hex >> (28 - i * 4)) & 0xF;
+        hex_str[i] = hex_digits[nibble];
+    }
+    hex_str[8] = '\0';
+
     print(hex_str);
 }
-
 /**
  * @brief More uniform print function.
  * Supports any number of arguments (va_list)
