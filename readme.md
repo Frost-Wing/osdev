@@ -30,7 +30,7 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 - [FrostWing Team](#frostwing-team)
 
 ## Images
-![QEMU Picture of FrostWing running.](https://imgur.com/RvkkBS5.png)
+![QEMU Picture of FrostWing running.](https://imgur.com/GQq7iAX.png)
 
 ## Getting Started
 
