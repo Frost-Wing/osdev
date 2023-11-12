@@ -11,6 +11,9 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
        src="https://img.shields.io/coverity/scan/29364.svg?style=flat-square"/>
 </a>
 
+> [!NOTE]
+> To get a really good overview of this repository please visit https://repo-tracker.com/r/gh/Frost-Wing/osdev
+
 ## Table of Contents
 
 - [Images](#images)
@@ -18,6 +21,7 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
   - [Prerequisites](#prerequisites)
   - [Building FrostWing](#building-FrostWing)
   - [Building FrostWing Documentations](#building-the-frostwing-doxygen-documentation)
+  - [Hardware/Software (Emulator) Requirements](#hardwaresoftware-emulator-requirements)
   - [Running FrostWing](#running-FrostWing)
   - [Booting to real machine](#Booting-to-real-machine)
 - [Features](#features)
@@ -99,6 +103,11 @@ The main html file is located at: `docs/html/index.html`
 > Better Method below
 
 Visit [Doxygen Documentation for FrostWing](https://frost-wing.github.io/doxygen-docs/) for pre-compiled documentations
+### Hardware/Software (Emulator) Requirements
+- **CPU** Currently any x86_64 proccessor
+- **RAM** 75 MB
+- **Storage** Nothing required yet.
+- **Graphics** Only Framebuffer.
 
 ### Running FrostWing
 

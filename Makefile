@@ -10,4 +10,4 @@ tarball:
 	@tar -czvf FrostWing.iso.tar.gz FrostWing.iso
 
 run-x86:
-	@qemu-system-x86_64 -debugcon stdio -serial file:serial.log -audiodev pa,id=speaker -machine pcspk-audiodev=speaker -cdrom FrostWing.iso -m 1024
+	@qemu-system-x86_64 -debugcon stdio -serial file:serial.log -audiodev pa,id=speaker -machine pcspk-audiodev=speaker -cdrom FrostWing.iso -m 75
