@@ -149,3 +149,39 @@ bool contains(const char *str, const char *substr) {
 
     return false;  // Substring not found in the string.
 }
+
+/**
+ * @brief Move the last x characters of a string to the front and delete the rest.
+ *
+ * This function takes a null-terminated C string and moves the last x characters to
+ * the beginning of the string while deleting the remaining characters. If x is greater
+ * than or equal to the length of the string, the function does nothing.
+ *
+ * @param str The input string.
+ * @param x The number of characters to move to the front.
+ *
+ * @note This function modifies the input string in place.
+ */
+void string_transport_front(char *str, int x) {
+    int len = strlen_(str);
+
+    if (x >= len) {
+        // Nothing to do, x is greater than or equal to the string length.
+        return;
+    }
+
+    // Calculate the number of characters to delete.
+    int charsToDelete = len - x;
+
+    // Move the last x characters to the front.
+    memmove(str, str + len - x, x);
+
+    // Null-terminate the string at the new end.
+    str[x] = '\0';
+
+    // Delete the remaining characters by shifting them left.
+    memmove(str + x, str + len - charsToDelete, charsToDelete);
+
+    // Null-terminate the final string.
+    str[len - charsToDelete] = '\0';
+}

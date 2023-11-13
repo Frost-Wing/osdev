@@ -84,3 +84,17 @@ int strncmp(cstring s1, cstring s2, size_t n);
  * @return true if the substring is found in the string, false otherwise.
  */
 bool contains(cstring str, cstring substr);
+
+/**
+ * @brief Move the last x characters of a string to the front and delete the rest.
+ *
+ * This function takes a null-terminated C string and moves the last x characters to
+ * the beginning of the string while deleting the remaining characters. If x is greater
+ * than or equal to the length of the string, the function does nothing.
+ *
+ * @param str The input string.
+ * @param x The number of characters to move to the front.
+ *
+ * @note This function modifies the input string in place.
+ */
+void string_transport_front(char *str, int x);

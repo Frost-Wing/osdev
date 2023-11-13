@@ -131,6 +131,7 @@ void probe_pci(){
                     else if(vendor == 0x1002) vendorName = "AMD";
                     else if(vendor == 0x1234) vendorName = "Brain Actuated Technologies";
                     else if(vendor == 0x168c) vendorName = "Qualcomm Atheros";
+                    else if(vendor == 0x10EC) vendorName = "Realtek Semiconductor Co., Ltd.";
                     else {
                         unsigned char str[20];
                         itoa(vendor, str, sizeof(str), 16);
@@ -207,6 +208,13 @@ void probe_pci(){
                         deviceName = str;
                     }
 
+                    if(vendor == 0x10EC){
+                        if(device == 0x8139){ // Indeed it is an RTL8139 Card
+                            RTL8139->io_base = (uint16_t)(pci_read_word(bus, slot, 0, RTL8139_IOADDR1) & 0xFFFC);
+                            deviceName = "RTL8139 Networking Card";
+                        }
+                    }
+
                     if(vendor == 0x10DE)
                     {
                         if(device == 0x0040)      {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 Ultra]";}
@@ -226,16 +234,13 @@ void probe_pci(){
                         else {display_adapter_name = "Frost Generic Display Adapter"; return 0;}
                     }
 
-                    print(vendorName);
-                    print("\t");
-                    print(deviceName);
-                    print("\t");
-                    print(className);
-                    print("\n");
+                    print(green_color);
+                    printf("%s : %n%t Device : %s%n%t Class  : %s", vendorName, deviceName, className);
+                    print(reset_color);
 
                     vendorNames[i] = vendorName;
                     deviceNames[i] = deviceName;
-                    classNames[i] = classNames;
+                    classNames[i] = className;
                     i++;
             }
         }

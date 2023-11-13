@@ -10,6 +10,8 @@
  */
 #include <graphics.h>
 
+char hex_digits[] = "0123456789ABCDEF";
+
 /**
  * @brief Display a warning message.
  *
@@ -126,8 +128,9 @@ void done(cstring message, cstring file) {
  * @brief Prints a char, using print(&c);
  * 
  * @param c char to print
+ * @deprecated Replaced with Flanterm's putchar function
  */
-void putc(char c) {
+void __putc(char c) {
     char _c[1];
     _c[0] = c;
     print(_c);
@@ -161,18 +164,24 @@ void printdec(size_t num) {
  * 
  * @param hex the hexadecimal number to be printed.
  */
-void printhex(int hex) {
-    char hex_str[9]; // Assuming 32-bit integer
-    char hex_digits[] = "0123456789ABCDEF";
-
+void printhex(unsigned int num) {    
+    char hex_string[8];  // Assuming a 32-bit integer
+    
+    // Convert the integer to hexadecimal
     for (int i = 0; i < 8; i++) {
-        int nibble = (hex >> (28 - i * 4)) & 0xF;
-        hex_str[i] = hex_digits[nibble];
+        int shift = 28 - (i * 4);  // 4 bits per hexadecimal digit
+        int index = (num >> shift) & 0xF;
+        hex_string[i] = hex_digits[index];
     }
-    hex_str[8] = '\0';
-
-    print(hex_str);
+    
+    // Null-terminate the string
+    hex_string[8] = '\0';
+    string_transport_front(hex_string, 2);
+    
+    // Use the provided print function to print the hexadecimal string
+    print(hex_string);
 }
+
 /**
  * @brief More uniform print function.
  * Supports any number of arguments (va_list)
@@ -196,6 +205,12 @@ void printf(cstring format, ...) {
                     break;
                 case 's':
                     print(va_arg(argp, char*));
+                    break;
+                case 'n':
+                    print("\n");
+                    break;
+                case 't':
+                    print("\t");
                     break;
                 default:
                     putc('%');

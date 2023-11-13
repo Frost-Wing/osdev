@@ -66,7 +66,7 @@ cstring get_cpu_vendor() {
  * @brief Print CPU information, including the vendor and CPU string.
  */
 void print_cpu_info() {
-    printf("CPU Vendor: %s\nCPU String: %s", get_cpu_vendor(), cpu_string());
+    printf("CPU Vendor: %s%nCPU String: %s", get_cpu_vendor(), cpu_string());
 }
 
 /**
@@ -76,7 +76,7 @@ void print_L1_cache_info() {
     int32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
-        printf("L1 Cache not present.\n");
+        print("L1 Cache not present.\n");
         return;
     }
     printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L1 INFO)", ecx & 0xff, (ecx >> 12) & 0x07, (ecx >> 16) & 0xffff);
@@ -89,7 +89,7 @@ void print_L2_cache_info() {
     int32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
-        printf("L2 Cache not present.\n");
+        print("L2 Cache not present.\n");
         return;
     }
     printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L2 INFO)", ecx & 0xff, (ecx >> 12) & 0x0F, (ecx >> 16) & 0xFFFF);
@@ -102,7 +102,7 @@ void print_L3_cache_info() {
     int32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
-        printf("L3 Cache not present.\n");
+        print("L3 Cache not present.\n");
         return;
     }
     printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L3 INFO)", edx & 0xff, (edx >> 12) & 0x0F, (edx >> 16) & 0xFFFF);

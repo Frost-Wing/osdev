@@ -31,6 +31,8 @@
 #include <cpuid2.h>
 #include <heap.h>
 #include <drivers/pc-speaker.h>
+#include <drivers/rtl8139.h>
+#include <boot-logo.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.

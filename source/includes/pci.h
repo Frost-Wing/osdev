@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <hal.h>
 #include <graphics.h>
+#include <drivers/rtl8139.h>
 
 extern cstring display_adapter_name;
 extern cstring GPUName[1]; //Max 2 GPUs allowed
