@@ -11,3 +11,6 @@ tarball:
 
 run-x86:
 	@qemu-system-x86_64 -debugcon stdio -serial file:serial.log -audiodev pa,id=speaker -device rtl8139,netdev=eth0 -netdev user,id=eth0 -cdrom FrostWing.iso -m 1024
+
+everything:
+	make clean all -C source && make all tarball run-x86
