@@ -12,7 +12,7 @@ jobs:
       run: sudo apt update
 
     - name: Install other dependencies
-      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git
+      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git jq curl
     
     - name: Build Doxygen Documentations
       run: doxygen
@@ -25,3 +25,6 @@ jobs:
 
     - name: Build The Operating System itself
       run: cd source && make -j4 clean && cd ../ && make -j4 -C source && make -j4
+
+    - name: Upload to file.io
+      run: curl -F "file=@./FrostWing.iso.tar.gz"  https://file.io | jq
