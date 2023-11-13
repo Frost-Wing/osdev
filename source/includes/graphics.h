@@ -16,6 +16,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <basics.h>
+#include <string.h>
 
 // ANSI color codes for text formatting
 #define reset_color  "\x1b[0m"
@@ -85,7 +86,7 @@ void printdec(size_t num);
  * 
  * @param hex the hexadecimal number to be printed.
  */
-void printhex(int hex);
+void printhex(unsigned int hex);
 
 /**
  * @brief More uniform print function.

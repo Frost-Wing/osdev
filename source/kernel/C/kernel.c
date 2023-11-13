@@ -37,7 +37,7 @@ struct flanterm_context *ft_ctx = null;
 struct limine_framebuffer *framebuffer = null;
 
 bool isBufferReady = no;
-
+bool logoBoot = yes;
 /**
  * @brief The main kernel function
  * renaming main() to something else, make sure to change the linker script accordingly.
@@ -54,6 +54,22 @@ void main(void) {
     );
     isBufferReady = yes;
 
+    if(logoBoot){
+        print(boot_logo);
+        print(" Welcome to FrostWing Operating System! (https://github.com/Frost-Wing)\n");
+        print(red_color "=Terminal Window");
+        for(int i = 0; i < (ft_ctx->cols); i++){
+            print("=");
+        }
+        print(reset_color);
+        isBufferReady = no;
+        ft_ctx = flanterm_fb_simple_init(
+            (int64)framebuffer->address + (int64)(framebuffer->pitch * (framebuffer->height / 2)), framebuffer->width, (framebuffer->height / 2), framebuffer->pitch
+        );
+        ft_ctx->set_cursor_pos(ft_ctx, 0, framebuffer->height - (framebuffer->height / 2));
+        isBufferReady = yes;
+    }
+
     terminal_rows = ft_ctx->rows;
     terminal_columns = ft_ctx->cols;
     if(framebuffer_request.response->framebuffer_count < 1){
@@ -65,6 +81,8 @@ void main(void) {
         probe_serial();
     }
     load_typescript();
+    init_heap(2 MB);
+    RTL8139 = (struct rtl8139*)malloc(sizeof(struct rtl8139));
     probe_pci();
 
     print_cpu_info();
@@ -73,19 +91,13 @@ void main(void) {
     print_L3_cache_info();
     init_rtc();
     display_time();
-
-    init_heap(2 MB);
-
-    int64* num = (int64*)malloc(sizeof(int64));
-    int64* num1 = (int64*)malloc(sizeof(int64));
-    int64* num2 = (int64*)malloc(sizeof(int64));
-    int64* num3 = (int64*)malloc(sizeof(int64));
-    int64* num4 = (int64*)malloc(sizeof(int64));
     
     enable_fpu();
 
     check_sse();
     load_complete_sse();
+
+    rtl8139_init(RTL8139);
 
     flush_heap();
 
@@ -99,6 +111,7 @@ void main(void) {
     beep(1000, 1);
 
     done("No process pending.\npress \'F10\' to call ACPI Shutdown.\n", __FILE__);
+
 
     // glCreateContext();
     // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
@@ -120,6 +133,16 @@ void main(void) {
 void print(cstring msg){
     if(!isBufferReady) return;
     flanterm_write(ft_ctx, msg, strlen_(msg));
+}
+
+/**
+ * @brief The basic put char function.
+ * 
+ * @param c The char to be printed
+ */
+void putc(char c){
+    if(!isBufferReady) return;
+    ft_ctx->raw_putchar(ft_ctx, c);
 }
 
 /**
