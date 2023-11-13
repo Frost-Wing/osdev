@@ -24,7 +24,6 @@
 #include <strings.h>
 #include <math/fpu.h>
 #include <sse.h>
-#include <typescript-loader.h>
 #include <debugger.h>
 #include <drivers/serial.h>
 #include <basics.h>
@@ -82,3 +81,9 @@ extern int64* back_buffer;
  * 
  */
 extern int64* front_buffer;
+
+/**
+ * @brief The main kernel function
+ * @attention main() to something else, make sure to change the linker script accordingly.
+ */
+void main(void);

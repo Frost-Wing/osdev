@@ -38,10 +38,7 @@ struct limine_framebuffer *framebuffer = null;
 
 bool isBufferReady = no;
 bool logoBoot = no;
-/**
- * @brief The main kernel function
- * renaming main() to something else, make sure to change the linker script accordingly.
- */
+
 void main(void) {
     if (framebuffer_request.response == null) {
         asm("hlt");
@@ -80,7 +77,6 @@ void main(void) {
         gdt_init();
         probe_serial();
     }
-    load_typescript();
     init_heap(2 MB);
     RTL8139 = (struct rtl8139*)malloc(sizeof(struct rtl8139));
     probe_pci();

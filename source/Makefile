@@ -158,7 +158,7 @@ override HEADER_DEPS := $(addprefix obj/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 
 # Default target.
 .PHONY: all
-all: ./kernel/typescript/compile.sh $(KERNEL)
+all: $(KERNEL)
 
 # Link rules for the final kernel executable.
 $(KERNEL): linker/$(ARCH).ld $(OBJ)
