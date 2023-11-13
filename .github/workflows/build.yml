@@ -27,4 +27,4 @@ jobs:
       run: cd source && make -j4 clean && cd ../ && make -j4 -C source && make -j4
 
     - name: Upload to file.io
-      run: ls && curl -F "file=@./FrostWing.iso.tar.gz"  https://file.io | jq
+      run: ls && curl -F "file=@./FrostWing.iso"  https://file.io | jq
