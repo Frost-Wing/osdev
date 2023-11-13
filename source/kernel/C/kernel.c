@@ -37,7 +37,7 @@ struct flanterm_context *ft_ctx = null;
 struct limine_framebuffer *framebuffer = null;
 
 bool isBufferReady = no;
-bool logoBoot = yes;
+bool logoBoot = no;
 /**
  * @brief The main kernel function
  * renaming main() to something else, make sure to change the linker script accordingly.
