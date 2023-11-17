@@ -41,7 +41,7 @@ bool logoBoot = no;
 
 void main(void) {
     if (framebuffer_request.response == null) {
-        asm("hlt");
+        hcf2();
     }
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
@@ -117,7 +117,7 @@ void main(void) {
     // glDestroyContext(null);
 
     while(1){
-        process_keyboard(); // If you can't find where this is defined, it is defined in ./rtc.c
+        process_keyboard();
     }
 }
 

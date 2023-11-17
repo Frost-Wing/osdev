@@ -30,6 +30,22 @@ void hcf() {
 }
 
 /**
+ * @brief Halt and catch fire function but doesn't print any text.
+ * 
+ */
+void hcf2() {
+    for (;;) {
+        #if defined (__x86_64__)
+            asm volatile ("hlt");
+        #elif defined (__aarch64__) || defined (__riscv
+            asm volatile ("wfi");
+        #elif defined (__arm__) || defined (__aarch32__)
+            asm volatile ("wfi");
+        #endif
+    }
+}
+
+/**
  * @brief The clear interrupts command for all architectures.
  * 
  */

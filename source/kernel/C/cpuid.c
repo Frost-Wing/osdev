@@ -11,9 +11,11 @@
  * @return The value of the EAX register after executing CPUID.
  */
 static inline int cpuid_string(int code, int where[4]) {
+    #if defined (__x86_64__)
     __asm__ volatile ("cpuid":"=a"(*where),"=b"(*(where+0)),
                "=d"(*(where+1)),"=c"(*(where+2)):"a"(code));
     return (int)where[0];
+    #endif
 }
 
 /**
@@ -43,9 +45,11 @@ cstring const cpu_string() {
  * @param edx Pointer to store the value of EDX register.
  */
 inline void cpuid(int32 reg, int32 *eax, int32 *ebx, int32 *ecx, int32 *edx) {
+    #if defined (__x86_64__)
     __asm__ volatile("cpuid"
         : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
         : "0" (reg));
+    #endif
 }
 
 /**
