@@ -99,14 +99,3 @@ void sleep(int seconds) {
         }
     }
 }
-
-/**
- * @brief This is a function that is ran even when the sleep() function is called
- * 
- */
-void process_keyboard(){
-    int keyboard = inb(0x60);
-    if(keyboard == 0x44){ // F10 Key
-        shutdown();
-    }
-}

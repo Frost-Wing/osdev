@@ -19,8 +19,10 @@ char fxsave_region[512] __attribute__((aligned(16)));
  * 
  */
 void load_complete_sse(){
-    asm volatile(" fxsave %0 "::"m"(fxsave_region));
-    done("Completely loaded SSE!", __FILE__);
+    #if defined (__x86_64__)
+        asm volatile(" fxsave %0 "::"m"(fxsave_region));
+        done("Completely loaded SSE!", __FILE__);
+    #endif
 }
 
 /**
@@ -28,18 +30,20 @@ void load_complete_sse(){
  * 
  */
 void check_sse(){
-    int eax = 0x1;
-    int ebx, ecx, edx;
-    asm volatile("cpuid"
-                     : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
-                     : "a" (eax));
+    #if defined (__x86_64__)
+        int eax = 0x1;
+        int ebx, ecx, edx;
+        asm volatile("cpuid"
+                         : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
+                         : "a" (eax));
 
-    bool noSSE = !(edx & (1 << 25));
+        bool noSSE = !(edx & (1 << 25));
 
-    if (noSSE) {
-        warn("SSE Not detected!", __FILE__);
-    }else{
-        int sseVersion = (ecx >> 25) & 0x7;
-        done("SSE detected!", __FILE__);
-    }
+        if (noSSE) {
+            warn("SSE Not detected!", __FILE__);
+        }else{
+            int sseVersion = (ecx >> 25) & 0x7;
+            done("SSE detected!", __FILE__);
+        }
+    #endif
 }

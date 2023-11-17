@@ -59,6 +59,12 @@ void clear_interrupts();
 void high_level_halt();
 
 /**
+ * @brief Halt and catch fire function but doesn't print any text.
+ * 
+ */
+void hcf2();
+
+/**
  * @brief An integer value which stores terminal's rows
  * 
  */
