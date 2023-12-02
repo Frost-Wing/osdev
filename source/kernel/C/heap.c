@@ -67,6 +67,7 @@ void* malloc(size_t size) {
     }
 
     error("No suitable block found for allocation", __FILE__);
+    sleep(5);
     // meltdown_screen("No suitable block found for allocation of heap.", __FILE__, __LINE__, 0x0);
     // hcf(); // it is better to handle it here rather than leaving it.
     return null;
