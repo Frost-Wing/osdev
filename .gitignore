@@ -14,3 +14,5 @@ source/kernel/typescript-source.c
 doxygen-awesome-css
 FrostWing.iso.*
 *.gcov
+cache
+bin
