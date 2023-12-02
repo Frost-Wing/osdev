@@ -39,8 +39,6 @@ struct limine_framebuffer *framebuffer = null;
 bool isBufferReady = no;
 bool logoBoot = no;
 
-int64* back_buffer = NULL;
-
 void main(void) {
     if (framebuffer_request.response == null) {
         hcf2();
@@ -51,10 +49,8 @@ void main(void) {
     int64 display_memory_size = (framebuffer->width * framebuffer->height * sizeof(int64));
     init_heap(display_memory_size + (10 MB));
 
-    back_buffer = (int64*)malloc(display_memory_size);
-
     ft_ctx = flanterm_fb_simple_init(
-        back_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
+        framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
     );
     isBufferReady = yes;
 
@@ -87,6 +83,17 @@ void main(void) {
     RTL8139 = (struct rtl8139*)malloc(sizeof(struct rtl8139));
     probe_pci();
 
+    if(graphics_base_Address != null){
+        isBufferReady = no;
+        ft_ctx = flanterm_fb_simple_init(
+            graphics_base_Address, framebuffer->width, framebuffer->height, framebuffer->pitch
+        );
+        isBufferReady = yes;
+        done("Displaying using graphics card! (Goodbye framebuffer)", __FILE__);
+    }else{
+        warn("Still using framebuffer, graphics card base address is null.", __FILE__);
+    }
+
     print_cpu_info();
     print_L1_cache_info();
     print_L2_cache_info();
@@ -101,15 +108,12 @@ void main(void) {
 
     rtl8139_init(RTL8139);
 
-
     // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
     // glCreateContext();
     // glDrawLine((uvec2){0, 0}, (uvec2){10, 30}, 0xffbaddad);
     // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
     // glDrawTriangle((uvec2){110, 110}, (uvec2){200, 200}, (uvec2){200, 110}, 0xffdadbad, true);
     // glDestroyContext(null);
-
-    memcpy(framebuffer->address, back_buffer, display_memory_size);
 
     flush_heap();
 
@@ -124,7 +128,13 @@ void main(void) {
     // glDestroyContext(null);
 
     while(1){
-        process_keyboard();
+        // process_keyboard();
+
+        int8 received_buffer[1518];
+        int16 received_length;
+        if (rtl8139_receive_packet(RTL8139, received_buffer, &received_length)) {
+            print("Yep!");
+        }
     }
 }
 
