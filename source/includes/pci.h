@@ -16,6 +16,12 @@
 extern cstring display_adapter_name;
 extern cstring GPUName[1]; //Max 2 GPUs allowed
 
+extern int64* graphics_base_Address;
+
+// Define the base address for the PCI configuration space
+#define PCI_CONFIG_ADDRESS 0xCF8
+#define PCI_CONFIG_DATA    0xCFC
+
 /**
  * @brief Read a 16-bit value from a PCI configuration register.
  *
@@ -75,3 +81,34 @@ int16 getSubClassId(int16 bus, int16 device, int16 function);
  * 
  */
 void probe_pci();
+
+/**
+ * @brief Loads a int64* to a Graphics Card's base address
+ * 
+ * @param bus 
+ * @param slot 
+ * @param function 
+ */
+void load_graphics_card(int16 bus, int16 slot, int16 function);
+
+/**
+ * @brief Function to get the base address register (BAR) of the graphics card
+ * 
+ * @param bus 
+ * @param slot 
+ * @param func 
+ * @param desiredBAR 
+ * @return int64 
+ */
+int64 getGraphicsCardBAR(int8 bus, int8 slot, int8 func, int8 desiredBAR);
+
+/**
+ * @brief Function to read a 32-bit value from the PCI configuration space
+ * 
+ * @param bus 
+ * @param slot 
+ * @param func 
+ * @param offset 
+ * @return int32 
+ */
+int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset);

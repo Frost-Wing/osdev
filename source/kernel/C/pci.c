@@ -15,6 +15,55 @@
 const char* display_adapter_name = "Frost Generic Display Adapter";
 const char* GPUName[1] = {"Frost Generic Display Driver for Graphics Processing Unit."}; //Max 2 GPUs allowed
 
+int64* graphics_base_Address = null;
+
+/**
+ * @brief Function to read a 32-bit value from the PCI configuration space
+ * 
+ * @param bus 
+ * @param slot 
+ * @param func 
+ * @param offset 
+ * @return int32 
+ */
+int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset) {
+    int32 address = (1 << 31) | (bus << 16) | (slot << 11) | (func << 8) | (offset & 0xFC);
+    outl(PCI_CONFIG_ADDRESS, address);
+    return inl(PCI_CONFIG_DATA);
+}
+
+/**
+ * @brief Function to get the base address register (BAR) of the graphics card
+ * 
+ * @param bus 
+ * @param slot 
+ * @param func 
+ * @param desiredBAR 
+ * @return int64 
+ */
+int64 getGraphicsCardBAR(int8 bus, int8 slot, int8 func, int8 desiredBAR) {
+    for (int8 barIndex = 0; barIndex < 6; ++barIndex) {  // Assume there are 6 BARs, adjust as needed
+        int32 lowerBAR = pci_config_read_dword(bus, slot, func, 0x10 + barIndex * 4);
+
+        // Check if the BAR is memory-mapped (bit 0 set to 0) and not an IO space (bit 0 set to 1)
+        if ((lowerBAR & 0x1) == 0 && (lowerBAR & 0x6) == 0) {
+            // Assuming BAR is memory-mapped, so we concatenate lower and upper halves
+            int32 upperBAR = pci_config_read_dword(bus, slot, func, 0x14 + barIndex * 4);
+            int64 barAddress = ((int64)upperBAR << 32) | lowerBAR;
+
+            // Check if this is the desired BAR
+            if (barIndex == desiredBAR) {
+                return barAddress;
+            }else {
+                warn("Desired BAR not found! (case 2)", __FILE__);
+            }
+        }
+    }
+
+    warn("Desired BAR not found! (case 1)", __FILE__);
+    return 0;
+}
+
 /**
  * @brief Read a 16-bit value from a PCI configuration register.
  *
@@ -98,6 +147,29 @@ int16 getSubClassId(int16 bus, int16 device, int16 function)
         return (r0 & ~0xFF00);
 }
 
+/**
+ * @brief Loads a int64* to a Graphics Card's base address
+ * 
+ * @param bus 
+ * @param slot 
+ * @param function 
+ */
+void load_graphics_card(int16 bus, int16 slot, int16 function){
+
+    for(int8 barIndex = 0; barIndex < 6; barIndex++){
+        graphics_base_Address = getGraphicsCardBAR(bus, slot, function, barIndex);
+
+        if(graphics_base_Address != null){
+            done("Hooray! found graphics card's base address!", __FILE__);
+            return;
+        }else{
+            warn("Cannot use graphics card. (Attempting next BAR Index)", __FILE__);
+        }
+
+    }
+
+}
+
 char* vendorNames[512];
 char* deviceNames[512];
 char* classNames[512];
@@ -150,6 +222,9 @@ void probe_pci(){
                             break;
                         case 0x15ad:
                             vendorName = "VMware";
+                            break;
+                        case 0x1b36:
+                            vendorName = "Red Hat, Inc.";
                             break;
                         default:
                             unsigned char str[20];
@@ -255,17 +330,28 @@ void probe_pci(){
                     else if(vendor == 0x8086 && device == 0x3ea0 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) UHD Graphics 620 ((Whiskey Lake)";}
                     else if(vendor == 0x8086 && device == 0x3e93 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) UHD Graphics 610";}
                     else if(vendor == 0x8086 && device == 70 && classid == 0x03)     {display_adapter_name = deviceName = GPUName[0] = "Intel(R) Graphics";}
+                    else if(vendor == 0x1b36) {
+                        if(device == 0x100){
+                            display_adapter_name = deviceName = GPUName[0] = "QXL Paravirtual Graphics card";
+                        }
+                    }
                     else if(device == 0x1237){deviceName = "440FX - 82441FX PMC [Natoma]";}
                     else if(device == 0x7000){deviceName = "82371SB PIIX3 ISA [Natoma/Triton II]";}
                     else if(device == 0x7010){deviceName = "82371SB PIIX3 IDE [Natoma/Triton II]";}
                     else if(device == 0x7113){deviceName = "82371AB/EB/MB PIIX4 ACPI";}
                     else if(device == 0x100e){deviceName = "82540EM Gigabit Ethernet Controller";}
-                    else if(device == 0x1111){display_adapter_name = deviceName = GPUName[0] = "Qemu Virtual Graphics";}
+                    else if(device == 0x1111){
+                        display_adapter_name = deviceName = GPUName[0] = "Qemu Virtual Graphics";
+                        load_graphics_card(bus, slot, function);
+                    }
                     else if(vendor == 0x1ff7 && device == 0x001a){deviceName = "Human Interface Device";}
                     else if(vendor == 0x04b4 && device == 0x1006){deviceName = "Human Interface Device";}
                     else if(vendor == 0x04e8 && device == 0x7081){deviceName = "Human Interface Device";}
                     else if(vendor == 5549 && device == 1029){display_adapter_name = deviceName = GPUName[0] = "VMware SVGA Graphics";}
                     else if(vendor == 4115 && device == 184){display_adapter_name = deviceName = GPUName[0] = "Cirrus Graphics";}
+                    else if(classid == 0x03 && (vendor != 0x1b36 && device != 0x100)){
+                        load_graphics_card(bus, slot, function);
+                    }
                     else {
                         unsigned char str[20];
                         itoa(device, str, sizeof(str), 16);
@@ -274,7 +360,7 @@ void probe_pci(){
 
                     if(vendor == 0x10EC){
                         if(device == 0x8139){ // Indeed it is an RTL8139 Card
-                            RTL8139->io_base = (uint16_t)(pci_read_word(bus, slot, 0, RTL8139_IOADDR1) & 0xFFFC);
+                            RTL8139->io_base = (int16)(pci_read_word(bus, slot, 0, RTL8139_IOADDR1) & 0xFFFC);
                             deviceName = "RTL8139 Networking Card";
                         }
                     }
