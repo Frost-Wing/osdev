@@ -39,6 +39,8 @@ struct limine_framebuffer *framebuffer = null;
 bool isBufferReady = no;
 bool logoBoot = no;
 
+int64* back_buffer = NULL;
+
 void main(void) {
     if (framebuffer_request.response == null) {
         hcf2();
@@ -46,8 +48,13 @@ void main(void) {
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
+    int64 display_memory_size = (framebuffer->width * framebuffer->height * sizeof(int64));
+    init_heap(display_memory_size + (10 MB));
+
+    back_buffer = (int64*)malloc(display_memory_size);
+
     ft_ctx = flanterm_fb_simple_init(
-        framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
+        back_buffer, framebuffer->width, framebuffer->height, framebuffer->pitch
     );
     isBufferReady = yes;
 
@@ -77,7 +84,6 @@ void main(void) {
         gdt_init();
         probe_serial();
     }
-    init_heap(2 MB);
     RTL8139 = (struct rtl8139*)malloc(sizeof(struct rtl8139));
     probe_pci();
 
@@ -105,6 +111,8 @@ void main(void) {
     // glDestroyContext(null);
 
     beep(1000, 1);
+
+    memcpy(framebuffer->address, back_buffer, display_memory_size);
 
     done("No process pending.\npress \'F10\' to call ACPI Shutdown.\n", __FILE__);
 
