@@ -125,45 +125,109 @@ void probe_pci(){
                     const char* deviceName;
                     const char* className;
 
-                    if(vendor == 0x8086 || vendor == 0x8087) vendorName = "Intel Corp.";
-                    else if(vendor == 0x03e7) vendorName = "Intel";
-                    else if(vendor == 0x10DE) vendorName = "NVIDIA";
-                    else if(vendor == 0x1002) vendorName = "AMD";
-                    else if(vendor == 0x1234) vendorName = "Brain Actuated Technologies";
-                    else if(vendor == 0x168c) vendorName = "Qualcomm Atheros";
-                    else if(vendor == 0x10EC) vendorName = "Realtek Semiconductor Co., Ltd.";
-                    else {
-                        unsigned char str[20];
-                        itoa(vendor, str, sizeof(str), 16);
-                        vendorName = str;
+                    switch (vendor) {
+                        case 0x8086:
+                        case 0x8087:
+                            vendorName = "Intel Corp.";
+                            break;
+                        case 0x03e7:
+                            vendorName = "Intel";
+                            break;
+                        case 0x10DE:
+                            vendorName = "NVIDIA";
+                            break;
+                        case 0x1002:
+                            vendorName = "AMD";
+                            break;
+                        case 0x1234:
+                            vendorName = "Brain Actuated Technologies";
+                            break;
+                        case 0x168c:
+                            vendorName = "Qualcomm Atheros";
+                            break;
+                        case 0x10EC:
+                            vendorName = "Realtek Semiconductor Co., Ltd.";
+                            break;
+                        case 0x15ad:
+                            vendorName = "VMware";
+                            break;
+                        default:
+                            unsigned char str[20];
+                            itoa(vendor, str, sizeof(str), 16);
+                            vendorName = str;
                     }
 
-                    if(classid == 0x01) className = "Mass Storage Controller";
-                    else if(classid == 0x02) className = "Network Controller";
-                    else if(classid == 0x03) className = "Display Controller";
-                    else if(classid == 0x04) className = "Multimedia Controller";
-                    else if(classid == 0x05) className = "Memory Controller";
-                    else if(classid == 0x06) className = "Bridge Device";
-                    else if(classid == 0x07) className = "Simple Communication Controller";
-                    else if(classid == 0x08) className = "Base System Peripheral";
-                    else if(classid == 0x09) className = "Input Device";
-                    else if(classid == 0x0a) className = "Docking Station";
-                    else if(classid == 0x0b) className = "Processor";
-                    else if(classid == 0x0c) className = "Serial Bus Controller";
-                    else if(classid == 0x0d) className = "Wireless Controller";
-                    else if(classid == 0x0e) className = "Intelligent Controller";
-                    else if(classid == 0x0f) className = "Satellite Communication Controller";
-                    else if(classid == 0x10) className = "Encryption/Decryption Controller";
-                    else if(classid == 0x11) className = "Data Acquisition and Signal Processing Controller";
-                    else if(classid == 0x12) className = "Processing Accelerator";
-                    else if(classid == 0x13) className = "Non-Essential Instrumentation";
-                    else if(classid == 0x40) className = "Video Device";
-                    else if(classid == 0x80) className = "Unassigned";
-                    else {
-                        unsigned char str[20];
-                        itoa(classid, str, sizeof(str), 16);
-                        className = str;
+
+                    switch (classid) {
+                        case 0x01:
+                            className = "Mass Storage Controller";
+                            break;
+                        case 0x02:
+                            className = "Network Controller";
+                            break;
+                        case 0x03:
+                            className = "Display Controller";
+                            break;
+                        case 0x04:
+                            className = "Multimedia Controller";
+                            break;
+                        case 0x05:
+                            className = "Memory Controller";
+                            break;
+                        case 0x06:
+                            className = "Bridge Device";
+                            break;
+                        case 0x07:
+                            className = "Simple Communication Controller";
+                            break;
+                        case 0x08:
+                            className = "Base System Peripheral";
+                            break;
+                        case 0x09:
+                            className = "Input Device";
+                            break;
+                        case 0x0a:
+                            className = "Docking Station";
+                            break;
+                        case 0x0b:
+                            className = "Processor";
+                            break;
+                        case 0x0c:
+                            className = "Serial Bus Controller";
+                            break;
+                        case 0x0d:
+                            className = "Wireless Controller";
+                            break;
+                        case 0x0e:
+                            className = "Intelligent Controller";
+                            break;
+                        case 0x0f:
+                            className = "Satellite Communication Controller";
+                            break;
+                        case 0x10:
+                            className = "Encryption/Decryption Controller";
+                            break;
+                        case 0x11:
+                            className = "Data Acquisition and Signal Processing Controller";
+                            break;
+                        case 0x12:
+                            className = "Processing Accelerator";
+                            break;
+                        case 0x13:
+                            className = "Non-Essential Instrumentation";
+                            break;
+                        case 0x40:
+                            className = "Video Device";
+                            break;
+                        case 0x80:
+                            className = "Unassigned";
+                            break;
+                        default:
+                            unsigned char str[20];
+                            itoa(classid, str, sizeof(str), 16);
+                            className = str;
                     }
+
 
                     if(device == 0x29C0) deviceName = "Express DRAM Controller";
                     else if(device == 0x2918) deviceName = "LPC Interface Controller";
