@@ -101,7 +101,6 @@ void main(void) {
 
     rtl8139_init(RTL8139);
 
-    flush_heap();
 
     // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
     // glCreateContext();
@@ -110,9 +109,9 @@ void main(void) {
     // glDrawTriangle((uvec2){110, 110}, (uvec2){200, 200}, (uvec2){200, 110}, 0xffdadbad, true);
     // glDestroyContext(null);
 
-    beep(1000, 1);
-
     memcpy(framebuffer->address, back_buffer, display_memory_size);
+
+    flush_heap();
 
     done("No process pending.\npress \'F10\' to call ACPI Shutdown.\n", __FILE__);
 
