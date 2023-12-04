@@ -84,6 +84,7 @@ void main(void) {
     probe_pci();
 
     if(graphics_base_Address != null){
+        // while(1);
         isBufferReady = no;
         ft_ctx = flanterm_fb_simple_init(
             graphics_base_Address, framebuffer->width, framebuffer->height, framebuffer->pitch
