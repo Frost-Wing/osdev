@@ -90,6 +90,9 @@ void main(void) {
         );
         isBufferReady = yes;
         done("Displaying using graphics card! (Goodbye framebuffer)", __FILE__);
+        print("Graphics card used is " green_color);
+        print(GPUName[0]);
+        print(reset_color "\n");
     }else{
         warn("Still using framebuffer, graphics card base address is null.", __FILE__);
     }
