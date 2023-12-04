@@ -223,6 +223,7 @@ void probe_pci(){
                         case 0x15ad:
                             vendorName = "VMware";
                             break;
+                        case 0x1af4:
                         case 0x1b36:
                             vendorName = "Red Hat, Inc.";
                             break;
@@ -335,6 +336,12 @@ void probe_pci(){
                             display_adapter_name = deviceName = GPUName[0] = "QXL Paravirtual Graphics card";
                         }
                     }
+                    else if(vendor == 0x1af4){
+                        if(device == 0x1050){
+                            display_adapter_name = deviceName = GPUName[0] = "Virtio graphics card";
+                            load_graphics_card(bus, slot, function);
+                        }
+                    }
                     else if(device == 0x1237){deviceName = "440FX - 82441FX PMC [Natoma]";}
                     else if(device == 0x7000){deviceName = "82371SB PIIX3 ISA [Natoma/Triton II]";}
                     else if(device == 0x7010){deviceName = "82371SB PIIX3 IDE [Natoma/Triton II]";}
@@ -391,6 +398,9 @@ void probe_pci(){
                     vendorNames[i] = vendorName;
                     deviceNames[i] = deviceName;
                     classNames[i] = className;
+                    vendorName = "";
+                    deviceName = "";
+                    className = "";
                     i++;
             }
         }
