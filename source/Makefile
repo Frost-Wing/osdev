@@ -90,9 +90,9 @@ ifeq ($(ARCH),x86_64)
         -march=x86-64 \
         -mno-80387 \
         -mno-mmx \
-        -mno-sse \
+        -mno-red-zone \
         -mno-sse2 \
-        -mno-red-zone
+        -mno-sse
     override LDFLAGS += \
         -m elf_x86_64
     override NASMFLAGS += \
