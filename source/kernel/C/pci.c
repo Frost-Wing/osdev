@@ -295,6 +295,9 @@ void probe_pci(){
                         case 0x40:
                             className = "Video Device";
                             break;
+                        case 0x0106:
+                            className = "SATA controllers";
+                            break;
                         case 0x80:
                             className = "Unassigned";
                             break;
@@ -302,6 +305,10 @@ void probe_pci(){
                             unsigned char str[20];
                             itoa(classid, str, sizeof(str), 16);
                             className = str;
+                    }
+
+                    if(subclassid == 0x01 && classid == 0x0106){ // Indeed it is a SATA controller
+                        ahci_bar = pci_read_word(bus, slot, 0, 0x10);
                     }
 
 
