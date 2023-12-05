@@ -27,7 +27,7 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 - [FrostWing Team](#frostwing-team)
 
 ## Images
-![QEMU Picture of FrostWing running.](https://imgur.com/GQq7iAX.png)
+[![QEMU Picture of FrostWing running.](https://imgur.com/l5aguXH.png)](https://imgur.com/l5aguXH.png)
 
 ## Getting Started
 
@@ -101,10 +101,17 @@ The main html file is located at: `docs/html/index.html`
 
 Visit [Doxygen Documentation for FrostWing](https://frost-wing.github.io/doxygen-docs/) for pre-compiled documentations
 ### Hardware/Software (Emulator) Requirements
+#### Minimum Requirements
 - **CPU** Currently any x86_64 proccessor
 - **RAM** 75 MB
 - **Storage** Nothing required yet.
 - **Graphics** Only Framebuffer.
+
+#### Recommended Requirements
+- **CPU** Currently any x86_64 proccessor
+- **RAM** 128 MB
+- **Storage** Nothing required yet.
+- **Graphics** Integrated Graphics
 
 ### Running FrostWing
 
