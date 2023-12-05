@@ -1,3 +1,13 @@
+/**
+ * @file 8139.c
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief The driver for RTL8139 Networking Card.
+ * @version 0.1
+ * @date 2023-12-05
+ * 
+ * @copyright Copyright (c) Pradosh 2023
+ * 
+ */
 #include <drivers/rtl8139.h>
 
 struct rtl8139* RTL8139 = NULL;
@@ -10,11 +20,7 @@ void read_mac_address(struct rtl8139* nic) {
     }
 }
 
-/**
- * @brief Initialize RTL8139 NIC
- * 
- * @param nic the pointer to RTL structure
- */
+// Initialize RTL8139 NIC
 void rtl8139_init(struct rtl8139* nic) {
     info("Initialization started!", __FILE__);
     // Reset the NIC
@@ -54,15 +60,7 @@ bool rtl8139_send_packet(struct rtl8139* nic, const int8* data, int16 length) {
     return yes; // Return yes if transmission was successful, no otherwise
 }
 
-/**
- * @brief Receives a packet
- * 
- * @param nic the pointer to RTL structure
- * @param buffer the received data
- * @param length the length of buffer
- * @return [true] Return yes if a packet was received
- * @return [false] Return false if a packet was not received
- */
+// Receives a packet
 bool rtl8139_receive_packet(struct rtl8139* nic, int8* buffer, int16* length) {
     // Check if a packet is available (status checks)
     int16 status = inw(nic->io_base + RTL8139_REG_RX_BUFFER);
