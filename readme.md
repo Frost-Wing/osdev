@@ -48,11 +48,6 @@ make -C limine
 
 - QEMU System Emulator
 
-- run the following bash command to avoid getting errors while compiling
-```bash
-touch ./source/typescript/typescript-source.c
-```
-
 ### Building FrostWing
 
 1. **Clone this repository to your local machine**
