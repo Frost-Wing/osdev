@@ -398,9 +398,9 @@ void probe_pci(){
                     vendorNames[i] = vendorName;
                     deviceNames[i] = deviceName;
                     classNames[i] = className;
-                    vendorName = "";
-                    deviceName = "";
-                    className = "";
+                    vendorName = null;
+                    deviceName = null;
+                    className = null;
                     i++;
             }
         }

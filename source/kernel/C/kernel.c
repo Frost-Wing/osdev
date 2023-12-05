@@ -123,7 +123,6 @@ void main(void) {
 
     done("No process pending.\npress \'F10\' to call ACPI Shutdown.\n", __FILE__);
 
-
     // glCreateContext();
     // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
     // glClearColor(0, 0, 0, 0xff);
@@ -132,12 +131,12 @@ void main(void) {
     // glDestroyContext(null);
 
     while(1){
-        // process_keyboard();
+        process_keyboard();
 
         int8 received_buffer[1518];
         int16 received_length;
         if (rtl8139_receive_packet(RTL8139, received_buffer, &received_length)) {
-            print("Yep!");
+            print("Yep received a packet!\n");
         }
     }
 }
@@ -149,6 +148,10 @@ void main(void) {
  */
 void print(cstring msg){
     if(!isBufferReady) return;
+    if(msg == null){
+        flanterm_write(ft_ctx, "null", 4);
+        return;
+    }
     flanterm_write(ft_ctx, msg, strlen_(msg));
 }
 
