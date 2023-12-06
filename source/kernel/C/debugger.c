@@ -32,9 +32,22 @@ void debug_putc(char c){
  * 
  * @param msg 
  */
-void debug_print(const char * msg){
+void debug_print(cstring msg){
     while(*msg){
         debug_putc(*msg);
         msg++;
     }
+}
+
+/**
+ * @brief Puts a string to the address 0xE9 using debug_putc() and prints a new line
+ * 
+ * @param msg 
+ */
+void debug_println(cstring msg){
+    while(*msg){
+        debug_putc(*msg);
+        msg++;
+    }
+    debug_putc('\n');
 }
