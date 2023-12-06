@@ -47,7 +47,7 @@ void main(void) {
     framebuffer = framebuffer_request.response->framebuffers[0];
 
     int64 display_memory_size = (framebuffer->width * framebuffer->height * sizeof(int64));
-    init_heap(display_memory_size + (10 MB));
+    init_heap(display_memory_size + (10 MiB));
 
     ft_ctx = flanterm_fb_simple_init(
         framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
