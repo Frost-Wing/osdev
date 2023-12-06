@@ -11,7 +11,8 @@ typedef uint8_t int8;
 typedef const char* cstring;
 typedef char* string;
 
-#define MB *1024*1024
+#define MiB *1024*1024
+#define KiB *1024
 
 #define yes true
 #define no false
