@@ -10,7 +10,18 @@ tarball:
 	@tar -czvf FrostWing.iso.tar.gz FrostWing.iso
 
 run-x86:
-	@qemu-system-x86_64 -vga std -debugcon stdio -serial file:serial.log -audiodev pa,id=speaker -device rtl8139,netdev=eth0 -netdev user,hostfwd=tcp::5555-:22,id=eth0 -cdrom FrostWing.iso -m 1024
+	@qemu-system-x86_64 \
+	-vga std \
+	-debugcon stdio \
+	-serial file:serial.log \
+	-audiodev pa,id=speaker \
+	-device rtl8139,netdev=eth0 \
+	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
+	-cdrom FrostWing.iso \
+	-m 1024 \
+	-drive id=disk,file=FrostWing.iso.tar.gz,if=none \
+	-device ahci,id=ahci \
+	-device ide-hd,drive=disk,bus=ahci.0
 
 everything:
 	@make clean all -C source && make all tarball run-x86

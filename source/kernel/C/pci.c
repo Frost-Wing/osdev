@@ -160,7 +160,7 @@ void load_graphics_card(int16 bus, int16 slot, int16 function){
         graphics_base_Address = getGraphicsCardBAR(bus, slot, function, barIndex);
 
         if(graphics_base_Address != null){
-            done("Hooray! found graphics card's base address!", __FILE__);
+            done("Found graphics card's base address!", __FILE__);
             return;
         }else{
             warn("Cannot use graphics card. (Attempting next BAR Index)", __FILE__);
@@ -295,9 +295,6 @@ void probe_pci(){
                         case 0x40:
                             className = "Video Device";
                             break;
-                        case 0x0106:
-                            className = "SATA controllers";
-                            break;
                         case 0x80:
                             className = "Unassigned";
                             break;
@@ -307,14 +304,11 @@ void probe_pci(){
                             className = str;
                     }
 
-                    if(subclassid == 0x01 && classid == 0x0106){ // Indeed it is a SATA controller
-                        ahci_bar = pci_read_word(bus, slot, 0, 0x10);
-                    }
-
-
                     if(device == 0x29C0) deviceName = "Express DRAM Controller";
                     else if(device == 0x2918) deviceName = "LPC Interface Controller";
-                    else if(device == 0x2922) deviceName = "6 port SATA Controller [AHCI mode]";
+                    else if(device == 0x2922) {
+                        deviceName = "6 port SATA Controller [AHCI mode]";
+                    }
                     else if(device == 0x2930) deviceName = "SMBus Controller";
                     else if(vendor == 0x1234 && device == 0x4321) deviceName = "Human Interface Device";
                     else if(vendor == 0x1002 && device == 0x10280810 && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "AMD Radeon 530";}
@@ -335,7 +329,7 @@ void probe_pci(){
                     else if(vendor == 0x8086 && device == 0x191d && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics P530";}
                     else if(vendor == 0x8086 && device == 0x3e92 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) UHD Graphics 630";}
                     else if(vendor == 0x8086 && device == 0x5917 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) UHD Graphics 620";}
-                    else if(vendor == 0x8086 && device == 0x3ea0 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) UHD Graphics 620 ((Whiskey Lake)";}
+                    else if(vendor == 0x8086 && device == 0x3ea0 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) UHD Graphics 620 (Whiskey Lake)";}
                     else if(vendor == 0x8086 && device == 0x3e93 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) UHD Graphics 610";}
                     else if(vendor == 0x8086 && device == 70 && classid == 0x03)     {display_adapter_name = deviceName = GPUName[0] = "Intel(R) Graphics";}
                     else if(vendor == 0x1b36) {
@@ -346,7 +340,7 @@ void probe_pci(){
                     else if(vendor == 0x1af4){
                         if(device == 0x1050){
                             display_adapter_name = deviceName = GPUName[0] = "Virtio graphics card";
-                            load_graphics_card(bus, slot, function);
+                            // load_graphics_card(bus, slot, function);
                         }
                     }
                     else if(device == 0x1237){deviceName = "440FX - 82441FX PMC [Natoma]";}
@@ -356,16 +350,13 @@ void probe_pci(){
                     else if(device == 0x100e){deviceName = "82540EM Gigabit Ethernet Controller";}
                     else if(device == 0x1111){
                         display_adapter_name = deviceName = GPUName[0] = "Qemu Virtual Graphics";
-                        load_graphics_card(bus, slot, function);
+                        // load_graphics_card(bus, slot, function);
                     }
                     else if(vendor == 0x1ff7 && device == 0x001a){deviceName = "Human Interface Device";}
                     else if(vendor == 0x04b4 && device == 0x1006){deviceName = "Human Interface Device";}
                     else if(vendor == 0x04e8 && device == 0x7081){deviceName = "Human Interface Device";}
                     else if(vendor == 5549 && device == 1029){display_adapter_name = deviceName = GPUName[0] = "VMware SVGA Graphics";}
                     else if(vendor == 4115 && device == 184){display_adapter_name = deviceName = GPUName[0] = "Cirrus Graphics";}
-                    else if(classid == 0x03 && (vendor != 0x1b36 && device != 0x100)){
-                        load_graphics_card(bus, slot, function);
-                    }
                     else {
                         unsigned char str[20];
                         itoa(device, str, sizeof(str), 16);
@@ -398,9 +389,22 @@ void probe_pci(){
                         else {display_adapter_name = "Frost Generic Display Adapter"; return 0;}
                     }
 
+                    if(classid == 0x03){
+                        if(vendor == 0x1b36 && device == 0x100){
+                            warn("QXL Paravirtual Graphics card is not supported by the driver.", __FILE__);
+                        }else{
+                            load_graphics_card(bus, slot, function);
+                        }
+                    }
+
                     print(green_color);
                     printf("%s : %n%t Device : %s%n%t Class  : %s", vendorName, deviceName, className);
                     print(reset_color);
+
+                    debug_println(vendorName);
+                    debug_println(deviceName);
+                    debug_println(className);
+                    
 
                     vendorNames[i] = vendorName;
                     deviceNames[i] = deviceName;
