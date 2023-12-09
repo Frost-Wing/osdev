@@ -17,6 +17,8 @@
 extern cstring display_adapter_name;
 extern cstring GPUName[1]; //Max 2 GPUs allowed
 
+extern string using_graphics_card;
+
 extern int64* graphics_base_Address;
 
 // Define the base address for the PCI configuration space
@@ -89,8 +91,9 @@ void probe_pci();
  * @param bus 
  * @param slot 
  * @param function 
+ * @param graphics_card_name
  */
-void load_graphics_card(int16 bus, int16 slot, int16 function);
+void load_graphics_card(int16 bus, int16 slot, int16 function, cstring graphics_card_name);
 
 /**
  * @brief Function to get the base address register (BAR) of the graphics card

@@ -17,6 +17,8 @@ const char* GPUName[1] = {"Frost Generic Display Driver for Graphics Processing 
 
 int64* graphics_base_Address = null;
 
+string using_graphics_card = "unknown";
+
 /**
  * @brief Function to read a 32-bit value from the PCI configuration space
  * 
@@ -153,14 +155,17 @@ int16 getSubClassId(int16 bus, int16 device, int16 function)
  * @param bus 
  * @param slot 
  * @param function 
+ * @param graphics_card_name
  */
-void load_graphics_card(int16 bus, int16 slot, int16 function){
+void load_graphics_card(int16 bus, int16 slot, int16 function, cstring graphics_card_name){
 
     for(int8 barIndex = 0; barIndex < 6; barIndex++){
         graphics_base_Address = getGraphicsCardBAR(bus, slot, function, barIndex);
 
         if(graphics_base_Address != null){
             done("Found graphics card's base address!", __FILE__);
+            // printf("%d", graphics_base_Address);
+            using_graphics_card = graphics_card_name;
             return;
         }else{
             warn("Cannot use graphics card. (Attempting next BAR Index)", __FILE__);
@@ -393,7 +398,7 @@ void probe_pci(){
                         if(vendor == 0x1b36 && device == 0x100){
                             warn("QXL Paravirtual Graphics card is not supported by the driver.", __FILE__);
                         }else{
-                            load_graphics_card(bus, slot, function);
+                            load_graphics_card(bus, slot, function, deviceName);
                         }
                     }
 
