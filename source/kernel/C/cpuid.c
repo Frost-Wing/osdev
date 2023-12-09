@@ -111,3 +111,26 @@ void print_L3_cache_info() {
     }
     printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L3 INFO)", edx & 0xff, (edx >> 12) & 0x0F, (edx >> 16) & 0xFFFF);
 }
+
+bool is_kvm_supported(){
+    int32 eax, ebx, ecx, edx;
+
+    // Check if CPUID instruction is supported
+    cpuid(0, &eax, &ebx, &ecx, &edx);
+
+    if (eax >= 1) {
+        // Check if KVM is supported
+        cpuid(1, &eax, &ebx, &ecx, &edx);
+
+        if (ecx & (1 << 31)) {
+            info("KVM is supported!", __FILE__);
+            return yes;
+        } else {
+            warn("KVM is not supported on this processor.", __FILE__);
+            return no;
+        }
+    } else {
+        warn("CPUID instruction is not supported on this processor.", __FILE__);
+        return no;
+    }
+}

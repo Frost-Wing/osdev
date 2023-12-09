@@ -77,8 +77,10 @@ void main(void) {
     }
     acpi_init();
     if(virtualized){ // The code inside this will not work on a real machine.
-        gdt_init();
         probe_serial();
+    }
+    if(!is_kvm_supported()){
+        gdt_init();
     }
     RTL8139 = (struct rtl8139*)malloc(sizeof(struct rtl8139));
     probe_pci();
