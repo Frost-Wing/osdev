@@ -8,7 +8,7 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include <kernel.h>
+#include <cc-asm.h>
 
 /**
  * @brief Halt and catch fire function.
@@ -50,19 +50,35 @@ void hcf2() {
  * 
  */
 void clear_interrupts() {
-    for (;;) {
-        #if defined(__x86_64__)
-            info("x86_64: Cleared interrupts.", __FILE__);
-            asm volatile ("cli");
-        #elif defined(__aarch64__) || defined(__riscv)
-            info("aarch64 - riscv: Cleared interrupts.", __FILE__);
-            asm volatile ("msr daifset, #2");
-        #elif defined(__arm__) || defined(__aarch32__)
-            info("ARM32: Cleared interrupts.", __FILE__);
-            asm volatile ("cpsid i");
-        #endif
-    }
+    #if defined(__x86_64__)
+        info("x86_64: Cleared interrupts.", __FILE__);
+        asm volatile ("cli");
+    #elif defined(__aarch64__) || defined(__riscv)
+        info("aarch64 - riscv: Cleared interrupts.", __FILE__);
+        asm volatile ("msr daifset, #2");
+    #elif defined(__arm__) || defined(__aarch32__)
+        info("ARM32: Cleared interrupts.", __FILE__);
+        asm volatile ("cpsid i");
+    #endif
 }
+
+/**
+ * @brief The set interrupts command for various architectures.
+ * 
+ */
+void set_interrupts() {
+    #if defined(__x86_64__)
+        info("x86_64: Set interrupts.", __FILE__);
+        asm volatile ("sti");
+    #elif defined(__aarch64__) || defined(__riscv)
+        info("aarch64 - riscv: Set interrupts.", __FILE__);
+        asm volatile ("msr daifclr, #2");
+    #elif defined(__arm__) || defined(__aarch32__)
+        info("ARM32: Set interrupts.", __FILE__);
+        asm volatile ("cpsie i");
+    #endif
+}
+
 
 /**
  * @brief It uses while loops instead of assembly's halt,

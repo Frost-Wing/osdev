@@ -14,15 +14,15 @@
 extern int fb_width;
 extern int fb_height;
 
-#define PS2Leftbutton 0b00000001
-#define PS2Middlebutton 0b00000100
-#define PS2Rightbutton 0b00000010
-#define PS2XSign 0b00010000
-#define PS2YSign 0b00100000
-#define PS2XOverflow 0b01000000
-#define PS2YOverflow 0b10000000
+#define PS2_left_button   0b00000001
+#define PS2_middle_button 0b00000100
+#define PS2_right_button  0b00000010
+#define PS2_x             0b00010000
+#define PS2_y             0b00100000
+#define PS2_x_overflow 0b01000000
+#define PS2_y_overflow 0b10000000
 
-void MouseWait(){
+void ps2_mouse_wait(){
     int64 timeout = 100000;
     while (timeout--){
         if ((inb(0x64) & 0b10) == 0){
@@ -31,7 +31,7 @@ void MouseWait(){
     }
 }
 
-void MouseWaitInput(){
+void ps2_mouse_wait_input(){
     int64 timeout = 100000;
     while (timeout--){
         if (inb(0x64) & 0b1){
@@ -40,143 +40,143 @@ void MouseWaitInput(){
     }
 }
 
-void MouseWrite(int8 value){
-    MouseWait();
+void ps2_mouse_write(int8 value){
+    ps2_mouse_wait();
     outb(0x64, 0xD4);
-    MouseWait();
+    ps2_mouse_wait();
     outb(0x60, value);
 }
 
-int8 MouseRead(){
-    MouseWaitInput();
+int8 ps2_mouse_read(){
+    ps2_mouse_wait_input();
     return inb(0x60);
 }
 
-int8 MouseCycle = 0;
-int8 MousePacket[4];
-bool MousePacketReady = false;
-uvec2 MousePosition;
-uvec2 MousePositionOld;
+int8 mouse_cycle = 0;
+int8 mouse_packet[4];
+bool isMousePacketReady = false;
+uvec2 current_mouse_position;
+uvec2 previous_mouse_position;
 
-void HandlePS2Mouse(int8 data){
+void handle_ps2_mouse(int8 data){
 
-    ProcessMousePacket();
+    process_mouse_packet();
     static bool skip = true;
-    if (skip) { skip = false; return; }
+    if (skip) {
+        skip = false;
+        return;
+    }
 
-    switch(MouseCycle){
+    switch(mouse_cycle){
         case 0:
-           
             if ((data & 0b00001000) == 0) break;
-            MousePacket[0] = data;
-            MouseCycle++;
+            mouse_packet[0] = data;
+            mouse_cycle++;
             break;
         case 1:
-           
-            MousePacket[1] = data;
-            MouseCycle++;
+            mouse_packet[1] = data;
+            mouse_cycle++;
             break;
         case 2:
-            
-            MousePacket[2] = data;
-            MousePacketReady = true;
-            MouseCycle = 0;
+            mouse_packet[2] = data;
+            isMousePacketReady = true;
+            mouse_cycle = 0;
             break;
     }
 }
 
-void ProcessMousePacket(){
-    if (!MousePacketReady) return;
+void process_mouse_packet(){
+    if (!isMousePacketReady) return;
 
         bool xNegative, yNegative, xOverflow, yOverflow;
 
-        if (MousePacket[0] & PS2XSign){
+        if (mouse_packet[0] & PS2_x){
             xNegative = true;
         }else xNegative = false;
 
-        if (MousePacket[0] & PS2YSign){
+        if (mouse_packet[0] & PS2_y){
             yNegative = true;
         }else yNegative = false;
 
-        if (MousePacket[0] & PS2XOverflow){
+        if (mouse_packet[0] & PS2_x_overflow){
             xOverflow = true;
         }else xOverflow = false;
 
-        if (MousePacket[0] & PS2YOverflow){
+        if (mouse_packet[0] & PS2_y_overflow){
             yOverflow = true;
         }else yOverflow = false;
 
         if (!xNegative){
-            MousePosition.x += MousePacket[1];
+            current_mouse_position.x += mouse_packet[1];
             if (xOverflow){
-                MousePosition.x += 255;
+                current_mouse_position.x += 255;
             }
         } else
         {
-            MousePacket[1] = 256 - MousePacket[1];
-            MousePosition.y -= MousePacket[1];
+            mouse_packet[1] = 256 - mouse_packet[1];
+            current_mouse_position.y -= mouse_packet[1];
             if (xOverflow){
-                MousePosition.x -= 255;
+                current_mouse_position.x -= 255;
             }
         }
 
         if (!yNegative){
-            MousePosition.y -= MousePacket[2];
+            current_mouse_position.y -= mouse_packet[2];
             if (yOverflow){
-                MousePosition.y -= 255;
+                current_mouse_position.y -= 255;
             }
         } else
         {
-            MousePacket[2] = 256 - MousePacket[2];
-            MousePosition.y += MousePacket[2];
+            mouse_packet[2] = 256 - mouse_packet[2];
+            current_mouse_position.y += mouse_packet[2];
             if (yOverflow){
-                MousePosition.y += 255;
+                current_mouse_position.y += 255;
             }
         }
 
-        if (MousePosition.x < 0) MousePosition.x = 0;
-        if (MousePosition.x > fb_width-1) MousePosition.x = fb_width-1;
+        if (current_mouse_position.x < 0) current_mouse_position.x = 0;
+        if (current_mouse_position.x > fb_width-1) current_mouse_position.x = fb_width-1;
         
-        if (MousePosition.y < 0) MousePosition.y = 0;
-        if (MousePosition.y > fb_height-1) MousePosition.y = fb_height-1;
+        if (current_mouse_position.y < 0) current_mouse_position.y = 0;
+        if (current_mouse_position.y > fb_height-1) current_mouse_position.y = fb_height-1;
         
-        glDrawLine((uvec2){0,0}, MousePositionOld, 0x000001);        
-        glDrawLine((uvec2){0,0}, MousePosition, 0xffffff);
+        glDrawLine((uvec2){0,0}, previous_mouse_position, 0x000001);        
+        glDrawLine((uvec2){0,0}, current_mouse_position, 0xffffff);
 
-        if (MousePacket[0] & PS2Leftbutton){
+        if (mouse_packet[0] & PS2_left_button){
 
         }
-        if (MousePacket[0] & PS2Middlebutton){
+        if (mouse_packet[0] & PS2_middle_button){
             
         }
-        if (MousePacket[0] & PS2Rightbutton){
+        if (mouse_packet[0] & PS2_right_button){
 
         }
 
-        MousePacketReady = false;
-        MousePositionOld = MousePosition;
+        isMousePacketReady = false;
+        previous_mouse_position = current_mouse_position;
 }
 
-void InitPS2Mouse(){
+void init_ps2_mouse(){
 
     outb(0x21, 0xf2);
     outb(0xa1, 0xff);
 
     outb(0x64, 0xA8); //enabling the auxiliary device - mouse
 
-    MouseWait();
+    ps2_mouse_wait();
     outb(0x64, 0x20); //tells the keyboard controller that we want to send a command to the mouse
-    MouseWaitInput();
+    ps2_mouse_wait_input();
     int8 status = inb(0x60);
     status |= 0b10;
-    MouseWait();
+    ps2_mouse_wait();
     outb(0x64, 0x60);
-    MouseWait();
+    ps2_mouse_wait();
     outb(0x60, status); // setting the correct bit is the "compaq" status byte
 
-    MouseWrite(0xF6);
-    MouseRead();
+    ps2_mouse_write(0xF6);
+    ps2_mouse_read();
 
-    MouseWrite(0xF4);
-    MouseRead();
+    ps2_mouse_write(0xF4);
+    ps2_mouse_read();
 }

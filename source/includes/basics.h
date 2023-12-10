@@ -1,3 +1,13 @@
+/**
+ * @file basics.h
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief This is a basic header files with FrostWing specific short forms and basically a good for life header
+ * @version 0.1
+ * @date 2023-12-10
+ * 
+ * @copyright Copyright (c) Pradosh 2023
+ * 
+ */
 #include <stdint.h>
 #include <stddef.h>
 
@@ -16,3 +26,13 @@ typedef char* string;
 
 #define yes true
 #define no false
+
+#define attribute __attribute__
+
+#ifdef __GNUC__
+#define deprecated_message(msg) attribute((deprecated(msg)))
+#elif defined(_MSC_VER)
+#define deprecated_message(msg) __declspec(deprecated(msg))
+#else
+#define deprecated_message(msg)
+#endif

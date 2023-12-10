@@ -57,6 +57,12 @@ void main(void) {
     );
     isBufferReady = yes;
 
+    if(framebuffer_request.response->framebuffer_count > 1){
+        info("Multiple framebuffers detected! using the first one.", __FILE__);
+    }
+
+    // init_hardware_abstraction_layer();
+
     if(logoBoot){
         print(boot_logo);
         print(" Welcome to FrostWing Operating System! (https://github.com/Frost-Wing)\n");
@@ -92,12 +98,12 @@ void main(void) {
     probe_pci();
 
     if(graphics_base_Address != null){
-        // while(1);
         isBufferReady = no;
         ft_ctx = flanterm_fb_simple_init(
             graphics_base_Address, framebuffer->width, framebuffer->height, framebuffer->pitch
         );
         isBufferReady = yes;
+        info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
         done("Displaying using graphics card! (Goodbye framebuffer)", __FILE__);
         print("Graphics card used is " green_color);
         print(using_graphics_card);
@@ -122,9 +128,7 @@ void main(void) {
 
     rtl8139_init(RTL8139);
 
-    print(yellow_color);
-    print(versions);
-    print(reset_color);
+    frost_compilation_information();
     
     // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
     // glCreateContext();
@@ -135,7 +139,7 @@ void main(void) {
 
     // glCreateContext();
     // glCreateContextCustom(graphics_base_Address, framebuffer->width, framebuffer->height);
-    // InitPS2Mouse();
+    // init_ps2_mouse();
 
     // glDestroyContext(null);
 
@@ -153,7 +157,7 @@ void main(void) {
     while(1){
         process_keyboard();
 
-        // HandlePS2Mouse(inb(0x60));
+        // handle_ps2_mouse(inb(0x60));
 
         int8 received_buffer[1518];
         int16 received_length;

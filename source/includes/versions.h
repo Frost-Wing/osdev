@@ -9,5 +9,24 @@
  * 
  */
 #include <basics.h>
+#include <graphics.h>
 
+/**
+ * @brief Contains GCC, CC, LD, MAKE, xorriso, tar versions.
+ * 
+ */
 extern cstring versions;
+
+/**
+ * @brief Contains the exact time when the compilation started.
+ * 
+ */
+extern cstring date;
+
+static void frost_compilation_information(){
+    print(yellow_color);
+    print(versions);
+    print(orange_color);
+    printf("Compiled Time (Started at): %s", date);
+    print(reset_color);
+}

@@ -12,6 +12,17 @@
 #include <stdint.h>
 #include <basics.h>
 
+#define pic1_command 0x20
+#define pic1_data 0x21
+#define pic2_command 0xA0
+#define pic2_data 0xA1
+
+/**
+ * @brief Initializes HAL by remapping the PIC interrupts to avoid conflicts
+ * 
+ */
+void init_hardware_abstraction_layer();
+
 /**
  * @brief Output a byte to the specified I/O port.
  *
