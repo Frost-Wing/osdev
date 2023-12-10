@@ -24,3 +24,8 @@ run-x86:
 
 everything:
 	@make clean all -C source && make all tarball run-x86
+
+doxygen:
+	# I coded this for my use but you can you can use it, if you know why I have this.
+	doxygen
+	cd docs/html && code . && cd ../../
