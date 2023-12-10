@@ -24,7 +24,7 @@ jobs:
       run: make -C limine
 
     - name: Build The Operating System itself
-      run: cd source && make -j4 clean && cd ../ && make -j4 -C source && make -j4
+      run: cd source && ./versions.sh && make -j4 clean && cd ../ && make -j4 -C source && make -j4
 
     - name: Upload to file.io
       run: ls && curl -F "file=@./FrostWing.iso"  https://file.io | jq
