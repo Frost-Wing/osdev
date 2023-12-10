@@ -16,3 +16,4 @@ FrostWing.iso.*
 *.gcov
 cache
 bin
+source/kernel/C/misc/versions.c

@@ -32,6 +32,7 @@
 #include <drivers/pc-speaker.h>
 #include <drivers/rtl8139.h>
 #include <boot-logo.h>
+#include <versions.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.
@@ -76,17 +77,8 @@ extern int terminal_rows;
  */
 extern int terminal_columns;
 
-/**
- * @brief The fake or pseudo frame buffer in the memory which will be queued for next frame update
- * 
- */
-extern int64* back_buffer;
-
-/**
- * @brief Direct pointer to framebuffer->address. It doesn't queue, directly writes to the memory
- * 
- */
-extern int64* front_buffer;
+extern int fb_width;
+extern int fb_height;
 
 /**
  * @brief The main kernel function
