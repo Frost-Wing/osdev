@@ -20,4 +20,6 @@ output="//! This is an auto-generated code and is not meant to be messed with.
 
 cstring versions = \"${ld_version//\"/\\\"}\\n${gcc_version//\"/\\\"}\\n${cc_version//\"/\\\"}\\n${xorriso_version//\"/\\\"}\\n${tar_version//\"/\\\"}\\n${make_version//\"/\\\"}\\n\";"
 
+mkdir -p ./kernel/C/misc
+
 echo "$output" > ./kernel/C/misc/versions.c
