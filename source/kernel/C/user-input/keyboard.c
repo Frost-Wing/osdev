@@ -50,11 +50,17 @@ void process_keyboard(){
     if(keyboard == 0x1C){ // Enter
         print("\n");
     }
+    if(keyboard == 0x43){ // F9 Key
+        display_time();
+    }
+    if(keyboard == 0x42){ // F8 Key
+        flush_heap();
+    }
     if(keyboard < sizeof(scancode_to_char_mapping)) {
-        char c = scancode_to_char(keyboard);
+        char c = '\0';
+        c = scancode_to_char(keyboard);
         print(&c);
     }
-    basic_delay();
 }
 
 void basic_delay(){

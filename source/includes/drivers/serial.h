@@ -28,6 +28,12 @@
 #define COM8 1256
 
 /**
+ * @brief The port address of non faulty serial COM
+ * 
+ */
+extern int select;
+
+/**
  * @brief Finds the working serial COM port in the OS ranging from 1-8
  * 
  */

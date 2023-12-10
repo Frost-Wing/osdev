@@ -64,7 +64,7 @@ override CFLAGS += \
     -Wno-implicit-function-declaration \
     -I includes \
     -fmax-include-depth=1000 \
-    -O3 \
+    -O3
 
 # Internal C preprocessor flags that should not be changed by the user.
 override CPPFLAGS := \
@@ -161,7 +161,7 @@ override HEADER_DEPS := $(addprefix obj/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 
 # Default target.
 .PHONY: all
-all: $(KERNEL)
+all: version_info $(KERNEL)
 
 # Link rules for the final kernel executable.
 $(KERNEL): linker/$(ARCH).ld $(OBJ)
@@ -198,3 +198,6 @@ clean:
 # Remove everything except source code
 deep-clean:
 	@rm -rf $(KERNEL) $(OBJ) $(HEADER_DEPS)
+
+version_info:
+	@./versions.sh

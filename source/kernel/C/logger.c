@@ -37,7 +37,7 @@ void warn(cstring message, cstring file) {
     serial_print(message);
     serial_print(" at ");
     serial_print(file);
-    serial_print("\n");
+    serial_print("\n\r");
 }
 
 /**
@@ -65,7 +65,7 @@ void error(cstring message, cstring file) {
     serial_print(message);
     serial_print(" at ");
     serial_print(file);
-    serial_print("\n");
+    serial_print("\n\r");
 }
 
 /**
@@ -93,7 +93,7 @@ void info(cstring message, cstring file) {
     serial_print(message);
     serial_print(" at ");
     serial_print(file);
-    serial_print("\n");
+    serial_print("\n\r");
 }
 
 /**
@@ -121,7 +121,7 @@ void done(cstring message, cstring file) {
     serial_print(message);
     serial_print(" at ");
     serial_print(file);
-    serial_print("\n");
+    serial_print("\n\r");
 }
 
 /**
