@@ -33,37 +33,13 @@
 #include <drivers/rtl8139.h>
 #include <boot-logo.h>
 #include <versions.h>
+#include <cc-asm.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.
  * 
  */
 extern int64* kend;
-
-/**
- * @brief Halt and catch fire function.
- * 
- */
-void hcf();
-
-/**
- * @brief The clear interrupts command for all architectures.
- * 
- */
-void clear_interrupts();
-
-/**
- * @brief It uses while loops instead of assembly's halt,
- * Good for Userland
- * 
- */
-void high_level_halt();
-
-/**
- * @brief Halt and catch fire function but doesn't print any text.
- * 
- */
-void hcf2();
 
 /**
  * @brief An integer value which stores terminal's rows
@@ -77,7 +53,16 @@ extern int terminal_rows;
  */
 extern int terminal_columns;
 
+/**
+ * @brief An integer value which stores the framebuffer's (display) width
+ * 
+ */
 extern int fb_width;
+
+/**
+ * @brief An integer value which stores the framebuffer's (display) height
+ * 
+ */
 extern int fb_height;
 
 /**

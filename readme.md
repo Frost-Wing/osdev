@@ -27,7 +27,7 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 - [FrostWing Team](#frostwing-team)
 
 ## Images
-[![QEMU Picture of FrostWing running.](https://imgur.com/l5aguXH.png)](https://imgur.com/l5aguXH.png)
+[![https://imgur.com/q9K2UOD.png](https://imgur.com/q9K2UOD.png)](https://imgur.com/q9K2UOD.png)
 
 ## Getting Started
 
@@ -76,7 +76,7 @@ make -C limine
     ```
 4. (Optional - Recommened) To use custom cross compiler:
     ```bash
-    make -C source ARCH="ARCH" CC="cc"
+    make -C source ARCH="xx" CC="cc"
     make
     ```
 

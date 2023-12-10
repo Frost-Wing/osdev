@@ -33,7 +33,7 @@ static inline int cpuid_string(int code, int where[4]);
  *
  * @return A constant string representing the CPU type.
  */
-const char * const cpu_string();
+cstring cpu_string();
 
 /**
  * @brief Executes the CPUID instruction and retrieves values of the specified registers.

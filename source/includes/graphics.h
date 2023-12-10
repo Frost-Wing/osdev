@@ -24,6 +24,7 @@
 #define yellow_color "\x1b[93m"
 #define blue_color   "\x1b[36m"
 #define green_color  "\x1b[32m"
+#define orange_color "\x1b[38;5;208m"
 
 /**
  * @brief Display a warning message.

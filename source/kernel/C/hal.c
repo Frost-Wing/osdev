@@ -10,6 +10,29 @@
  */
 
 #include <hal.h>
+#include <cc-asm.h>
+
+/**
+ * @brief Initializes HAL by remapping the PIC interrupts to avoid conflicts
+ * 
+ */
+deprecated_message("Do not use this! this crashes the OS, this is for a future use.")
+void init_hardware_abstraction_layer() {
+    clear_interrupts();
+
+    outb(pic1_command, 0x11);
+    outb(pic2_command, 0x11);
+    outb(pic1_data, 0x20);
+    outb(pic2_data, 0x28);
+    outb(pic1_data, 0x04);
+    outb(pic2_data, 0x02);
+    outb(pic1_data, 0x01);
+    outb(pic2_data, 0x01);
+    outb(pic1_data, 0x00);
+    outb(pic2_data, 0x00);
+
+    set_interrupts();
+}
 
 /**
  * @brief Output a byte to the specified I/O port.

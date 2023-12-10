@@ -14,10 +14,7 @@
 
 #define serial_mode 1
 
-/**
- * @brief All the list of Serial COM Ports
- * 
- */
+// The list of All Serial COM Ports
 #define COM1 1016
 #define COM2 760
 #define COM3 1000
