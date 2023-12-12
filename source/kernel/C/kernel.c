@@ -28,13 +28,30 @@ extern int typescript_main(void);
 // the compiler does not optimise them away, so, usually, they should
 // be made volatile or equivalent.
 static volatile struct limine_framebuffer_request framebuffer_request = {
-    .id = LIMINE_FRAMEBUFFER_REQUEST,
-    .revision = 0
+    LIMINE_FRAMEBUFFER_REQUEST, 0, null
 };
 
-static volatile struct limine_hhdm_request hhdm_req = {
+static volatile struct limine_hhdm_request hhdm_request = {
     LIMINE_HHDM_REQUEST, 0, null
 };
+
+static volatile struct limine_memmap_request memory_map_request = {
+    LIMINE_MEMMAP_REQUEST, 0, null
+};
+
+struct memory_context {
+    int64 total;
+    int64 usable;
+    int64 reserved;
+    int64 acpi_reclaimable;
+    int64 acpi_nvs;
+    int64 bad;
+    int64 bootloader_reclaimable;
+    int64 kernel_modules;
+    int64 framebuffer; // Mostly unneeded because frame buffer struct separately gives it,
+    int64 unknown;
+};
+
 
 struct flanterm_context *ft_ctx = null;
 struct limine_framebuffer *framebuffer = null;
@@ -95,7 +112,56 @@ void main(void) {
         gdt_init();
     }
     RTL8139 = (struct rtl8139*)malloc(sizeof(struct rtl8139));
+
+    struct memory_context memory;
+    memory.total = 0;
+    memory.usable = 0;
+    memory.reserved = 0;
+    memory.acpi_reclaimable = 0;
+    memory.acpi_nvs = 0;
+    memory.bad = 0;
+    memory.bootloader_reclaimable = 0;
+    memory.kernel_modules = 0;
+    memory.framebuffer = 0;
+    memory.unknown = 0;
+    for (size_t i = 0; i < memory_map_request.response->entry_count; ++i) {
+        printf("Base: %d, Length: %d, Type: %d", memory_map_request.response->entries[i]->base, memory_map_request.response->entries[i]->length, memory_map_request.response->entries[i]->type);
+        int length = memory_map_request.response->entries[i]->length;
+        memory.total += length;
+        switch (memory_map_request.response->entries[i]->type)
+        {
+            case 0:
+                memory.usable += length;
+                break;
+            case 1:
+                memory.reserved += length;
+                break;
+            case 2:
+                memory.acpi_reclaimable += length;
+                break;
+            case 3:
+                memory.acpi_nvs += length;
+                break;
+            case 4:
+                memory.bad += length;
+                break;
+            case 5:
+                memory.bootloader_reclaimable += length;
+                break;
+            case 6:
+                memory.kernel_modules += length;
+                break;
+            case 7:
+                memory.framebuffer += length;
+                break;
+            default:
+                memory.unknown += length;
+        }
+    }
+
     probe_pci();
+
+    sleep(2);
 
     if(graphics_base_Address != null){
         isBufferReady = no;
@@ -113,6 +179,19 @@ void main(void) {
     }
 
     printf("Display Resolution: %dx%d pixels. Pitch: %d", framebuffer->width, framebuffer->height, framebuffer->pitch);
+
+    info("Memory Values begin! ===", __FILE__);
+    printf("Usable                 : %d KiB", memory.usable / 1024);
+    printf("Reserved               : %d KiB", memory.reserved / 1024);
+    printf("ACPI Reclaimable       : %d KiB", memory.acpi_reclaimable / 1024);
+    printf("ACPI NVS               : %d KiB", memory.acpi_nvs / 1024);
+    printf("Bad                    : %d KiB", memory.bad / 1024);
+    printf("Bootloader Reclaimable : %d KiB", memory.bootloader_reclaimable / 1024);
+    printf("Kernel Modules         : %d KiB", memory.kernel_modules / 1024);
+    printf("Framebuffer            : %d KiB", memory.framebuffer / 1024);
+    printf("Unknown                : %d KiB", memory.unknown / 1024);   print(yellow_color);
+    printf("Grand Total            : %d MiB", ((memory.total / 1024)/1024)); // There is an error of 3MB always for some reason
+    info(reset_color "Memory values end! =====", __FILE__);
 
     print_cpu_info();
     print_L1_cache_info();
@@ -196,5 +275,5 @@ void putc(char c){
  * 
  */
 void shutdown(){
-    acpi_shutdown_hack(hhdm_req.response->offset, acpi_find_sdt, inb, inw, outb, outw);
+    acpi_shutdown_hack(hhdm_request.response->offset, acpi_find_sdt, inb, inw, outb, outw);
 }

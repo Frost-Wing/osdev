@@ -18,7 +18,8 @@ run-x86:
 	-device rtl8139,netdev=eth0 \
 	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
 	-cdrom FrostWing.iso \
-	-m 1024 \
+	-cpu host \
+	-m 128 \
 	-enable-kvm \
 	-no-reboot
 
