@@ -34,7 +34,6 @@ run-x86-vnc:
 	-device rtl8139,netdev=eth0 \
 	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
 	-cdrom FrostWing.iso \
-	-cpu host \
 	-m 128 \
 	-no-reboot \
 	-vnc :1 -display none &
