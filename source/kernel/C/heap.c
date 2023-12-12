@@ -31,10 +31,10 @@ void init_heap(int size) {
     free_list->size = size;
     free_list->next = null;
     print(yellow_color);
-    printf("Given Heap size  (Bytes) : %d", size);
-    printf("Holder Heap size (Bytes) : %d", sizeof(holder));
-    printf("Given Heap size  (MB)    : %dMB", size/(1024*1024));
-    printf("Holder Heap size (MB)    : %dMB", sizeof(holder)/(1024*1024));
+    printf("Given Heap size  (Bytes) : %d Bytes", size);
+    printf("Holder Heap size (Bytes) : %d Bytes", sizeof(holder));
+    printf("Given Heap size  (MB)    : %d MiB", size/(1024*1024));
+    printf("Holder Heap size (MB)    : %d MiB", sizeof(holder)/(1024*1024));
     print(reset_color);
     done("Completed successfully!", __FILE__);
 }

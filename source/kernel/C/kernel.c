@@ -48,8 +48,8 @@ struct memory_context {
     int64 bad;
     int64 bootloader_reclaimable;
     int64 kernel_modules;
-    int64 framebuffer; // Mostly unneeded because frame buffer struct separately gives it,
-    int64 unknown;
+    int64 framebuffer;            // Mostly unneeded because frame buffer struct separately gives it,
+    int64 unknown;                // This value must be always 0.
 };
 
 
@@ -192,6 +192,10 @@ void main(void) {
     printf("Unknown                : %d KiB", memory.unknown / 1024);   print(yellow_color);
     printf("Grand Total            : %d MiB", ((memory.total / 1024)/1024)); // There is an error of 3MB always for some reason
     info(reset_color "Memory values end! =====", __FILE__);
+
+    if(memory.bad != 0){
+        warn("Bad blocks of memory found, it is recommended to replace your RAM.", __FILE__);
+    }
 
     // Re-initializing heap with vast memory.
     init_heap(display_memory_size + (memory.usable / 2));
