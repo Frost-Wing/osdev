@@ -34,7 +34,10 @@ jobs:
 
     - name: Capturing Screenshot
       run: |
-        DISPLAY=:1 xwd -root -silent | convert xwd:- screenshot.png
+        export DISPLAY=:1
+        sleep 2s
+        xdotool search --onlyvisible --sync key "Ctrl+Alt+Print"
+        import -window root screenshot.png
 
     - name: Stop QEMU
       run: sudo pkill qemu
