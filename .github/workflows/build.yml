@@ -28,7 +28,7 @@ jobs:
 
     - name: Run the QEMU Emulator
       run: |
-        x11vnc -display :1 -rfbport 5900 -noxdamage -forever -bg
+        sudo x11vnc -display :1 -rfbport 5900 -noxdamage -forever -bg
         make run-x86-vnc
     
     - name: Waiting for the QEMU to start
