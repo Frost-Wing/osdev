@@ -12,7 +12,7 @@ jobs:
       run: sudo apt update
 
     - name: Install other dependencies
-      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git jq curl qemu-system-x86 novnc
+      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git jq curl qemu-system-x86 novnc imagemagick
     
     - name: Build Doxygen Documentations
       run: doxygen
@@ -34,7 +34,7 @@ jobs:
 
     - name: Capturing Screenshot
       run: |
-        DISPLAY=:1 vncsnapshot :1 screenshot.png
+        DISPLAY=:1 xwd -root -silent | convert xwd:- screenshot.png
 
     - name: Stop QEMU
       run: sudo pkill qemu
