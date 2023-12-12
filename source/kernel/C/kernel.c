@@ -193,6 +193,9 @@ void main(void) {
     printf("Grand Total            : %d MiB", ((memory.total / 1024)/1024)); // There is an error of 3MB always for some reason
     info(reset_color "Memory values end! =====", __FILE__);
 
+    // Re-initializing heap with vast memory.
+    init_heap(display_memory_size + (memory.usable / 2));
+
     print_cpu_info();
     print_L1_cache_info();
     print_L2_cache_info();

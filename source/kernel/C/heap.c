@@ -9,6 +9,7 @@
  * 
  */
 #include <heap.h>
+#include <graphics.h>
 
 // Define a block structure to manage memory allocation.
 typedef struct heap_block {
@@ -29,10 +30,12 @@ void init_heap(int size) {
     free_list = (heap_block*)holder;
     free_list->size = size;
     free_list->next = null;
-    // printf("Given Heap size  (Bytes) : %d", size);
-    // printf("Holder Heap size (Bytes) : %d", sizeof(holder));
-    // printf("Given Heap size  (MB)    : %dMB", size/(1024*1024));
-    // printf("Holder Heap size (MB)    : %dMB", sizeof(holder)/(1024*1024));
+    print(yellow_color);
+    printf("Given Heap size  (Bytes) : %d", size);
+    printf("Holder Heap size (Bytes) : %d", sizeof(holder));
+    printf("Given Heap size  (MB)    : %dMB", size/(1024*1024));
+    printf("Holder Heap size (MB)    : %dMB", sizeof(holder)/(1024*1024));
+    print(reset_color);
     done("Completed successfully!", __FILE__);
 }
 
