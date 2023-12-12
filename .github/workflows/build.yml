@@ -12,7 +12,7 @@ jobs:
       run: sudo apt update
 
     - name: Install other dependencies
-      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git jq curl qemu-system-x86 novnc imagemagick x11vnc
+      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git jq curl qemu-system-x86  
     
     - name: Build Doxygen Documentations
       run: doxygen
@@ -27,21 +27,13 @@ jobs:
       run: cd source && ./versions.sh && make -j4 clean && cd ../ && make -j4 -C source && make -j4
 
     - name: Run the QEMU Emulator
-      run: |
-        sudo x11vnc -display :1 -rfbport 5900 -noxdamage -forever -bg
-        make run-x86-vnc
+      run: make run-x86-vnc
     
     - name: Waiting for the QEMU to start
       run: sleep 5s
 
-    - name: Capturing Screenshot
-      run: |
-        vncviewer -encodings "tight" -compresslevel 9 -quality 0 localhost:5900 -fullscreen -grabpng - | convert - screenshot.png
-
     - name: Stop QEMU and VNC
-      run: |
-        sudo pkill qemu
-        sudo pkill x11vnc
+      run: sudo pkill qemu
   
     - name: Upload to file.io
-      run: ls && curl -F "file=@./FrostWing.iso"  https://file.io | jq && curl -F "file=@./screenshot.png"  https://file.io | jq
+      run: ls && curl -F "file=@./FrostWing.iso"  https://file.io
