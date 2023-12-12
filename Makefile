@@ -24,7 +24,9 @@ run-x86:
 	-no-reboot
 
 run-x86-vnc:
-	@qemu-system-x86_64 \
+	@xvfb-run \
+	-a \
+	qemu-system-x86_64 \
 	-vga std \
 	-debugcon stdio \
 	-serial file:serial.log \
@@ -34,7 +36,6 @@ run-x86-vnc:
 	-cdrom FrostWing.iso \
 	-cpu host \
 	-m 128 \
-	-enable-kvm \
 	-no-reboot \
 	-vnc :1 -display none &
 
