@@ -12,7 +12,7 @@ jobs:
       run: sudo apt update
 
     - name: Install other dependencies
-      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git jq curl qemu-system-x86 novnc imagemagick xdotool
+      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git jq curl qemu-system-x86 novnc imagemagick xvfb
     
     - name: Build Doxygen Documentations
       run: doxygen
@@ -35,8 +35,7 @@ jobs:
     - name: Capturing Screenshot
       run: |
         export DISPLAY=:1
-        sleep 2s
-        xdotool search --onlyvisible --sync key "Ctrl+Alt+Print"
+        sleep 5s  # Add a delay to allow the desktop to fully load
         import -window root screenshot.png
 
     - name: Stop QEMU
