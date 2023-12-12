@@ -24,13 +24,10 @@ run-x86:
 	-no-reboot
 
 run-x86-vnc:
-	@xvfb-run \
-	-a \
-	qemu-system-x86_64 \
+	@qemu-system-x86_64 \
 	-vga std \
 	-debugcon stdio \
 	-serial file:serial.log \
-	-audiodev pa,id=speaker \
 	-device rtl8139,netdev=eth0 \
 	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
 	-cdrom FrostWing.iso \
