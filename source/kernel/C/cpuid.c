@@ -70,7 +70,8 @@ cstring get_cpu_vendor() {
  * @brief Print CPU information, including the vendor and CPU string.
  */
 void print_cpu_info() {
-    printf("CPU Vendor: %s%nCPU String: %s", get_cpu_vendor(), cpu_string());
+    printf("CPU Vendor: %s", get_cpu_vendor());
+    printf("CPU String: %s", cpu_string());
 }
 
 /**

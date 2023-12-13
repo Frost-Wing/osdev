@@ -32,7 +32,7 @@ void meltdown_screen(const char * message, const char* file, int line, uint64_t 
     uint8_t second, minute, hour, day, month, year;
     update_system_time(&second, &minute, &hour, &day, &month, &year);
 
-    // printf("Timestamp     : %d:%d:%d %d/%d/%d\n", hour, minute, second, month, day, year);
+    printf("Timestamp     : %d:%d:%d %d/%d/%d\n", hour, minute, second, month, day, year);
     print("Error Message : \"");
     print(message);
     print("\"\n");

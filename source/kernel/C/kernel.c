@@ -125,7 +125,7 @@ void main(void) {
     memory.framebuffer = 0;
     memory.unknown = 0;
     for (size_t i = 0; i < memory_map_request.response->entry_count; ++i) {
-        printf("Base: %d, Length: %d, Type: %d", memory_map_request.response->entries[i]->base, memory_map_request.response->entries[i]->length, memory_map_request.response->entries[i]->type);
+        printf("Base: 0x%x, Length: 0x%x, Type: %d", memory_map_request.response->entries[i]->base, memory_map_request.response->entries[i]->length, memory_map_request.response->entries[i]->type);
         int length = memory_map_request.response->entries[i]->length;
         memory.total += length;
         switch (memory_map_request.response->entries[i]->type)
@@ -190,7 +190,7 @@ void main(void) {
     printf("Kernel Modules         : %d KiB", memory.kernel_modules / 1024);
     printf("Framebuffer            : %d KiB", memory.framebuffer / 1024);
     printf("Unknown                : %d KiB", memory.unknown / 1024);   print(yellow_color);
-    printf("Grand Total            : %d MiB", ((memory.total / 1024)/1024)); // There is an error of 3MB always for some reason
+    printf("Grand Total            : %d MiB", ((memory.total / 1024)/1024)-3); // There is an error of 3MB always for some reason
     info(reset_color "Memory values end! =====", __FILE__);
 
     if(memory.bad != 0){
