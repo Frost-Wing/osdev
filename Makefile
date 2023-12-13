@@ -42,3 +42,8 @@ doxygen:
 	# I coded this for my use but you can you can use it, if you know why I have this.
 	doxygen
 	cd docs/html && code . && cd ../../
+
+latest-limine:
+	rm -r limine
+	git clone https://github.com/limine-bootloader/limine.git --branch=v6.x-branch-binary --depth=1
+	make -C limine

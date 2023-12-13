@@ -10,7 +10,7 @@
  */
 #include <graphics.h>
 
-char hex_digits[] = "0123456789ABCDEF";
+static const char hex_digits[] = "0123456789abcdef";
 
 /**
  * @brief Display a warning message.
@@ -165,21 +165,24 @@ void printdec(size_t num) {
  * @param hex the hexadecimal number to be printed.
  */
 void printhex(unsigned int num) {    
-    char hex_string[8];  // Assuming a 32-bit integer
-    
-    // Convert the integer to hexadecimal
-    for (int i = 0; i < 8; i++) {
-        int shift = 28 - (i * 4);  // 4 bits per hexadecimal digit
-        int index = (num >> shift) & 0xF;
-        hex_string[i] = hex_digits[index];
+    int i;
+    char buf[17];
+
+    if (!num) {
+        print("00");
+        return;
     }
-    
-    // Null-terminate the string
-    hex_string[8] = '\0';
-    string_transport_front(hex_string, 2);
-    
-    // Use the provided print function to print the hexadecimal string
-    print(hex_string);
+
+    buf[16] = 0;
+
+    for (i = 15; num; i--) {
+        buf[i] = hex_digits[num % 16];
+        num /= 16;
+    }
+
+    i++;
+    // print("0x");
+    print(&buf[i]);
 }
 
 /**
@@ -193,35 +196,22 @@ void printf(cstring format, ...) {
     va_list argp;
     va_start(argp, format);
 
-    while (*format) {
+    while (*format != '\0') {
         if (*format == '%') {
             format++;
-            switch (*format) {
-                case 'x':
-                    printhex(va_arg(argp, size_t));
-                    break;
-                case 'd':
-                    printdec(va_arg(argp, int));
-                    break;
-                case 's':
-                    print(va_arg(argp, char*));
-                    break;
-                case 'n':
-                    print("\n");
-                    break;
-                case 't':
-                    print("\t");
-                    break;
-                default:
-                    putc('%');
-                    putc(*format);
-                    break;
+            if (*format == 'x') {
+                printhex(va_arg(argp, size_t));
+            } else if (*format == 'd') {
+                printdec(va_arg(argp, size_t));
+            } else if (*format == 's') {
+                print(va_arg(argp, char*));
             }
         } else {
             putc(*format);
         }
         format++;
     }
+
     print("\n");
     va_end(argp);
 }

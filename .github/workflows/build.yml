@@ -18,7 +18,7 @@ jobs:
       run: doxygen
 
     - name: Obtain the Limine Bootloader
-      run: git clone https://github.com/limine-bootloader/limine.git --branch=v5.x-branch-binary --depth=1
+      run: git clone https://github.com/limine-bootloader/limine.git --branch=v6.x-branch-binary --depth=1
 
     - name: Build the Limine Bootloader
       run: make -C limine
