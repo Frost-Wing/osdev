@@ -34,6 +34,7 @@
 #include <boot-logo.h>
 #include <versions.h>
 #include <cc-asm.h>
+#include <secure-boot.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.

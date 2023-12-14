@@ -196,6 +196,8 @@ void main(void) {
 
     probe_pci();
 
+    print(public_key);
+
     sleep(2);
 
     if(graphics_base_Address != null){
