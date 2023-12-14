@@ -108,7 +108,7 @@ void main(void) {
     if(virtualized){ // The code inside this will not work on a real machine.
         probe_serial();
     }
-    if(!is_kvm_supported()){
+    if(!is_kvm_supported() && virtualized){
         gdt_init();
     }
     RTL8139 = (struct rtl8139*)malloc(sizeof(struct rtl8139));
@@ -199,6 +199,8 @@ void main(void) {
 
     // Re-initializing heap with vast memory.
     init_heap(display_memory_size + (memory.usable / 2));
+
+    init_interrupts();
 
     print_cpu_info();
     print_L1_cache_info();

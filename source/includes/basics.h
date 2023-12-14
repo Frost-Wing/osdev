@@ -29,6 +29,9 @@ typedef char* string;
 
 #define attribute __attribute__
 
+#define Ghz *1000000000ULL
+#define Mhz *1000000ULL
+
 #ifdef __GNUC__
 #define deprecated_message(msg) attribute((deprecated(msg)))
 #elif defined(_MSC_VER)

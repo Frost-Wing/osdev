@@ -22,6 +22,10 @@ void read_mac_address(struct rtl8139* nic) {
 
 // Initialize RTL8139 NIC
 void rtl8139_init(struct rtl8139* nic) {
+    if(RTL8139->io_base == null || RTL8139->io_base == 0){
+        warn("RTL8139 Card is not detected but tried to initialize it. Skipping...", __FILE__);
+        return;
+    }
     info("Initialization started!", __FILE__);
     // Reset the NIC
     outw(nic->io_base + RTL8139_REG_COMMAND, RTL8139_CMD_RESET);
@@ -40,6 +44,10 @@ void rtl8139_init(struct rtl8139* nic) {
 
 // Transmit a packet
 bool rtl8139_send_packet(struct rtl8139* nic, const int8* data, int16 length) {
+    if(RTL8139->io_base == null || RTL8139->io_base == 0){
+        warn("RTL8139 Card is not detected but tried to send data to it. Skipping...", __FILE__);
+        return no;
+    }
     // Check if the NIC is ready for transmission (status checks)
     int16 status = inw(nic->io_base + RTL8139_REG_TX_STATUS);
     if ((status & 0x8000) == 0) {
@@ -62,7 +70,10 @@ bool rtl8139_send_packet(struct rtl8139* nic, const int8* data, int16 length) {
 
 // Receives a packet
 bool rtl8139_receive_packet(struct rtl8139* nic, int8* buffer, int16* length) {
-    // Check if a packet is available (status checks)
+    if(RTL8139->io_base == null || RTL8139->io_base == 0){
+        // warn("RTL8139 Card is not detected but tried to initialize it. Skipping...", __FILE__);
+        return no;
+    }
     int16 status = inw(nic->io_base + RTL8139_REG_RX_BUFFER);
     if ((status & 0x01) == 0) {
         return no; // No packet available
