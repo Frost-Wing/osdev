@@ -39,6 +39,14 @@ static volatile struct limine_memmap_request memory_map_request = {
     LIMINE_MEMMAP_REQUEST, 0, null
 };
 
+static volatile struct limine_smp_request smp_request = {
+    LIMINE_SMP_REQUEST, 0, null, 0
+};
+
+static volatile struct limine_boot_time_request boot_time_request = {
+    LIMINE_BOOT_TIME_REQUEST, 0, null
+};
+
 struct memory_context {
     int64 total;
     int64 usable;
@@ -58,6 +66,23 @@ struct limine_framebuffer *framebuffer = null;
 
 bool isBufferReady = no;
 bool logoBoot = no;
+
+int32 ctr = 0;
+
+void ap_entry(struct limine_smp_info *info) {
+#if defined (__x86_64__)
+    printf("LAPIC ID: %x", info->lapic_id);
+#elif defined (__aarch64__)
+    printf("GIC CPU Interface no.: %x", info->gic_iface_no);
+    printf("MPIDR: %x", info->mpidr);
+#elif defined (__riscv)
+    printf("Hart ID: %x", info->hartid);
+#endif
+
+    __atomic_fetch_add(&ctr, 1, __ATOMIC_SEQ_CST);
+
+    while (1);
+}
 
 void main(void) {
     if (framebuffer_request.response == null) {
@@ -166,7 +191,10 @@ void main(void) {
     if(graphics_base_Address != null){
         isBufferReady = no;
         ft_ctx = flanterm_fb_simple_init(
-            graphics_base_Address, framebuffer->width, framebuffer->height, framebuffer->pitch
+            graphics_base_Address,
+            framebuffer->width,
+            framebuffer->height,
+            framebuffer->pitch
         );
         isBufferReady = yes;
         info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
@@ -200,12 +228,25 @@ void main(void) {
     // Re-initializing heap with vast memory.
     init_heap(display_memory_size + (memory.usable / 2));
 
-    init_interrupts();
+    printf("Total CPU(s): %d", smp_request.response->cpu_count);
+    for(int i=0;i<smp_request.response->cpu_count;i++){
+        printf("Processor  ID [%d] : 0x%x", i+1, smp_request.response->cpus[i]->processor_id);
+        printf("Local APIC ID [%d] : 0x%x", i+1, smp_request.response->cpus[i]->lapic_id);
+#if defined (__x86_64__)
+        if (smp_request.response->cpus[i]->lapic_id !=  smp_request.response->bsp_lapic_id) {
+#endif
+            uint32_t old_ctr = __atomic_load_n(&ctr, __ATOMIC_SEQ_CST);
 
+            __atomic_store_n(&smp_request.response->cpus[i]->goto_address, ap_entry, __ATOMIC_SEQ_CST);
+
+            while (__atomic_load_n(&ctr, __ATOMIC_SEQ_CST) == old_ctr);
+        }
+    }
     print_cpu_info();
     print_L1_cache_info();
     print_L2_cache_info();
     print_L3_cache_info();
+
     init_rtc();
     display_time();
     
@@ -232,6 +273,8 @@ void main(void) {
     // glDestroyContext(null);
 
     flush_heap();
+
+    printf("Time took to boot : %d sec", boot_time_request.response->boot_time % 3600 % 60); // Unix to seconds conversion
 
     done("No process pending.\npress \'F10\' to call ACPI Shutdown.\n", __FILE__);
 
