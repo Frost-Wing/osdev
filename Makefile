@@ -45,6 +45,9 @@ run-x86-vnc:
 everything:
 	@make clean all -C source && make all tarball run-x86
 
+everything-sign:
+	@make clean all -C source && make sign-kernel && make all tarball run-x86
+
 doxygen:
 	# I coded this for my use but you can you can use it, if you know why I have this.
 	doxygen
@@ -54,3 +57,7 @@ latest-limine:
 	rm -r limine
 	git clone https://github.com/limine-bootloader/limine.git --branch=v6.x-branch-binary --depth=1
 	make -C limine
+
+sign-kernel:
+	@openssl dgst -sha256 -sign ./keys/private_key.pem -out ./keys/file.sig ./source/wing_kernel.elf
+	@openssl dgst -sha256 -verify ./keys/public_key.pem -signature ./keys/file.sig ./source/wing_kernel.elf
