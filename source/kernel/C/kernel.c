@@ -92,7 +92,7 @@ void main(void) {
     framebuffer = framebuffer_request.response->framebuffers[0];
 
     int64 display_memory_size = (framebuffer->width * framebuffer->height * sizeof(int64));
-    init_heap(display_memory_size + (10 MiB));
+    init_heap(3 MiB);
 
     ft_ctx = flanterm_fb_simple_init(
         framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
@@ -150,38 +150,48 @@ void main(void) {
     memory.framebuffer = 0;
     memory.unknown = 0;
     for (size_t i = 0; i < memory_map_request.response->entry_count; ++i) {
-        printf("Base: 0x%x, Length: 0x%x, Type: %d", memory_map_request.response->entries[i]->base, memory_map_request.response->entries[i]->length, memory_map_request.response->entries[i]->type);
         int length = memory_map_request.response->entries[i]->length;
         memory.total += length;
+        string type = "";
         switch (memory_map_request.response->entries[i]->type)
         {
             case 0:
                 memory.usable += length;
+                type = "Usable";
                 break;
             case 1:
                 memory.reserved += length;
+                type = "Reserved";
                 break;
             case 2:
                 memory.acpi_reclaimable += length;
+                type = "ACPI Reclaimable";
                 break;
             case 3:
                 memory.acpi_nvs += length;
+                type = "ACPI NVS";
                 break;
             case 4:
                 memory.bad += length;
+                type = "Faulty";
                 break;
             case 5:
                 memory.bootloader_reclaimable += length;
+                type = "Bootloader Reclaimable";
                 break;
             case 6:
                 memory.kernel_modules += length;
+                type = "Kernel & Modules";
                 break;
             case 7:
                 memory.framebuffer += length;
+                type = "Framebuffer";
                 break;
             default:
                 memory.unknown += length;
+                type = "Unknown";
         }
+        printf("Base: 0x%x, Length: 0x%x, Type: %s", memory_map_request.response->entries[i]->base, length, type);
     }
 
     probe_pci();
@@ -206,7 +216,7 @@ void main(void) {
         warn("Still using framebuffer, graphics card base address is null.", __FILE__);
     }
 
-    printf("Display Resolution: %dx%d pixels. Pitch: %d", framebuffer->width, framebuffer->height, framebuffer->pitch);
+    printf("Display Resolution: %dx%d (%d) pixels. Pitch: %d", framebuffer->width, framebuffer->height, framebuffer->width*framebuffer->height, framebuffer->pitch);
 
     info("Memory Values begin! ===", __FILE__);
     printf("Usable                 : %d KiB", memory.usable / 1024);
@@ -225,8 +235,12 @@ void main(void) {
         warn("Bad blocks of memory found, it is recommended to replace your RAM.", __FILE__);
     }
 
-    // Re-initializing heap with vast memory.
-    init_heap(display_memory_size + (memory.usable / 2));
+    if(((memory.total / 1024)/1024) - 3 <= 75){
+        warn("INSUFFICIENT MEMORY TO PROCEED WITH RE-INITIALIZATION HEAP!", __FILE__);
+    } else{
+        // Re-initializing heap with vast memory.
+        init_heap(display_memory_size + (memory.usable / 2));
+    }
 
     printf("Total CPU(s): %d", smp_request.response->cpu_count);
     for(int i=0;i<smp_request.response->cpu_count;i++){

@@ -105,5 +105,5 @@ void flush_heap() {
         current = next;
     }
     free_list = null;  // Reset the free_list to indicate no allocated memory remains.
-    done("Heap memory flushed!", __FILE__);
+    // done("Heap memory flushed!", __FILE__);
 }

@@ -61,3 +61,14 @@ void *memmove(void *dest, const void *src, size_t n);
  * and a positive value if 's1' is greater than 's2'.
  */
 int memcmp(const void *s1, const void *s2, size_t n);
+
+/**
+ * @brief Dump memory content from start to end.
+ *
+ * This function iterates through the memory addresses from start to end
+ * and prints the address and corresponding value in hexadecimal format.
+ *
+ * @param start Pointer to the start address of the memory to be dumped.
+ * @param end   Pointer to the end address of the memory to be dumped.
+ */
+void memory_dump(const void* start, const void* end);
