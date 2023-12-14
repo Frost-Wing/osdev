@@ -18,7 +18,7 @@
  * @param line Handler's line
  * @param error_code Error codes from registers
  */
-void meltdown_screen(const char * message, const char* file, int line, uint64_t error_code){
+void meltdown_screen(cstring message, cstring file, int line, int64 error_code){
     print("\x1b[2J");
     print("\x1b[H");
 
@@ -32,12 +32,12 @@ void meltdown_screen(const char * message, const char* file, int line, uint64_t 
     uint8_t second, minute, hour, day, month, year;
     update_system_time(&second, &minute, &hour, &day, &month, &year);
 
-    printf("Timestamp     : %d:%d:%d %d/%d/%d\n", hour, minute, second, month, day, year);
+    printf("Timestamp     : %d:%d:%d %d/%d/%d", hour, minute, second, month, day, year);
     print("Error Message : \"");
     print(message);
     print("\"\n");
     print("Error Code    : ");
-    printf("%d", error_code);
+    printf("0x%x", error_code);
     print("\n");
     print("=[ Handler Information ]=\n\t");
     print("File name   : ");
@@ -45,4 +45,11 @@ void meltdown_screen(const char * message, const char* file, int line, uint64_t 
     print("\n");
     print("\tLine number : ");
     printf("%d", line);
+    print("\n");
+
+    registers_dump();
+    print("\n");
+    frost_compilation_information();
+    
+    flush_heap();
 }
