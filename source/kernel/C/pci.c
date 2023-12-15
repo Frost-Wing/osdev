@@ -426,13 +426,12 @@ void probe_pci(){
                     }
 
                     print(green_color);
-                    printf("%s : %n%t Device : %s%n%t Class  : %s", vendorName, deviceName, className);
+                    printf("%s : Device : %s -- Class : %s", vendorName, deviceName, className);
                     print(reset_color);
 
                     debug_println(vendorName);
                     debug_println(deviceName);
-                    debug_println(className);
-                    
+                    debug_println(className);                    
 
                     vendorNames[i] = vendorName;
                     deviceNames[i] = deviceName;
