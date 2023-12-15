@@ -91,7 +91,6 @@ void main(void) {
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
-    int64 display_memory_size = (framebuffer->width * framebuffer->height * sizeof(int64));
     init_heap(3 MiB);
 
     ft_ctx = flanterm_fb_simple_init(
@@ -241,7 +240,7 @@ void main(void) {
         warn("INSUFFICIENT MEMORY TO PROCEED WITH RE-INITIALIZATION HEAP!", __FILE__);
     } else{
         // Re-initializing heap with vast memory.
-        init_heap(display_memory_size + (memory.usable / 2));
+        init_heap(memory.usable / 2);
     }
 
     printf("Total CPU(s): %d", smp_request.response->cpu_count);
@@ -274,6 +273,8 @@ void main(void) {
     rtl8139_init(RTL8139);
 
     frost_compilation_information();
+
+    print_double((double)3.1415926);
     
     // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
     // glCreateContext();
