@@ -289,11 +289,11 @@ void main(void) {
 
     flush_heap();
 
-    printf("Time took to boot : %d", boot_time_request.response->boot_time);
+    // printf("Time took to boot : %d", boot_time_request.response->boot_time);
 
-    print("press F10 for (ACPI) Shutdown.");
-    print("press F9 for (ACPI/Hard) Reboot/Reset.");
-    print("press F8 for current time.");
+    print("press F10 for (ACPI) Shutdown.\n");
+    print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
+    print("press F8 for current time.\n");
 
     done("No process pending.", __FILE__);
 
