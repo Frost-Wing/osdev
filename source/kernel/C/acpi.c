@@ -17,6 +17,7 @@
 #include <memory.h>
 #include <acpi.h>
 #include <limine.h>
+// #include <meltdown.h>
 
 typedef char symbol[];
 
@@ -37,6 +38,12 @@ struct rsdt {
     struct sdt sdt;
     symbol ptrs_start;
 } __attribute__((packed));
+
+struct fadt{
+    char signature[4];
+    uint32_t length;
+    // other fields are not necessary now
+};
 
 static bool use_xsdt;
 static struct rsdt *rsdt;
@@ -94,4 +101,36 @@ void *acpi_find_sdt(const char *signature, size_t index)
     }
 
     return NULL;
+}
+
+void acpi_reboot(){
+    clear_interrupts();
+
+    struct fadt* fadt_ptr = null;
+    fadt_ptr = (struct fadt*)acpi_find_sdt("FACP", 0);
+
+    // Check if FADT is found
+    if (fadt_ptr == NULL) {
+        meltdown_screen("FADT not present but tried to call ACPI reboot. Not possible! Hard reseting in 5 seconds.", __FILE__, __LINE__, 0xdeadbeef);
+        sleep(5);
+        hard_reset();
+    }
+
+    // 3. Write the reset value to the reset register
+    int16* reset_register = (int16*)((int_pointer)fadt_ptr + 0x30);
+    *reset_register = 0x6;
+
+    meltdown_screen("ACPI Reboot failed! Hard reset will occur in 5 seconds.", __FILE__, __LINE__, 0xfaded);
+    sleep(5);
+    hard_reset();
+}
+
+void hard_reset()
+{
+    uint8_t foo = 0x02;
+    while (foo & 0x02) foo = inb(0x64);
+    outb(0x64, 0xFE);
+
+    meltdown_screen("Hard reset failed! (what kind of shi**y computer is this?)", __FILE__, __LINE__, 0xbadbed);
+    hcf2();
 }

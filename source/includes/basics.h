@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
+typedef uintptr_t int_pointer;
 typedef uint64_t int64;
 typedef uint32_t int32;
 typedef uint16_t int16;

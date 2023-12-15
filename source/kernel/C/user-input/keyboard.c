@@ -51,16 +51,17 @@ void process_keyboard(){
         print("\n");
     }
     if(keyboard == 0x43){ // F9 Key
-        display_time();
+        acpi_reboot();
     }
     if(keyboard == 0x42){ // F8 Key
-        flush_heap();
+        display_time();
     }
     if(keyboard < sizeof(scancode_to_char_mapping)) {
         char c = '\0';
         c = scancode_to_char(keyboard);
         print(&c);
     }
+    basic_delay();
 }
 
 void basic_delay(){
