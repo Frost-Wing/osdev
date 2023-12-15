@@ -28,7 +28,14 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 - [FrostWing Team](#frostwing-team)
 
 ## Images
-[![https://imgur.com/q9K2UOD.png](https://imgur.com/q9K2UOD.png)](https://imgur.com/q9K2UOD.png)
+### Running (Early Booting)
+[![https://imgur.com/xY5Qzac.png](https://imgur.com/xY5Qzac.png)](https://imgur.com/xY5Qzac.png)
+
+### Running (Graphics Screen)
+[![https://imgur.com/22Uwf8a.png](https://imgur.com/22Uwf8a.png)](https://imgur.com/22Uwf8a.png)
+
+### Meltdown (Panic) Screen
+[![https://imgur.com/HqYJvMK.png](https://imgur.com/HqYJvMK.png)](https://imgur.com/HqYJvMK.png)
 
 ## Currently working Features
 - ACPI
