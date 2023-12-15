@@ -20,6 +20,18 @@ char fxsave_region[512] __attribute__((aligned(16)));
  */
 void load_complete_sse(){
     #if defined (__x86_64__)
+        asm volatile (
+            "mov %%cr0, %%rax\n"
+            "and $0xFFFB, %%ax\n"
+            "or $0x2, %%ax\n"
+            "mov %%rax, %%cr0\n"
+            "mov %%cr4, %%rax\n"
+            "or $0x600, %%ax\n"  // Set bit 9 (OSFXSR) and bit 10 (OSXMMEXCPT)
+            "mov %%rax, %%cr4\n"
+            :
+            :
+            : "rax"
+        );
         asm volatile(" fxsave %0 "::"m"(fxsave_region));
         done("Completely loaded SSE!", __FILE__);
     #endif
@@ -44,6 +56,7 @@ void check_sse(){
         }else{
             int sseVersion = (ecx >> 25) & 0x7;
             done("SSE detected!", __FILE__);
+            printf("SSE Version : %d", sseVersion);
         }
     #endif
 }
