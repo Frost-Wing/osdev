@@ -34,6 +34,8 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 - ACPI
     - Shutdown
     - Reboot
+- AHCI
+    - Detecting Disks
 - CPU-ID
 - GDT
 - Hardware abstraction layer
