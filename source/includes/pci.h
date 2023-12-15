@@ -116,3 +116,14 @@ int64 get_graphics_card_bar_address(int8 bus, int8 slot, int8 func, int8 desired
  * @return int32 
  */
 int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset);
+
+/**
+ * @brief Gets the AHCI bar address
+ * 
+ * @param bus The PCI bus number.
+ * @param slot The PCI slot number.
+ * @param func The PCI function number.
+ * @param bar_num The Base Address Register Number.
+ * @return int32 
+ */
+int32 get_ahci_bar_address(int8 bus, int slot, int func, int bar_num);

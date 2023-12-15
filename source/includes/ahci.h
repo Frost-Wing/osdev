@@ -1,10 +1,15 @@
 #include <basics.h>
 
-#define AHCI_PORT_BASE   0x400
+#define AHCI_PORT_BASE    0x400
 
-#define AHCI_PORT_CMD_ST 0x1
+#define AHCI_PORT_CMD_ST  0x1
 #define AHCI_PORT_CMD_FRE 0x10
 #define AHCI_PORT_CMD_FR  0x400
+
+#define sata_disk         0x00000101
+#define satapi_disk       0xEB140101
+#define semb_disk         0xC33C0101
+#define port_multiplier   0x96690101
 
 typedef volatile struct {
     int32 clb;         // Command List Base Address, 1K-byte aligned
@@ -45,4 +50,9 @@ typedef volatile struct {
     ahci_port ports[32];   // Port control registers
 } ahci_controller;
 
+/**
+ * @brief Probes and detects all the AHCI Devices
+ * 
+ * @param ahci_ctrl The pointer to the ahci_controller structure or BAR of AHCI
+ */
 void detect_ahci_devices(ahci_controller* ahci_ctrl);
