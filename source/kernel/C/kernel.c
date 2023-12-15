@@ -273,8 +273,6 @@ void main(void) {
     rtl8139_init(RTL8139);
 
     frost_compilation_information();
-
-    print_double((double)3.1415926);
     
     // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
     // glCreateContext();
