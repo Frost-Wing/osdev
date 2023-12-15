@@ -25,6 +25,11 @@ run-x86:
 	-device rtl8139,netdev=eth0 \
 	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
 	-cdrom FrostWing.iso \
+	-drive id=disk,file=FrostWing.iso.tar.gz,if=none \
+	-device ahci,id=ahci \
+	-device ide-hd,drive=disk,bus=ahci.0 \
+	-drive file=FrostWing.iso.tar.gz.sha256,format=raw,if=none,id=cd \
+  	-device ide-cd,bus=ahci.1,drive=cd \
 	-cpu host \
 	-m 128 \
 	-enable-kvm \
