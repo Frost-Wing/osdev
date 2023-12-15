@@ -14,6 +14,7 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 ## Table of Contents
 
 - [Images](#images)
+- [Features](#currently-working-features)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Building FrostWing](#building-FrostWing)
@@ -29,6 +30,33 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 ## Images
 [![https://imgur.com/q9K2UOD.png](https://imgur.com/q9K2UOD.png)](https://imgur.com/q9K2UOD.png)
 
+## Currently working Features
+- ACPI
+    - Shutdown
+    - Reboot
+- CPU-ID
+- GDT
+- Hardware abstraction layer
+- Heap memory allocator
+    - malloc
+    - free
+- PCI
+- Real Time Clock
+- Secure Boot
+- PS/2
+    - Keyboard
+    - Mouse
+- Graphics
+    - OpenGL Renderer
+    - Terminal emulator
+    - Graphics card support
+- Networking
+    - Ethernet
+        - RTL Cards
+            - RTL-8139 Networking
+- Serial communications (with Arduino, NodeMCU, Sparkfun, etc.)
+- Audio
+    - PC Speaker
 ## Getting Started
 
 ### Prerequisites
