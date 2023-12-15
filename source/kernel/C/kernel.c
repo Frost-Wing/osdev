@@ -290,9 +290,13 @@ void main(void) {
 
     flush_heap();
 
-    printf("Time took to boot : %d sec", boot_time_request.response->boot_time % 3600 % 60); // Unix to seconds conversion
+    printf("Time took to boot : %d", boot_time_request.response->boot_time);
 
-    done("No process pending.\npress \'F10\' to call ACPI Shutdown.\n", __FILE__);
+    print("press F10 for (ACPI) Shutdown.");
+    print("press F9 for (ACPI/Hard) Reboot/Reset.");
+    print("press F8 for current time.");
+
+    done("No process pending.", __FILE__);
 
     // glCreateContext();
     // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
