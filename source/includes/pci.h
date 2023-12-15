@@ -104,7 +104,7 @@ void load_graphics_card(int16 bus, int16 slot, int16 function, cstring graphics_
  * @param desiredBAR 
  * @return int64 
  */
-int64 getGraphicsCardBAR(int8 bus, int8 slot, int8 func, int8 desiredBAR);
+int64 get_graphics_card_bar_address(int8 bus, int8 slot, int8 func, int8 desiredBAR);
 
 /**
  * @brief Function to read a 32-bit value from the PCI configuration space

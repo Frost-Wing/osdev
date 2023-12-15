@@ -9,6 +9,7 @@
  * 
  */
 #include <stdint.h>
+#include <ahci.h>
 #include <hal.h>
 #include <pci.h>
 
@@ -43,7 +44,7 @@ int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset) {
  * @param desiredBAR 
  * @return int64 
  */
-int64 getGraphicsCardBAR(int8 bus, int8 slot, int8 func, int8 desiredBAR) {
+int64 get_graphics_card_bar_address(int8 bus, int8 slot, int8 func, int8 desiredBAR) {
     for (int8 barIndex = 0; barIndex < 6; ++barIndex) {  // Assume there are 6 BARs, adjust as needed
         int32 lowerBAR = pci_config_read_dword(bus, slot, func, 0x10 + barIndex * 4);
 
@@ -64,6 +65,12 @@ int64 getGraphicsCardBAR(int8 bus, int8 slot, int8 func, int8 desiredBAR) {
 
     warn("Desired BAR not found! (case 1)", __FILE__);
     return 0;
+}
+
+int32 get_ahci_bar_address(int8 bus, int slot, int func, int bar_num) {
+    int bar_offset = 0x10 + (bar_num * 4);
+
+    return pci_config_read_dword(bus, slot, func, bar_offset);
 }
 
 /**
@@ -160,7 +167,7 @@ int16 getSubClassId(int16 bus, int16 device, int16 function)
 void load_graphics_card(int16 bus, int16 slot, int16 function, cstring graphics_card_name){
 
     for(int8 barIndex = 0; barIndex < 6; barIndex++){
-        graphics_base_Address = getGraphicsCardBAR(bus, slot, function, barIndex);
+        graphics_base_Address = get_graphics_card_bar_address(bus, slot, function, barIndex);
 
         if(graphics_base_Address != null){
             done("Found graphics card's base address!", __FILE__);
@@ -313,6 +320,13 @@ void probe_pci(){
                     else if(device == 0x2918) deviceName = "LPC Interface Controller";
                     else if(device == 0x2922) {
                         deviceName = "6 port SATA Controller [AHCI mode]";
+                        ahci_controller* ahci_ctrl = (ahci_controller*)pci_config_read_dword(bus, slot, function, 0x24);
+                        if(ahci_ctrl != null || ahci_ctrl != 0){
+                            done("Found AHCI BAR!", __FILE__);
+                            detect_ahci_devices(ahci_ctrl);
+                        }else{
+                            warn("Failed to find the BAR address of AHCI!", __FILE__);
+                        }
                     }
                     else if(device == 0x2930) deviceName = "SMBus Controller";
                     else if(vendor == 0x1234 && device == 0x4321) deviceName = "Human Interface Device";

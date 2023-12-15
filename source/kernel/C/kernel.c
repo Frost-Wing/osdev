@@ -197,7 +197,7 @@ void main(void) {
 
     print(public_key);
 
-    sleep(2);
+    sleep(2);    
 
     if(graphics_base_Address != null){
         isBufferReady = no;
