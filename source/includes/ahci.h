@@ -1,3 +1,13 @@
+/**
+ * @file ahci.h
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief The headers for AHCI Driver.
+ * @version 0.1
+ * @date 2023-12-16
+ * 
+ * @copyright Copyright (c) Pradosh 2023
+ * 
+ */
 #include <basics.h>
 
 #define AHCI_PORT_BASE    0x400
