@@ -10,7 +10,10 @@
  */
 
 #include <basics.h>
+#include <stdbool.h>
 #include <hal.h>
+
+bool enable_keyboard = yes;
 
 /**
  * @brief All the chars for specific scan codes
@@ -43,14 +46,18 @@ char scancode_to_char(unsigned char scancode) {
  * 
  */
 void process_keyboard(){
+    if(!enable_keyboard) return;
+
     int keyboard = inb(0x60);
     if(keyboard == 0x44){ // F10 Key
+        enable_keyboard = no;
         shutdown();
     }
     if(keyboard == 0x1C){ // Enter
         print("\n");
     }
     if(keyboard == 0x43){ // F9 Key
+        enable_keyboard = no;
         acpi_reboot();
     }
     if(keyboard == 0x42){ // F8 Key
