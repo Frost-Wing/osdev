@@ -45,13 +45,24 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
     - Detecting Disks
 - CPU-ID
 - GDT
+    - BIOS
+    - UEFI
 - Hardware abstraction layer
-- Heap memory allocator
-    - malloc
-    - free
+- Memory
+    - Heap memory allocator
+        - malloc
+        - free
+    - Paging
+        - allocate pages
+        - free pages
 - PCI
+    - Probing
+    - Initializing required drivers
+    - Storing the devices list
 - Real Time Clock
 - Secure Boot
+    - UEFI
+    - BIOS
 - PS/2
     - Keyboard
     - Mouse

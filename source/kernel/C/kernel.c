@@ -197,7 +197,7 @@ void main(void) {
 
     print(public_key);
 
-    warn("Kernel might hang here one a while, reboot to fix the issue.", __FILE__);
+    warn("Kernel might hang here once in a while, reboot to fix the issue.", __FILE__);
 
     sleep(1);
 
@@ -275,7 +275,20 @@ void main(void) {
     rtl8139_init(RTL8139);
 
     frost_compilation_information();
+
+    initialize_page_bitmap();
+
+    int64* test = allocate_page();
+
+    if(test != null){
+        done("Paging works!", __FILE__);
+        printf("Address = 0x%x", (int)test);
+    }else{
+        warn("Paging didn't work!", __FILE__);
+    }
     
+    free_page(test);
+
     // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
     // glCreateContext();
     // glDrawLine((uvec2){0, 0}, (uvec2){10, 30}, 0xffbaddad);
