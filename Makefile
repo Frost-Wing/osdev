@@ -8,6 +8,14 @@ all:
 	limine/limine-bios-cd.bin \
 	limine/limine-uefi-cd.bin \
 	disk_root/
+
+	@mkdir -p disk_root/EFI/BOOT
+	@cp -v \
+	limine/BOOTX64.EFI \
+	limine/BOOTAA64.EFI \
+	limine/BOOTIA32.EFI \
+	limine/BOOTRISCV64.EFI \
+	disk_root/EFI/BOOT/
 	
 	@xorriso -as mkisofs -b limine-bios-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-uefi-cd.bin -efi-boot-part --efi-boot-image --protective-msdos-label disk_root -o FrostWing.iso
 
@@ -25,15 +33,14 @@ run-x86:
 	-device rtl8139,netdev=eth0 \
 	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
 	-cdrom FrostWing.iso \
-	-drive id=disk,file=FrostWing.iso.tar.gz,if=none \
+	-drive id=disk,file=FrostWing.iso.tar.gz.sha256,if=none \
 	-device ahci,id=ahci \
 	-device ide-hd,drive=disk,bus=ahci.0 \
-	-drive file=FrostWing.iso.tar.gz.sha256,format=raw,if=none,id=cd \
-  	-device ide-cd,bus=ahci.1,drive=cd \
 	-cpu host \
-	-m 128 \
+	-m 512 \
 	-enable-kvm \
 	-no-reboot
+	# -bios firmware/uefi/64.bin
 
 run-x86-vnc:
 	@qemu-system-x86_64 \
