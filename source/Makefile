@@ -153,8 +153,8 @@ override LDFLAGS += \
 override CFILES := $(shell find -L * -type f -name '*.c')
 
 # These are disabled because we don't want plain assembly code which will break the compiler for diffrent arch.
-# override ASFILES := $(shell find -L * -type f -name '*.S')
-# override NASMFILES := $(shell find -L * -type f -name '*.asm')
+override ASFILES := $(shell find -L * -type f -name '*.S')
+override NASMFILES := $(shell find -L * -type f -name '*.asm')
 
 override OBJ := $(addprefix obj/,$(CFILES:.c=.c.o) $(ASFILES:.S=.S.o) $(NASMFILES:.asm=.asm.o))
 override HEADER_DEPS := $(addprefix obj/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
@@ -179,16 +179,16 @@ obj/%.c.o: %.c includes/limine.h
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 # Compilation rules for *.S files.
-# obj/%.S.o: %.S
-# 	@mkdir -p "$$(dirname $@)"
-# 	@echo "\033[1;34mAssembling\033[0m $<"
-# 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+obj/%.S.o: %.S
+	@mkdir -p "$$(dirname $@)"
+	@echo "\033[1;34mAssembling\033[0m $<"
+	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 # Compilation rules for *.asm (nasm) files.
-# obj/%.asm.o: %.asm
-# 	@mkdir -p "$$(dirname $@)"
-# 	@echo "\033[1;34mAssembling\033[0m $<"
-# 	@nasm $(NASMFLAGS) $< -o $@
+obj/%.asm.o: %.asm
+	@mkdir -p "$$(dirname $@)"
+	@echo "\033[1;34mAssembling\033[0m $<"
+	@nasm $(NASMFLAGS) $< -o $@
 
 # Remove object files
 .PHONY: clean

@@ -196,7 +196,8 @@ void main(void) {
     probe_pci();
 
     print(public_key);
-
+    print("\n");
+    
     warn("Kernel might hang here once in a while, reboot to fix the issue.", __FILE__);
 
     sleep(1);
@@ -278,16 +279,7 @@ void main(void) {
 
     initialize_page_bitmap();
 
-    int64* test = allocate_page();
-
-    if(test != null){
-        done("Paging works!", __FILE__);
-        printf("Address = 0x%x", (int)test);
-    }else{
-        warn("Paging didn't work!", __FILE__);
-    }
-    
-    free_page(test);
+    initIdt();
 
     // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
     // glCreateContext();
@@ -301,6 +293,10 @@ void main(void) {
     // init_ps2_mouse();
 
     // glDestroyContext(null);
+
+    // Below code is for triggering Page Fault
+    // volatile uint32_t *ptr = (volatile uint32_t *)0xFFFFFFFFFFFFF000;
+    // uint32_t value = *ptr;
 
     flush_heap();
 
@@ -320,10 +316,6 @@ void main(void) {
     // glDestroyContext(null);
 
     while(1){
-        process_keyboard();
-
-        // handle_ps2_mouse(inb(0x60));
-
         int8 received_buffer[1518];
         int16 received_length;
         if (rtl8139_receive_packet(RTL8139, received_buffer, &received_length)) {

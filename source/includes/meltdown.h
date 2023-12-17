@@ -21,5 +21,7 @@
  * @param file Handler's file
  * @param line Handler's line
  * @param error_code Error codes from registers
+ * @param cr2
+ * @param int_no
  */
-void meltdown_screen(const char * message, const char* file, int line, uint64_t error_code);
+void meltdown_screen(cstring message, cstring file, int line, int64 error_code, int64 cr2, int64 int_no);
