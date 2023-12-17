@@ -16,6 +16,10 @@ void exceptionHandler(InterruptFrame* frame) {
             meltdown_screen("Arithmetical operation with division of zero detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
             hcf2();
 			break;
+        case 8:
+            meltdown_screen("Double fault detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
+            hcf2();
+			break;
         case 13:
             meltdown_screen("General protection violation detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
             hcf2();
