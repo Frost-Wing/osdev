@@ -39,8 +39,7 @@ run-x86:
 	-cpu host \
 	-m 512 \
 	-enable-kvm \
-	-no-reboot \
-	-bios firmware/uefi/64.bin
+	-no-reboot
 
 run-x86-vnc:
 	@qemu-system-x86_64 \
