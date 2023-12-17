@@ -33,11 +33,6 @@ void warn(cstring message, cstring file) {
     debug_print(" at " blue_color);
     debug_print(file);
     debug_print(reset_color "\n");
-
-    serial_print(message);
-    serial_print(" at ");
-    serial_print(file);
-    serial_print("\n\r");
 }
 
 /**
@@ -61,11 +56,6 @@ void error(cstring message, cstring file) {
     debug_print(" at " blue_color);
     debug_print(file);
     debug_print(reset_color "\n");
-
-    serial_print(message);
-    serial_print(" at ");
-    serial_print(file);
-    serial_print("\n\r");
 }
 
 /**
@@ -89,11 +79,6 @@ void info(cstring message, cstring file) {
     debug_print(" at " blue_color);
     debug_print(file);
     debug_print(reset_color "\n");
-
-    serial_print(message);
-    serial_print(" at ");
-    serial_print(file);
-    serial_print("\n\r");
 }
 
 /**
@@ -117,11 +102,6 @@ void done(cstring message, cstring file) {
     debug_print(" at " blue_color);
     debug_print(file);
     debug_print(reset_color "\n");
-
-    serial_print(message);
-    serial_print(" at ");
-    serial_print(file);
-    serial_print("\n\r");
 }
 
 /**
