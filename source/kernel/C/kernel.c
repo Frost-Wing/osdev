@@ -197,7 +197,9 @@ void main(void) {
 
     print(public_key);
 
-    sleep(1);    
+    warn("Kernel might hang here one a while, reboot to fix the issue.", __FILE__);
+
+    sleep(1);
 
     if(graphics_base_Address != null){
         isBufferReady = no;
