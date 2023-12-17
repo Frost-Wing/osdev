@@ -100,23 +100,23 @@ void registers_dump(){
     asm("movq %%r14, %0" : "=r" (r14_value));
     asm("movq %%r15, %0" : "=r" (r15_value));
 
-    print("Register Dump :\n");
-    printf("RAX = 0x%x", rax_value);
-    printf("RBX = 0x%x", rbx_value);
-    printf("RCX = 0x%x", rcx_value);
-    printf("RDX = 0x%x", rdx_value);
-    printf("RSI = 0x%x", rsi_value);
-    printf("RDI = 0x%x", rdi_value);
-    printf("RBP = 0x%x", rbp_value);
-    printf("RSP = 0x%x", rsp_value);
-    printf("R08 = 0x%x", r8_value);
-    printf("R09 = 0x%x", r9_value);
-    printf("R10 = 0x%x", r10_value);
-    printf("R11 = 0x%x", r11_value);
-    printf("R12 = 0x%x", r12_value);
-    printf("R13 = 0x%x", r13_value);
-    printf("R14 = 0x%x", r14_value);
-    printf("R15 = 0x%x", r15_value);
+    print("=[ Register Dump ]=\n");
+    printf("        RAX = 0x%x", rax_value);
+    printf("        RBX = 0x%x", rbx_value);
+    printf("        RCX = 0x%x", rcx_value);
+    printf("        RDX = 0x%x", rdx_value);
+    printf("        RSI = 0x%x", rsi_value);
+    printf("        RDI = 0x%x", rdi_value);
+    printf("        RBP = 0x%x", rbp_value);
+    printf("        RSP = 0x%x", rsp_value);
+    printf("        R08 = 0x%x", r8_value);
+    printf("        R09 = 0x%x", r9_value);
+    printf("        R10 = 0x%x", r10_value);
+    printf("        R11 = 0x%x", r11_value);
+    printf("        R12 = 0x%x", r12_value);
+    printf("        R13 = 0x%x", r13_value);
+    printf("        R14 = 0x%x", r14_value);
+    printf("        R15 = 0x%x", r15_value);
 
     return 0;
 }

@@ -10,15 +10,7 @@
  */
 #include <meltdown.h>
 
-/**
- * @brief The Meltdown (Panic) Screen
- * 
- * @param message The Reason to cause a panic
- * @param file Handler's file
- * @param line Handler's line
- * @param error_code Error codes from registers
- */
-void meltdown_screen(cstring message, cstring file, int line, int64 error_code){
+void meltdown_screen(cstring message, cstring file, int line, int64 error_code, int64 cr2, int64 int_no){
     print("\x1b[2J");
     print("\x1b[H");
 
@@ -38,6 +30,8 @@ void meltdown_screen(cstring message, cstring file, int line, int64 error_code){
     print("\"\n");
     print("Error Code    : ");
     printf("0x%x", error_code);
+    printf("CR2           : 0x%x", cr2);
+    printf("Interrupt No. : 0x%x", int_no);
     print("\n");
     print("=[ Handler Information ]=\n\t");
     print("File name   : ");
@@ -45,7 +39,6 @@ void meltdown_screen(cstring message, cstring file, int line, int64 error_code){
     print("\n");
     print("\tLine number : ");
     printf("%d", line);
-    print("\n");
 
     registers_dump();
     print("\n");

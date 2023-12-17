@@ -38,6 +38,7 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 [![https://imgur.com/HqYJvMK.png](https://imgur.com/HqYJvMK.png)](https://imgur.com/HqYJvMK.png)
 
 ## Currently working Features
+- Interrupts
 - ACPI
     - Shutdown
     - Reboot
@@ -208,3 +209,4 @@ Happy coding, and let's make FrostWing even more awesome together! 😎🚀
     - [ACPI and Shutdown](https://github.com/mintsuki/acpi-shutdown-hack) from Mintsuki
     - [Floating Point Arithmetic](https://github.com/stevej/osdev/blob/master/kernel/devices/fpu.c) from Kevin Lange
     - [UEFI Binary](https://github.com/BlankOn/ovmf-blobs/tree/master) from BlankOn
+    - [Interrupts](https://github.com/RickleAndMortimer/MakenOS/tree/master/kernel) from MakenOS Kernel

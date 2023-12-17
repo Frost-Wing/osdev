@@ -12,6 +12,7 @@
 #include <basics.h>
 #include <stdbool.h>
 #include <hal.h>
+#include <isr.h>
 
 bool enable_keyboard = yes;
 
@@ -45,7 +46,8 @@ char scancode_to_char(unsigned char scancode) {
  * @brief This is a function that is ran even when the sleep() function is called
  * 
  */
-void process_keyboard(){
+void process_keyboard(InterruptFrame* frame){
+    char c = '\0';
     if(!enable_keyboard) return;
 
     int keyboard = inb(0x60);
@@ -64,11 +66,9 @@ void process_keyboard(){
         display_time();
     }
     if(keyboard < sizeof(scancode_to_char_mapping)) {
-        char c = '\0';
         c = scancode_to_char(keyboard);
         print(&c);
     }
-    basic_delay();
 }
 
 void basic_delay(){
