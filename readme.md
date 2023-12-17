@@ -133,15 +133,27 @@ The main html file is located at: `docs/html/index.html`
 
 Visit [Doxygen Documentation for FrostWing](https://frost-wing.github.io/doxygen-docs/) for pre-compiled documentations
 ### Hardware/Software (Emulator) Requirements
-#### Minimum Requirements
+#### Minimum Requirements (BIOS)
 - **CPU** Currently any x86_64 proccessor
 - **RAM** 75 MB
 - **Storage** Nothing required yet.
 - **Graphics** Only Framebuffer.
 
-#### Recommended Requirements
+#### Minimum Requirements (UEFI)
+- **CPU** Currently any x86_64 proccessor
+- **RAM** 170 MB
+- **Storage** Nothing required yet.
+- **Graphics** Only Framebuffer.
+
+#### Recommended Requirements (BIOS)
 - **CPU** Currently any x86_64 proccessor
 - **RAM** 128 MB
+- **Storage** Nothing required yet.
+- **Graphics** Integrated Graphics
+
+#### Recommended Requirements (UEFI)
+- **CPU** Currently any x86_64 proccessor
+- **RAM** 256 MB
 - **Storage** Nothing required yet.
 - **Graphics** Integrated Graphics
 
@@ -184,3 +196,4 @@ Happy coding, and let's make FrostWing even more awesome together! 😎🚀
     - [Flanterm](https://github.com/mintsuki/flanterm/tree/trunk) from Mintsuki
     - [ACPI and Shutdown](https://github.com/mintsuki/acpi-shutdown-hack) from Mintsuki
     - [Floating Point Arithmetic](https://github.com/stevej/osdev/blob/master/kernel/devices/fpu.c) from Kevin Lange
+    - [UEFI Binary](https://github.com/BlankOn/ovmf-blobs/tree/master) from BlankOn

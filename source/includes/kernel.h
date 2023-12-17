@@ -31,7 +31,6 @@
 #include <heap.h>
 #include <drivers/pc-speaker.h>
 #include <drivers/rtl8139.h>
-#include <boot-logo.h>
 #include <versions.h>
 #include <cc-asm.h>
 #include <secure-boot.h>

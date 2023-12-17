@@ -19,7 +19,7 @@
 #include <string.h>
 
 // ANSI color codes for text formatting
-#define reset_color  "\x1b[0m"
+#define reset_color  "\033[37m"
 #define red_color    "\x1b[91m"
 #define yellow_color "\x1b[93m"
 #define blue_color   "\x1b[36m"
