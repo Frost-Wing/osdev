@@ -24,6 +24,7 @@ void setIdtEntry(IDTEntry *target, uint64_t offset, uint16_t selector, uint8_t i
 
 void initIdt() 
 {
+    info("Started initialization!", __FILE__);
     for (uint8_t i = 0; i < 32; i++) 
     {
         setIdtEntry(&idt_entries[i], (uint64_t)isr_stub_table[i], 0x28, 0, 0x8E);
@@ -34,4 +35,5 @@ void initIdt()
     }
     __asm__ volatile("lidt %0" : : "m"(idt_ptr));
     __asm__ volatile("sti");
+    done("Successfully initialized!", __FILE__);
 }
