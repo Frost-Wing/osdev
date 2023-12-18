@@ -10,7 +10,6 @@ static inline uint64_t getCR2(void)
 }
 
 void exceptionHandler(InterruptFrame* frame) {
-    // printf("0x%x & 0x%x", frame->int_no, frame->err_code);
 	switch (frame->int_no) {
         case 0:
             meltdown_screen("Arithmetical operation with division of zero detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
@@ -28,6 +27,17 @@ void exceptionHandler(InterruptFrame* frame) {
             meltdown_screen("Page protection violation detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
             hcf2();
 			break;
+        case 16:
+            meltdown_screen("x87 Floating-Point violation detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
+            hcf2();
+			break;
+        case 19:
+            meltdown_screen("SIMD Floating-Point violation detected! (SSE Related issue)", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
+            hcf2();
+			break;
+        default:
+            meltdown_screen("Unknown exception detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
+            hcf2();
 	}
 }
 
