@@ -84,7 +84,7 @@ void sleep(int seconds) {
     update_system_time(&start_second, &start_minute, &start_hour, &start_day, &start_month, &start_year);
 
     while (1) {
-        process_keyboard();
+        // process_keyboard();
         
         uint8_t current_second, current_minute, current_hour, current_day, current_month, current_year;
         update_system_time(&current_second, &current_minute, &current_hour, &current_day, &current_month, &current_year);
