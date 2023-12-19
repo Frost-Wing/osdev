@@ -33,7 +33,7 @@ run-x86:
 	-device rtl8139,netdev=eth0 \
 	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
 	-cdrom FrostWing.iso \
-	-drive id=disk,file=FrostWing.iso.tar.gz.sha256,if=none \
+	-drive id=disk,file=disk.txt,if=none \
 	-device ahci,id=ahci \
 	-device ide-hd,drive=disk,bus=ahci.0 \
 	-cpu host \

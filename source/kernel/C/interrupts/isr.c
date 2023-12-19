@@ -15,8 +15,20 @@ void exceptionHandler(InterruptFrame* frame) {
             meltdown_screen("Arithmetical operation with division of zero detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
             hcf2();
 			break;
+        case 5:
+            meltdown_screen("Bound Range exceeded!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
+            hcf2();
+			break;
+        case 6:
+            meltdown_screen("Invalid opcode detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
+            hcf2();
+			break;
         case 8:
             meltdown_screen("Double fault detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
+            hcf2();
+			break;
+        case 10:
+            meltdown_screen("Invalid TSS detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
             hcf2();
 			break;
         case 13:
