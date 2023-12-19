@@ -158,10 +158,6 @@ void process_mouse_packet(){
 }
 
 void init_ps2_mouse(){
-
-    outb(0x21, 0xf2);
-    outb(0xa1, 0xff);
-
     outb(0x64, 0xA8); //enabling the auxiliary device - mouse
 
     ps2_mouse_wait();

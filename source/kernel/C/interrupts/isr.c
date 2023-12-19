@@ -1,4 +1,5 @@
 #include <isr.h>
+#include <keyboard.h>
 
 void (*interrupt_handlers[256]) (InterruptFrame* frame);
 
