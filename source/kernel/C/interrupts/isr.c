@@ -1,7 +1,7 @@
 #include <isr.h>
 #include <keyboard.h>
 
-void (*interrupt_handlers[256]) (InterruptFrame* frame);
+irq_handler interrupt_handlers[256];
 
 static inline uint64_t getCR2(void)
 {
@@ -54,15 +54,14 @@ void exceptionHandler(InterruptFrame* frame) {
 	}
 }
 
-void registerInterruptHandler(uint8_t interrupt, void (*handler) (InterruptFrame* frame))
+void registerInterruptHandler(uint8_t interrupt, irq_handler handler)
 {
     interrupt_handlers[interrupt] = handler;
 }
 
 void irqHandler(InterruptFrame* frame)
 {
-    if (&interrupt_handlers[frame->int_no] != NULL)
-    {
-        interrupt_handlers[frame->int_no](frame);
-    }
+    irq_handler handler = (irq_handler)interrupt_handlers[frame->int_no];
+    if (handler != NULL)
+        handler(frame);
 }

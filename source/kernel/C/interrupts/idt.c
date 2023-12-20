@@ -1,4 +1,5 @@
 #include <idt.h>
+#include <isr.h>
 #include <keyboard.h>
 
 extern void* isr_stub_table[];
@@ -23,9 +24,42 @@ void setIdtEntry(IDTEntry *target, uint64_t offset, uint16_t selector, uint8_t i
     target->zero = 0;
 }
 
+#define ICW1_INIT 0x10
+#define ICW1_ICW4 0x01
+#define ICW4_8086 0x01
+
+/**
+ * @brief Small utility function for remapping the programmable interrupt controller
+ * @author GAMINGNOOBdev
+ */
+void remap_pic() {
+    uint8_t read_master, read_slave;
+
+    read_master = inb(0x21);
+    read_slave = inb(0xa1);
+
+    outb(0x20, ICW1_INIT | ICW1_ICW4);
+    outb(0xa0, ICW1_INIT | ICW1_ICW4);
+
+    outb(0x21, 0x20);
+    outb(0xa1, 0x28);
+
+    outb(0x21, 0x04);
+    outb(0xa1, 0x02);
+
+    outb(0x21, ICW4_8086);
+    outb(0xa1, ICW4_8086);
+
+    outb(0x21, read_master);
+    outb(0xa1, read_slave);
+}
+
 void initIdt() 
 {
     info("Started initialization!", __FILE__);
+
+    // interrupt number of keyboard is 0x21, for pit it's 0x20 and for mouse it's 0x2C
+    registerInterruptHandler(0x21, process_keyboard);
 
     for (uint8_t i = 0; i < 32; i++) 
     {
@@ -36,6 +70,11 @@ void initIdt()
     {
         setIdtEntry(&idt_entries[i], (uint64_t)irq_stub_table[i-32], 0x28, 0, 0x8E);
     }
+
+    remap_pic();
+
+    outb(0x21, 0xfd); // 0xfd for keyboard only and for mouse + keyboard 0xf8 (if sb 16 support then 0x??)
+    outb(0xa1, 0xff); // 0xff for keyboard only and for mouse + keyboard 0xef
 
     __asm__ volatile("lidt %0" : : "m"(idt_ptr));
     __asm__ volatile("sti");
