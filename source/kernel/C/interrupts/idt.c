@@ -37,7 +37,6 @@ void initIdt()
         setIdtEntry(&idt_entries[i], (uint64_t)irq_stub_table[i-32], 0x28, 0, 0x8E);
     }
 
-
     __asm__ volatile("lidt %0" : : "m"(idt_ptr));
     __asm__ volatile("sti");
 

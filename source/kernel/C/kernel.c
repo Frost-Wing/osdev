@@ -280,6 +280,8 @@ void main(void) {
     initialize_page_bitmap();
 
     initIdt();
+    
+    init_hashing();
 
     // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
     // glCreateContext();

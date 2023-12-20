@@ -35,6 +35,8 @@
 #include <cc-asm.h>
 #include <secure-boot.h>
 #include <paging.h>
+#include <algorithms/hashing.h>
+#include <keyboard.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.
