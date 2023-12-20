@@ -44,29 +44,31 @@ char scancode_to_char(unsigned char scancode) {
  * 
  */
 void process_keyboard(InterruptFrame* frame){
-    // char c = '\0';
-    // if(!enable_keyboard) return;
+    char c = '\0';
+    if(!enable_keyboard) return;
 
-    // int keyboard = inb(0x60);
-    // if(keyboard == 0x44){ // F10 Key
-    //     enable_keyboard = no;
-    //     shutdown();
-    // }
-    // if(keyboard == 0x1C){ // Enter
-    //     print("\n");
-    // }
-    // if(keyboard == 0x43){ // F9 Key
-    //     enable_keyboard = no;
-    //     acpi_reboot();
-    // }
-    // if(keyboard == 0x42){ // F8 Key
-    //     display_time();
-    // }
-    // if(keyboard < sizeof(scancode_to_char_mapping)) {
-    //     c = scancode_to_char(keyboard);
-    //     print(&c);
-    // }
-    print("pressed!");
+    int keyboard = inb(0x60);
+    if(keyboard == 0x44){ // F10 Key
+        enable_keyboard = false;
+        shutdown();
+    }
+    if(keyboard == 0x1C){ // Enter
+        print("\n");
+    }
+    if(keyboard == 0x43){ // F9 Key
+        enable_keyboard = false;
+        acpi_reboot();
+    }
+    if(keyboard == 0x42){ // F8 Key
+        display_time();
+    }
+    if(keyboard < sizeof(scancode_to_char_mapping)) {
+        c = scancode_to_char(keyboard);
+        print(&c);
+    }
+    debug_print("pressed!");
+
+    outb(0x20, 0x20);
 }
 
 void basic_delay(){
