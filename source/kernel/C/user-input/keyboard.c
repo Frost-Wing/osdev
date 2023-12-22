@@ -74,6 +74,7 @@ void process_keyboard(InterruptFrame* frame){
         shutdown();
         goto exit_interrupt;
     }
+
     if(keyboard == 0x1C){ // Enter
         print("\n");
         goto exit_interrupt;

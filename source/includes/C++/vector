@@ -1,0 +1,157 @@
+/**
+ * @file vector
+ * @author GAMINGNOOBdev (https://github.com/GAMINGNOOBdev)
+ * @brief Contains a really basic implementation of a linked list
+ * @version 0.1
+ * @date 2023-12-20
+ * 
+ * @copyright Copyright (c) Pradosh & GAMINGNOOBdev 2023
+ */
+
+#ifndef __VECTOR_
+#define __VECTOR_ 1
+
+#include <stdint.h>
+#include <stddef.h>
+#include <memory.h>
+#include <heap.h>
+
+namespace std
+{
+
+    /**
+     * @brief A basic list containing elements
+     * 
+     * @tparam T The type of the elements in this vector
+     */
+    template<typename T>
+    class vector
+    {
+        /**
+         * @brief Construct a new `vector` object
+         */
+        vector()
+            : mData(nullptr), mSize(0)
+        {
+        }
+
+        /**
+         * @brief Clears the contents of this `vector`
+         */
+        void clear()
+        {
+            if (mData != nullptr)
+                free(mData);
+
+            mData = nullptr;
+            mSize = 0;
+        }
+
+        /**
+         * @brief Adds an element to the back of the vector
+         * 
+         * @param element The element that will be pushed to this vector
+         */
+        void push_back(T& element)
+        {
+            if (empty())
+            {
+                mData = (T*)malloc(sizeof(T)*(mSize+1));
+                mData[mSize] = element;
+                mSize++;
+
+                return;
+            }
+
+            T* oldData = mData;
+            mData = (T*)malloc(sizeof(T)*(mSize+1));
+            memcpy(mData, oldData, sizeof(T)*mSize);
+            free(oldData);
+
+            mData[mSize] = element;
+            mSize++;
+        }
+
+        /**
+         * @brief Removes the last element of the vector
+         */
+        void pop_back()
+        {
+            if (empty())
+                return;
+
+            T* oldData = mData;
+            mSize--;
+            mData = (T*)malloc(sizeof(T)*mSize);
+            memcpy(mData, oldData, sizeof(T)*mSize);
+            free(oldData);
+        }
+
+        /**
+         * @brief Gets an element at a specific position
+         * 
+         * @param index Index of the element
+         * @returns The element
+         */
+        T& at(int index)
+        {
+            if (index < 0 || index > mSize)
+                return T();
+
+            return mData[index];
+        }
+
+        /**
+         * @returns The element at the start of this vector
+         */
+        T* begin()
+        {
+            if (empty())
+                return nullptr;
+
+            return mData[0];
+        }
+
+        /**
+         * @returns The element at the end of this vector
+         */
+        T* end()
+        {
+            if (empty())
+                return nullptr;
+
+            return mData[mSize-1];
+        }
+
+        /**
+         * @returns `true` if this vector is empty, otherwise `false`
+         */
+        bool empty()
+        {
+            return mData == nullptr || mSize == 0;
+        }
+
+        /**
+         * @returns The size of this vector (the number of elements in this vector)
+         */
+        size_t size()
+        {
+            return mSize;
+        }
+
+        /**
+         * @returns The raw data of this vector
+         */
+        T* data()
+        {
+            return mData;
+        }
+
+    private:
+        T* mData;
+        size_t mSize;
+    };
+
+}
+
+#endif
