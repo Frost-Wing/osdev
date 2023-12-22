@@ -20,7 +20,7 @@ override DEFAULT_ARCH := x86_64
 $(eval $(call DEFAULT_VAR,ARCH,$(DEFAULT_ARCH)))
 
 # It is suggested to use a custom built cross toolchain to build a kernel.
-# We are using the standard "cc" here, it may work by using
+# We are using the standard "gcc" here, it may work by using
 # the host system's toolchain, but this is not guaranteed.
 override DEFAULT_CC := gcc
 $(eval $(call DEFAULT_VAR,CC,$(DEFAULT_CC)))
