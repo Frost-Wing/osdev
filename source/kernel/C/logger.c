@@ -121,8 +121,11 @@ void __putc(char c) {
  * 
  * @param num the number to be printed
  */
-void printdec(size_t num) {
-    if (num == 0) {
+void printdec(int num) {
+    if (num < 0) {
+        putc('-');
+        num = -num;
+    } else if (num == 0) {
         putc('0');
         return;
     }
@@ -138,26 +141,30 @@ void printdec(size_t num) {
 
     print(&buf[i]);
 }
-
 /**
  * @brief Prints Hexadecimal number
  * 
  * @param hex the hexadecimal number to be printed.
  */
-void printhex(unsigned int num) {    
+void printhex(int num) {    
     int i;
-    char buf[17];
+    char buf[21];
+    int n = num;
 
-    if (!num) {
+    if(n < 0){
+        n = -n;
+    }
+
+    if (!n) {
         print("00");
         return;
     }
 
     buf[16] = 0;
 
-    for (i = 15; num; i--) {
-        buf[i] = hex_digits[num % 16];
-        num /= 16;
+    for (i = 15; n; i--) {
+        buf[i] = hex_digits[n % 16];
+        n /= 16;
     }
 
     i++;

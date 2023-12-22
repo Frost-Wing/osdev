@@ -80,14 +80,14 @@ void putc(char c);
  * 
  * @param num the number to be printed
  */
-void printdec(size_t num);
+void printdec(int num);
 
 /**
  * @brief Prints Hexadecimal number
  * 
  * @param hex the hexadecimal number to be printed.
  */
-void printhex(unsigned int hex);
+void printhex(int hex);
 
 /**
  * @brief More uniform print function.
