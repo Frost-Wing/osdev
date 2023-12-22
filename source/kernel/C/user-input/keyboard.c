@@ -68,36 +68,36 @@ bool shift = no;
 void process_keyboard(InterruptFrame* frame){
     if(!enable_keyboard) return;
 
-    int keyboard = inb(0x60);
-    if(keyboard == 0x44){ // F10 Key
+    int data = inb(0x60);
+    if(data == 0x44){ // F10 Key
         enable_keyboard = no;
         shutdown();
         goto exit_interrupt;
     }
 
-    if(keyboard == 0x1C){ // Enter
+    if(data == 0x1C){ // Enter
         print("\n");
         goto exit_interrupt;
     }
-    if(keyboard == 0x43){ // F9 Key
+    if(data == 0x43){ // F9 Key
         enable_keyboard = no;
         acpi_reboot();
         goto exit_interrupt;
     }
-    if(keyboard == 0x0E){ // Backspace Key
+    if(data == 0x0E){ // Backspace Key
         print("\b \b");
         goto exit_interrupt;
     }
 
-    if(keyboard == 0x2A || keyboard == 0x36){ // [Left Shift || Right Shift] pressed
+    if(data == 0x2A || data == 0x36){ // [Left Shift || Right Shift] pressed
         shift = yes;
     }
 
-    if(keyboard == 0xB6 || keyboard == 0xAA){
+    if(data == 0xB6 || data == 0xAA){
         shift = no;
     }
 
-    c = scancode_to_char(keyboard, shift);
+    c = scancode_to_char(data, shift);
 
     if(c != '\0') print(&c);
 
