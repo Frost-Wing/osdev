@@ -1,5 +1,5 @@
 /**
- * @file strings.h
+ * @file strings2.h
  * @author Pradosh (pradoshgame@gmail.com)
  * @brief The header file for strings.c
  * @version 0.1
@@ -98,3 +98,35 @@ bool contains(cstring str, cstring substr);
  * @note This function modifies the input string in place.
  */
 void string_transport_front(char *str, int x);
+
+/**
+ * @brief Creates a new string without spaces from a C-style string.
+ *
+ * This function allocates memory for a new string without spaces
+ * and returns the result. It is the caller's responsibility to free
+ * the allocated memory.
+ *
+ * @param str The input string to be trimmed.
+ * @return A dynamically allocated string without spaces.
+ */
+string trim(cstring str);
+
+/**
+ * @brief Concatenate two strings.
+ *
+ * This function concatenates the source string @p src to the end of the
+ * destination string @p dest. It assumes that @p dest has enough space to
+ * accommodate the concatenated result.
+ *
+ * @param dest The destination string.
+ * @param src The source string to be concatenated.
+ * @return A pointer to the destination string.
+ */
+string strcat(string dest, cstring src);
+
+/**
+ * @brief Removes the last char
+ * 
+ * @param str 
+ */
+void remove_last_char(string str);

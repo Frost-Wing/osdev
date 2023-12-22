@@ -8,10 +8,7 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include <strings.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
+#include <strings2.h>
 
 /**
  * @brief The same strlen function from OEM
@@ -78,7 +75,7 @@ int strncmp(const char *s1, const char *s2, size_t n) {
  * @param base Base of the numbers (eg. 16, 10, 8, 2)
  * @return int 
  */
-int itoa(int num, unsigned char* str, int len, int base)
+int itoa(int num, string str, int len, int base)
 {
 	int sum = num;
 	int i = 0;
@@ -184,4 +181,53 @@ void string_transport_front(char *str, int x) {
 
     // Null-terminate the final string.
     str[len - charsToDelete] = '\0';
+}
+
+string trim(cstring str) {
+    if (str == NULL) {
+        return NULL; // Handle NULL pointer
+    }
+
+    size_t len = strlen_(str);
+    string trimmedStr = (string)malloc(len + 1); // +1 for null-terminator
+
+    if (trimmedStr == NULL) {
+        return NULL; // Memory allocation failed
+    }
+
+    string dest = trimmedStr;
+
+    for (size_t i = 0; i < len; ++i) {
+        if (str[i] != ' ') {
+            *dest = str[i];
+            dest++;
+        }
+    }
+
+    *dest = '\0';
+
+    return trimmedStr;
+}
+
+string strcat(string dest, cstring src) {
+    while (*dest != '\0') {
+        dest++;
+    }
+
+    while (*src != '\0') {
+        *dest = *src;
+        dest++;
+        src++;
+    }
+
+    *dest = '\0';
+
+    return dest;
+}
+
+void remove_last_char(string str) {
+    size_t len = strlen_(str);
+    if (len > 0) {
+        str[len - 1] = '\0';
+    }
 }

@@ -11,7 +11,7 @@ extern char scancode_to_char_mapping[];
  * @param scancode usually inb(0x60);
  * @return [char] Appropriate character to be displayed
  */
-char scancode_to_char(unsigned char scancode);
+char scancode_to_char(int scancode, bool uppercase);
 
 /**
  * @brief This is a function that is ran even when the sleep() function is called

@@ -24,53 +24,83 @@ char scancode_to_char_mapping[] = {
     'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' ', // 48-57
 };
 
+char shifted_scancode_to_char_mapping[] = {
+    0, 0, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', 0, 0, // 0-15
+    'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', 0, 0, 'A', 'S', // 16-31
+    'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '\"', '~', 0, '|', 'Z', 'X', 'C', 'V', // 32-47
+    'B', 'N', 'M', '<', '>', '\?', 0, '*', 0, ' ', // 48-57
+};
+
 /**
  * @brief Converts the scancode to character
  * 
  * @param scancode usually inb(0x60);
  * @return [char] Appropriate character to be displayed
  */
-char scancode_to_char(unsigned char scancode) {
-
-    if (scancode < sizeof(scancode_to_char_mapping)) {
-        return scancode_to_char_mapping[scancode];
-    } else {
-        return 0; // Character not found
+char scancode_to_char(int scancode, bool uppercase) {
+    if(scancode > 58) return '\0';
+    
+    if(uppercase){
+        char to_send = shifted_scancode_to_char_mapping[scancode];
+        if((int)to_send == (int)0){
+            return '\0';
+        }else{
+            return to_send;
+        }
+    }else{
+        char to_send = scancode_to_char_mapping[scancode];
+        if((int)to_send == (int)0){
+            return '\0';
+        }else{
+            return to_send;
+        }
     }
+    
+    return '\0';
 }
 
+char c = '\0';
+bool shift = no;
 /**
  * @brief This is a function that is ran even when the sleep() function is called
  * 
  */
 void process_keyboard(InterruptFrame* frame){
-    char c = '\0';
     if(!enable_keyboard) return;
 
     int keyboard = inb(0x60);
     if(keyboard == 0x44){ // F10 Key
-        enable_keyboard = false;
+        enable_keyboard = no;
         shutdown();
+        goto exit_interrupt;
     }
     if(keyboard == 0x1C){ // Enter
         print("\n");
+        goto exit_interrupt;
     }
     if(keyboard == 0x43){ // F9 Key
-        enable_keyboard = false;
+        enable_keyboard = no;
         acpi_reboot();
+        goto exit_interrupt;
     }
-    if(keyboard == 0x42){ // F8 Key
-        display_time();
+    if(keyboard == 0x0E){ // Backspace Key
+        print("\b \b");
+        goto exit_interrupt;
     }
-    if(keyboard < sizeof(scancode_to_char_mapping)) {
-        c = scancode_to_char(keyboard);
-        print(&c);
-    }
-    debug_print("pressed!");
 
-    outb(0x20, 0x20);
-}
+    if(keyboard == 0x2A || keyboard == 0x36){ // [Left Shift || Right Shift] pressed
+        shift = yes;
+    }
 
-void basic_delay(){
-    for(int i = 0; i < 10000000*5; i++) {asm("nop");}
+    if(keyboard == 0xB6 || keyboard == 0xAA){
+        shift = no;
+    }
+
+    c = scancode_to_char(keyboard, shift);
+
+    if(c != '\0') print(&c);
+
+    exit_interrupt:
+    c = '\0';
+    outb(0x20, 0x20); // End PIC Master
 }

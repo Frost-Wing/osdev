@@ -6,21 +6,10 @@
  * @date 2023-12-10
  * 
  */
-#include <basics.h>
-#include <stdbool.h>
-#include <hal.h>
-#include <opengl/glbackend.h>
+#include <ps2-mouse.h>
 
 extern int fb_width;
 extern int fb_height;
-
-#define PS2_left_button   0b00000001
-#define PS2_middle_button 0b00000100
-#define PS2_right_button  0b00000010
-#define PS2_x             0b00010000
-#define PS2_y             0b00100000
-#define PS2_x_overflow 0b01000000
-#define PS2_y_overflow 0b10000000
 
 void ps2_mouse_wait(){
     int64 timeout = 100000;
@@ -57,6 +46,11 @@ int8 mouse_packet[4];
 bool isMousePacketReady = false;
 uvec2 current_mouse_position;
 uvec2 previous_mouse_position;
+
+void process_mouse(InterruptFrame* frame){
+    int8 data = inb(0x60);
+    handle_ps2_mouse(data);
+}
 
 void handle_ps2_mouse(int8 data){
 
@@ -140,8 +134,8 @@ void process_mouse_packet(){
         if (current_mouse_position.y < 0) current_mouse_position.y = 0;
         if (current_mouse_position.y > fb_height-1) current_mouse_position.y = fb_height-1;
         
-        glDrawLine((uvec2){0,0}, previous_mouse_position, 0x000001);        
-        glDrawLine((uvec2){0,0}, current_mouse_position, 0xffffff);
+        glDrawLine((uvec2){0,0}, previous_mouse_position, 0x000000);        
+        glDrawLine((uvec2){0,0},  current_mouse_position, 0xffffff);
 
         if (mouse_packet[0] & PS2_left_button){
 
