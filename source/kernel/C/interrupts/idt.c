@@ -1,6 +1,7 @@
 #include <idt.h>
 #include <isr.h>
 #include <keyboard.h>
+#include <ps2-mouse.h>
 
 extern void* isr_stub_table[];
 extern void* irq_stub_table[];
@@ -60,6 +61,7 @@ void initIdt()
 
     // interrupt number of keyboard is 0x21, for pit it's 0x20 and for mouse it's 0x2C
     registerInterruptHandler(0x21, process_keyboard);
+    // registerInterruptHandler(0x2C, process_mouse);
 
     for (uint8_t i = 0; i < 32; i++) 
     {
