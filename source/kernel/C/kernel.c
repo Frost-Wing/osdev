@@ -71,12 +71,12 @@ int32 ctr = 0;
 
 void ap_entry(struct limine_smp_info *info) {
 #if defined (__x86_64__)
-    printf("LAPIC ID: %x", info->lapic_id);
+    printf("LAPIC ID: 0x%x", info->lapic_id);
 #elif defined (__aarch64__)
-    printf("GIC CPU Interface no.: %x", info->gic_iface_no);
-    printf("MPIDR: %x", info->mpidr);
+    printf("GIC CPU Interface no.: 0x%x", info->gic_iface_no);
+    printf("MPIDR: 0x%x", info->mpidr);
 #elif defined (__riscv)
-    printf("Hart ID: %x", info->hartid);
+    printf("Hart ID: 0x%x", info->hartid);
 #endif
 
     __atomic_fetch_add(&ctr, 1, __ATOMIC_SEQ_CST);
@@ -252,6 +252,10 @@ void main(void) {
         printf("Local APIC ID [%d] : 0x%x", i+1, smp_request.response->cpus[i]->lapic_id);
 #if defined (__x86_64__)
         if (smp_request.response->cpus[i]->lapic_id !=  smp_request.response->bsp_lapic_id) {
+#elif defined (__aarch64__)
+        if (smp_request.response->cpus[i]->mpidr != smp_request.response->bsp_mpidr) {
+#elif defined (__riscv)
+        if (smp_request.response->cpus[i]->hartid != smp_request.response->bsp_hartid) {
 #endif
             uint32_t old_ctr = __atomic_load_n(&ctr, __ATOMIC_SEQ_CST);
 
