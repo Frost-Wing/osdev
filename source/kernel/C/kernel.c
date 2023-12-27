@@ -86,8 +86,11 @@ void ap_entry(struct limine_smp_info *info) {
 
 void mouseHandler(int64_t xRel, int64_t yRel)
 {
-    glDrawLine((uvec2){0, 0}, GetLastMousePosition(), 0x000000);
-    glDrawLine((uvec2){0, 0}, GetMousePosition(), 0xffffff);
+    ivec2 lastMousePos = GetLastMousePosition();
+    ivec2 mousePos = GetMousePosition();
+
+    glDrawLine((uvec2){0, 0}, (uvec2){lastMousePos.x, lastMousePos.y}, 0x000000);
+    glDrawLine((uvec2){0, 0}, (uvec2){mousePos.x, mousePos.y}, 0xffffff);
 }
 
 void main(void) {

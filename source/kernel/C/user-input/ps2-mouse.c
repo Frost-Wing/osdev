@@ -44,8 +44,8 @@ int8 ps2_mouse_read(){
 int8 mouse_cycle = 0;
 int64 mouse_packet[4];
 bool isMousePacketReady = false;
-uvec2 current_mouse_position;
-uvec2 previous_mouse_position;
+ivec2 current_mouse_position;
+ivec2 previous_mouse_position;
 MouseMovementHandler mMovementHandler = NULL;
 
 void process_mouse(InterruptFrame* frame){
@@ -87,12 +87,12 @@ void SetMouseHandler(MouseMovementHandler handler)
     mMovementHandler = handler;
 }
 
-uvec2 GetMousePosition()
+ivec2 GetMousePosition()
 {
     return current_mouse_position;
 }
 
-uvec2 GetLastMousePosition()
+ivec2 GetLastMousePosition()
 {
     return previous_mouse_position;
 }
@@ -162,7 +162,7 @@ void process_mouse_packet(){
     previous_mouse_position = current_mouse_position;
 }
 
-void handle_click(int64 type, uvec2 position){
+void handle_click(int64 type, ivec2 position){
     switch (type)
     {
         case PS2_left_button:
