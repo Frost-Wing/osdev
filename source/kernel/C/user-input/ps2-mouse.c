@@ -1,7 +1,7 @@
 /**
  * @file ps2-mouse.c
- * @author Poncho (AbsurdPoncho)
- * @brief 
+ * @author Poncho (AbsurdPoncho) & Pradosh (pradoshgame@gmail.com)
+ * @brief The main source code for PS/2 Mouse input
  * @version 0.1
  * @date 2023-12-10
  * 
@@ -50,10 +50,12 @@ uvec2 previous_mouse_position;
 void process_mouse(InterruptFrame* frame){
     int8 data = inb(0x60);
     handle_ps2_mouse(data);
+
+    outb(0x20, 0x20); // End PIC Master
+    outb(0xA0, 0x20); // End PIC Slave
 }
 
 void handle_ps2_mouse(int8 data){
-
     process_mouse_packet();
     static bool skip = true;
     if (skip) {
@@ -134,8 +136,8 @@ void process_mouse_packet(){
         if (current_mouse_position.y < 0) current_mouse_position.y = 0;
         if (current_mouse_position.y > fb_height-1) current_mouse_position.y = fb_height-1;
         
-        glDrawLine((uvec2){0,0}, previous_mouse_position, 0x000000);        
-        glDrawLine((uvec2){0,0},  current_mouse_position, 0xffffff);
+        glWritePixel(previous_mouse_position, 0x000000);        
+        glWritePixel(current_mouse_position, 0xffffff);
 
         if (mouse_packet[0] & PS2_left_button){
 

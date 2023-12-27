@@ -22,7 +22,6 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
   - [Hardware/Software (Emulator) Requirements](#hardwaresoftware-emulator-requirements)
   - [Running FrostWing](#running-FrostWing)
   - [Booting to real machine](#Booting-to-real-machine)
-- [Features](#features)
 - [Contributing](#contributing)
 - [License](#license)
 - [FrostWing Team](#frostwing-team)
@@ -189,11 +188,6 @@ Boot Disk information:
 
 > [!IMPORTANT]
 > It is recommended to use Ventoy because you will not have the risk of flashing and failing of USB-Drives
-## Features
-
-- Support for multiple target architectures: x86_64, ARM64 (aarch64), and RISC-V (riscv64).
-- Simple and clean codebase with documentation.
-- *comming soon...*
 
 ## Contributing
 

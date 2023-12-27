@@ -37,6 +37,7 @@
 #include <paging.h>
 #include <algorithms/hashing.h>
 #include <keyboard.h>
+#include <linkedlist.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.
