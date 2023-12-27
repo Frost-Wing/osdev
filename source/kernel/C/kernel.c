@@ -13,8 +13,8 @@
 int terminal_rows = 0;
 int terminal_columns = 0;
 
-int fb_width = 0;
-int fb_height = 0;
+int64 fb_width = 0;
+int64 fb_height = 0;
 
 /**
  * @brief Assert Definition

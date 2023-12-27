@@ -19,8 +19,8 @@
  */
 typedef struct
 {
-    int32_t x;
-    int32_t y;
+    int64_t x;
+    int64_t y;
 } ivec2;
 
 /**
@@ -30,8 +30,8 @@ typedef struct
  */
 typedef struct
 {
-    uint32_t x;
-    uint32_t y;
+    uint64_t x;
+    uint64_t y;
 } uvec2;
 
 /**
@@ -52,9 +52,9 @@ typedef struct
  */
 typedef struct
 {
-    int32_t x;
-    int32_t y;
-    int32_t z;
+    int64_t x;
+    int64_t y;
+    int64_t z;
 } ivec3;
 
 /**
@@ -64,9 +64,9 @@ typedef struct
  */
 typedef struct
 {
-    uint32_t x;
-    uint32_t y;
-    uint32_t z;
+    uint64_t x;
+    uint64_t y;
+    uint64_t z;
 } uvec3;
 
 /**
@@ -88,10 +88,10 @@ typedef struct
  */
 typedef struct
 {
-    int32_t x;
-    int32_t y;
-    int32_t z;
-    int32_t w;
+    int64_t x;
+    int64_t y;
+    int64_t z;
+    int64_t w;
 } ivec4;
 
 /**
@@ -101,10 +101,10 @@ typedef struct
  */
 typedef struct
 {
-    uint32_t x;
-    uint32_t y;
-    uint32_t z;
-    uint32_t w;
+    uint64_t x;
+    uint64_t y;
+    uint64_t z;
+    uint64_t w;
 } uvec4;
 
 /**
