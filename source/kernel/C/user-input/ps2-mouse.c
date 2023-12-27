@@ -149,13 +149,13 @@ void process_mouse_packet(){
         mMovementHandler(deltaX, deltaY);
 
     if (mouse_packet[0] & PS2_left_button){
-
+        handle_click(PS2_left_button, current_mouse_position);
     }
     if (mouse_packet[0] & PS2_middle_button){
-
+        handle_click(PS2_middle_button, current_mouse_position);
     }
     if (mouse_packet[0] & PS2_right_button){
-
+        handle_click(PS2_right_button, current_mouse_position);
     }
 
     isMousePacketReady = false;
