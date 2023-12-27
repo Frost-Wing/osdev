@@ -140,17 +140,34 @@ void process_mouse_packet(){
         glDrawLine((uvec2){0, 0}, current_mouse_position, 0xffffff);
 
         if (mouse_packet[0] & PS2_left_button){
-
-        }
-        if (mouse_packet[0] & PS2_middle_button){
-            
+            handle_click(PS2_left_button, current_mouse_position);
         }
         if (mouse_packet[0] & PS2_right_button){
-
+            handle_click(PS2_right_button, current_mouse_position);
+        }
+        if (mouse_packet[0] & PS2_middle_button){
+            handle_click(PS2_middle_button, current_mouse_position);
         }
 
         isMousePacketReady = false;
         previous_mouse_position = current_mouse_position;
+}
+
+void handle_click(int64 type, uvec2 position){
+    switch (type)
+    {
+        case PS2_left_button:
+            debug_println("left!");
+            break;
+        case PS2_right_button:
+            debug_println("right!");
+            break;
+        case PS2_middle_button:
+            debug_println("middle!");
+            break;
+        default:
+            break;
+    }
 }
 
 void init_ps2_mouse(){
