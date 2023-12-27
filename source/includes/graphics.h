@@ -83,6 +83,13 @@ void putc(char c);
 void printdec(int num);
 
 /**
+ * @brief Prints a value in binary format
+ * 
+ * @param value The value that will be printed
+ */
+void printbin(uint8_t value);
+
+/**
  * @brief Prints Hexadecimal number
  * 
  * @param hex the hexadecimal number to be printed.
