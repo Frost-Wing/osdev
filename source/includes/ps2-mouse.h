@@ -12,8 +12,10 @@
 #include <basics.h>
 #include <stdbool.h>
 #include <hal.h>
+#include <debugger.h>
 #include <opengl/glbackend.h>
 #include <isr.h>
+#include <hal.h>
 
 #define PS2_left_button   0b00000001
 #define PS2_middle_button 0b00000100

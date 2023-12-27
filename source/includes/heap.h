@@ -32,4 +32,4 @@ void free(void* ptr);
 /**
  * @brief Clean up resources and release allocated memory.
  */
-void flush_heap();
+void cleanup_heap();

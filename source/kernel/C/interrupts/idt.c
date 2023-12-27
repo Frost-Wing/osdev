@@ -2,6 +2,7 @@
 #include <isr.h>
 #include <keyboard.h>
 #include <ps2-mouse.h>
+#include <pit.h>
 
 extern void* isr_stub_table[];
 extern void* irq_stub_table[];
@@ -60,8 +61,9 @@ void initIdt()
     info("Started initialization!", __FILE__);
 
     // interrupt number of keyboard is 0x21, for pit it's 0x20 and for mouse it's 0x2C
+    registerInterruptHandler(0x20, process_pit);
+    registerInterruptHandler(0x2C, process_mouse);
     registerInterruptHandler(0x21, process_keyboard);
-    // registerInterruptHandler(0x2C, process_mouse);
 
     for (uint8_t i = 0; i < 32; i++) 
     {
@@ -75,11 +77,11 @@ void initIdt()
 
     remap_pic();
 
-    outb(0x21, 0xfd); // 0xfd for keyboard only and for mouse + keyboard 0xf8 (if sb 16 support then 0x??)
-    outb(0xa1, 0xff); // 0xff for keyboard only and for mouse + keyboard 0xef
+    outb(0x21, 0xf8); // 0xfd for keyboard only and for mouse + keyboard 0xf8 (if sb 16 support then 0x??)
+    outb(0xa1, 0xef); // 0xff for keyboard only and for mouse + keyboard 0xef
 
     __asm__ volatile("lidt %0" : : "m"(idt_ptr));
-    __asm__ volatile("sti");
+    set_interrupts();
 
     done("Successfully initialized!", __FILE__);
 }

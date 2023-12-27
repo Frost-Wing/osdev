@@ -301,9 +301,9 @@ void main(void) {
     // glDrawTriangle((uvec2){110, 110}, (uvec2){200, 200}, (uvec2){200, 110}, 0xffdadbad, true);
     // glDestroyContext(null);
 
-    // glCreateContext();
-    // glCreateContextCustom(graphics_base_Address, framebuffer->width, framebuffer->height);
-    // init_ps2_mouse();
+    glCreateContext();
+    glCreateContextCustom(graphics_base_Address, framebuffer->width, framebuffer->height);
+    init_ps2_mouse();
 
     // glDestroyContext(null);
 
@@ -311,7 +311,20 @@ void main(void) {
     // volatile uint32_t *ptr = (volatile uint32_t *)0xFFFFFFFFFFFFF000;
     // uint32_t value = *ptr;
 
-    flush_heap();
+    // int val0 = 10;
+    // int val1 = 20;
+    // list my_list;
+    // list_init(&my_list);
+    // printf("list is empty: %d", list_empty(&my_list));
+    // list_push_back(&my_list, &val0);
+    // printf("list size: %d", my_list.size);
+    // list_push_back(&my_list, &val1);
+    // printf("list size: %d", my_list.size);
+    // void* resultVal = list_pop_back(&my_list);
+    // printf("list size: %d", my_list.size);
+    // printf("list last pop-ed value: %d", *(int*)resultVal);
+    // list_clear(&my_list);
+    // printf("list size: %d", my_list.size);
 
     // printf("Time took to boot : %d", boot_time_request.response->boot_time);
 
@@ -366,5 +379,7 @@ void putc(char c){
  * 
  */
 void shutdown(){
+    cleanup_heap();
+
     acpi_shutdown_hack(hhdm_request.response->offset, acpi_find_sdt, inb, inw, outb, outw);
 }

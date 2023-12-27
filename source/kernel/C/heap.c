@@ -95,7 +95,7 @@ void free(void* ptr) {
 /**
  * @brief Clean up resources and release allocated memory.
  */
-void flush_heap() {
+void cleanup_heap() {
     // Traverse the list of allocated memory blocks and free them.
     heap_block* current = free_list;
     while (current != null) {
@@ -105,5 +105,5 @@ void flush_heap() {
         current = next;
     }
     free_list = null;  // Reset the free_list to indicate no allocated memory remains.
-    // done("Heap memory flushed!", __FILE__);
+    done("Heap memory flushed!", __FILE__);
 }
