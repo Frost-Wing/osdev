@@ -84,6 +84,12 @@ void ap_entry(struct limine_smp_info *info) {
     while (1);
 }
 
+void mouseHandler(int64_t xRel, int64_t yRel)
+{
+    glDrawLine((uvec2){0, 0}, GetLastMousePosition(), 0x000000);
+    glDrawLine((uvec2){0, 0}, GetMousePosition(), 0xffffff);
+}
+
 void main(void) {
     if (framebuffer_request.response == null) {
         hcf2();
@@ -305,6 +311,7 @@ void main(void) {
     glCreateContext();
     glCreateContextCustom(graphics_base_Address, framebuffer->width, framebuffer->height);
     init_ps2_mouse();
+    SetMouseHandler(mouseHandler);
 
     // glDestroyContext(null);
 

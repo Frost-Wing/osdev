@@ -46,6 +46,7 @@ int64 mouse_packet[4];
 bool isMousePacketReady = false;
 uvec2 current_mouse_position;
 uvec2 previous_mouse_position;
+MouseMovementHandler mMovementHandler = NULL;
 
 void process_mouse(InterruptFrame* frame){
     int8 data = inb(0x60);
@@ -81,76 +82,84 @@ void handle_ps2_mouse(int8 data){
     }
 }
 
+void SetMouseHandler(MouseMovementHandler handler)
+{
+    mMovementHandler = handler;
+}
+
+uvec2 GetMousePosition()
+{
+    return current_mouse_position;
+}
+
+uvec2 GetLastMousePosition()
+{
+    return previous_mouse_position;
+}
+
 void process_mouse_packet(){
-    if (!isMousePacketReady) return;
+    if (!isMousePacketReady)
+        return;
 
-        bool xNegative, yNegative, xOverflow, yOverflow;
+    bool xNegative, yNegative, xOverflow, yOverflow;
 
-        if (mouse_packet[0] & PS2_x){
-            xNegative = true;
-        }else xNegative = false;
+    xNegative = mouse_packet[0] & PS2_x;
+    yNegative = mouse_packet[0] & PS2_y;
+    xOverflow = mouse_packet[0] & PS2_x_overflow;
+    yOverflow = mouse_packet[0] & PS2_y_overflow;
 
-        if (mouse_packet[0] & PS2_y){
-            yNegative = true;
-        }else yNegative = false;
-
-        if (mouse_packet[0] & PS2_x_overflow){
-            xOverflow = true;
-        }else xOverflow = false;
-
-        if (mouse_packet[0] & PS2_y_overflow){
-            yOverflow = true;
-        }else yOverflow = false;
-
-        if (!xNegative){
-            current_mouse_position.x += mouse_packet[1];
-            if (xOverflow){
-                current_mouse_position.x += (int64)255;
-            }
-        } else
-        {
-            mouse_packet[1] = ((int64)256) - mouse_packet[1];
-            current_mouse_position.x -= mouse_packet[1];
-            if (xOverflow){
-                current_mouse_position.x -= (int64)255;
-            }
+    if (!xNegative){
+        current_mouse_position.x += mouse_packet[1];
+        if (xOverflow){
+            current_mouse_position.x += (int64)255;
         }
-
-        if (!yNegative){
-            current_mouse_position.y -= mouse_packet[2];
-            if (yOverflow){
-                current_mouse_position.y -= (int64)255;
-            }
-        } else
-        {
-            mouse_packet[2] = ((int64)256) - mouse_packet[2];
-            current_mouse_position.y += mouse_packet[2];
-            if (yOverflow){
-                current_mouse_position.y += (int64)255;
-            }
+    } else
+    {
+        mouse_packet[1] = ((int64)256) - mouse_packet[1];
+        current_mouse_position.x -= mouse_packet[1];
+        if (xOverflow){
+            current_mouse_position.x -= (int64)255;
         }
+    }
 
-        if (current_mouse_position.x < 0) current_mouse_position.x = 0;
-        if (current_mouse_position.x >= fb_width) current_mouse_position.x = fb_width - 1;
-    
-        if (current_mouse_position.y < 0) current_mouse_position.y = 0;
-        if (current_mouse_position.y >= fb_height) current_mouse_position.y = fb_height - 1;
-        
-        glDrawLine((uvec2){0, 0}, previous_mouse_position, 0x000000);        
-        glDrawLine((uvec2){0, 0}, current_mouse_position, 0xffffff);
+    if (!yNegative)
+    {
+        current_mouse_position.y -= mouse_packet[2];
+        if (yOverflow)
+            current_mouse_position.y -= (int64)255;
+    }
+    else
+    {
+        mouse_packet[2] = ((int64)256) - mouse_packet[2];
+        current_mouse_position.y += mouse_packet[2];
+        if (yOverflow)
+            current_mouse_position.y += (int64)255;
+    }
 
-        if (mouse_packet[0] & PS2_left_button){
-            handle_click(PS2_left_button, current_mouse_position);
-        }
-        if (mouse_packet[0] & PS2_right_button){
-            handle_click(PS2_right_button, current_mouse_position);
-        }
-        if (mouse_packet[0] & PS2_middle_button){
-            handle_click(PS2_middle_button, current_mouse_position);
-        }
+    if (current_mouse_position.x < 0) current_mouse_position.x = 0;
+    if (current_mouse_position.x >= fb_width) current_mouse_position.x = fb_width - 1;
 
-        isMousePacketReady = false;
-        previous_mouse_position = current_mouse_position;
+    if (current_mouse_position.y < 0) current_mouse_position.y = 0;
+    if (current_mouse_position.y >= fb_height) current_mouse_position.y = fb_height - 1;
+
+    int64_t deltaX = current_mouse_position.x - previous_mouse_position.x;
+    int64_t deltaY = current_mouse_position.y - previous_mouse_position.y;
+
+    if (mMovementHandler != NULL)
+        mMovementHandler(deltaX, deltaY);
+
+    if (mouse_packet[0] & PS2_left_button){
+
+    }
+    if (mouse_packet[0] & PS2_middle_button){
+
+    }
+    if (mouse_packet[0] & PS2_right_button){
+
+    }
+
+    isMousePacketReady = false;
+    previous_mouse_position = current_mouse_position;
 }
 
 void handle_click(int64 type, uvec2 position){
