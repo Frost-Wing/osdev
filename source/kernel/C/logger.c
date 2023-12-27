@@ -11,6 +11,7 @@
 #include <graphics.h>
 
 static const char hex_digits[] = "0123456789abcdef";
+static const char caps_hex_digits[] = "0123456789ABCDEF";
 
 /**
  * @brief Display a warning message.
@@ -146,7 +147,7 @@ void printdec(int num) {
  * 
  * @param hex the hexadecimal number to be printed.
  */
-void printhex(int num) {    
+void printhex(int num, bool caps) {    
     int i;
     char buf[21];
     int n = num;
@@ -163,12 +164,13 @@ void printhex(int num) {
     buf[16] = 0;
 
     for (i = 15; n; i--) {
-        buf[i] = hex_digits[n % 16];
+        if(caps) buf[i] = caps_hex_digits[n % 16];
+        else buf[i] = hex_digits[n % 16];
+
         n /= 16;
     }
 
     i++;
-    // print("0x");
     print(&buf[i]);
 }
 
@@ -187,7 +189,9 @@ void printf(cstring format, ...) {
         if (*format == '%') {
             format++;
             if (*format == 'x') {
-                printhex(va_arg(argp, size_t));
+                printhex(va_arg(argp, size_t), no);
+            } else if (*format == 'X') {
+                printhex(va_arg(argp, size_t), yes);
             } else if (*format == 'd') {
                 printdec(va_arg(argp, size_t));
             } else if (*format == 's') {

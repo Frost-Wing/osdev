@@ -87,7 +87,7 @@ void printdec(int num);
  * 
  * @param hex the hexadecimal number to be printed.
  */
-void printhex(int hex);
+void printhex(int hex, bool caps);
 
 /**
  * @brief More uniform print function.
