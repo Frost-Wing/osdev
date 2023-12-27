@@ -11,7 +11,6 @@ doxygen-1.9.8
 .vscode
 source/typescript/typescript-source.c
 source/kernel/typescript-source.c
-doxygen-awesome-css
 FrostWing.iso.*
 *.gcov
 cache
@@ -19,3 +18,4 @@ bin
 source/kernel/C/misc/versions.c
 keys/file.sig
 keys/private_key.pem
+*.css
