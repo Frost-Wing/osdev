@@ -8,8 +8,8 @@
  */
 #include <ps2-mouse.h>
 
-extern int fb_width;
-extern int fb_height;
+extern int64 fb_width;
+extern int64 fb_height;
 
 void ps2_mouse_wait(){
     int64 timeout = 100000;
@@ -42,7 +42,7 @@ int8 ps2_mouse_read(){
 }
 
 int8 mouse_cycle = 0;
-int8 mouse_packet[4];
+int64 mouse_packet[4];
 bool isMousePacketReady = false;
 uvec2 current_mouse_position;
 uvec2 previous_mouse_position;
@@ -105,39 +105,39 @@ void process_mouse_packet(){
         if (!xNegative){
             current_mouse_position.x += mouse_packet[1];
             if (xOverflow){
-                current_mouse_position.x += 255;
+                current_mouse_position.x += (int64)255;
             }
         } else
         {
-            mouse_packet[1] = 256 - mouse_packet[1];
-            current_mouse_position.y -= mouse_packet[1];
+            mouse_packet[1] = ((int64)256) - mouse_packet[1];
+            current_mouse_position.x -= mouse_packet[1];
             if (xOverflow){
-                current_mouse_position.x -= 255;
+                current_mouse_position.x -= (int64)255;
             }
         }
 
         if (!yNegative){
             current_mouse_position.y -= mouse_packet[2];
             if (yOverflow){
-                current_mouse_position.y -= 255;
+                current_mouse_position.y -= (int64)255;
             }
         } else
         {
-            mouse_packet[2] = 256 - mouse_packet[2];
+            mouse_packet[2] = ((int64)256) - mouse_packet[2];
             current_mouse_position.y += mouse_packet[2];
             if (yOverflow){
-                current_mouse_position.y += 255;
+                current_mouse_position.y += (int64)255;
             }
         }
 
         if (current_mouse_position.x < 0) current_mouse_position.x = 0;
-        if (current_mouse_position.x > fb_width-1) current_mouse_position.x = fb_width-1;
-        
+        if (current_mouse_position.x >= fb_width) current_mouse_position.x = fb_width - 1;
+    
         if (current_mouse_position.y < 0) current_mouse_position.y = 0;
-        if (current_mouse_position.y > fb_height-1) current_mouse_position.y = fb_height-1;
+        if (current_mouse_position.y >= fb_height) current_mouse_position.y = fb_height - 1;
         
-        glWritePixel(previous_mouse_position, 0x000000);        
-        glWritePixel(current_mouse_position, 0xffffff);
+        glDrawLine((uvec2){0, 0}, previous_mouse_position, 0x000000);        
+        glDrawLine((uvec2){0, 0}, current_mouse_position, 0xffffff);
 
         if (mouse_packet[0] & PS2_left_button){
 

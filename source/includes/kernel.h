@@ -61,13 +61,13 @@ extern int terminal_columns;
  * @brief An integer value which stores the framebuffer's (display) width
  * 
  */
-extern int fb_width;
+extern int64 fb_width;
 
 /**
  * @brief An integer value which stores the framebuffer's (display) height
  * 
  */
-extern int fb_height;
+extern int64 fb_height;
 
 /**
  * @brief The main kernel function
