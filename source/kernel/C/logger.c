@@ -147,10 +147,10 @@ void printdec(int num) {
  * 
  * @param hex the hexadecimal number to be printed.
  */
-void printhex(int num, bool caps) {    
+void printhex(signed int num, bool caps) {    
     int i;
     char buf[21];
-    int n = num;
+    signed int n = num;
 
     if(n < 0){
         n = -n;

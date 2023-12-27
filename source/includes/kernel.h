@@ -21,7 +21,7 @@
 #include <stdint.h>
 #include <limine.h>
 #include <memory.h>
-#include <strings.h>
+#include <strings2.h>
 #include <math/fpu.h>
 #include <sse.h>
 #include <debugger.h>
