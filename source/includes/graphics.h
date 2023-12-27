@@ -16,7 +16,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <basics.h>
-#include <string.h>
+#include <strings2.h>
 
 // ANSI color codes for text formatting
 #define reset_color  "\033[37m"
@@ -87,7 +87,7 @@ void printdec(int num);
  * 
  * @param hex the hexadecimal number to be printed.
  */
-void printhex(int hex, bool caps);
+void printhex(signed int num, bool caps);
 
 /**
  * @brief More uniform print function.

@@ -285,14 +285,14 @@ void main(void) {
     init_hashing();
 
     // ~ Negative numbers test
-    // int test_var = 50;
+    int test_var = 50;
     // test_var = -test_var;
     // if(test_var == -50){
     //     done("Works!", __FILE__);
     // }
 
     // printf("%d", test_var);
-    // printf("%X", test_var);
+    printf("%X", test_var);
 
     // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
     // glCreateContext();
