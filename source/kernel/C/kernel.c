@@ -299,6 +299,7 @@ void main(void) {
     // glDrawLine((uvec2){0, 0}, (uvec2){10, 30}, 0xffbaddad);
     // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
     // glDrawTriangle((uvec2){110, 110}, (uvec2){200, 200}, (uvec2){200, 110}, 0xffdadbad, true);
+    // glDrawRect((uvec2){110, 110}, (uvec2){200, 200}, 0xffdadbad);
     // glDestroyContext(null);
 
     // glCreateContext();

@@ -142,6 +142,23 @@ void printdec(int num) {
 
     print(&buf[i]);
 }
+
+/**
+ * @brief Prints a value in binary format
+ * 
+ * @param value A pointer to the value that will be printed
+ */
+void printbin(uint8_t value)
+{
+    static char binaryRepresentation[9];
+    binaryRepresentation[8] = 0;
+
+    for (int i = 0; i < 8; i++)
+        binaryRepresentation[i] = (value & 0x80 >> i) ? '1' : '0';
+    
+    print(binaryRepresentation);
+}
+
 /**
  * @brief Prints Hexadecimal number
  * 
@@ -188,14 +205,27 @@ void printf(cstring format, ...) {
     while (*format != '\0') {
         if (*format == '%') {
             format++;
-            if (*format == 'x') {
+            switch (*format)
+            {
+            case 'b':
+                printbin(va_arg(argp, size_t));
+                break;
+
+            case 'x':
                 printhex(va_arg(argp, size_t), no);
-            } else if (*format == 'X') {
+                break;
+            
+            case 'X':
                 printhex(va_arg(argp, size_t), yes);
-            } else if (*format == 'd') {
+                break;
+            
+            case 'd':
                 printdec(va_arg(argp, size_t));
-            } else if (*format == 's') {
+                break;
+            
+            case 's':
                 print(va_arg(argp, char*));
+                break;
             }
         } else {
             putc(*format);
