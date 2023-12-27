@@ -45,7 +45,18 @@ GLAPI void glClearColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 GLAPI void glClear(GLenum mask);
 
 /**
- * @brief  Line drawing function
+ * @brief Rectangle drawing function
+ * 
+ * @author GAMINGNOOBdev (https://github.com/GAMINGNOOBdev)
+ * 
+ * @param start Start position
+ * @param size Width and height of the rectangle
+ * @param col Color of the rectangle
+*/
+GLAPI void glDrawRect(uvec2 start, uvec2 size, uint32_t col);
+
+/**
+ * @brief Line drawing function
  * 
  * @author GAMINGNOOBdev (https://github.com/GAMINGNOOBdev)
  * 
