@@ -86,7 +86,7 @@ Before you start building FrostWing, ensure that you have the following dependen
 
 - Latest Version of [Limine Bootloader](https://github.com/limine-bootloader/limine)
 ```bash
-git clone https://github.com/limine-bootloader/limine.git --branch=v5.x-branch-binary --depth=1
+git clone https://github.com/limine-bootloader/limine.git --branch=v6.x-branch-binary --depth=1
 ```
 - Compile the Limine bootloader
 ```bash
@@ -107,7 +107,11 @@ make -C limine
     ```bash
     cd FrostWing
     ```
-3. **Build FrostWing for your target architecture:**
+3. **Install all required dependencies**
+
+    It is provided in [Prerequisites](#prerequisites)
+
+4. **Build FrostWing for your target architecture:**
 - For x86_64:
     ```bash
     make -C source
@@ -123,9 +127,9 @@ make -C limine
     make -C source ARCH="riscv64"
     make
     ```
-4. (Optional - Recommened) To use custom cross compiler:
+5. (Optional - Recommened) To use custom cross compiler:
     ```bash
-    make -C source ARCH="xx" CC="cc"
+    make -C source ARCH="xx" CC="xx" LD="xx"
     make
     ```
 
@@ -143,7 +147,7 @@ The main html file is located at: `docs/html/index.html`
 > [!NOTE]
 > Better Method below
 
-Visit [Doxygen Documentation for FrostWing](https://frost-wing.github.io/doxygen-docs/) for pre-compiled documentations
+Visit [Doxygen Documentation for FrostWing](https://frost-wing.github.io/doxygen-docs/) for pre-compiled documentations.
 ### Hardware/Software (Emulator) Requirements
 #### Minimum Requirements (BIOS)
 - **CPU** Currently any x86_64 proccessor
@@ -187,9 +191,9 @@ Boot Disk information:
 > It is recommended to use Ventoy because you will not have the risk of flashing and failing of USB-Drives
 ## Features
 
-- Modular architecture for extensibility and maintainability.
 - Support for multiple target architectures: x86_64, ARM64 (aarch64), and RISC-V (riscv64).
 - Simple and clean codebase with documentation.
+- *comming soon...*
 
 ## Contributing
 
@@ -199,11 +203,9 @@ We welcome contributions to FrostWing! If you'd like to contribute code, report 
 
 FrostWing is open-source software released under the [CC0-1.0 License](https://github.com/Frost-Wing/osdev/blob/main/LICENSE). Feel free to use, modify, and distribute it as per the terms of this license.
 
-Happy coding, and let's make FrostWing even more awesome together! 😎🚀
-
 ## FrostWing Team
 - Owner and founder - Pradosh ([@PradoshGame](https://twitter.com/@PradoshGame))
-- Head Developer - GAMINGNOOB ([@GAMINGNOOBdev](https://github.com/GAMINGNOOBdev))
+- OpenGL & Head Developer - GAMINGNOOB ([@GAMINGNOOBdev](https://github.com/GAMINGNOOBdev))
 - Sources
     - [Flanterm](https://github.com/mintsuki/flanterm/tree/trunk) from Mintsuki
     - [ACPI and Shutdown](https://github.com/mintsuki/acpi-shutdown-hack) from Mintsuki
