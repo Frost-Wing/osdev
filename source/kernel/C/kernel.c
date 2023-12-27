@@ -125,9 +125,6 @@ void main(void) {
     fb_width = framebuffer->width;
     fb_height = framebuffer->height;
 
-    if(framebuffer_request.response->framebuffer_count < 1){
-        warn("Multiple framebuffers detected! Using Framebuffer[0] (You probably have 2 monitors)", __FILE__);
-    }
     acpi_init();
     if(virtualized){ // The code inside this will not work on a real machine.
         probe_serial();
@@ -332,11 +329,11 @@ void main(void) {
     // glDestroyContext(null);
 
     while(1){
-        int8 received_buffer[1518];
-        int16 received_length;
-        if (rtl8139_receive_packet(RTL8139, received_buffer, &received_length)) {
-            print("Yep received a packet!\n");
-        }
+        // int8 received_buffer[1518];
+        // int16 received_length;
+        // if (rtl8139_receive_packet(RTL8139, received_buffer, &received_length)) {
+        //     print("Yep received a packet!\n");
+        // }
     }
 }
 
