@@ -26,6 +26,38 @@
 #define PS2_y_overflow    0b10000000
 
 /**
+ * @brief Type definition for mouse movement handler functions
+ */
+typedef void(*MouseMovementHandler)(int64_t xRel, int64_t yRel);
+
+/**
+ * @brief Set the mouse movement handler function
+ * 
+ * @author GAMINGNOOBdev (https://github.com/GAMINGNOOBdev)
+ * 
+ * @param handler Mouse movement handler function
+ */
+void SetMouseHandler(MouseMovementHandler handler);
+
+/**
+ * @brief Get the mouse position
+ * 
+ * @author GAMINGNOOBdev (https://github.com/GAMINGNOOBdev)
+ * 
+ * @returns The mouse position
+ */
+uvec2 GetMousePosition();
+
+/**
+ * @brief Get the last mouse position
+ * 
+ * @author GAMINGNOOBdev (https://github.com/GAMINGNOOBdev)
+ * 
+ * @returns The last mouse position
+ */
+uvec2 GetLastMousePosition();
+
+/**
  * @brief Handles the mouse's 
  * 
  * @param frame 
