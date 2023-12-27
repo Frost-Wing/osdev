@@ -45,6 +45,18 @@ static int abs(int value)
     return value;
 }
 
+void glDrawRect(uvec2 start, uvec2 size, uint32_t col)
+{
+    if (!glContextInitialized())
+        return;
+
+    uvec2 offsetSize = (uvec2){start.x + size.x, start.y + size.y};
+
+    for (uint32_t y = start.y; y < offsetSize.y; y++)
+        for (uint32_t x = start.x; x < offsetSize.x; x++)
+            glWritePixel((uvec2){x, y}, col);
+}
+
 void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col)
 {
     if (!glContextInitialized())
