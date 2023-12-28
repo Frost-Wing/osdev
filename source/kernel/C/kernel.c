@@ -91,6 +91,7 @@ void mouseHandler(int64_t xRel, int64_t yRel)
 
     glDrawLine((uvec2){0, 0}, (uvec2){lastMousePos.x, lastMousePos.y}, 0x000000);
     glDrawLine((uvec2){0, 0}, (uvec2){mousePos.x, mousePos.y}, 0xffffff);
+    printf("{%d, %d}", mousePos.x, mousePos.y);
 }
 
 void main(void) {
@@ -312,7 +313,7 @@ void main(void) {
     // glDestroyContext(null);
 
     glCreateContext();
-    glCreateContextCustom(graphics_base_Address, framebuffer->width, framebuffer->height);
+    glCreateContextCustom(framebuffer->address, framebuffer->width, framebuffer->height);
     init_ps2_mouse();
     SetMouseHandler(mouseHandler);
 

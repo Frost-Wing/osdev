@@ -25,6 +25,8 @@
 #define PS2_x_overflow    0b01000000
 #define PS2_y_overflow    0b10000000
 
+extern const int8 mouse_cursor[];
+
 /**
  * @brief Type definition for mouse movement handler functions
  */

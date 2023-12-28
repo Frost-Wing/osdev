@@ -48,6 +48,9 @@ ivec2 current_mouse_position;
 ivec2 previous_mouse_position;
 MouseMovementHandler mMovementHandler = NULL;
 
+// https://bitmap-code-generator.benalman.com/share/mouse_cursor/8/16/g30e1s7ovjvfvv7gs200000000
+const int8 mouse_cursor[] = {0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff, 0xfc, 0xf0, 0xe0, 0x80, 0x00, 0x00, 0x00, 0x00};
+
 void process_mouse(InterruptFrame* frame){
     int8 data = inb(0x60);
     handle_ps2_mouse(data);
@@ -137,10 +140,10 @@ void process_mouse_packet(){
     }
 
     if (current_mouse_position.x < 0) current_mouse_position.x = 0;
-    if (current_mouse_position.x >= fb_width) current_mouse_position.x = fb_width - 1;
+    if (current_mouse_position.x > fb_width) current_mouse_position.x = fb_width - 1;
 
     if (current_mouse_position.y < 0) current_mouse_position.y = 0;
-    if (current_mouse_position.y >= fb_height) current_mouse_position.y = fb_height - 1;
+    if (current_mouse_position.y > fb_height) current_mouse_position.y = fb_height - 1;
 
     int64_t deltaX = current_mouse_position.x - previous_mouse_position.x;
     int64_t deltaY = current_mouse_position.y - previous_mouse_position.y;
@@ -167,12 +170,15 @@ void handle_click(int64 type, ivec2 position){
     {
         case PS2_left_button:
             debug_println("left!");
+            printf("{%d, %d}", position.x, position.y);
             break;
         case PS2_right_button:
             debug_println("right!");
+            // printf("{%d, %d}", position.x, position.y);
             break;
         case PS2_middle_button:
             debug_println("middle!");
+            // printf("{%d, %d}", position.x, position.y);
             break;
         default:
             break;
