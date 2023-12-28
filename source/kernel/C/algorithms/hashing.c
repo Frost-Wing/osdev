@@ -12,10 +12,9 @@
 
 void init_hashing(){
     string data = "PradoshGame";
-    int64 hash = hash_string(data);
+    int hash = hash_string(data);
 
-    int64 verification = (int64)0x393e7fd; // ! DO NOT use just the hex, use explicit type conversion, if not you will get a value while looks same but not equal.
-    if(verification == 0x393e7fd){
+    if(hash == 0x393e7fd){
         done("Hashing worked as intended!", __FILE__);
     }else{
         error("Hashing failed!", __FILE__);
@@ -23,8 +22,8 @@ void init_hashing(){
     }
 }
 
-int64 hash_string(string data){
-    int64 hash = 0;
+int hash_string(string data){
+    int hash = 0;
     while(*data){
         hash += *data++;
         if(*data)

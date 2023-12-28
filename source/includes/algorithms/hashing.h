@@ -20,6 +20,6 @@ void init_hashing();
  * @brief The function to hash an string (const char *)
  * 
  * @param data The string to be hashed.
- * @return [int64] Hashed value.
+ * @return [int] Hashed value.
  */
-int64 hash_string(string data);
+int hash_string(string data);
