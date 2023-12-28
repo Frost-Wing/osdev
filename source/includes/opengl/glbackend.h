@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2023-10-24
  * 
- * @copyright Copyright (c) Pradosh 2023
+ * @copyright Copyright (c) Pradosh & GAMINGNOOBdev 2023
  */
 #ifndef __OPENGL__GLBACKEND_H_
 #define __OPENGL__GLBACKEND_H_ 1
@@ -26,6 +26,15 @@
  * @param color 8-bit color
  */
 GLAPI void glWritePixel(uvec2 pixel, uint32_t color);
+
+/**
+ * @brief Pixel reading function
+ * 
+ * @author GAMINGNOOBdev (https://github.com/GAMINGNOOBdev)
+ * 
+ * @param pixel Pixel position in screen space
+ */
+GLAPI uint32_t glReadPixel(uvec2 pixel);
 
 /**
  * @brief Sets the color with which the `glClear` function clears a given buffer
