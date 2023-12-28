@@ -36,9 +36,7 @@ run-x86:
 	-drive id=disk,file=disk.txt,if=none \
 	-device ahci,id=ahci \
 	-device ide-hd,drive=disk,bus=ahci.0 \
-	-cpu host \
 	-m 512 \
-	-enable-kvm \
 	-no-reboot
 
 run-x86-vnc:

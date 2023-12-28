@@ -139,9 +139,8 @@ void main(void) {
     if(virtualized){ // The code inside this will not work on a real machine.
         probe_serial();
     }
-    if(!is_kvm_supported() && virtualized){
-        gdt_init();
-    }
+    gdt_init();
+
     RTL8139 = (struct rtl8139*)malloc(sizeof(struct rtl8139));
 
     struct memory_context memory;
