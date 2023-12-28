@@ -10,6 +10,10 @@
  */
 #include <gdt.h>
 
+struct tss_entry tss;
+
+char kernel_stack[kernel_stack_size];
+
 // Function to load the GDT
 void load_gdt(struct gdt_pointer* gdt_ptr) {
     #if defined (__x86_64__)
@@ -41,8 +45,33 @@ void load_gdt(struct gdt_pointer* gdt_ptr) {
     #endif
 }
 
+void load_tss() {
+    #if defined (__x86_64__)
+    asm volatile(
+        "ltr %0"
+        :
+        : "r"((int16)0x28)  // Selector for the TSS entry in GDT
+    );
+    #endif
+}
+
 // Global Descriptor Table (GDT) entries
 struct gdt_entry gdt[3];
+
+void setup_tss() {
+    memset(&tss, 0, sizeof(tss));
+
+    tss.rsp[0] = (int64)&kernel_stack[kernel_stack_size - 1];
+
+    gdt[3].limit_low = sizeof(tss) - 1;
+    gdt[3].base_low = (int16)&tss;
+    gdt[3].base_middle = (int8)(((int64)&tss) >> 32);
+    gdt[3].access = 0x92;  // Present, Ring 3, Accessed
+    gdt[3].granularity = 0x00;
+    gdt[3].base_high = (int8)(((int64)&tss) >> 40);
+
+    info("Successfully setup-ed TSS!", __FILE__);
+}
 
 /**
  * @brief The Main GDT Initializing function.
@@ -90,4 +119,10 @@ void gdt_init() {
     load_gdt(&gdtp);
 
     done("Successfully loaded GDT!", __FILE__);
+
+    setup_tss();
+    load_tss();
+
+    done("Successfully loaded TSS!", __FILE__);
+    hcf2();
 }
