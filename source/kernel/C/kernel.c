@@ -84,14 +84,48 @@ void ap_entry(struct limine_smp_info *info) {
     while (1);
 }
 
-void mouseHandler(int64_t xRel, int64_t yRel)
+#define MOUSE_COLOR_DEFAULT 0xffffffff
+#define MOUSE_COLOR_LEFT 0x00ff00ff
+#define MOUSE_COLOR_RIGHT 0xff00ff00
+#define MOUSE_COLOR_MIDDLE 0xaaaaaaaa
+
+uint32_t mouseColor = MOUSE_COLOR_DEFAULT;
+
+void mouseMovementHandler(int64_t xRel, int64_t yRel)
 {
     ivec2 lastMousePos = GetLastMousePosition();
     ivec2 mousePos = GetMousePosition();
 
     glDrawLine((uvec2){0, 0}, (uvec2){lastMousePos.x, lastMousePos.y}, 0x000000);
-    glDrawLine((uvec2){0, 0}, (uvec2){mousePos.x, mousePos.y}, 0xffffff);
+    glDrawLine((uvec2){0, 0}, (uvec2){mousePos.x, mousePos.y}, mouseColor);
     printf("{%d, %d}", mousePos.x, mousePos.y);
+}
+
+void mouseButtonHandler(uint8_t button, uint8_t action)
+{
+    if (action == MOUSE_BUTTON_RELEASE)
+    {
+        mouseColor = MOUSE_COLOR_DEFAULT;
+        return;
+    }
+
+    if (button == MOUSE_BUTTON_LEFT)
+    {
+        mouseColor = MOUSE_COLOR_LEFT;
+        return;
+    }
+
+    if (button == MOUSE_BUTTON_RIGHT)
+    {
+        mouseColor = MOUSE_COLOR_RIGHT;
+        return;
+    }
+
+    if (button == MOUSE_BUTTON_MIDDLE)
+    {
+        mouseColor = MOUSE_COLOR_MIDDLE;
+        return;
+    }
 }
 
 void main(void) {
@@ -315,7 +349,8 @@ void main(void) {
     glCreateContext();
     glCreateContextCustom(framebuffer->address, framebuffer->width, framebuffer->height);
     init_ps2_mouse();
-    SetMouseHandler(mouseHandler);
+    SetMouseMovementHandler(mouseMovementHandler);
+    SetMouseButtonHandler(mouseButtonHandler);
 
     // glDestroyContext(null);
 
