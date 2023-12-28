@@ -378,7 +378,6 @@ void main(void) {
 
     print("press F10 for (ACPI) Shutdown.\n");
     print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
-    print("press F8 for current time.\n");
 
     done("No process pending.", __FILE__);
 
@@ -388,13 +387,20 @@ void main(void) {
     // glClear(GL_COLOR_BUFFER_BIT);
     // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
     // glDestroyContext(null);
-
+    ft_ctx->cursor_enabled = no;
     while(1){
-        // int8 received_buffer[1518];
-        // int16 received_length;
-        // if (rtl8139_receive_packet(RTL8139, received_buffer, &received_length)) {
-        //     print("Yep received a packet!\n");
-        // }
+        print("\x1b[2J"); // Clears screen
+        print("\x1b[H");  // Resets Cursor to 0, 0
+        glDrawRect((uvec2){50, 50}, (uvec2){200, 70}, 0xdeadbeef);
+        
+        print("press F10 for (ACPI) Shutdown.\n");
+        print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
+        print("press F8 to halt.\n");
+
+        ivec2 lastMousePos = GetLastMousePosition();
+        ivec2 mousePos = GetMousePosition();
+        print_bitmap(lastMousePos.x, lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
+        print_bitmap(mousePos.x, mousePos.y, 8, 16, mouse_cursor, mouseColor);
     }
 }
 

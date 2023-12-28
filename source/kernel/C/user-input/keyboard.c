@@ -84,6 +84,11 @@ void process_keyboard(InterruptFrame* frame){
         acpi_reboot();
         goto exit_interrupt;
     }
+    if(data == 0x42){ // F8 Key
+        enable_keyboard = no;
+        hcf();
+        goto exit_interrupt; // this is not possible but for uniformity it is here.
+    }
     if(data == 0x0E){ // Backspace Key
         print("\b \b");
         goto exit_interrupt;
