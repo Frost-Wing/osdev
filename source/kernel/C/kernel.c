@@ -173,7 +173,6 @@ void main(void) {
     if(virtualized){ // The code inside this will not work on a real machine.
         probe_serial();
     }
-    gdt_init();
 
     RTL8139 = (struct rtl8139*)malloc(sizeof(struct rtl8139));
 
@@ -326,6 +325,8 @@ void main(void) {
     initIdt();
     
     init_hashing();
+
+    // gdt_init();
 
     // ~ Negative numbers test
     int test_var = 50;
