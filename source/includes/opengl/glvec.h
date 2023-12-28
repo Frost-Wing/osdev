@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2023-10-24
  * 
- * @copyright Copyright (c) GAMINGNOOBdev 2023
+ * @copyright Copyright (c) Pradosh & GAMINGNOOBdev 2023
  */
 #ifndef __OPENGL__GLVEC_H_
 #define __OPENGL__GLVEC_H_ 1
