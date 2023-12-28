@@ -18,6 +18,19 @@ void glWritePixel(uvec2 pixel, uint32_t color)
     context->ColorBuffer[pixel.y * context->ColorBufferWidth + pixel.x] = color;
 }
 
+uint32_t glReadPixel(uvec2 pixel)
+{
+    if (!glContextInitialized())
+        return;
+
+    GET_CURRENT_GL_CONTEXT(context);
+
+    if (pixel.x >= context->ColorBufferWidth || pixel.y >= context->ColorBufferHeight)
+        return 0;
+
+    return context->ColorBuffer[pixel.y * context->ColorBufferWidth + pixel.x];
+}
+
 void glClearColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
     if (!glContextInitialized())
