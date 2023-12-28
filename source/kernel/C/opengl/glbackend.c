@@ -12,7 +12,7 @@ void glWritePixel(uvec2 pixel, uint32_t color)
 
     GET_CURRENT_GL_CONTEXT(context);
 
-    if (pixel.x >= context->ColorBufferWidth || pixel.x >= context->ColorBufferHeight)
+    if (pixel.x >= context->ColorBufferWidth || pixel.y >= context->ColorBufferHeight)
         return;
 
     context->ColorBuffer[pixel.y * context->ColorBufferWidth + pixel.x] = color;
