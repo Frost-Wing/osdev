@@ -401,6 +401,8 @@ void main(void) {
         ivec2 mousePos = GetMousePosition();
         print_bitmap(lastMousePos.x, lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
         print_bitmap(mousePos.x, mousePos.y, 8, 16, mouse_cursor, mouseColor);
+
+        pit_sleep(16); // 60 Hz approx.
     }
 }
 
