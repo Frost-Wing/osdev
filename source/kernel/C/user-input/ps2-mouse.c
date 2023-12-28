@@ -46,7 +46,9 @@ int64 mouse_packet[4];
 bool isMousePacketReady = false;
 ivec2 current_mouse_position;
 ivec2 previous_mouse_position;
+MouseButtonHandler mButtonHandler = NULL;
 MouseMovementHandler mMovementHandler = NULL;
+uint8_t mLastMouseButtonState, mMouseButtonState;
 
 // https://bitmap-code-generator.benalman.com/share/mouse_cursor/8/16/g30e1s7ovjvfvv7gs200000000
 const int8 mouse_cursor[] = {0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff, 0xfc, 0xf0, 0xe0, 0x80, 0x00, 0x00, 0x00, 0x00};
@@ -85,9 +87,14 @@ void handle_ps2_mouse(int8 data){
     }
 }
 
-void SetMouseHandler(MouseMovementHandler handler)
+void SetMouseMovementHandler(MouseMovementHandler handler)
 {
     mMovementHandler = handler;
+}
+
+void SetMouseButtonHandler(MouseButtonHandler handler)
+{
+    mButtonHandler = handler;
 }
 
 ivec2 GetMousePosition()
@@ -148,17 +155,25 @@ void process_mouse_packet(){
     int64_t deltaX = current_mouse_position.x - previous_mouse_position.x;
     int64_t deltaY = current_mouse_position.y - previous_mouse_position.y;
 
-    if (mMovementHandler != NULL)
+    if (mMovementHandler != NULL && (deltaX != 0 || deltaY != 0))
         mMovementHandler(deltaX, deltaY);
 
-    if (mouse_packet[0] & PS2_left_button){
-        handle_click(PS2_left_button, current_mouse_position);
-    }
-    if (mouse_packet[0] & PS2_middle_button){
-        handle_click(PS2_middle_button, current_mouse_position);
-    }
-    if (mouse_packet[0] & PS2_right_button){
-        handle_click(PS2_right_button, current_mouse_position);
+    mLastMouseButtonState = mMouseButtonState;
+    mMouseButtonState = 0;
+    mMouseButtonState |= mouse_packet[0] & PS2_left_button;
+    mMouseButtonState |= mouse_packet[0] & PS2_middle_button;
+    mMouseButtonState |= mouse_packet[0] & PS2_right_button;
+
+    if (mLastMouseButtonState != mMouseButtonState && mButtonHandler != NULL)
+    {
+        if ((mLastMouseButtonState & MOUSE_BUTTON_LEFT) != (mMouseButtonState & MOUSE_BUTTON_LEFT))
+            mButtonHandler(MOUSE_BUTTON_LEFT, (mMouseButtonState & MOUSE_BUTTON_LEFT) > 0 ? MOUSE_BUTTON_PRESS : MOUSE_BUTTON_RELEASE);
+
+        if ((mLastMouseButtonState & MOUSE_BUTTON_RIGHT) != (mMouseButtonState & MOUSE_BUTTON_RIGHT))
+            mButtonHandler(MOUSE_BUTTON_RIGHT, (mMouseButtonState & MOUSE_BUTTON_RIGHT) > 0 ? MOUSE_BUTTON_PRESS : MOUSE_BUTTON_RELEASE);
+
+        if ((mLastMouseButtonState & MOUSE_BUTTON_MIDDLE) != (mMouseButtonState & MOUSE_BUTTON_MIDDLE))
+            mButtonHandler(MOUSE_BUTTON_MIDDLE, (mMouseButtonState & MOUSE_BUTTON_MIDDLE) > 0 ? MOUSE_BUTTON_PRESS : MOUSE_BUTTON_RELEASE);
     }
 
     isMousePacketReady = false;
