@@ -9,6 +9,7 @@
  * 
  */
 #include <graphics.h>
+#include <opengl/glbackend.h>
 
 static const char hex_digits[] = "0123456789abcdef";
 static const char caps_hex_digits[] = "0123456789ABCDEF";
@@ -235,4 +236,24 @@ void printf(cstring format, ...) {
 
     print("\n");
     va_end(argp);
+}
+
+int32* copy_framebuffer_data(int x, int y, int w, int h){
+    int32 data[w*h];
+    int i, j, l;
+    for (l = j = 0; l < h; l++) {
+        for (i = 0; i < w; i++, j++) {
+            // data[j] = glReadPixel((uvec2){x + i, y + l});
+        }
+    }
+    return data;
+}
+
+void print_bitmap(int x, int y, int w, int h, bool* pixels, int32 color) {
+    int i, j, l;
+    for (l = j = 0; l < h; l++) {
+        for (i = 0; i < w; i++, j++) {
+            glWritePixel((uvec2){x + i, y + l}, pixels[j] ? color : 0);
+        }
+    }
 }
