@@ -25,6 +25,13 @@
 #define PS2_x_overflow    0b01000000
 #define PS2_y_overflow    0b10000000
 
+#define MOUSE_BUTTON_LEFT PS2_left_button
+#define MOUSE_BUTTON_RIGHT PS2_right_button
+#define MOUSE_BUTTON_MIDDLE PS2_middle_button
+
+#define MOUSE_BUTTON_PRESS 1
+#define MOUSE_BUTTON_RELEASE 0
+
 extern const int8 mouse_cursor[];
 
 /**
@@ -33,13 +40,27 @@ extern const int8 mouse_cursor[];
 typedef void(*MouseMovementHandler)(int64_t xRel, int64_t yRel);
 
 /**
+ * @brief Type definition for mouse button handler functions
+ */
+typedef void(*MouseButtonHandler)(uint8_t button, uint8_t action);
+
+/**
  * @brief Set the mouse movement handler function
  * 
  * @author GAMINGNOOBdev (https://github.com/GAMINGNOOBdev)
  * 
  * @param handler Mouse movement handler function
  */
-void SetMouseHandler(MouseMovementHandler handler);
+void SetMouseMovementHandler(MouseMovementHandler handler);
+
+/**
+ * @brief Set the mouse button handler function
+ * 
+ * @author GAMINGNOOBdev (https://github.com/GAMINGNOOBdev)
+ * 
+ * @param handler Mouse button handler function
+ */
+void SetMouseButtonHandler(MouseButtonHandler handler);
 
 /**
  * @brief Get the mouse position
