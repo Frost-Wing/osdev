@@ -32,7 +32,7 @@
 #define MOUSE_BUTTON_PRESS 1
 #define MOUSE_BUTTON_RELEASE 0
 
-extern const int8 mouse_cursor[];
+extern const bool mouse_cursor[];
 
 /**
  * @brief Type definition for mouse movement handler functions

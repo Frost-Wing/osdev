@@ -105,4 +105,16 @@ void printhex(signed int num, bool caps);
  */
 void printf(cstring format, ...);
 
+/**
+ * @brief 
+ * 
+ * @param x 
+ * @param y 
+ * @param w 
+ * @param h 
+ * @param pixels 
+ * @param color 
+ */
+void print_bitmap(int x, int y, int w, int h, bool* pixels, int32 color);
+
 #endif

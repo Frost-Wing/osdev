@@ -96,9 +96,10 @@ void mouseMovementHandler(int64_t xRel, int64_t yRel)
     ivec2 lastMousePos = GetLastMousePosition();
     ivec2 mousePos = GetMousePosition();
 
-    glDrawLine((uvec2){0, 0}, (uvec2){lastMousePos.x, lastMousePos.y}, 0x000000);
-    glDrawLine((uvec2){0, 0}, (uvec2){mousePos.x, mousePos.y}, mouseColor);
-    printf("{%d, %d}", mousePos.x, mousePos.y);
+    // glDrawLine((uvec2){0, 0}, (uvec2){lastMousePos.x, lastMousePos.y}, 0x000000);
+    // glDrawLine((uvec2){0, 0}, (uvec2){mousePos.x, mousePos.y}, mouseColor);
+    print_bitmap(lastMousePos.x, lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
+    print_bitmap(mousePos.x, mousePos.y, 8, 16, mouse_cursor, mouseColor);
 }
 
 void mouseButtonHandler(uint8_t button, uint8_t action)

@@ -50,8 +50,24 @@ MouseButtonHandler mButtonHandler = NULL;
 MouseMovementHandler mMovementHandler = NULL;
 uint8_t mLastMouseButtonState, mMouseButtonState;
 
-// https://bitmap-code-generator.benalman.com/share/mouse_cursor/8/16/g30e1s7ovjvfvv7gs200000000
-const int8 mouse_cursor[] = {0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff, 0xfc, 0xf0, 0xe0, 0x80, 0x00, 0x00, 0x00, 0x00};
+const bool mouse_cursor[] = {
+    true, false, false, false, false, false, false, false,
+    true, true, false, false, false, false, false, false,
+    true, true, true, false, false, false, false, false,
+    true, true, true, true, false, false, false, false,
+    true, true, true, true, true, false, false, false,
+    true, true, true, true, true, true, false, false,
+    true, true, true, true, true, true, true, false,
+    true, true, true, true, true, true, true, true,
+    true, true, true, true, true, true, false, false,
+    true, true, true, true, true, false, false, false,
+    true, true, true, false, false, false, false, false,
+    true, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false
+};
 
 void process_mouse(InterruptFrame* frame){
     int8 data = inb(0x60);
@@ -185,15 +201,12 @@ void handle_click(int64 type, ivec2 position){
     {
         case PS2_left_button:
             debug_println("left!");
-            printf("{%d, %d}", position.x, position.y);
             break;
         case PS2_right_button:
             debug_println("right!");
-            // printf("{%d, %d}", position.x, position.y);
             break;
         case PS2_middle_button:
             debug_println("middle!");
-            // printf("{%d, %d}", position.x, position.y);
             break;
         default:
             break;
