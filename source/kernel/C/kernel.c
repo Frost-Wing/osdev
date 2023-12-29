@@ -388,7 +388,9 @@ void main(void) {
     // print("\x1b[H");  // Resets Cursor to 0, 0
 
     // printf("Time took to boot : %d", boot_time_request.response->boot_time);
-    decode_targa_image(module_request.response->modules[0]->address, framebuffer->bpp, (uvec2){50, 100});
+    // decode_targa_image(module_request.response->modules[0]->address, framebuffer->bpp, (uvec2){50, 100});
+
+    // PNG is located at this address "module_request.response->modules[0]->address"
 
     hcf2();
 
