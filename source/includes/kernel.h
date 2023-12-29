@@ -39,6 +39,7 @@
 #include <keyboard.h>
 #include <linkedlist.h>
 #include <ps2-mouse.h>
+#include <image/targa.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.

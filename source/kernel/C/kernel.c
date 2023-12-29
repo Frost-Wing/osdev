@@ -47,6 +47,10 @@ static volatile struct limine_boot_time_request boot_time_request = {
     LIMINE_BOOT_TIME_REQUEST, 0, null
 };
 
+struct limine_module_request module_request = {
+    LIMINE_MODULE_REQUEST, 0, null
+};
+
 struct memory_context {
     int64 total;
     int64 usable;
@@ -373,13 +377,20 @@ void main(void) {
     // printf("list last pop-ed value: %d", *(int*)resultVal);
     // list_clear(&my_list);
     // printf("list size: %d", my_list.size);
-
-    // printf("Time took to boot : %d", boot_time_request.response->boot_time);
+    
 
     print("press F10 for (ACPI) Shutdown.\n");
     print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
 
     done("No process pending.", __FILE__);
+
+    // print("\x1b[2J"); // Clears screen
+    // print("\x1b[H");  // Resets Cursor to 0, 0
+
+    // printf("Time took to boot : %d", boot_time_request.response->boot_time);
+    decode_targa_image(module_request.response->modules[0]->address, framebuffer->bpp, (uvec2){50, 100});
+
+    hcf2();
 
     // glCreateContext();
     // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
@@ -402,7 +413,7 @@ void main(void) {
         print_bitmap(lastMousePos.x, lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
         print_bitmap(mousePos.x, mousePos.y, 8, 16, mouse_cursor, mouseColor);
 
-        pit_sleep(16); // 60 Hz approx.
+        pit_sleep((int32)16.6666); // 60 Hz approx.
     }
 }
 
