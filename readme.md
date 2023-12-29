@@ -59,7 +59,9 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
     - Probing
     - Initializing required drivers
     - Storing the devices list
-- Real Time Clock
+- Timing
+    - Real Time Clock
+    - Programmable Interval Timer
 - Secure Boot
     - UEFI
     - BIOS
