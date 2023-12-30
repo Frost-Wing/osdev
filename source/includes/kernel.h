@@ -20,7 +20,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <limine.h>
-#include <memory.h>
+#include <memory2.h>
 #include <strings2.h>
 #include <math/fpu.h>
 #include <sse.h>

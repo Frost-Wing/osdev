@@ -380,14 +380,17 @@ void main(void) {
 
     extract_tarball(module_request.response->modules[0]->address);
 
+    // allocate_memory_at_address((int64)malloc(0x32), 0x32);
+
     // decode_targa_image(module_request.response->modules[0]->address, (uvec2){500, 100});
 
     print("press F10 for (ACPI) Shutdown.\n");
     print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
 
     done("No process pending.", __FILE__);
+    
 
-    // hcf2();
+    hcf2();
 
     // print("\x1b[2J"); // Clears screen
     // print("\x1b[H");  // Resets Cursor to 0, 0

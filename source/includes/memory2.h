@@ -7,8 +7,7 @@
  * `memmove`, and `memcmp`.
  */
 
-#include <stdint.h>
-#include <stddef.h>
+#include <basics.h>
 
 /**
  * @brief Copies a block of memory from a source location to a destination location.
@@ -72,3 +71,5 @@ int memcmp(const void *s1, const void *s2, size_t n);
  * @param end   Pointer to the end address of the memory to be dumped.
  */
 void memory_dump(const void* start, const void* end);
+
+void* allocate_memory_at_address(int64 phys_addr, size_t size);

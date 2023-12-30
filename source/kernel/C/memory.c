@@ -8,9 +8,7 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include <stdint.h>
-#include <stddef.h>
-#include <memory.h>
+#include <memory2.h>
 
 // GCC and Clang reserve the right to generate calls to the following
 // 4 functions even if they are not directly called.
@@ -119,4 +117,19 @@ void registers_dump(){
     printf("        R15 = 0x%x", r15_value);
 
     return 0;
+}
+
+void* allocate_memory_at_address(int64 phys_addr, size_t size) {
+    for(int64 i = phys_addr; i < phys_addr + size; i++){
+        int64* ptr_i = (int64*)i;
+        int64 value_at_i = *ptr_i;
+        if(value_at_i != 0){
+            error("The memory block you requested is being used!", __FILE__);
+            return null;
+        }
+    }
+
+    void* ptr = (void*)phys_addr;
+
+    return ptr;
 }
