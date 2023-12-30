@@ -40,3 +40,9 @@ typedef char* string;
 #else
 #define deprecated_message(msg)
 #endif
+
+/**
+ * @brief Assert Definition
+ * @authors GAMINGNOOB (Coded Original) & Pradosh (Modified it)
+ */
+#define assert(expression, file, line) if(!(expression)){printf("\x1b[31mAssert Failed! at \x1b[36m%s:%d\x1b[0m => \x1b[32m%s\x1b[0m", file, line, #expression);}

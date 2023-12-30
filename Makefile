@@ -3,7 +3,7 @@ all:
 	@cp -v \
 	source/wing_kernel.elf \
 	source/boot/limine.cfg \
-	source/boot/test-icon.png \
+	source/boot/test-icon.tga \
 	limine/limine-bios.sys \
 	limine/limine-bios-pxe.bin \
 	limine/limine-bios-cd.bin \
