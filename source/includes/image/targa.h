@@ -22,7 +22,6 @@ typedef struct {
     int16 yOrigin;
     int16 width;
     int16 height;
-    // faulty 0x0F
     int8  bpp;
     int8  imageDescriptor;
 } targa_header;
@@ -32,4 +31,4 @@ typedef struct {
  * 
  * @param targa_pointer The memory address pointer where the targa is loaded.
  */
-void decode_targa_image(const int64* targa_pointer, int16 bytes_per_pixel, uvec2 position);
+void decode_targa_image(const int64* targa_pointer, uvec2 position);

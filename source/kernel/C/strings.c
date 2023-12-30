@@ -231,3 +231,61 @@ void remove_last_char(string str) {
         str[len - 1] = '\0';
     }
 }
+
+long strtol(const char *str, char **endptr, int base) {
+    // Handle base 0
+    if (base == 0) {
+        if (str[0] == '0') {
+            // Check for hexadecimal or octal
+            if (str[1] == 'x' || str[1] == 'X') {
+                base = 16;
+                str += 2; // Skip the "0x" or "0X"
+            } else {
+                base = 8;
+                str += 1; // Skip the leading '0'
+            }
+        } else {
+            base = 10;
+        }
+    }
+
+    long result = 0;
+    int sign = 1;
+
+    // Handle sign
+    if (*str == '-') {
+        sign = -1;
+        str++;
+    } else if (*str == '+') {
+        str++;
+    }
+
+    // Convert the string to a long integer
+    while (*str != '\0') {
+        char digit = *str;
+
+        if ('0' <= digit && digit <= '9') {
+            digit -= '0';
+        } else if ('a' <= digit && digit <= 'z') {
+            digit = digit - 'a' + 10;
+        } else if ('A' <= digit && digit <= 'Z') {
+            digit = digit - 'A' + 10;
+        } else {
+            break; // Invalid character
+        }
+
+        if (digit >= base) {
+            break; // Invalid digit for the given base
+        }
+
+        result = result * base + digit;
+        str++;
+    }
+
+    // Set endptr if it's not NULL
+    if (endptr != NULL) {
+        *endptr = (char *)str;
+    }
+
+    return result * sign;
+}

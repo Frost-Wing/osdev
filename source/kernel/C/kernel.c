@@ -377,22 +377,22 @@ void main(void) {
     // printf("list last pop-ed value: %d", *(int*)resultVal);
     // list_clear(&my_list);
     // printf("list size: %d", my_list.size);
-    
+
+    // extract_tarball(module_request.response->modules[1]->address);
+
+    // decode_targa_image(module_request.response->modules[0]->address, (uvec2){500, 100});
 
     print("press F10 for (ACPI) Shutdown.\n");
     print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
 
     done("No process pending.", __FILE__);
 
+    // hcf2();
+
     // print("\x1b[2J"); // Clears screen
     // print("\x1b[H");  // Resets Cursor to 0, 0
 
     // printf("Time took to boot : %d", boot_time_request.response->boot_time);
-    // decode_targa_image(module_request.response->modules[0]->address, framebuffer->bpp, (uvec2){50, 100});
-
-    // PNG is located at this address "module_request.response->modules[0]->address"
-
-    hcf2();
 
     // glCreateContext();
     // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
@@ -409,6 +409,8 @@ void main(void) {
         print("press F10 for (ACPI) Shutdown.\n");
         print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
         print("press F8 to halt.\n");
+
+        // decode_targa_image(module_request.response->modules[0]->address, (uvec2){500, 100});
 
         ivec2 lastMousePos = GetLastMousePosition();
         ivec2 mousePos = GetMousePosition();

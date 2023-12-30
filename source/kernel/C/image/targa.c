@@ -10,16 +10,17 @@
  */
 #include <image/targa.h>
 
-void decode_targa_image(const int64* targa_pointer, int16 bytes_per_pixel, uvec2 position) {
+void decode_targa_image(const int64* targa_pointer, uvec2 position) {
     targa_header* header = (targa_header*)targa_pointer;
-    int8* image = (int8*)(targa_pointer + sizeof(targa_header));
+    int8* image = (int8*)(targa_pointer);
+    image += sizeof(targa_header);
 
     if (header->imageType != 2) {
         error("This file is not a TrueColor or DirectColor Targa!", __FILE__);
         return;
     }
 
-    printf("Width: %d, height: %d - size: %d - bpp: %d", header->width, header->height, sizeof(targa_header), header->bpp);
+    printf("%d", header->bpp);
 
     for (int32 y = 0; y < header->height; ++y) {
         for (int32 x = 0; x < header->width; ++x) {
@@ -29,8 +30,7 @@ void decode_targa_image(const int64* targa_pointer, int16 bytes_per_pixel, uvec2
             int8 g = image[index + 1];
             int8 r = image[index + 2];
 
-            // Assuming little-endian architecture, adjust if needed
-            int32 color = (b << 16) | (g << 8) | r;
+            int32 color = (r << 16) | (g << 8) | b;
 
             int32 screenX = header->xOrigin + x + position.x;
             int32 screenY = header->yOrigin + y + position.y;

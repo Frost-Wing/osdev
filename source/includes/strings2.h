@@ -130,3 +130,5 @@ string strcat(string dest, cstring src);
  * @param str 
  */
 void remove_last_char(string str);
+
+long strtol(const char *str, char **endptr, int base);
