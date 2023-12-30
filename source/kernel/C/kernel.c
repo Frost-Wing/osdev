@@ -378,7 +378,7 @@ void main(void) {
     // list_clear(&my_list);
     // printf("list size: %d", my_list.size);
 
-    // extract_tarball(module_request.response->modules[1]->address);
+    extract_tarball(module_request.response->modules[0]->address);
 
     // decode_targa_image(module_request.response->modules[0]->address, (uvec2){500, 100});
 
