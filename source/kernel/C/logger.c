@@ -227,6 +227,10 @@ void printf(cstring format, ...) {
             case 's':
                 print(va_arg(argp, char*));
                 break;
+
+            case 'c':
+                putc(va_arg(argp, char));
+                break;
             }
         } else {
             putc(*format);
