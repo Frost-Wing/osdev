@@ -388,9 +388,6 @@ void main(void) {
     print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
 
     done("No process pending.", __FILE__);
-    
-
-    hcf2();
 
     // print("\x1b[2J"); // Clears screen
     // print("\x1b[H");  // Resets Cursor to 0, 0
@@ -405,22 +402,22 @@ void main(void) {
     // glDestroyContext(null);
     ft_ctx->cursor_enabled = no;
     while(1){
-        print("\x1b[2J"); // Clears screen
-        print("\x1b[H");  // Resets Cursor to 0, 0
-        glDrawRect((uvec2){50, 50}, (uvec2){200, 70}, 0xdeadbeef);
+        // print("\x1b[2J"); // Clears screen
+        // print("\x1b[H");  // Resets Cursor to 0, 0
+        // glDrawRect((uvec2){50, 50}, (uvec2){200, 70}, 0xdeadbeef);
         
-        print("press F10 for (ACPI) Shutdown.\n");
-        print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
-        print("press F8 to halt.\n");
+        // print("press F10 for (ACPI) Shutdown.\n");
+        // print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
+        // print("press F8 to halt.\n");
 
-        // decode_targa_image(module_request.response->modules[0]->address, (uvec2){500, 100});
+        // // decode_targa_image(module_request.response->modules[0]->address, (uvec2){500, 100});
 
-        ivec2 lastMousePos = GetLastMousePosition();
-        ivec2 mousePos = GetMousePosition();
-        print_bitmap(lastMousePos.x, lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
-        print_bitmap(mousePos.x, mousePos.y, 8, 16, mouse_cursor, mouseColor);
+        // ivec2 lastMousePos = GetLastMousePosition();
+        // ivec2 mousePos = GetMousePosition();
+        // print_bitmap(lastMousePos.x, lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
+        // print_bitmap(mousePos.x, mousePos.y, 8, 16, mouse_cursor, mouseColor);
 
-        pit_sleep((int32)16.6666); // 60 Hz approx.
+        // pit_sleep((int32)16.6666); // 60 Hz approx.
     }
 }
 
