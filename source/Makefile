@@ -149,11 +149,11 @@ override LDFLAGS += \
 
 # Use "find" to glob all *.c, *.S, and *.asm files in the tree and obtain the
 # object and header dependency file names.
-override CFILES := $(shell find -L * -type f -name '*.c')
+override CFILES := $(shell find -L kernel drivers -type f -name '*.c')
 
 # These are disabled because we don't want plain assembly code which will break the compiler for diffrent arch.
-override ASFILES := $(shell find -L * -type f -name '*.S')
-override NASMFILES := $(shell find -L * -type f -name '*.asm')
+override ASFILES := $(shell find -L kernel drivers -type f -name '*.S')
+override NASMFILES := $(shell find -L kernel drivers -type f -name '*.asm')
 
 override OBJ := $(addprefix obj/,$(CFILES:.c=.c.o) $(ASFILES:.S=.S.o) $(NASMFILES:.asm=.asm.o))
 override HEADER_DEPS := $(addprefix obj/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
