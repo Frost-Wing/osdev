@@ -289,3 +289,14 @@ long strtol(const char *str, char **endptr, int base) {
 
     return result * sign;
 }
+
+bool starts_with(const char *str, const char *prefix) {
+    while (*prefix) {
+        if (*str != *prefix) {
+            return no;
+        }
+        str++;
+        prefix++;
+    }
+    return yes;
+}
