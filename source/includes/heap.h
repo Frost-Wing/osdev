@@ -24,6 +24,14 @@ void init_heap(int size);
 void* malloc(size_t size);
 
 /**
+ * @brief Reallocate memory for the given pointer with the specified size.
+ * @param ptr A pointer to the memory block to be reallocated.
+ * @param size The new size of the memory block.
+ * @return A pointer to the reallocated memory block, or null if reallocation fails.
+ */
+void* realloc(void* ptr, size_t size);
+
+/**
  * @brief Free a previously allocated memory block.
  * @param ptr A pointer to the memory block to be freed.
  */

@@ -233,7 +233,10 @@ void printf(cstring format, ...) {
                 break;
             }
         } else {
-            putc(*format);
+            if(*format == "\n") print("\n");
+            else if(*format == "\r") print("\r");
+            else if(*format == "\t") print("\t");
+            else putc(*format);
         }
         format++;
     }

@@ -59,7 +59,7 @@ void* malloc(size_t size) {
                 free_list = curr->next;
             }
 
-            done("Found a free pointer! returning the pointer back...", __FILE__);
+            // done("Found a free pointer! returning the pointer back...", __FILE__);
             // Return a pointer to the allocated memory (skip the Block header).
             return ((char*)curr) + sizeof(heap_block);
         }else{
@@ -74,6 +74,42 @@ void* malloc(size_t size) {
     // meltdown_screen("No suitable block found for allocation of heap.", __FILE__, __LINE__, 0x0);
     // hcf(); // it is better to handle it here rather than leaving it.
     return null;
+}
+
+/**
+ * @brief Reallocate memory for the given pointer with the specified size.
+ * @param ptr A pointer to the memory block to be reallocated.
+ * @param size The new size of the memory block.
+ * @return A pointer to the reallocated memory block, or null if reallocation fails.
+ */
+void* realloc(void* ptr, size_t size) {
+    if (ptr == null) {
+        // If the pointer is null, perform a malloc.
+        return malloc(size);
+    }
+
+    if (size == 0) {
+        // If the size is zero, perform a free.
+        free(ptr);
+        return null;
+    }
+
+    // Allocate a new block of the given size.
+    void* new_ptr = malloc(size);
+
+    if (new_ptr != null) {
+        // Get the original block header from the old allocated memory.
+        heap_block* old_block = (heap_block*)((char*)ptr - sizeof(heap_block));
+
+        // Copy the data from the old block to the new block.
+        size_t copy_size = (size < old_block->size) ? size : old_block->size;
+        memcpy(new_ptr, ptr, copy_size);
+
+        // Free the old memory block.
+        free(ptr);
+    }
+
+    return new_ptr;
 }
 
 /**

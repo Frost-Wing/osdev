@@ -9,6 +9,12 @@
  * 
  */
 #include <kernel.h>
+#define SSFN_CONSOLEBITMAP_TRUECOLOR
+#define SSFN_memcmp  memcmp
+#define SSFN_memset  memset
+#define SSFN_realloc realloc
+#define SSFN_free    free
+#include <fonts/ssfn.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
@@ -102,8 +108,8 @@ void mouseMovementHandler(int64_t xRel, int64_t yRel)
 
     // glDrawLine((uvec2){0, 0}, (uvec2){lastMousePos.x, lastMousePos.y}, 0x000000);
     // glDrawLine((uvec2){0, 0}, (uvec2){mousePos.x, mousePos.y}, mouseColor);
-    print_bitmap(lastMousePos.x, lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
-    print_bitmap(mousePos.x, mousePos.y, 8, 16, mouse_cursor, mouseColor);
+    // print_bitmap(lastMousePos.x, lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
+    // print_bitmap(mousePos.x, mousePos.y, 8, 16, mouse_cursor, mouseColor);
 }
 
 void mouseButtonHandler(uint8_t button, uint8_t action)
@@ -325,7 +331,7 @@ void main(void) {
 
     frost_compilation_information();
 
-    initialize_page_bitmap();
+    // initialize_page_bitmap();
 
     initIdt();
     
@@ -382,7 +388,19 @@ void main(void) {
 
     // allocate_memory_at_address((int64)malloc(0x32), 0x32);
 
-    // decode_targa_image(module_request.response->modules[0]->address, (uvec2){500, 100});
+    ssfn_src = (ssfn_font_t*)module_request.response->modules[1]->address;      /* the bitmap font to use */
+
+    ssfn_dst.ptr = framebuffer->address;
+    ssfn_dst.w = framebuffer->width;
+    ssfn_dst.h = framebuffer->height;
+    ssfn_dst.p = framebuffer->pitch;                          /* bytes per line */
+    ssfn_dst.x = ssfn_dst.y = 0;
+    ssfn_dst.fg = 0xFFFFFF;
+    ssfn_dst.bg = 0x000000;
+
+    ft_ctx->cursor_enabled = no;
+
+    // execute_elf(module_request.response->modules[2]->address);
 
     print("press F10 for (ACPI) Shutdown.\n");
     print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
@@ -392,7 +410,6 @@ void main(void) {
     // print("\x1b[2J"); // Clears screen
     // print("\x1b[H");  // Resets Cursor to 0, 0
 
-    // printf("Time took to boot : %d", boot_time_request.response->boot_time);
 
     // glCreateContext();
     // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
@@ -400,24 +417,24 @@ void main(void) {
     // glClear(GL_COLOR_BUFFER_BIT);
     // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
     // glDestroyContext(null);
-    ft_ctx->cursor_enabled = no;
     while(1){
-        // print("\x1b[2J"); // Clears screen
-        // print("\x1b[H");  // Resets Cursor to 0, 0
-        // glDrawRect((uvec2){50, 50}, (uvec2){200, 70}, 0xdeadbeef);
-        
-        // print("press F10 for (ACPI) Shutdown.\n");
-        // print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
-        // print("press F8 to halt.\n");
+        // decode_targa_image(module_request.response->modules[2]->address, (uvec2){0, 0}, framebuffer->width, framebuffer->height);
 
-        // // decode_targa_image(module_request.response->modules[0]->address, (uvec2){500, 100});
+        // ssfn_dst.x = ssfn_dst.y = 0;
+        // ssfn_print("Hello!");
 
-        // ivec2 lastMousePos = GetLastMousePosition();
+        // // ivec2 lastMousePos = GetLastMousePosition();
         // ivec2 mousePos = GetMousePosition();
-        // print_bitmap(lastMousePos.x, lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
-        // print_bitmap(mousePos.x, mousePos.y, 8, 16, mouse_cursor, mouseColor);
+        // decode_targa_image(module_request.response->modules[3]->address, (uvec2){mousePos.x, mousePos.y}, framebuffer->width, framebuffer->height);
 
         // pit_sleep((int32)16.6666); // 60 Hz approx.
+    }
+}
+
+void ssfn_print(cstring msg){
+    while(*msg){
+        ssfn_putc(*msg);
+        msg++;
     }
 }
 

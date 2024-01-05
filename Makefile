@@ -4,6 +4,9 @@ all:
 	source/wing_kernel.elf \
 	source/boot/limine.cfg \
 	source/boot/init_ramdisk.tar \
+	source/boot/Vera.sfn \
+	source/desktop-manager/desktop-manager.elf \
+	source/boot/mouse.tga \
 	limine/limine-bios.sys \
 	limine/limine-bios-pxe.bin \
 	limine/limine-bios-cd.bin \
@@ -71,3 +74,6 @@ latest-limine:
 sign-kernel:
 	@openssl dgst -sha256 -sign ./keys/private_key.pem -out ./keys/file.sig ./source/wing_kernel.elf
 	@openssl dgst -sha256 -verify ./keys/public_key.pem -signature ./keys/file.sig ./source/wing_kernel.elf
+
+fonts:
+	sfnconv -U -B 40 -t b1 ~/Downloads/FiraSans-Regular.ttf ~/Desktop/FrostWing/source/boot/Vera.sfn
