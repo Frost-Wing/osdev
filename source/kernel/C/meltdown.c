@@ -14,6 +14,8 @@ void meltdown_screen(cstring message, cstring file, int line, int64 error_code, 
     print("\x1b[2J");
     print("\x1b[H");
 
+    debug_println(message);
+
     print("\x1b[41m");
     for(int x=0;x<=terminal_columns*terminal_rows;x++){
         print(" ");
@@ -30,7 +32,7 @@ void meltdown_screen(cstring message, cstring file, int line, int64 error_code, 
     print("\"\n");
     print("Error Code    : ");
     printf("0x%x", error_code);
-    printf("CR2           : 0x%x", cr2);
+    printf("CR2           : 0x%x (%d)", cr2, cr2);
     printf("Interrupt No. : 0x%x", int_no);
     print("\n");
     print("=[ Handler Information ]=\n\t");
