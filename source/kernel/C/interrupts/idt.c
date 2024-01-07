@@ -3,6 +3,7 @@
 #include <keyboard.h>
 #include <ps2-mouse.h>
 #include <pit.h>
+#include <syscalls.h>
 
 extern void* isr_stub_table[];
 extern void* irq_stub_table[];
@@ -65,6 +66,7 @@ void initIdt()
     registerInterruptHandler(0x20, process_pit);
     registerInterruptHandler(0x2C, process_mouse);
     registerInterruptHandler(0x21, process_keyboard);
+    registerInterruptHandler(0x80, syscalls_handler);
 
     for (uint8_t i = 0; i < 32; i++) 
     {
@@ -85,4 +87,5 @@ void initIdt()
     set_interrupts();
 
     done("Successfully initialized!", __FILE__);
+    invoke_syscall((int64)1); // for testing
 }
