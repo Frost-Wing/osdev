@@ -26,8 +26,15 @@ void syscalls_handler(InterruptFrame* frame){
         case 1:
             info(syscalls_prefix "syscall id - 1 (test syscalls) has been called!", __FILE__);
             break;
+        case 2:
+            print((char*)frame->rcx);
+            break;
+        case 3:
+            info(syscalls_prefix "syscall id - 3 (test syscalls from desktop manager) has been called!", __FILE__);
+            break;
         default:
             error(syscalls_prefix "Unknown", __FILE__);
+            printf("RAX value -> 0x%x", frame->rax);
             hcf2();
             break;
     }
