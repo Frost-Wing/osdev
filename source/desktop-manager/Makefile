@@ -33,11 +33,13 @@ override HEADER_DEPS := $(addprefix obj/,$(CFILES:.c=.c.d))
 
 .PHONY: all
 
-all: desktop-manager.elf
+all:
+	@make clean desktop-manager.elf extract-raw
 
 clean:
 	@rm -rf obj
 	@rm -rf desktop-manager.elf
+	@rm -rf desktop-manager.bin
 
 desktop-manager.elf: x86_64-dm-linker.ld $(OBJ)
 	@mkdir -p "$$(dirname $@)"
@@ -46,5 +48,9 @@ desktop-manager.elf: x86_64-dm-linker.ld $(OBJ)
 
 obj/%.c.o: %.c
 	@mkdir -p "$$(dirname $@)"
-	@echo "\033[1;34mCompiling\033[0m $<"
+	@echo "\033[1;34mCompiling desktop manager\033[0m $<"
 	@gcc $(CFLAGS) -c $< -o $@
+
+extract-raw:
+	@objcopy -O binary -j .text desktop-manager.elf desktop-manager.bin
+	@rm -rf desktop-manager.elf

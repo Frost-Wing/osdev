@@ -5,7 +5,7 @@ all:
 	source/boot/limine.cfg \
 	source/boot/init_ramdisk.tar \
 	source/boot/Vera.sfn \
-	source/desktop-manager/desktop-manager.elf \
+	source/desktop-manager/desktop-manager.bin \
 	source/boot/mouse.tga \
 	limine/limine-bios.sys \
 	limine/limine-bios-pxe.bin \

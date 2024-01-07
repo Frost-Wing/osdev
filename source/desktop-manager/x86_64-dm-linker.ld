@@ -3,7 +3,6 @@ OUTPUT_ARCH(i386:x86-64)
 ENTRY(dw_main)
 
 SECTIONS {
-    /* The kernel is loaded at a virtual address, usually 0x100000 (1MB) */
     . = 0xffffffff80000000;
 
     /* Section containing the kernel code */

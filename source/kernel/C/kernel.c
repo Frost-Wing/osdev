@@ -400,7 +400,7 @@ void main(void) {
 
     ft_ctx->cursor_enabled = no;
 
-    // execute_elf(module_request.response->modules[2]->address);
+    execute_bin(module_request.response->modules[2]->address);
 
     print("press F10 for (ACPI) Shutdown.\n");
     print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
