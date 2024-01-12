@@ -11,7 +11,7 @@
 
 #include <basics.h> // Avoid headers from kernel, this header contains just some basic macros.
 
-int64* fb_addr = 0x3000000; // for testing
+int64* fb_addr = null;
 int64* font_addr = null;
 int64 width = 0;
 int64 height = 0;
