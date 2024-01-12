@@ -33,11 +33,14 @@ override HEADER_DEPS := $(addprefix obj/,$(CFILES:.c=.c.d))
 .PHONY: all
 
 all:
-	@make clean desktop-manager.bin
+	@make clean desktop-manager.bin finalize
 
 clean:
 	@rm -rf obj
 	@rm -rf desktop-manager.bin
+
+finalize:
+	@python ./tools/signature.py
 
 desktop-manager.bin: x86_64-dm-linker.ld $(OBJ)
 	@mkdir -p "$$(dirname $@)"

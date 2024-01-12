@@ -34,14 +34,15 @@ Replace [SYSCALL ID] to appropriate syscall numbers.
 void send_alive_msg(){
     asm volatile("movq %0, %%rax" :: "r"((int64)0x3));
     asm volatile("int $0x80");
+    asm volatile("movq %0, %%rax" :: "r"((int64)0x0)); // ! Always revert the RAX register after an syscall
 }
 
 /**
  * @attention Don't rename this function, if you wanted to rename it, u must change the linker also.
  * 
  */
-void dw_main(){
+int dw_main(){
     send_alive_msg();
 
-    return; // Safe to do.
+    return 0; // status code
 }
