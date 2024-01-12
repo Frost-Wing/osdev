@@ -1,4 +1,4 @@
-CFLAGS = \
+CPPFLAGS = \
     -w \
     -std=gnu11 \
     -ffreestanding \
@@ -10,12 +10,7 @@ CFLAGS = \
     -I ../includes \
     -O3 \
     -m64 \
-    -march=x86-64 \
-    -mno-80387 \
-    -mno-mmx \
-    -mno-red-zone \
-    -mno-sse2 \
-    -mno-sse
+    -march=x86-64
 
 LDFLAGS = \
     -nostdlib \
@@ -26,9 +21,9 @@ LDFLAGS = \
     -z max-page-size=0x1000 \
     -T x86_64-dm-linker.ld
 
-override CFILES := $(shell find -L * -type f -name '*.c')
-override OBJ := $(addprefix obj/,$(CFILES:.c=.c.o))
-override HEADER_DEPS := $(addprefix obj/,$(CFILES:.c=.c.d))
+override CPPFILES := $(shell find -L * -type f -name '*.cpp')
+override OBJ := $(addprefix obj/,$(CPPFILES:.cpp=.cpp.o))
+override HEADER_DEPS := $(addprefix obj/,$(CPPFILES:.cpp=.cpp.d))
 
 .PHONY: all
 
@@ -47,7 +42,7 @@ desktop-manager.bin: x86_64-dm-linker.ld $(OBJ)
 	@ld $(OBJ) $(LDFLAGS) -o $@
 	@echo "\033[1;32mLinking desktop manager using\033[0m $<"
 
-obj/%.c.o: %.c
+obj/%.cpp.o: %.cpp
 	@mkdir -p "$$(dirname $@)"
 	@echo "\033[1;34mCompiling desktop manager\033[0m $<"
-	@gcc $(CFLAGS) -c $< -o $@
+	@gcc $(CPPFLAGS) -c $< -o $@
