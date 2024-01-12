@@ -382,7 +382,7 @@ void main(void) {
 
     font_address = module_request.response->modules[1]->address;
 
-    execute_bin(module_request.response->modules[2]->address);
+    execute_fwde(module_request.response->modules[2]->address);
 
     print("press F10 for (ACPI) Shutdown.\n");
     print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
