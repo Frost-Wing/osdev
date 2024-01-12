@@ -24,8 +24,7 @@ LDFLAGS = \
     --no-dynamic-linker \
     -z text \
     -z max-page-size=0x1000 \
-    -T x86_64-dm-linker.ld \
-    -m elf_x86_64
+    -T x86_64-dm-linker.ld
 
 override CFILES := $(shell find -L * -type f -name '*.c')
 override OBJ := $(addprefix obj/,$(CFILES:.c=.c.o))
@@ -34,14 +33,13 @@ override HEADER_DEPS := $(addprefix obj/,$(CFILES:.c=.c.d))
 .PHONY: all
 
 all:
-	@make clean desktop-manager.elf extract-raw
+	@make clean desktop-manager.bin
 
 clean:
 	@rm -rf obj
-	@rm -rf desktop-manager.elf
 	@rm -rf desktop-manager.bin
 
-desktop-manager.elf: x86_64-dm-linker.ld $(OBJ)
+desktop-manager.bin: x86_64-dm-linker.ld $(OBJ)
 	@mkdir -p "$$(dirname $@)"
 	@ld $(OBJ) $(LDFLAGS) -o $@
 	@echo "\033[1;32mLinking desktop manager using\033[0m $<"
@@ -50,7 +48,3 @@ obj/%.c.o: %.c
 	@mkdir -p "$$(dirname $@)"
 	@echo "\033[1;34mCompiling desktop manager\033[0m $<"
 	@gcc $(CFLAGS) -c $< -o $@
-
-extract-raw:
-	@objcopy -O binary -j .text desktop-manager.elf desktop-manager.bin
-	@rm -rf desktop-manager.elf

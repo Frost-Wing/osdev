@@ -9,18 +9,14 @@
  * 
  */
 #include <kernel.h>
-#define SSFN_CONSOLEBITMAP_TRUECOLOR
-#define SSFN_memcmp  memcmp
-#define SSFN_memset  memset
-#define SSFN_realloc realloc
-#define SSFN_free    free
-#include <fonts/ssfn.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
 
 int64 fb_width = 0;
 int64 fb_height = 0;
+
+int64* font_address = null;
 
 /**
  * @brief Assert Definition
@@ -247,10 +243,6 @@ void main(void) {
 
     print(public_key);
     print("\n");
-    
-    warn("Kernel might hang here once in a while, reboot to fix the issue.", __FILE__);
-
-    sleep(1);
 
     if(graphics_base_Address != null){
         isBufferReady = no;
@@ -388,17 +380,7 @@ void main(void) {
 
     // allocate_memory_at_address((int64)malloc(0x32), 0x32);
 
-    ssfn_src = (ssfn_font_t*)module_request.response->modules[1]->address;      /* the bitmap font to use */
-
-    ssfn_dst.ptr = framebuffer->address;
-    ssfn_dst.w = framebuffer->width;
-    ssfn_dst.h = framebuffer->height;
-    ssfn_dst.p = framebuffer->pitch;                          /* bytes per line */
-    ssfn_dst.x = ssfn_dst.y = 0;
-    ssfn_dst.fg = 0xFFFFFF;
-    ssfn_dst.bg = 0x000000;
-
-    ft_ctx->cursor_enabled = no;
+    font_address = module_request.response->modules[1]->address;
 
     execute_bin(module_request.response->modules[2]->address);
 
@@ -428,13 +410,6 @@ void main(void) {
         // decode_targa_image(module_request.response->modules[3]->address, (uvec2){mousePos.x, mousePos.y}, framebuffer->width, framebuffer->height);
 
         // pit_sleep((int32)16.6666); // 60 Hz approx.
-    }
-}
-
-void ssfn_print(cstring msg){
-    while(*msg){
-        ssfn_putc(*msg);
-        msg++;
     }
 }
 

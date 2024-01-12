@@ -1,29 +1,47 @@
-#include <basics.h>
+/**
+ * @file dm_main.c
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief The main code for Desktop Manager
+ * @version 0.1
+ * @date 2024-01-07
+ * 
+ * @copyright Copyright (c) Pradosh 2024
+ * 
+ */
 
-// void invoke_syscall(int64 num) {
-//     asm volatile (
-//         "movq %0, %%rax\n\t"
-//         "int $0x80\n\t"
-//         :
-//         : "g" ((int64)num)
-//         : "rax"
-//     );
-// }
+#include <basics.h> // Avoid headers from kernel, this header contains just some basic macros.
 
-// void send_alive_msg(){
-//     invoke_syscall(3);
-// }
+int64* fb_addr = 0x3000000; // for testing
+int64* font_addr = null;
+int64 width = 0;
+int64 height = 0;
+int64 pitch = 0;
+
+typedef struct {
+    int64* data;
+} syscall_result;
+
+/*
+* Example syscall usage
+
+(you can add more registers too!)
+asm volatile("movq %0, %%rax" :: "r"((int64) [SYSCALL ID] ));
+asm volatile ("int $0x80");
+
+Replace [SYSCALL ID] to appropriate syscall numbers.
+*/
+
+void send_alive_msg(){
+    asm volatile("movq %0, %%rax" :: "r"((int64)0x3));
+    asm volatile("int $0x80");
+}
 
 /**
  * @attention Don't rename this function, if you wanted to rename it, u must change the linker also.
  * 
  */
 void dw_main(){
-    // ! Some thing wrong with syscalls and there fore it is being sent but not the correct RAX value
-    // send_alive_msg();
-    int k = 0;
-    for(int i = 0; i < 10; i++){
-        k *= i;
-    }
+    send_alive_msg();
+
     return; // Safe to do.
 }

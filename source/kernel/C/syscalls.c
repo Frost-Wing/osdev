@@ -9,6 +9,14 @@
  * 
  */
 #include <syscalls.h>
+#include <limine.h> // for framebuffer
+
+extern struct limine_framebuffer *framebuffer;
+extern int64* font_address;
+
+typedef struct {
+    int64* data;
+} syscall_result;
 
 void invoke_syscall(int64 num) {
     asm volatile (
@@ -27,10 +35,30 @@ void syscalls_handler(InterruptFrame* frame){
             info(syscalls_prefix "syscall id - 1 (test syscalls) has been called!", __FILE__);
             break;
         case 2:
-            print((char*)frame->rcx);
+            printf("From DM -> 0x%x", frame->rdi);
             break;
         case 3:
             info(syscalls_prefix "syscall id - 3 (test syscalls from desktop manager) has been called!", __FILE__);
+            break;
+        case 4: // FB - ADDR
+            asm volatile("movq %0, %%r15" :: "r"((int64)framebuffer->address));
+
+            break;
+        case 5: // FB - WID
+           asm volatile("movq %0, %%r15" :: "r"((int64)framebuffer->width));
+
+            break;
+        case 6: // FB - HEIGHT
+            asm volatile("movq %0, %%r15" :: "r"((int64)framebuffer->height));
+
+            break;
+        case 7: // FB - PITCH
+            asm volatile("movq %0, %%r15" :: "r"((int64)framebuffer->pitch));
+
+            break;
+        case 8: // FB - FONT*
+            asm volatile("movq %0, %%r15" :: "r"((int64)font_address));
+
             break;
         default:
             error(syscalls_prefix "Unknown", __FILE__);
