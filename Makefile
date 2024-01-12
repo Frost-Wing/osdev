@@ -77,3 +77,10 @@ sign-kernel:
 
 fonts:
 	sfnconv -U -B 40 -t b1 ~/Downloads/FiraSans-Regular.ttf ~/Desktop/FrostWing/source/boot/Vera.sfn
+
+top-clean:
+	@rm -rf FrostWing.iso
+	@rm -rf FrostWing.iso.sha256
+	@rm -rf FrostWing.iso.tar.gz
+	@rm -rf FrostWing.iso.tar.gz.sha256
+	@rm -rf serial.log

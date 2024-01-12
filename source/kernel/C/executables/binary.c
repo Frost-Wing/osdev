@@ -12,8 +12,9 @@
 
 void execute_bin(int64* addr){
     info("Started executing the bin!", __FILE__);
+
     void (*execute_binary)() = (void (*)())addr;
     execute_binary();
-    
+
     done("Completed successfully!", __FILE__);
 }

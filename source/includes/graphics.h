@@ -106,6 +106,15 @@ void printhex(signed int num, bool caps);
 void printf(cstring format, ...);
 
 /**
+ * @brief More uniform print function.
+ * Supports any number of arguments (va_list)
+ * 
+ * @param format 
+ * @param ... 
+ */
+extern void print(cstring msg);
+
+/**
  * @brief 
  * 
  * @param x 
