@@ -32,6 +32,7 @@ all:
 clean:
 	@rm -rf obj
 	@rm -rf desktop-manager.bin
+	@rm -rf desktop-manager.raw
 
 finalize:
 	@python ./tools/signature.py
