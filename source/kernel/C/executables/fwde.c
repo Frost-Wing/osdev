@@ -47,9 +47,13 @@ void execute_fwde(int64* addr){
             info("Valid executable! and ready for execution!", __FILE__);
         }
         info("Starting executing the FrostWing deployed executable...", __FILE__);
+        unsigned long long instruction_count_start, instruction_count_end;
         int (*execute_binary)() = (int (*)())local;
         info("Function is ready!", __FILE__);
+        asm volatile ("rdtsc" : "=A" (instruction_count_start));
         int status_code = execute_binary();
+        asm volatile ("rdtsc" : "=A" (instruction_count_end));
+        printf("Instructions executed: %u", instruction_count_end - instruction_count_start);
         if(status_code != 0){
             error("Executable returned an non zero status code! (something went wrong on the executable side)", __FILE__);
             printf("Status code : 0x%x (%d)", status_code, status_code);

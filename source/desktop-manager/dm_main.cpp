@@ -11,11 +11,11 @@
 
 #include <basics.h> // Avoid headers from kernel, this header contains just some basic macros.
 
-int64* fb_addr = null;
-int64* font_addr = null;
-int64 width = 0;
-int64 height = 0;
-int64 pitch = 0;
+// int64* fb_addr = null;
+// int64* font_addr = null;
+// int64 width = 0;
+// int64 height = 0;
+// int64 pitch = 0;
 
 /*
 * Example syscall usage
@@ -39,13 +39,6 @@ void send_alive_msg(){
  */
 int dw_main(){
     send_alive_msg();
-
-    // SSE TEST!
-    float test = 3.1415;
-    test += 0.02;
-    if(test != 3.1615){
-        return 1;
-    }
 
     return 0; // status code
 }

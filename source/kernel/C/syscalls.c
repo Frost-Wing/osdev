@@ -40,26 +40,6 @@ void syscalls_handler(InterruptFrame* frame){
         case 3:
             info(syscalls_prefix "syscall id - 3 (test syscalls from desktop manager) has been called!", __FILE__);
             break;
-        case 4: // FB - ADDR
-            asm volatile("movq %0, %%r15" :: "r"((int64)framebuffer->address));
-
-            break;
-        case 5: // FB - WID
-           asm volatile("movq %0, %%r15" :: "r"((int64)framebuffer->width));
-
-            break;
-        case 6: // FB - HEIGHT
-            asm volatile("movq %0, %%r15" :: "r"((int64)framebuffer->height));
-
-            break;
-        case 7: // FB - PITCH
-            asm volatile("movq %0, %%r15" :: "r"((int64)framebuffer->pitch));
-
-            break;
-        case 8: // FB - FONT*
-            asm volatile("movq %0, %%r15" :: "r"((int64)font_address));
-
-            break;
         default:
             error(syscalls_prefix "Unknown", __FILE__);
             printf("RAX value -> 0x%x", frame->rax);

@@ -144,6 +144,25 @@ void printdec(int num) {
     print(&buf[i]);
 }
 
+void printdec_unsigned(unsigned int num) {
+    if (num == 0) {
+        putc('0');
+        return;
+    }
+
+    char buf[21]; // Sufficient for a 64-bit unsigned number
+    int i = sizeof(buf) - 1;
+    buf[i] = '\0';
+
+    while (num > 0) {
+        buf[--i] = (num % 10) + '0';
+        num /= 10;
+    }
+
+    print(&buf[i]);
+}
+
+
 /**
  * @brief Prints a value in binary format
  * 
@@ -218,6 +237,10 @@ void printf(cstring format, ...) {
             
             case 'X':
                 printhex(va_arg(argp, size_t), yes);
+                break;
+            
+            case 'u':
+                printdec_unsigned(va_arg(argp, size_t));
                 break;
             
             case 'd':
