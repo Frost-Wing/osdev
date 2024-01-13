@@ -48,7 +48,7 @@ def append_header(file_path, architecture, file_size):
     """
     signature = b'FWDE' # stands for Frost Wing Deployed Executable
     architecture_byte = struct.pack('B', architecture)  # 'B' format code packs an unsigned char (1 byte)
-    size_byte = struct.pack('B', file_size)  # 'B' format code packs an unsigned char (1 byte)
+    size_byte = struct.pack('B', 0x69)  # 'B' format code packs an unsigned char (1 byte)
 
     endian = check_endian(file_path) # 0 = error; 1 = little; 2 = big
 
