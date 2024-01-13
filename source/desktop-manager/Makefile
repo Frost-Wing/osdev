@@ -1,12 +1,11 @@
 CPPFLAGS = \
     -w \
-    -std=gnu11 \
+    -std=gnu99 \
     -ffreestanding \
     -fno-stack-protector \
     -fno-stack-check \
     -fno-lto \
     -pie \
-    -Wno-implicit-function-declaration \
     -I ../includes \
     -O3 \
     -m64 \
