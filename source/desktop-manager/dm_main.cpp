@@ -11,11 +11,14 @@
 
 #include <basics.h> // Avoid headers from kernel, this header contains just some basic macros.
 
-// int64* fb_addr = null;
-// int64* font_addr = null;
-// int64 width = 0;
-// int64 height = 0;
-// int64 pitch = 0;
+typedef struct
+{
+    int64* fb_addr;
+    int64 width;
+    int64 height;
+    int64 pitch;
+    void (*print)(cstring msg);
+} kernel_data ;
 
 /*
 * Example syscall usage
@@ -30,15 +33,16 @@ Replace [SYSCALL ID] to appropriate syscall numbers.
 void send_alive_msg(){
     asm volatile("movq %0, %%rax" :: "r"((int64)0x3));
     asm volatile("int $0x80");
-    asm volatile("movq %0, %%rax" :: "r"((int64)0x0)); // ! Always revert the RAX register after an syscall
 }
 
 /**
  * @attention Don't rename this function, if you wanted to rename it, u must change the linker also.
  * 
  */
-int dw_main(){
+int dw_main(kernel_data* data){
     send_alive_msg();
+
+    data->print("hello from desktop-manager!");
 
     return 0; // status code
 }
