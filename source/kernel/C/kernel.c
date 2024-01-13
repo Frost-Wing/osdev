@@ -382,7 +382,15 @@ void main(void) {
 
     font_address = module_request.response->modules[1]->address;
 
-    execute_fwde(module_request.response->modules[2]->address);
+    kernel_data* data = (kernel_data*) malloc(sizeof(kernel_data));
+    data->fb_addr = framebuffer->address;
+    data->width = framebuffer->width;
+    data->height = framebuffer->height;
+    data->pitch = framebuffer->pitch;
+    data->print = print;
+    execute_fwde(module_request.response->modules[2]->address, data);
+
+    free(data);
 
     print("press F10 for (ACPI) Shutdown.\n");
     print("press F9 for (ACPI/Hard) Reboot/Reset.\n");

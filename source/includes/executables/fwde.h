@@ -10,6 +10,7 @@
  */
 #include <basics.h>
 #include <stdbool.h>
+#include <graphics.h>
 
 typedef struct {
     char signature[4]; // FWDE
@@ -18,4 +19,14 @@ typedef struct {
     int8 endian; // 0 = error; 1 = little; 2 = big
 } fwde_header;
 
-void execute_fwde(int64* addr);
+typedef struct
+{
+    int64* fb_addr;
+    int64 width;
+    int64 height;
+    int64 pitch;
+    void (*print)(cstring msg);
+} kernel_data ;
+
+
+void execute_fwde(int64* addr, kernel_data* data);
