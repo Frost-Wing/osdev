@@ -43,9 +43,9 @@ void execute_fwde(int64* addr, kernel_data* data){
 
     if(header->architecture == 1){ // 64 bits
         local += sizeof(fwde_header);
-        if(*(local + header->raw_size) == 0){
-            info("Valid executable! and ready for execution!", __FILE__);
-        }
+        // if(*(local + header->raw_size) == 0){
+        //     info("Valid executable! and ready for execution!", __FILE__);
+        // }
         info("Starting executing the FrostWing deployed executable...", __FILE__);
 
         typedef void(*EntryFunction)(kernel_data*);
