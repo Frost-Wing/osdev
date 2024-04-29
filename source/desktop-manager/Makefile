@@ -1,5 +1,6 @@
 CPPFLAGS = \
     -w \
+    -g \
     -std=gnu99 \
     -ffreestanding \
     -fno-stack-protector \

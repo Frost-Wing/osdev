@@ -12,14 +12,22 @@
 #include <executables/fwde.h>
 
 bool verify_signature(char* signature){
-    if(signature[0] == 'F' &&
-       signature[1] == 'W' &&
-       signature[2] == 'D' &&
-       signature[3] == 'E'){
+    char interrupt_opcode = 0xCD;
+    if(signature[0] == interrupt_opcode &&
+       signature[1] == '1' &&
+       signature[2] == 'F' &&
+       signature[3] == 'W' &&
+       signature[4] == 'D' &&
+       signature[5] == 'E'){
         return true;
     }
     else
         return false;
+}
+
+void process_IFL(InterruptFrame* frame){ // process Invalid FWDE Loading
+    meltdown_screen("Frost Wing Deployed executable was not executed the way it should have!", __FILE__, __LINE__, 0xbadf1e, 0x0, 0xFfe);
+    hcf2();
 }
 
 void execute_fwde(int64* addr, kernel_data* data){
@@ -36,24 +44,22 @@ void execute_fwde(int64* addr, kernel_data* data){
         return;
     }
 
-    if(header->endian != 1 && header->endian != 2){
+    if(*(&(header->endian)+1) != 1 && *(&(header->endian)+1) != 2){
         error("Undetermined endian executable! Abort.", __FILE__);
+        printf("Endian value = 0x%x", header->endian);
         return;
     }
 
     if(header->architecture == 1){ // 64 bits
         local += sizeof(fwde_header);
-        // if(*(local + header->raw_size) == 0){
-        //     info("Valid executable! and ready for execution!", __FILE__);
-        // }
         info("Starting executing the FrostWing deployed executable...", __FILE__);
 
-        typedef void(*EntryFunction)(kernel_data*);
-        EntryFunction execute_binary = (EntryFunction)local;
+        entry_function execute_binary = (entry_function)local;
 
-        info("Function is ready!", __FILE__);
-
+        info("Function is ready! executing it..", __FILE__);
+        print("=========================================================\n");
         execute_binary(data);
+        print("=========================================================\n");
     }else{
         error("Unsupported architecture!", __FILE__);
         return;
