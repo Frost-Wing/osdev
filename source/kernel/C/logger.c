@@ -23,7 +23,7 @@ static const char caps_hex_digits[] = "0123456789ABCDEF";
  * @param file The file name where the warning occurred.
  */
 void warn(cstring message, cstring file) {
-    cstring warn_message = yellow_color "[Warning] → " reset_color;
+    cstring warn_message = yellow_color "[***] → " reset_color;
     print(warn_message);
     print(message);
     print(" at " blue_color);
@@ -46,7 +46,7 @@ void warn(cstring message, cstring file) {
  * @param file The file name where the error occurred.
  */
 void error(cstring message, cstring file) {
-    cstring err_message = red_color "[Error] → " reset_color;
+    cstring err_message = red_color "[***] → " reset_color;
     print(err_message);
     print(message);
     print(" at " blue_color);
@@ -69,7 +69,7 @@ void error(cstring message, cstring file) {
  * @param file The file name where the information is coming from.
  */
 void info(cstring message, cstring file) {
-    cstring info_message = blue_color "[Info] → " reset_color;
+    cstring info_message = blue_color "[***] → " reset_color;
     print(info_message);
     print(message);
     print(" at " blue_color);
@@ -92,7 +92,7 @@ void info(cstring message, cstring file) {
  * @param file The file name associated with the success.
  */
 void done(cstring message, cstring file) {
-    cstring done_message = green_color "[Success] → " reset_color;
+    cstring done_message = green_color "[***] → " reset_color;
     print(done_message);
     print(message);
     print(" at " blue_color);

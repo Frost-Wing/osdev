@@ -42,7 +42,5 @@ void send_alive_msg(){
 int dw_main(kernel_data* data){
     send_alive_msg();
 
-    data->print("hello from desktop-manager!");
-
     return 0; // status code
 }
