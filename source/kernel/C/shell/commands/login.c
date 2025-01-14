@@ -26,7 +26,9 @@ char* login_request(){
 
     print("Username: ");
     i = 0;
-    while ((temp = getc()) != 0x1c && i < 20) {
+    while ((temp = getc()) != '\n' && i < 20) {
+        if (temp == 0)
+            continue;
         if (temp == '\b')
         {
             if (i == 0) continue;
@@ -45,7 +47,9 @@ char* login_request(){
 
     print("\nPassword: ");
     i = 0;
-    while ((temp = getc()) != 0x1c && i < 20) {
+    while ((temp = getc()) != '\n' && i < 20) {
+        if (temp == 0)
+            continue;
         if (temp == '\b')
         {
             if (i == 0) continue;

@@ -10,6 +10,64 @@
  */
 
 #include <sh_util.h>
+#include <memory2.h>
+#include <keyboard.h>
+#include <stddef.h>
+#include <strings2.h>
+#include <heap.h>
+#include <stdint.h>
+#include <flanterm/flanterm.h>
+
+
+void init_command_list(command_list* lst)
+{
+    if (lst == NULL)
+        return;
+
+    memset(lst, 0, sizeof(command_list));
+}
+
+void dispose_command_list(command_list* lst)
+{
+    if (lst == NULL)
+        return;
+
+    for (command_list_entry* entry = lst->start; entry != NULL;)
+    {
+        command_list_entry* next = entry->next;
+        free(entry->command);
+        free(entry);
+        entry = next;
+    }
+}
+
+void push_command_to_list(command_list* lst, const char* value)
+{
+    if (lst == NULL || value == NULL)
+        return;
+
+    command_list_entry* entry = malloc(sizeof(command_list_entry));
+    memset(entry, 0, sizeof(command_list_entry));
+    if (entry == NULL)
+        return;
+
+    size_t commandSize = strlen_(value);
+    entry->command = malloc(commandSize+1);
+    memset(entry->command, 0, commandSize+1);
+    memcpy(entry->command, value, commandSize);
+
+    if (lst->start == NULL)
+    {
+        lst->start = lst->end = entry;
+        lst->count++;
+        return;
+    }
+
+    entry->prev = lst->end;
+    lst->end->next = entry;
+    lst->end = entry;
+    lst->count++;
+}
 
 bool running = true;
 
@@ -27,9 +85,16 @@ void welcome_message(){
     display_time();
 }
 
+void execute(const char* buffer, int argc, char** argv);
+
+extern struct flanterm_context* ft_ctx;
+
 int shell_main(int argc, char** argv){
-    char buffer[BUFFER_SIZE];
-    int16 bufptr = 0;
+    running = true;
+    char* command = malloc(BUFFER_SIZE);
+    size_t commandBufferSize = BUFFER_SIZE;
+    size_t commandSize = 0;
+    size_t cursor = 0;
 
     print("\x1b[2J\x1b[H");
     welcome_message();
@@ -39,46 +104,59 @@ int shell_main(int argc, char** argv){
     putc(' ');
     putc('%');
     putc(' ');
-    int c;
 
-    while (running) {
-        c = getc(); 
+    char c;
+    while (running)
+    {
+        c = getc();
 
-        if (c == 0x1c) { // Enter key
-            buffer[bufptr] = '\0'; // Null-terminate the string
-            putc('\n'); 
-            execute(buffer, argc, argv);
-            bufptr = 0; // Reset buffer pointer
-            for (int i = 0; i < BUFFER_SIZE; i++) {
-                buffer[i] = 0;
-            }
+        if (c == 0)
+            continue;
+
+        if (c == '\n')
+        {
+            command[cursor] = '\0'; // Null-terminate the string
+            putc('\n');
+            execute(command, argc, argv);
+            cursor = 0;
+            commandSize = 0;
+            memset(command, 0, commandBufferSize);
 
             if(running){
                 print(argv[0]);
                 putc(' ');
                 putc('%');
-                putc(' '); 
+                putc(' ');
             }
-        } else if (c == 0xe) { // Backspace key
-            if (bufptr > 0) { 
-                bufptr--; 
-                buffer[bufptr] = '\0';
-                
-                print("\b \b");
+            continue;
+        }
+        else if (c == '\b')
+        {
+            if (cursor > 0)
+                cursor--;
+        }
+        else
+        {
+            if (commandSize+1 >= commandBufferSize)
+            {
+                commandBufferSize += BUFFER_SIZE;
+                command = realloc(command, commandBufferSize);
             }
-        } else {
-            if (bufptr < BUFFER_SIZE - 1) { 
-                buffer[bufptr++] = (char)c;
-            }
+
+            command[cursor] = (char)c;
+            cursor++;
+            commandSize++;
         }
 
-        putc(c); 
+        putc(c);
     }
+    free(command);
 
     return 0;
 }
 
-void execute(const char* buffer, int argc, char** argv){
+void execute(const char* buffer, int argc, char** argv)
+{
     if(strcmp(buffer, "exit") == 0){
         print("\x1b[2J\x1b[H");
         running = false;

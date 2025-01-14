@@ -110,7 +110,7 @@ void done(cstring message, cstring file) {
  * @brief Prints a char, using print(&c);
  * 
  * @param c char to print
- * @deprecated Replaced with Flanterm's putchar function
+ * @note Internally using Flanterm's putchar function
  */
 void __putc(char c) {
     char str[1];
