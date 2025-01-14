@@ -102,7 +102,7 @@ int getc() {
     if(data == 0x1c)
         return data;
     if(data == 0xe)
-        return data;
+        return '\b';
     
     return c; 
 }

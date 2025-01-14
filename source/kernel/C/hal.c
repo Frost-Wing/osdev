@@ -63,7 +63,7 @@ int8 inb(int16 port){
     return returnVal;
     #endif
     
-    return null;
+    return 0;
 }
 
 /**
@@ -107,7 +107,7 @@ int16 inw(int16 portNumber) {
     return data;
     #endif
 
-    return null;
+    return 0;
 }
 
 /**
@@ -125,7 +125,7 @@ int32 inl(int16 portNumber) {
     return data;
     #endif
 
-    return null;
+    return 0;
 }
 
 /**

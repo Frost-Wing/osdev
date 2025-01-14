@@ -116,7 +116,7 @@ void registers_dump(){
     printf("        R14 = 0x%x", r14_value);
     printf("        R15 = 0x%x", r15_value);
 
-    return 0;
+    return;
 }
 
 void* allocate_memory_at_address(int64 phys_addr, size_t size) {

@@ -27,16 +27,37 @@ char* login_request(){
     print("Username: ");
     i = 0;
     while ((temp = getc()) != 0x1c && i < 20) {
-        username[i++] = temp;
-        __putc(temp);
+        if (temp == '\b')
+        {
+            if (i == 0) continue;
+            username[i] = 0;
+            i--;
+            __putc('\b');
+        }
+        else
+        {
+            username[i] = temp;
+            i++;
+            __putc(temp);
+        }
     }
     username[i] = '\0';
 
     print("\nPassword: ");
     i = 0;
     while ((temp = getc()) != 0x1c && i < 20) {
-        password[i++] = temp;
-        __putc('*');
+        if (temp == '\b')
+        {
+            if (i == 0) continue;
+            password[i] = 0;
+            i--;
+        }
+        else
+        {
+            password[i] = temp;
+            i++;
+            __putc('*');
+        }
     }
     password[i] = '\0';
 
