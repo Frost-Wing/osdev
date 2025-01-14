@@ -505,8 +505,6 @@ void putc(char c){
     {
         __putc('\b');
         __putc(' ');
-        __putc('\b');
-        return;
     }
 
     __putc(c);
