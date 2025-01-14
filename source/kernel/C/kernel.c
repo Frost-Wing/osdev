@@ -385,20 +385,16 @@ void main(void) {
 
     int failed_attempts = 0;
 
-    printf("%x",hash_string("superuser"));
-    printf("%x",hash_string("frostwing"));
-
     // glCreateContext();
     // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
     // glClearColor(0, 0, 0, 0xff);
     // glClear(GL_COLOR_BUFFER_BIT);
     // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
     // glDestroyContext(null);
+
     while(1){
         // decode_targa_image(module_request.response->modules[2]->address, (uvec2){0, 0}, framebuffer->width, framebuffer->height);
 
-        // ssfn_dst.x = ssfn_dst.y = 0;
-        // ssfn_print("Hello!");
 
         // // ivec2 lastMousePos = GetLastMousePosition();
         // ivec2 mousePos = GetMousePosition();
@@ -415,7 +411,7 @@ void main(void) {
         
         if(username != ""){
             int argc = 1;
-            char* dummy_argv[] = {"test", null};
+            char* dummy_argv[] = {username, null};
             shell_main(argc, dummy_argv);
         } else {
             error("Invalid credentials.", __FILE__);
