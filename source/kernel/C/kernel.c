@@ -413,7 +413,7 @@ void main(void) {
 
         char* username = login_request();
         
-        if(username != ""){
+        if(username != NULL){
             int argc = 1;
             char* dummy_argv[] = {username, null};
             shell_main(argc, dummy_argv);
