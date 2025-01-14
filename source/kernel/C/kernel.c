@@ -364,21 +364,21 @@ void main(void) {
     // list_clear(&my_list);
     // printf("list size: %d", my_list.size);
 
-    extract_tarball(module_request.response->modules[0]->address);
+    // extract_tarball(module_request.response->modules[0]->address);
 
     // allocate_memory_at_address((int64)malloc(0x32), 0x32);
 
-    font_address = module_request.response->modules[1]->address;
+    // font_address = module_request.response->modules[1]->address;
 
-    kernel_data* data = (kernel_data*) malloc(sizeof(kernel_data));
-    data->fb_addr = framebuffer->address;
-    data->width = framebuffer->width;
-    data->height = framebuffer->height;
-    data->pitch = framebuffer->pitch;
-    data->print = print;
-    execute_fwde(module_request.response->modules[2]->address, data);
+    // kernel_data* data = (kernel_data*) malloc(sizeof(kernel_data));
+    // data->fb_addr = framebuffer->address;
+    // data->width = framebuffer->width;
+    // data->height = framebuffer->height;
+    // data->pitch = framebuffer->pitch;
+    // data->print = print;
+    // execute_fwde(module_request.response->modules[2]->address, data);
 
-    free(data);
+    // free(data);
 
     print("press F10 for (ACPI) Shutdown.\n");
     print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
