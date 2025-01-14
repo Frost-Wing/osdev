@@ -12,7 +12,7 @@
 #include <memory2.h>
 #include <graphics.h>
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 10
 
 typedef struct command_list_entry
 {
@@ -48,5 +48,6 @@ void dispose_command_list(command_list* lst);
  * 
  * @param lst Pointer to command list object
  * @param value Command string (will be copied to a new pointer)
+ * @param length Command string length
  */
-void push_command_to_list(command_list* lst, const char* value);
+void push_command_to_list(command_list* lst, const char* value, size_t length);

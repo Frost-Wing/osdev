@@ -12,8 +12,10 @@
 #include <basics.h>
 
 char* login_request(){
-    char username[21]; // +1 for null terminator
-    char password[21];
+    static char username[21]; // +1 for null terminator
+    static char password[21];
+    memset(username, 0, 21);
+    memset(password, 0, 21);
 
     char temp;
     int i;
@@ -21,8 +23,6 @@ char* login_request(){
     for(int i = 0; i < 30; i++)
         __putc('=');
     __putc('\n');
-    
-    warn("DON'T USE BACKSPACE!!", __FILE__);
 
     print("Username: ");
     i = 0;
@@ -68,11 +68,9 @@ char* login_request(){
 
     __putc('\n');
     
-    if (strcmp(username, "root") == 0 && strcmp(password, "prad") == 0) {
-        memset(username, 0, 21);
-        memset(password, 0, 21);
-        return username; // I know this won't give the username.. need to fix!
-    } else {
-        return "";
-    }
+    if (strcmp(username, "root") == 0 && strcmp(password, "prad") == 0)
+        return &username[0];
+    else
+        return NULL;
+
 }

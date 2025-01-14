@@ -9,6 +9,7 @@
  * 
  */
 
+#include <basics.h>
 #include <sh_util.h>
 #include <memory2.h>
 #include <keyboard.h>
@@ -41,20 +42,21 @@ void dispose_command_list(command_list* lst)
     }
 }
 
-void push_command_to_list(command_list* lst, const char* value)
+void push_command_to_list(command_list* lst, const char* value, size_t length)
 {
-    if (lst == NULL || value == NULL)
+    if (lst == NULL || value == NULL || length == 0)
         return;
 
     command_list_entry* entry = malloc(sizeof(command_list_entry));
-    memset(entry, 0, sizeof(command_list_entry));
+    assert(entry != NULL, __FILE__, __LINE__);
     if (entry == NULL)
         return;
 
-    size_t commandSize = strlen_(value);
-    entry->command = malloc(commandSize+1);
-    memset(entry->command, 0, commandSize+1);
-    memcpy(entry->command, value, commandSize);
+    memset(entry, 0, sizeof(command_list_entry));
+    entry->length = length;
+    entry->command = malloc(length+1);
+    memset(entry->command, 0, length+1);
+    memcpy(entry->command, value, length);
 
     if (lst->start == NULL)
     {
@@ -98,13 +100,16 @@ int shell_main(int argc, char** argv){
 
     print("\x1b[2J\x1b[H");
     welcome_message();
+
+    command_list commandHistory;
+    init_command_list(&commandHistory);
     
     putc('\n');
     print(argv[0]);
-    putc(' ');
-    putc('%');
-    putc(' ');
+    print(" % ");
 
+    uint8_t commandPulledFromHistory = 0;
+    command_list_entry* entry = NULL;
     char c;
     while (running)
     {
@@ -118,15 +123,14 @@ int shell_main(int argc, char** argv){
             command[cursor] = '\0'; // Null-terminate the string
             putc('\n');
             execute(command, argc, argv);
+            // push_command_to_list(&commandHistory, command, cursor); // <-- doesn't work because of malloc i assume
             cursor = 0;
             commandSize = 0;
             memset(command, 0, commandBufferSize);
 
             if(running){
                 print(argv[0]);
-                putc(' ');
-                putc('%');
-                putc(' ');
+                print(" % ");
             }
             continue;
         }
@@ -134,6 +138,7 @@ int shell_main(int argc, char** argv){
         {
             if (cursor > 0)
                 cursor--;
+            else continue;
         }
         else
         {
@@ -152,14 +157,23 @@ int shell_main(int argc, char** argv){
     }
     free(command);
 
+    dispose_command_list(&commandHistory);
+
     return 0;
 }
 
 void execute(const char* buffer, int argc, char** argv)
 {
+    if (buffer == NULL)
+        return;
+    if (strlen_(buffer) == 0)
+        return;
+
     if(strcmp(buffer, "exit") == 0){
         print("\x1b[2J\x1b[H");
         running = false;
+    } else if(strcmp(buffer, "clear") == 0){
+        print("\x1b[2J\x1b[H");
     } else if(strcmp(buffer, "shutdown") == 0){
         info("Goodbye from Frosted Shell...", __FILE__);
         shutdown();
