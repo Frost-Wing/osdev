@@ -12,7 +12,7 @@
 #include <memory2.h>
 #include <graphics.h>
 
-#define BUFFER_SIZE 10
+#define BUFFER_SIZE 128
 
 typedef struct command_list_entry
 {
