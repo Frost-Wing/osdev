@@ -34,11 +34,11 @@ int shell_main(int argc, char** argv){
     print("\x1b[2J\x1b[H");
     welcome_message();
     
-    __putc('\n');
+    putc('\n');
     print(argv[0]);
-    __putc(' ');
-    __putc('%');
-    __putc(' ');
+    putc(' ');
+    putc('%');
+    putc(' ');
     int c;
 
     while (running) {
@@ -46,7 +46,7 @@ int shell_main(int argc, char** argv){
 
         if (c == 0x1c) { // Enter key
             buffer[bufptr] = '\0'; // Null-terminate the string
-            __putc('\n'); 
+            putc('\n'); 
             execute(buffer, argc, argv);
             bufptr = 0; // Reset buffer pointer
             for (int i = 0; i < BUFFER_SIZE; i++) {
@@ -55,9 +55,9 @@ int shell_main(int argc, char** argv){
 
             if(running){
                 print(argv[0]);
-                __putc(' ');
-                __putc('%');
-                __putc(' '); 
+                putc(' ');
+                putc('%');
+                putc(' '); 
             }
         } else if (c == 0xe) { // Backspace key
             if (bufptr > 0) { 
@@ -72,7 +72,7 @@ int shell_main(int argc, char** argv){
             }
         }
 
-        __putc(c); 
+        putc(c); 
     }
 
     return 0;
@@ -92,7 +92,7 @@ void execute(const char* buffer, int argc, char** argv){
         print(green_color);
         print(argv[0]);
         print(reset_color);
-        __putc('\n');
+        putc('\n');
     } else if (strncmp(buffer, "echo ", 5) == 0) { 
         char* arg = buffer + 5;
         if(arg[0] == '\"' && arg[strlen_(arg)-1] == '\''){
