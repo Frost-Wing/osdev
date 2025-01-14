@@ -69,35 +69,7 @@ void process_keyboard(InterruptFrame* frame){
     if(!enable_keyboard) return;
 
     int data = inb(0x60);
-    if(data == 0x44){ // F10 Key
-        enable_keyboard = no;
-        shutdown();
-        goto exit_interrupt;
-    }
-
-    if(data == 0x43){ // F9 Key
-        enable_keyboard = no;
-        acpi_reboot();
-        goto exit_interrupt;
-    }
-    if(data == 0x42){ // F8 Key
-        enable_keyboard = no;
-        hcf();
-        goto exit_interrupt; // this is not possible but for uniformity it is here.
-    }
-
-    if(data == 0x2A || data == 0x36){ // [Left Shift || Right Shift] pressed
-        shift = yes;
-    }
-
-    if(data == 0xB6 || data == 0xAA){
-        shift = no;
-    }
-
-    c = scancode_to_char(data, shift);
-
-    // if(c != '\0') print(&c);
-
+    
     exit_interrupt:
     c = '\0';
     outb(0x20, 0x20); // End PIC Master
@@ -106,13 +78,9 @@ void process_keyboard(InterruptFrame* frame){
 int getc() {
     int data;
 
-    // Wait for key press
     while (1) {
-        // Check for key press
         if (inb(0x64) & 1) { 
             data = inb(0x60); 
-
-            if(data > 0x80) continue;
 
             if(data == 0x2A || data == 0x36){ // [Left Shift || Right Shift] pressed
                 shift = yes;
@@ -121,6 +89,8 @@ int getc() {
             if(data == 0xB6 || data == 0xAA){
                 shift = no;
             }
+
+            if(data > 0x80) continue;
 
             // Send EOI to PIC
             outb(0x20, 0x20); 

@@ -415,7 +415,7 @@ void main(void) {
         
         if(username != ""){
             int argc = 1;
-            char* dummy_argv[] = {username, null};
+            char* dummy_argv[] = {"test", null};
             shell_main(argc, dummy_argv);
         } else {
             error("Invalid credentials.", __FILE__);
