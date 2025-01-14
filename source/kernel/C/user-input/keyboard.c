@@ -75,10 +75,6 @@ void process_keyboard(InterruptFrame* frame){
         goto exit_interrupt;
     }
 
-    if(data == 0x1C){ // Enter
-        print("\n");
-        goto exit_interrupt;
-    }
     if(data == 0x43){ // F9 Key
         enable_keyboard = no;
         acpi_reboot();
@@ -88,10 +84,6 @@ void process_keyboard(InterruptFrame* frame){
         enable_keyboard = no;
         hcf();
         goto exit_interrupt; // this is not possible but for uniformity it is here.
-    }
-    if(data == 0x0E){ // Backspace Key
-        print("\b \b");
-        goto exit_interrupt;
     }
 
     if(data == 0x2A || data == 0x36){ // [Left Shift || Right Shift] pressed
@@ -104,9 +96,43 @@ void process_keyboard(InterruptFrame* frame){
 
     c = scancode_to_char(data, shift);
 
-    if(c != '\0') print(&c);
+    // if(c != '\0') print(&c);
 
     exit_interrupt:
     c = '\0';
     outb(0x20, 0x20); // End PIC Master
+}
+
+int getc() {
+    int data;
+
+    // Wait for key press
+    while (1) {
+        // Check for key press
+        if (inb(0x64) & 1) { 
+            data = inb(0x60); 
+
+            if(data > 0x80) continue;
+
+            if(data == 0x2A || data == 0x36){ // [Left Shift || Right Shift] pressed
+                shift = yes;
+            }
+        
+            if(data == 0xB6 || data == 0xAA){
+                shift = no;
+            }
+
+            // Send EOI to PIC
+            outb(0x20, 0x20); 
+            break; 
+        }
+    }
+
+    char c = scancode_to_char(data, shift);
+    if(data == 0x1c)
+        return data;
+    if(data == 0xe)
+        return data;
+    
+    return c; 
 }

@@ -380,14 +380,13 @@ void main(void) {
 
     // free(data);
 
-    print("press F10 for (ACPI) Shutdown.\n");
-    print("press F9 for (ACPI/Hard) Reboot/Reset.\n");
-
-    done("No process pending.", __FILE__);
-
     // print("\x1b[2J"); // Clears screen
     // print("\x1b[H");  // Resets Cursor to 0, 0
 
+    int failed_attempts = 0;
+
+    printf("%x",hash_string("superuser"));
+    printf("%x",hash_string("frostwing"));
 
     // glCreateContext();
     // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
@@ -406,6 +405,22 @@ void main(void) {
         // decode_targa_image(module_request.response->modules[3]->address, (uvec2){mousePos.x, mousePos.y}, framebuffer->width, framebuffer->height);
 
         // pit_sleep((int32)16.6666); // 60 Hz approx.
+
+        if (failed_attempts >= 5){
+            error("You tried 5 diffrent wrong attempts. You've been locked out.", __FILE__);
+            hcf();
+        }
+
+        char* username = login_request();
+        
+        if(username != ""){
+            int argc = 1;
+            char* dummy_argv[] = {username, null};
+            shell_main(argc, dummy_argv);
+        } else {
+            error("Invalid credentials.", __FILE__);
+            failed_attempts++;
+        }
     }
 }
 

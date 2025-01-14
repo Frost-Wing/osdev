@@ -300,3 +300,71 @@ bool starts_with(const char *str, const char *prefix) {
     }
     return yes;
 }
+
+/**
+ * strdup - Duplicate a string.
+ *
+ * This function creates a new string in dynamically allocated memory 
+ * that is a duplicate of the given string.
+ *
+ * @param str The string to be duplicated.
+ *
+ * @return A pointer to the newly allocated duplicate string, 
+ *         or NULL if memory allocation fails.
+ */
+ char* strdup(const char* str) {
+    if (str == NULL) {
+        return NULL;
+    }
+
+    size_t len = strlen_(str) + 1; // Include space for null terminator
+    char* dup = (char*)malloc(len);
+    if (dup == NULL) {
+        return NULL;
+    }
+
+    memcpy(dup, str, len); 
+    return dup;
+}
+
+/**
+ * @brief Removes the leading and trailing spaces.
+ * 
+ * @param str 
+ * @return char* 
+ */
+char* leading_trailing_trim(const char *str) {
+    if (str == NULL) {
+        return NULL;
+    }
+
+    int start = 0;
+    int end = strlen_(str) - 1;
+
+    // Find the index of the first non-space character
+    while (start <= end && (str[start] == ' ' || str[start] == '\t')) {
+        start++;
+    }
+
+    // Find the index of the last non-space character
+    while (start <= end && (str[end] == ' ' || str[end] == '\t')) {
+        end--;
+    }
+
+    if (start > end) {
+        // Empty string after trimming
+        return strdup(""); 
+    }
+
+    // Allocate memory for the trimmed string
+    char* trimmed = (char*)malloc(end - start + 2); 
+    if (trimmed == NULL) {
+        return NULL;
+    }
+
+    // Copy the trimmed portion of the string
+    strncpy(trimmed, str + start, end - start + 1);
+    trimmed[end - start + 1] = '\0'; 
+
+    return trimmed;
+}

@@ -113,9 +113,12 @@ void done(cstring message, cstring file) {
  * @deprecated Replaced with Flanterm's putchar function
  */
 void __putc(char c) {
-    char _c[1];
-    _c[0] = c;
-    print(_c);
+    char str[1];
+
+    str[0] = c;
+    str[1] = '\0';
+
+    print(str);
 }
 
 /**

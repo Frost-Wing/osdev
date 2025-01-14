@@ -22,4 +22,4 @@ void init_hashing();
  * @param data The string to be hashed.
  * @return [int] Hashed value.
  */
-int hash_string(string data);
+int64 hash_string(string data);
