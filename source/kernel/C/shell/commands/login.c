@@ -32,13 +32,13 @@ char* login_request(){
             if (i == 0) continue;
             username[i] = 0;
             i--;
-            __putc('\b');
+            putc('\b');
         }
         else
         {
             username[i] = temp;
             i++;
-            __putc(temp);
+            putc(temp);
         }
     }
     username[i] = '\0';
@@ -51,12 +51,13 @@ char* login_request(){
             if (i == 0) continue;
             password[i] = 0;
             i--;
+            putc('\b');
         }
         else
         {
             password[i] = temp;
             i++;
-            __putc('*');
+            putc('*');
         }
     }
     password[i] = '\0';
