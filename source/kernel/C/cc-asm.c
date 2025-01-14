@@ -17,13 +17,13 @@
 void hcf() {
     for (;;) {
         #if defined (__x86_64__)
-            info("x86_64: Halt Initalized.", __FILE__);
+            // info("x86_64: Halt Initalized.", __FILE__);
             asm volatile ("hlt");
         #elif defined (__aarch64__) || defined (__riscv)
-            info("aarch64 - riscv: Halt (Wait for interrupts) Initalized.", __FILE__);
+            // info("aarch64 - riscv: Halt (Wait for interrupts) Initalized.", __FILE__);
             asm volatile ("wfi");
         #elif defined (__arm__) || defined (__aarch32__)
-            info("ARM32: Halt (Wait for interrupts) Initialized.",__FILE__);
+            // info("ARM32: Halt (Wait for interrupts) Initialized.",__FILE__);
             asm volatile ("wfi");
         #endif
     }

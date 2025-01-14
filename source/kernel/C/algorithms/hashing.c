@@ -22,7 +22,7 @@ void init_hashing(){
     }
 }
 
-int hash_string(string data){
+int64 hash_string(string data){
     int hash = 0;
     while(*data){
         hash += *data++;

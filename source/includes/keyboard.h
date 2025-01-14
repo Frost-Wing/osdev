@@ -18,3 +18,10 @@ char scancode_to_char(int scancode, bool uppercase);
  * 
  */
 void process_keyboard(InterruptFrame* frame);
+
+/**
+ * @brief Gets the last pressed char.
+ * 
+ * @return int 
+ */
+int getc();

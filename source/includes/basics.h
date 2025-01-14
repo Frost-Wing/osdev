@@ -33,6 +33,8 @@ typedef char* string;
 #define Ghz *1000000000ULL
 #define Mhz *1000000ULL
 
+#define EOF (-1)
+
 #ifdef __GNUC__
 #define deprecated_message(msg) attribute((deprecated(msg)))
 #elif defined(_MSC_VER)
