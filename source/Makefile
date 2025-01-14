@@ -160,12 +160,8 @@ override HEADER_DEPS := $(addprefix obj/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 # Default target.
 .PHONY: all
 all:
-	@make -B desktop-manager
 	@make -B version_info
 	@make $(KERNEL)
-
-desktop-manager:
-	cd desktop-manager && make clean && make && cd ../
 
 # Link rules for the final kernel executable.
 $(KERNEL): linker/$(ARCH).ld $(OBJ)
