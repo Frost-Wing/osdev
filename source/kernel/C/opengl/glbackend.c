@@ -21,7 +21,7 @@ void glWritePixel(uvec2 pixel, uint32_t color)
 uint32_t glReadPixel(uvec2 pixel)
 {
     if (!glContextInitialized())
-        return;
+        return 0;
 
     GET_CURRENT_GL_CONTEXT(context);
 

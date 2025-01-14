@@ -23,7 +23,7 @@ void extract_tarball(int64* tarball_addr) {
             error("You reached number of file limits of 2 KiB!", __FILE__);
             break;
         }
-        struct tarball_header *header = (struct tar_header *)addr;
+        struct tarball_header *header = (struct tarball_header*)addr;
 
         if (header->name[0] == '\0') {
             break;
@@ -35,7 +35,7 @@ void extract_tarball(int64* tarball_addr) {
         char *contents = (char *)(addr + block_size);
 
         filenames[counter] = filename;
-        file_datas[counter] = file_datas;
+        file_datas[counter] = contents;
 
         addr += block_size + ((size + block_size - 1) / block_size) * block_size;
         counter++;

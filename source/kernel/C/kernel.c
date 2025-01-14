@@ -9,6 +9,7 @@
  * 
  */
 #include <kernel.h>
+#include <stdint.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
@@ -247,7 +248,7 @@ void main(void) {
     if(graphics_base_Address != null){
         isBufferReady = no;
         ft_ctx = flanterm_fb_simple_init(
-            graphics_base_Address,
+            (uint32_t*)graphics_base_Address,
             framebuffer->width,
             framebuffer->height,
             framebuffer->pitch
@@ -392,6 +393,8 @@ void main(void) {
     // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
     // glDestroyContext(null);
 
+    extern char* login_request();
+
     while(1){
         // decode_targa_image(module_request.response->modules[2]->address, (uvec2){0, 0}, framebuffer->width, framebuffer->height);
 
@@ -434,6 +437,58 @@ void print(cstring msg){
     flanterm_write(ft_ctx, msg, strlen_(msg));
 }
 
+char* uint_to_string(unsigned int num) {
+    if (num == 0) {
+        return "0";
+    }
+
+    static char buf[21];
+    buf[20] = '\0';
+    int i = 20;
+
+    while (num > 0) {
+        buf[--i] = (num % 10) + '0';
+        num /= 10;
+    }
+
+    return &buf[i];
+}
+
+void debug_printf(cstring format, ...)
+{
+    va_list argp;
+    va_start(argp, format);
+
+    while (*format != '\0') {
+        if (*format == '%') {
+            format++;
+            switch (*format)
+            {
+            case 'u':
+                debug_print(uint_to_string(va_arg(argp, size_t)));
+                break;
+            
+            case 's':
+                debug_print(va_arg(argp, char*));
+                break;
+
+            case 'c':
+                debug_putc(va_arg(argp, char));
+                break;
+            }
+        } else {
+            if(*format == "\n") print("\n");
+            else if(*format == "\r") print("\r");
+            else if(*format == "\t") print("\t");
+            else debug_putc(*format);
+        }
+        format++;
+    }
+
+    debug_print("\n");
+    va_end(argp);
+}
+
 /**
  * @brief The basic put char function.
  * 
@@ -441,7 +496,20 @@ void print(cstring msg){
  */
 void putc(char c){
     if(!isBufferReady) return;
+    static size_t cur_xpos=0, cur_ypos=0;
+
+    if (c == 'b')
+    {
+        size_t xpos, ypos;
+        ft_ctx->get_cursor_pos(ft_ctx, &xpos, &ypos);
+        ft_ctx->set_cursor_pos(ft_ctx, cur_xpos, cur_ypos);
+        debug_printf("xpos: %u ypos: %u, oldxpos: %u, oldypos: %u", xpos, ypos, cur_xpos, cur_ypos);
+        ft_ctx->set_cursor_pos(ft_ctx, cur_xpos, cur_ypos);
+        return;
+    }
+
     ft_ctx->raw_putchar(ft_ctx, c);
+    ft_ctx->get_cursor_pos(ft_ctx, &cur_xpos, &cur_ypos);
 }
 
 /**

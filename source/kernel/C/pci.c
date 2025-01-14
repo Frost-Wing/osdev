@@ -176,7 +176,7 @@ int16 getSubClassId(int16 bus, int16 device, int16 function)
 void load_graphics_card(int16 bus, int16 slot, int16 function, cstring graphics_card_name){
 
     for(int8 barIndex = 0; barIndex < 6; barIndex++){
-        graphics_base_Address = get_graphics_card_bar_address(bus, slot, function, barIndex);
+        graphics_base_Address = (int64*)get_graphics_card_bar_address(bus, slot, function, barIndex);
 
         if(graphics_base_Address != null){
             done("Found graphics card's base address!", __FILE__);
@@ -414,7 +414,7 @@ void probe_pci(){
                         else if(device == 0x0094) {display_adapter_name = deviceName = GPUName[1] =  "G70 [GeForce 7800 SLI]";}
                         else if(device == 0x1b83) {display_adapter_name = deviceName = GPUName[1] =  "GP104 [GeForce GTX 1060 6GB]";} // My fav GPU for this OS
                         else if(device == 0x1b84) {display_adapter_name = deviceName = GPUName[1] =  "GP104 [GeForce GTX 1060 3GB]";}
-                        else {display_adapter_name = "Frost Generic Display Adapter"; return 0;}
+                        else {display_adapter_name = "Frost Generic Display Adapter"; return;}
                     }
 
                     if(classid == 0x03){
