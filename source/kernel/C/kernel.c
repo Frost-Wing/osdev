@@ -8,6 +8,7 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
+#include "fb.h"
 #include <kernel.h>
 #include <stdint.h>
 
@@ -477,9 +478,9 @@ void debug_printf(cstring format, ...)
                 break;
             }
         } else {
-            if(*format == "\n") print("\n");
-            else if(*format == "\r") print("\r");
-            else if(*format == "\t") print("\t");
+            if(*format == "\n") debug_putc('\n');
+            else if(*format == "\r") debug_putc('\r');
+            else if(*format == "\t") debug_putc('\t');
             else debug_putc(*format);
         }
         format++;
@@ -494,22 +495,21 @@ void debug_printf(cstring format, ...)
  * 
  * @param c The char to be printed
  */
+extern void __putc(char c);
 void putc(char c){
-    if(!isBufferReady) return;
-    static size_t cur_xpos=0, cur_ypos=0;
+    if(!isBufferReady)
+        return;
 
-    if (c == 'b')
+
+    if (c == '\b')
     {
-        size_t xpos, ypos;
-        ft_ctx->get_cursor_pos(ft_ctx, &xpos, &ypos);
-        ft_ctx->set_cursor_pos(ft_ctx, cur_xpos, cur_ypos);
-        debug_printf("xpos: %u ypos: %u, oldxpos: %u, oldypos: %u", xpos, ypos, cur_xpos, cur_ypos);
-        ft_ctx->set_cursor_pos(ft_ctx, cur_xpos, cur_ypos);
+        __putc('\b');
+        __putc(' ');
+        __putc('\b');
         return;
     }
 
-    ft_ctx->raw_putchar(ft_ctx, c);
-    ft_ctx->get_cursor_pos(ft_ctx, &cur_xpos, &cur_ypos);
+    __putc(c);
 }
 
 /**
