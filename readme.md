@@ -16,11 +16,7 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 - [Images](#images)
 - [Features](#currently-working-features)
 - [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Building FrostWing](#building-FrostWing)
-  - [Building FrostWing Documentations](#building-the-frostwing-doxygen-documentation)
   - [Hardware/Software (Emulator) Requirements](#hardwaresoftware-emulator-requirements)
-  - [Running FrostWing](#running-FrostWing)
   - [Booting to real machine](#Booting-to-real-machine)
 - [Contributing](#contributing)
 - [License](#license)
@@ -89,91 +85,10 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 - Serial communications (with Arduino, NodeMCU, Sparkfun, etc.)
 - Audio
     - PC Speaker
-## Getting Started
 
-### Prerequisites
-#### Packages
-- For Debian based OS (Ubuntu, Pop_OS, Kali, etc.)
-    ```bash
-    sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git jq curl qemu-system-x86 xorriso
-    ```
-- For Arch based OS (Arch, Manjaro etc.)
-    ```bash
-    sudo pacman -S make bison flex texinfo nasm mtools wget tar binutils base-devel doxygen git jq curl qemu qemu-system-x86 xorriso
-    ```
-#### Bootloader
-Before you start building FrostWing, ensure that you have the following dependencies installed:
+### Getting started
+[*Please refer wiki for steps for compiling**](https://github.com/Frost-Wing/osdev/wiki)
 
-- Latest Version of [Limine Bootloader](https://github.com/limine-bootloader/limine)
-    ```bash
-    git clone https://github.com/limine-bootloader/limine.git --branch=v6.x-branch-binary --depth=1
-    ```
-- Compile the Limine bootloader
-    ```bash
-    make -C limine
-    ```
-> [!NOTE]
-> A suitable cross-compiler for your target architecture (x86_64, ARM64, or RISC-V) is always recommended but the os is never tested with a cross-compiler and therefore it is optional
-
-- QEMU System Emulator
-
-### Building FrostWing
-
-1. **Clone this repository to your local machine**
-    ```bash
-    git clone https://github.com/pradosh-arduino/FrostWing
-    ```
-2. **Change into the FrostWing directory:**
-    ```bash
-    cd FrostWing
-    ```
-3. **Install all required dependencies**
-
-    It is provided in [Prerequisites](#prerequisites)
-
-4. **Build FrostWing for your target architecture:**
-- For x86_64:
-    ```bash
-    make -C source
-    make
-    ```
-- For aarch64 (ARM64):
-    ```bash
-    make -C source ARCH="aarch64"
-    make
-    ```
-- For riscv64 (RISC-V):
-    ```bash
-    make -C source ARCH="riscv64"
-    make
-    ```
-5. (Optional - Recommened) To use custom cross compiler:
-    ```bash
-    make -C source ARCH="xx" CC="xx" LD="xx"
-    make
-    ```
-
-### Building the FrostWing Doxygen documentation
-> [!NOTE]
-> Slower Method below
-
-If you want to have the doxygen documentation (for some reason), it's enough to just run
-```bash
- doxygen
-```
-inside the repository folder. A directory called `docs` will be created which should contain the generated html documentation.
-The main html file is located at: `docs/html/index.html`
-
-> [!NOTE]
-> Better Method below
-
-Visit [Doxygen Documentation for FrostWing](https://frost-wing.github.io/doxygen-docs/) for pre-compiled documentations.
-### Quick build command
-If you quickly need to clean, compile, build-iso and test run it with QEMU. You can run:
-```
-make everything
-```
-*Make sure you are in the root path of the OS.*
 ### Hardware/Software (Emulator) Requirements
 #### Minimum Requirements (BIOS)
 - **CPU** Currently any x86_64 proccessor
@@ -198,10 +113,6 @@ make everything
 - **RAM** 256 MB
 - **Storage** Nothing required yet.
 - **Graphics** Integrated Graphics
-
-### Running FrostWing
-
-After building FrostWing, you can run it using a virtual machine or on real hardware. The specific steps for running it will depend on your chosen target architecture. Read the main Markdown to run FrostWing.
 
 ### Booting to real machine
 This operating system is real machine **bootable** and tested under the following circumstances:
