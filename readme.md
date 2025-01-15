@@ -149,6 +149,12 @@ The main html file is located at: `docs/html/index.html`
 > Better Method below
 
 Visit [Doxygen Documentation for FrostWing](https://frost-wing.github.io/doxygen-docs/) for pre-compiled documentations.
+### Quick build command
+If you quickly need to clean, compile, build-iso and test run it with QEMU. You can run:
+```
+make everything
+```
+*Make sure you are in the root path of the OS.*
 ### Hardware/Software (Emulator) Requirements
 #### Minimum Requirements (BIOS)
 - **CPU** Currently any x86_64 proccessor
