@@ -73,6 +73,10 @@ void debug_printf(cstring format, ...)
             case 'u':
                 debug_print(uint_to_string(va_arg(argp, size_t)));
                 break;
+
+            case 'x':
+                debug_print(hex_to_string(va_arg(argp, size_t)));
+                break;
             
             case 's':
                 debug_print(va_arg(argp, char*));
@@ -91,6 +95,6 @@ void debug_printf(cstring format, ...)
         format++;
     }
 
-    debug_print("\n");
+    // debug_print("\n");
     va_end(argp);
 }

@@ -33,14 +33,14 @@ void detect_ahci_devices(ahci_controller* ahci_ctrl) {
             int32 sig = port->sig;
             if (sig == sata_disk) {
                 printf("SATA Disk detected at port %d", i);
-                uint8_t sector_buffer[SECTOR_SIZE * 5]; // Buffer to store 5 sectors
+                uint8_t sector_buffer[SECTOR_SIZE * 1]; // Buffer to store 5 sectors
 
-                if (read_sectors(0, 5, sector_buffer) != 0) {
+                if (read_sectors(0, 1, sector_buffer) != 0) {
                     error("sector reading failed!", __FILE__);
                 }
 
-                for(int x = 0; x < SECTOR_SIZE * 5; x++){
-                    // debug_printf("%u", sector_buffer[x]);
+                for(int x = 0; x < SECTOR_SIZE * 1; x++){
+                    debug_printf("%u ", sector_buffer[x]);
                 }
             } else if (sig == satapi_disk) {
                 printf("SATAPI Disk detected at port %d", i);
@@ -61,6 +61,7 @@ ahci_command_header_t* get_free_command_header() {
     for (int i = 0; i < 32; i++) {
         if (!(global_ahci_ctrl->ports[0].ci & 1)) { 
             info("FOUND FREE CMD HEADER!", __FILE__);
+            printf("Command header = %d", i);
             return &global_ahci_ctrl->ports[0].cmd; 
         }
     }
@@ -99,9 +100,8 @@ int read_sectors(uint32_t lba, uint32_t sector_count, void* buffer) {
     // 5. Issue the command
     cmd_header->ci = 1; // Issue command
 
-    // 6. Wait for command completion
-    //   - Check command header->iss for completion status
-    //   - Handle potential errors (e.g., check serr register)
+
+    sleep(2);
 
     // 7. Read data from the buffer
 
