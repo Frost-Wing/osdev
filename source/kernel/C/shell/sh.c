@@ -82,7 +82,11 @@ void welcome_message(){
     print("|_|  |_|  \\___/|___/\\__\\___|\\__,_|_____/|_| |_|\\___|_|_|\e[0m\n\n");
 
     print("\033[1;32mWelcome to frosted shell!\033[0m This is an implementation of \033[0;34msh\033[0m.\n");
-    print("We as the developers try to make this shell as similar as \033[0;34msh\033[0m.\n");
+    print("We as the developers try to make this shell as similar as \033[0;34msh\033[0m.\n\n");
+
+    print("Website : \e[1;34mhttps://prad.digital\033[0m\n");
+    print("Wiki    : \e[1;34mhttps://github.com/Frost-Wing/osdev/wiki\033[0m\n");
+    print("Github  : \e[1;34mhttps://github.com/Frost-Wing\033[0m\n\n");
     
     display_time();
 }
