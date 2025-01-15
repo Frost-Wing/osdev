@@ -92,17 +92,26 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 ## Getting Started
 
 ### Prerequisites
-
+#### Packages
+- For Debian based OS (Ubuntu, Pop_OS, Kali, etc.)
+    ```bash
+    sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git jq curl qemu-system-x86 xorriso
+    ```
+- For Arch based OS (Arch, Manjaro etc.)
+    ```bash
+    sudo pacman -S make bison flex texinfo nasm mtools wget tar binutils base-devel doxygen git jq curl qemu qemu-system-x86 xorriso
+    ```
+#### Bootloader
 Before you start building FrostWing, ensure that you have the following dependencies installed:
 
 - Latest Version of [Limine Bootloader](https://github.com/limine-bootloader/limine)
-```bash
-git clone https://github.com/limine-bootloader/limine.git --branch=v6.x-branch-binary --depth=1
-```
+    ```bash
+    git clone https://github.com/limine-bootloader/limine.git --branch=v6.x-branch-binary --depth=1
+    ```
 - Compile the Limine bootloader
-```bash
-make -C limine
-```
+    ```bash
+    make -C limine
+    ```
 > [!NOTE]
 > A suitable cross-compiler for your target architecture (x86_64, ARM64, or RISC-V) is always recommended but the os is never tested with a cross-compiler and therefore it is optional
 
