@@ -33,6 +33,16 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 ### Running (Graphics Screen)
 [![https://imgur.com/22Uwf8a.png](https://imgur.com/22Uwf8a.png)](https://imgur.com/22Uwf8a.png)
 
+### Running (Initial Login Screen)
+![Screenshot from 2025-01-15 08-49-29](https://github.com/user-attachments/assets/a6ceca1c-3be5-45d9-8ee1-5856619e1f8a)
+
+### Running (Frosted Shell - fsh)
+![image](https://github.com/user-attachments/assets/976facae-3bc6-4033-bead-53800af2be4d)
+
+### Running (Exit and logging in)
+![image](https://github.com/user-attachments/assets/0319336b-bee5-43f4-b89b-88a721791468)
+
+
 ### Meltdown (Panic) Screen
 [![https://imgur.com/HqYJvMK.png](https://imgur.com/HqYJvMK.png)](https://imgur.com/HqYJvMK.png)
 
