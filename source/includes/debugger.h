@@ -41,3 +41,11 @@ void debug_print(cstring msg);
  * @param msg 
  */
 void debug_println(cstring msg);
+
+/**
+ * @brief printf implemented to debug.
+ * 
+ * @param format 
+ * @param ... 
+ */
+ void debug_printf(cstring format, ...);

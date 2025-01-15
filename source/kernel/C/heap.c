@@ -36,6 +36,12 @@ void init_heap(int size) {
     printf("Given Heap size  (MB)    : %d MiB", size/(1024*1024));
     printf("Holder Heap size (MB)    : %d MiB", sizeof(holder)/(1024*1024));
     print(reset_color);
+    debug_print(yellow_color);
+    debug_printf("Given Heap size  (Bytes) : %u Bytes", size);
+    debug_printf("Holder Heap size (Bytes) : %u Bytes", sizeof(holder));
+    debug_printf("Given Heap size  (MB)    : %u MiB", size/(1024*1024));
+    debug_printf("Holder Heap size (MB)    : %u MiB", sizeof(holder)/(1024*1024));
+    print(reset_color);
     done("Completed successfully!", __FILE__);
 }
 
@@ -44,35 +50,45 @@ void init_heap(int size) {
  * @param size The size of memory to allocate.
  * @return A pointer to the allocated memory, or null if allocation fails.
  */
-void* malloc(size_t size) {
-    if (size == 0) return null;
+ void* malloc(size_t size) {
+    if (size == 0) {
+        return null;
+    }
 
     // Find a free block that is large enough to hold the requested memory.
-    int64 holder[size/sizeof(int64)];
-    heap_block* prev = (heap_block*)holder;
+    heap_block* prev = null;
     heap_block* curr = free_list;
-    while (curr != null) {
+
+    while (curr != NULL) {
         if (curr->size >= size) {
-            if (prev != null) {
+            // Remove the current block from the free list
+            if (prev != NULL) {
                 prev->next = curr->next;
             } else {
                 free_list = curr->next;
             }
 
-            // done("Found a free pointer! returning the pointer back...", __FILE__);
-            // Return a pointer to the allocated memory (skip the Block header).
-            return ((char*)curr) + sizeof(heap_block);
-        }else{
+            // If the block is significantly larger, split it
+            if (curr->size - size >= sizeof(heap_block)) {
+                heap_block* new_block = (heap_block*)((char*)curr + size);
+                new_block->size = curr->size - size;
+                new_block->next = free_list;
+                free_list = new_block;
+            }
+
+            debug_printf("Pointer location -> %u", (uint32_t)((char*)curr + sizeof(heap_block))); 
+            return ((char*)curr) + sizeof(heap_block); 
+        } else {
             warn("Block size is too small! Checking next block...", __FILE__);
         }
+
         prev = curr;
         curr = curr->next;
     }
 
     error("No suitable block found for allocation", __FILE__);
-    sleep(5);
-    // meltdown_screen("No suitable block found for allocation of heap.", __FILE__, __LINE__, 0x0);
-    // hcf(); // it is better to handle it here rather than leaving it.
+    meltdown_screen("No suitable block found for allocation of heap.", __FILE__, __LINE__, 0x0);
+    hcf(); // it is better to handle it here rather than leaving it.
     return null;
 }
 
