@@ -144,7 +144,7 @@ void main(void) {
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
-    init_heap(3 MiB);
+    init_heap(10 MiB);
 
     ft_ctx = flanterm_fb_simple_init(
         framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
@@ -287,7 +287,7 @@ void main(void) {
         warn("INSUFFICIENT MEMORY TO PROCEED WITH RE-INITIALIZATION HEAP!", __FILE__);
     } else{
         // Re-initializing heap with vast memory.
-        init_heap(memory.usable / 2);
+        // init_heap(memory.usable / 2);
     }
 
     printf("Total CPU(s): %d", smp_request.response->cpu_count);
@@ -385,6 +385,11 @@ void main(void) {
     // print("\x1b[2J"); // Clears screen
     // print("\x1b[H");  // Resets Cursor to 0, 0
 
+    // int* test1 = malloc(sizeof(int));
+    // int* test2 = malloc(sizeof(int));
+    // int* test3 = malloc(sizeof(int));
+    // int* test4 = malloc(sizeof(int));
+
     int failed_attempts = 0;
 
     // glCreateContext();
@@ -436,58 +441,6 @@ void print(cstring msg){
         return;
     }
     flanterm_write(ft_ctx, msg, strlen_(msg));
-}
-
-char* uint_to_string(unsigned int num) {
-    if (num == 0) {
-        return "0";
-    }
-
-    static char buf[21];
-    buf[20] = '\0';
-    int i = 20;
-
-    while (num > 0) {
-        buf[--i] = (num % 10) + '0';
-        num /= 10;
-    }
-
-    return &buf[i];
-}
-
-void debug_printf(cstring format, ...)
-{
-    va_list argp;
-    va_start(argp, format);
-
-    while (*format != '\0') {
-        if (*format == '%') {
-            format++;
-            switch (*format)
-            {
-            case 'u':
-                debug_print(uint_to_string(va_arg(argp, size_t)));
-                break;
-            
-            case 's':
-                debug_print(va_arg(argp, char*));
-                break;
-
-            case 'c':
-                debug_putc(va_arg(argp, char));
-                break;
-            }
-        } else {
-            if(*format == "\n") debug_putc('\n');
-            else if(*format == "\r") debug_putc('\r');
-            else if(*format == "\t") debug_putc('\t');
-            else debug_putc(*format);
-        }
-        format++;
-    }
-
-    debug_print("\n");
-    va_end(argp);
 }
 
 /**

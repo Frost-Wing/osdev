@@ -9,6 +9,8 @@
  * 
  */
 #include <debugger.h>
+#include <basics.h>
+#include <stdarg.h>
 
 /**
  * @brief If there was possibility for the change in port, we can easily change the E9 Port.
@@ -50,4 +52,45 @@ void debug_println(cstring msg){
         msg++;
     }
     debug_putc('\n');
+}
+
+/**
+ * @brief printf implemented to debug.
+ * 
+ * @param format 
+ * @param ... 
+ */
+void debug_printf(cstring format, ...)
+{
+    va_list argp;
+    va_start(argp, format);
+
+    while (*format != '\0') {
+        if (*format == '%') {
+            format++;
+            switch (*format)
+            {
+            case 'u':
+                debug_print(uint_to_string(va_arg(argp, size_t)));
+                break;
+            
+            case 's':
+                debug_print(va_arg(argp, char*));
+                break;
+
+            case 'c':
+                debug_putc(va_arg(argp, char));
+                break;
+            }
+        } else {
+            if(*format == "\n") debug_putc('\n');
+            else if(*format == "\r") debug_putc('\r');
+            else if(*format == "\t") debug_putc('\t');
+            else debug_putc(*format);
+        }
+        format++;
+    }
+
+    debug_print("\n");
+    va_end(argp);
 }

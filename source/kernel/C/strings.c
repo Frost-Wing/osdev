@@ -368,3 +368,26 @@ char* leading_trailing_trim(const char *str) {
 
     return trimmed;
 }
+
+/**
+ * @brief Converts an uint to string
+ * 
+ * @param num 
+ * @return char* 
+ */
+ char* uint_to_string(unsigned int num) {
+    if (num == 0) {
+        return "0";
+    }
+
+    static char buf[21];
+    buf[20] = '\0';
+    int i = 20;
+
+    while (num > 0) {
+        buf[--i] = (num % 10) + '0';
+        num /= 10;
+    }
+
+    return &buf[i];
+}

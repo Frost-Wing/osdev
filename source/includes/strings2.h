@@ -132,3 +132,11 @@ string strcat(string dest, cstring src);
 void remove_last_char(string str);
 
 long strtol(const char *str, char **endptr, int base);
+
+/**
+ * @brief Converts an uint to string
+ * 
+ * @param num 
+ * @return char* 
+ */
+ char* uint_to_string(unsigned int num);
