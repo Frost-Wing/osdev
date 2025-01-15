@@ -33,6 +33,8 @@ typedef char* string;
 #define Ghz *1000000000ULL
 #define Mhz *1000000ULL
 
+#define OS_NAME "FrostWing OS"
+
 #define EOF (-1)
 
 #ifdef __GNUC__

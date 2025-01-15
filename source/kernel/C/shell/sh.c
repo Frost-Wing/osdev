@@ -189,6 +189,9 @@ void execute(const char* buffer, int argc, char** argv)
         print(argv[0]);
         print(reset_color);
         putc('\n');
+    } else if(strcmp(buffer, "fwfetch") == 0){
+        fwfetch();
+        putc('\n');
     } else if (strncmp(buffer, "echo ", 5) == 0) { 
         char* arg = buffer + 5;
         if(arg[0] == '\"' && arg[strlen_(arg)-1] == '\''){
@@ -197,6 +200,16 @@ void execute(const char* buffer, int argc, char** argv)
         }else{
             printf("%s", arg);
         }
+    } else if (strncmp(buffer, "user ", 5) == 0) { 
+        // int num_tokens;
+        // char** tokens = splitf(buffer, ' ', &num_tokens);
+
+        // if (tokens != NULL) {
+        //     user_main(num_tokens, tokens);
+        // } else {
+        //     error("Failed to split string.", __FILE__);
+        // }
+        
     } else {
         printf("fsh: %s: not found", buffer);
     }

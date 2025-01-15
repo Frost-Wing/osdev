@@ -140,3 +140,6 @@ long strtol(const char *str, char **endptr, int base);
  * @return char* 
  */
  char* uint_to_string(unsigned int num);
+
+
+ char** splitf(const char* str, char delim, int* num_tokens);
