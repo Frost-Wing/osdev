@@ -392,52 +392,26 @@ char* leading_trailing_trim(const char *str) {
     return &buf[i];
 }
 
-char** splitf(const char* str, char delim, int* num_tokens) {
-    if (str == NULL) {
-        return NULL;
-    }
-
-    int len = strlen_(str);
-    if (len == 0) {
-        *num_tokens = 0;
-        return NULL;
-    }
-
-    // Count the number of tokens
-    int count = 1;
-    for (int i = 0; i < len; i++) {
-        if (str[i] == delim) {
-            count++;
-        }
-    }
-    *num_tokens = count;
-
-    // Allocate memory for the array of pointers
-    char* tokens[20];
-    if (tokens == NULL) {
-        return NULL;
-    }
-
-    // Allocate memory for each token and copy substrings
-    int start = 0;
-    int i = 0;
-    for (int j = 0; j < len; j++) {
-        if (str[j] == delim || j == len - 1) {
-            tokens[i] = (char*)malloc(j - start + 2); // +1 for the null terminator, +1 for potential extra char
-            if (tokens[i] == NULL) {
-                // Free previously allocated memory if allocation fails
-                for (int k = 0; k < i; k++) {
-                    free(tokens[k]);
-                }
-                free(tokens);
-                return NULL;
-            }
-            strncpy(tokens[i], str + start, j - start + 1); // Copy substring including potential extra char
-            tokens[i][j - start + 1] = '\0'; // Ensure null termination
-            start = j + 1;
+void split(const char* str, char words[][MAX_WORD_LEN], int* num_words) {
+    *num_words = 0;
+    int i, j, k;
+    for (i = 0; str[i] != '\0'; i++) {
+        // Skip leading spaces
+        while (str[i] == ' ' && str[i] != '\0') {
             i++;
         }
-    }
 
-    return tokens;
+        // Start of a word
+        j = i;
+        while (str[i] != ' ' && str[i] != '\0') {
+            i++;
+        }
+
+        // Copy the word
+        if (i > j && *num_words < MAX_WORDS) {
+            strncpy(words[*num_words], &str[j], i - j);
+            words[*num_words][i - j] = '\0'; // Null-terminate the word
+            (*num_words)++;
+        }
+    }
 }

@@ -144,7 +144,7 @@ void main(void) {
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
-    init_heap(10 MiB);
+    init_heap(11 MiB);
 
     ft_ctx = flanterm_fb_simple_init(
         framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
@@ -154,24 +154,6 @@ void main(void) {
     if(framebuffer_request.response->framebuffer_count > 1){
         info("Multiple framebuffers detected! using the first one.", __FILE__);
     }
-
-    // init_hardware_abstraction_layer();
-
-    // if(logoBoot){
-    //     print(boot_logo);
-    //     print(" Welcome to FrostWing Operating System! (https://github.com/Frost-Wing)\n");
-    //     print(red_color "=Terminal Window");
-    //     for(int i = 0; i < (ft_ctx->cols); i++){
-    //         print("=");
-    //     }
-    //     print(reset_color);
-    //     isBufferReady = no;
-    //     ft_ctx = flanterm_fb_simple_init(
-    //         (int64)framebuffer->address + (int64)(framebuffer->pitch * (framebuffer->height / 2)), framebuffer->width, (framebuffer->height / 2), framebuffer->pitch
-    //     );
-    //     ft_ctx->set_cursor_pos(ft_ctx, 0, framebuffer->height - (framebuffer->height / 2));
-    //     isBufferReady = yes;
-    // }
 
     terminal_rows = ft_ctx->rows;
     terminal_columns = ft_ctx->cols;
@@ -344,6 +326,8 @@ void main(void) {
     init_ps2_mouse();
     SetMouseMovementHandler(mouseMovementHandler);
     SetMouseButtonHandler(mouseButtonHandler);
+
+    create_user("root", "prad");
 
     // glDestroyContext(null);
 
