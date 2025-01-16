@@ -91,8 +91,6 @@ void welcome_message(){
     display_time();
 }
 
-void execute(const char* buffer, int argc, char** argv);
-
 extern struct flanterm_context* ft_ctx;
 
 int shell_main(int argc, char** argv){
@@ -166,6 +164,31 @@ int shell_main(int argc, char** argv){
     return 0;
 }
 
+void user_main(char* buffer){
+    char tokens[MAX_WORDS][MAX_WORD_LEN];
+    int num_tokens = 0;
+
+    split(buffer, tokens, &num_tokens);
+
+    printf("Number of words: %d", num_tokens);
+    for (int i = 0; i < num_tokens; i++) {
+        printf("Word %d: %s", i + 1, tokens[i]);
+    }
+
+    if(num_tokens == 1){
+        error("Please specify arguments!", __FILE__);
+        return;
+    }
+
+    if(strcmp(tokens[1], "add")){
+        if(num_tokens <= 2){
+            error("You need to specify the password also!", __FILE__);
+            return;
+        }
+        create_user(tokens[2], tokens[3]);
+    }
+}
+
 void execute(const char* buffer, int argc, char** argv)
 {
     if (buffer == NULL)
@@ -200,16 +223,18 @@ void execute(const char* buffer, int argc, char** argv)
         }else{
             printf("%s", arg);
         }
-    } else if (strncmp(buffer, "user ", 5) == 0) { 
-        // int num_tokens;
-        // char** tokens = splitf(buffer, ' ', &num_tokens);
+    } else if (strncmp(buffer, "user ", 5) == 0 || strcmp(buffer, "user") == 0) { 
+        // char tokens[MAX_WORDS][MAX_WORD_LEN];
+        // int num_tokens = 0;
 
-        // if (tokens != NULL) {
-        //     user_main(num_tokens, tokens);
-        // } else {
-        //     error("Failed to split string.", __FILE__);
+        // split(buffer, tokens, &num_tokens);
+
+        // printf("Number of words: %d", num_tokens);
+        // for (int i = 0; i < num_tokens; i++) {
+        //     printf("Word %d: %s", i + 1, tokens[i]);
         // }
         
+        user_main(buffer);
     } else {
         printf("fsh: %s: not found", buffer);
     }

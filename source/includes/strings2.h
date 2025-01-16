@@ -13,6 +13,9 @@
 #include <stdbool.h>
 #include <basics.h>
 
+#define MAX_WORDS 30
+#define MAX_WORD_LEN 40
+
 // typedef char symbol[];
 
 /**

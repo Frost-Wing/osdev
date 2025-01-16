@@ -76,8 +76,7 @@ void init_heap(int size) {
                 free_list = new_block;
             }
 
-            debug_printf("Pointer location -> %u", (uint32_t)((char*)curr + sizeof(heap_block))); 
-            return ((char*)curr) + sizeof(heap_block); 
+            return curr + 1; // Return a pointer to the data area
         } else {
             warn("Block size is too small! Checking next block...", __FILE__);
         }
@@ -87,8 +86,6 @@ void init_heap(int size) {
     }
 
     error("No suitable block found for allocation", __FILE__);
-    meltdown_screen("No suitable block found for allocation of heap.", __FILE__, __LINE__, 0x0);
-    hcf(); // it is better to handle it here rather than leaving it.
     return null;
 }
 
@@ -98,33 +95,21 @@ void init_heap(int size) {
  * @param size The new size of the memory block.
  * @return A pointer to the reallocated memory block, or null if reallocation fails.
  */
-void* realloc(void* ptr, size_t size) {
+ void* realloc(void* ptr, size_t size) {
     if (ptr == null) {
-        // If the pointer is null, perform a malloc.
         return malloc(size);
     }
 
     if (size == 0) {
-        // If the size is zero, perform a free.
         free(ptr);
         return null;
     }
 
-    // Allocate a new block of the given size.
     void* new_ptr = malloc(size);
-
     if (new_ptr != null) {
-        // Get the original block header from the old allocated memory.
-        heap_block* old_block = (heap_block*)((char*)ptr - sizeof(heap_block));
-
-        // Copy the data from the old block to the new block.
-        size_t copy_size = (size < old_block->size) ? size : old_block->size;
-        memcpy(new_ptr, ptr, copy_size);
-
-        // Free the old memory block.
+        memcpy(new_ptr, ptr, ((heap_block*)ptr - 1)->size); // Use block header to get size
         free(ptr);
     }
-
     return new_ptr;
 }
 

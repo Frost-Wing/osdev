@@ -51,3 +51,20 @@ void dispose_command_list(command_list* lst);
  * @param length Command string length
  */
 void push_command_to_list(command_list* lst, const char* value, size_t length);
+
+/**
+ * @brief Executes the command passed to it.
+ * 
+ * @param buffer 
+ * @param argc 
+ * @param argv 
+ */
+void execute(const char* buffer, int argc, char** argv);
+
+/**
+ * @brief Function for adding or removing users.
+ * 
+ * @param argument_count 
+ * @param argument_values 
+ */
+void user_main(char* buffer);
