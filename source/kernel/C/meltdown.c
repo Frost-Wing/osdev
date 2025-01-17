@@ -45,6 +45,4 @@ void meltdown_screen(cstring message, cstring file, int line, int64 error_code, 
     registers_dump();
     print("\n");
     frost_compilation_information();
-    
-    cleanup_heap();
 }

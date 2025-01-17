@@ -125,7 +125,7 @@ int shell_main(int argc, char** argv){
             command[cursor] = '\0'; // Null-terminate the string
             putc('\n');
             execute(command, argc, argv);
-            // push_command_to_list(&commandHistory, command, cursor); // <-- doesn't work because of malloc i assume
+            push_command_to_list(&commandHistory, command, cursor); // <-- doesn't work because of malloc i assume
             cursor = 0;
             commandSize = 0;
             memset(command, 0, commandBufferSize);

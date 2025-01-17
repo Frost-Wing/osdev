@@ -1,146 +1,135 @@
-/**
- * @file heap.c
- * @author Pradosh (pradoshgame@gmail.com)
- * @brief The code for Heap Memory
- * @version 0.1
- * @date 2023-11-10
- * 
- * @copyright Copyright (c) Pradosh 2023
- * 
- */
 #include <heap.h>
-#include <graphics.h>
 
-// Define a block structure to manage memory allocation.
-typedef struct heap_block {
+#define PAGE_SIZE 4096 // Adjust as needed
+
+// Simplified memory management using a single linked list
+typedef struct Node {
+    void* data;
     size_t size;
-    struct heap_block* next;
-} heap_block;
+    struct Node* next;
+} Node;
 
-// Global pointer to the beginning of the free memory list.
-static heap_block* free_list = null;
+Node* head = NULL;
 
-/**
- * @brief Initialize the memory allocator.
- */
-void init_heap(int size) {
-    info("Started initialization!", __FILE__);
-    int64 holder[size/sizeof(int64)];
-    // Initialize the free list with a single block representing the entire memory.
-    free_list = (heap_block*)holder;
-    free_list->size = size;
-    free_list->next = null;
-    print(yellow_color);
-    printf("Given Heap size  (Bytes) : %d Bytes", size);
-    printf("Holder Heap size (Bytes) : %d Bytes", sizeof(holder));
-    printf("Given Heap size  (MB)    : %d MiB", size/(1024*1024));
-    printf("Holder Heap size (MB)    : %d MiB", sizeof(holder)/(1024*1024));
-    print(reset_color);
-    debug_print(yellow_color);
-    debug_printf("Given Heap size  (Bytes) : %u Bytes", size);
-    debug_printf("Holder Heap size (Bytes) : %u Bytes", sizeof(holder));
-    debug_printf("Given Heap size  (MB)    : %u MiB", size/(1024*1024));
-    debug_printf("Holder Heap size (MB)    : %u MiB", sizeof(holder)/(1024*1024));
-    print(reset_color);
-    done("Completed successfully!", __FILE__);
-}
+void* sbrk(int increment) {
+    static void* current_brk = NULL; // Current break point
 
-/**
- * @brief Allocate memory of the specified size.
- * @param size The size of memory to allocate.
- * @return A pointer to the allocated memory, or null if allocation fails.
- */
- void* malloc(size_t size) {
-    if (size == 0) {
-        return null;
+    if (current_brk == NULL) {
+        // Get initial break point 
+        current_brk = (void*)0x10000000; // Example initial break point 
     }
 
-    // Find a free block that is large enough to hold the requested memory.
-    heap_block* prev = null;
-    heap_block* curr = free_list;
+    // Update break point
+    void* new_brk = (void*)((char*)current_brk + increment);
 
-    while (curr != NULL) {
-        if (curr->size >= size) {
-            // Remove the current block from the free list
-            if (prev != NULL) {
-                prev->next = curr->next;
-            } else {
-                free_list = curr->next;
-            }
+    // Check for address space overflow (replace with actual checks)
+    if ((unsigned long)new_brk < (unsigned long)current_brk) {
+        return (void*)-1; // Allocation failed
+    }
 
-            // If the block is significantly larger, split it
-            if (curr->size - size >= sizeof(heap_block)) {
-                heap_block* new_block = (heap_block*)((char*)curr + size);
-                new_block->size = curr->size - size;
-                new_block->next = free_list;
-                free_list = new_block;
-            }
+    current_brk = new_brk;
+    return current_brk;
+}
 
-            return curr + 1; // Return a pointer to the data area
+void* malloc(size_t size) {
+    // Align allocation to page size
+    size_t aligned_size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+
+    Node* current = head;
+    Node* prev = NULL;
+
+    // Find a suitable existing block
+    while (current != NULL && current->size < aligned_size) {
+        prev = current;
+        current = current->next;
+    }
+
+    if (current != NULL && current->size == aligned_size) {
+        // Exact match found
+        if (prev) {
+            prev->next = current->next;
         } else {
-            warn("Block size is too small! Checking next block...", __FILE__);
+            head = current->next;
         }
-
-        prev = curr;
-        curr = curr->next;
+        return current->data;
     }
 
-    error("No suitable block found for allocation", __FILE__);
-    return null;
+    // Allocate a new block
+    void* ptr = sbrk(aligned_size); 
+    if (ptr == (void*)-1) {
+        return NULL; // Allocation failed
+    }
+
+    Node* new_node = (Node*)ptr;
+    new_node->data = ptr;
+    new_node->size = aligned_size;
+    new_node->next = head;
+    head = new_node;
+
+    return ptr;
 }
 
-/**
- * @brief Reallocate memory for the given pointer with the specified size.
- * @param ptr A pointer to the memory block to be reallocated.
- * @param size The new size of the memory block.
- * @return A pointer to the reallocated memory block, or null if reallocation fails.
- */
- void* realloc(void* ptr, size_t size) {
-    if (ptr == null) {
+void free(void* ptr) {
+    if (ptr == NULL) {
+        return;
+    }
+
+    Node* current = head;
+    Node* prev = NULL;
+
+    while (current != NULL && current->data != ptr) {
+        prev = current;
+        current = current->next;
+    }
+
+    if (current == NULL) {
+        return; // Invalid pointer
+    }
+
+    if (prev) {
+        prev->next = current->next;
+    } else {
+        head = current->next;
+    }
+
+    // sbrk(0) - current->size; // Simplified deallocation (may not be entirely accurate)
+}
+
+void* realloc(void* ptr, size_t size) {
+    if (ptr == NULL) {
         return malloc(size);
     }
 
     if (size == 0) {
         free(ptr);
-        return null;
+        return NULL;
     }
 
+    // Align allocation to page size
+    size_t aligned_size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+
+    Node* current = head;
+    while (current != NULL && current->data != ptr) {
+        current = current->next;
+    }
+
+    if (current == NULL) {
+        return NULL; // Invalid pointer
+    }
+
+    if (current->size >= aligned_size) {
+        // Existing block is large enough
+        return ptr;
+    }
+
+    // Allocate a new block and copy data
     void* new_ptr = malloc(size);
-    if (new_ptr != null) {
-        memcpy(new_ptr, ptr, ((heap_block*)ptr - 1)->size); // Use block header to get size
-        free(ptr);
+    if (new_ptr == NULL) {
+        return NULL;
     }
+
+    memcpy(new_ptr, ptr, current->size);
+    free(ptr);
+
     return new_ptr;
-}
-
-/**
- * @brief Free a previously allocated memory block.
- * @param ptr A pointer to the memory block to be freed.
- */
-void free(void* ptr) {
-    if (ptr == null) return;
-
-    // Get the original Block header from the allocated memory.
-    heap_block* block = (heap_block*)((char*)ptr - sizeof(heap_block));
-
-    // Add the block to the free list.
-    block->next = free_list;
-    free_list = block;
-    // done("Freed up memory!", __FILE__);
-}
-
-/**
- * @brief Clean up resources and release allocated memory.
- */
-void cleanup_heap() {
-    // Traverse the list of allocated memory blocks and free them.
-    heap_block* current = free_list;
-    while (current != null) {
-        // Store the next block before freeing the current block.
-        heap_block* next = current->next;
-        free(current);
-        current = next;
-    }
-    free_list = null;  // Reset the free_list to indicate no allocated memory remains.
-    done("Heap memory flushed!", __FILE__);
 }
