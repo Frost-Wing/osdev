@@ -9,7 +9,7 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 ![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/Frost-Wing/osdev/build.yml?style=flat-square&label=Current%20Code%20Compiling%20(Workflows))
 
 > [!NOTE]
-> To get a really good overview of this repository please visit https://repo-tracker.com/r/gh/Frost-Wing/osdev
+> To get a really good overview of this repository please visit https://githubtracker.com/Frost-Wing/osdev
 
 ## Table of Contents
 

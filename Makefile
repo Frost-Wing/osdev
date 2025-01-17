@@ -39,6 +39,22 @@ run-x86:
 	-m 512 \
 	-no-reboot
 
+run-x86-uefi:
+	@qemu-system-x86_64 \
+	-bios ./firmware/uefi/tianocore-64.uefi \
+	-vga std \
+	-debugcon stdio \
+	-serial file:serial.log \
+	-audiodev pa,id=speaker \
+	-device rtl8139,netdev=eth0 \
+	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
+	-cdrom FrostWing.iso \
+	-drive id=disk,file=disk.txt,if=none \
+	-device ahci,id=ahci \
+	-device ide-hd,drive=disk,bus=ahci.0 \
+	-m 512 \
+	-no-reboot
+
 run-x86-vnc:
 	@qemu-system-x86_64 \
 	-vga std \
