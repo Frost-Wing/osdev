@@ -125,7 +125,7 @@ Boot Disk information:
 - FrostWing.iso in the root directory
 
 > [!IMPORTANT]
-> It is recommended to use Ventoy because you will not have the risk of flashing and failing of USB-Drives
+> It is recommended to use Ventoy because you will not have the risk of flashing and failing of USB-Drives.
 
 ## Contributing
 
