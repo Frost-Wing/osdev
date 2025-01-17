@@ -144,8 +144,6 @@ void main(void) {
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
-    init_heap(11 MiB);
-
     ft_ctx = flanterm_fb_simple_init(
         framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
     );
@@ -452,7 +450,5 @@ void putc(char c){
  * 
  */
 void shutdown(){
-    cleanup_heap();
-
     acpi_shutdown_hack(hhdm_request.response->offset, acpi_find_sdt, inb, inw, outb, outw);
 }
