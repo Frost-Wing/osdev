@@ -114,7 +114,17 @@ int shell_main(int argc, char** argv){
     init_command_list(&commandHistory);
     
     putc('\n');
-    print(argv[0]);
+
+    if(strcmp(argv[0], "root") == 0){
+        print(red_color);
+        print(argv[0]);
+        print(reset_color);
+    } else {
+        print(green_color);
+        print(argv[0]);
+        print(reset_color);
+    }
+        
     print(" % ");
 
     uint8_t commandPulledFromHistory = 0;
@@ -131,14 +141,33 @@ int shell_main(int argc, char** argv){
         {
             command[cursor] = '\0'; // Null-terminate the string
             putc('\n');
-            execute(command, argc, argv);
+            if(strncmp(command, "sudo ", 5) == 0){
+                int status = ask_password(argv[0]);
+                
+                if(status == 0){
+                    argv[1] = (char*)1;
+                    execute(command+5, argc, argv);
+                } else {
+                    error("Invalid password passed!", __FILE__);
+                }
+            } else {
+                execute(command, argc, argv);
+            }
             // push_command_to_list(&commandHistory, command, cursor); // <-- doesn't work because of malloc i assume
             cursor = 0;
             commandSize = 0;
             memset(command, 0, commandBufferSize);
 
             if(running){
-                print(argv[0]);
+                if(strcmp(argv[0], "root") == 0){
+                    print(red_color);
+                    print(argv[0]);
+                    print(reset_color);
+                } else {
+                    print(green_color);
+                    print(argv[0]);
+                    print(reset_color);
+                }
                 print(" % ");
             }
             continue;
@@ -177,17 +206,12 @@ void user_main(char* buffer){
 
     split(buffer, tokens, &num_tokens);
 
-    printf("Number of words: %d", num_tokens);
-    for (int i = 0; i < num_tokens; i++) {
-        printf("Word %d: %s", i + 1, tokens[i]);
-    }
-
     if(num_tokens == 1){
         error("Please specify arguments!", __FILE__);
         return;
     }
 
-    if(strcmp(tokens[1], "add")){
+    if(strcmp( leading_trailing_trim(tokens[1]), "add") == 0){
         if(num_tokens <= 2){
             error("You need to specify the password also!", __FILE__);
             return;
@@ -215,9 +239,15 @@ void execute(const char* buffer, int argc, char** argv)
         info("Goodbye from Frosted Shell...", __FILE__);
         acpi_reboot();
     } else if(strcmp(buffer, "whoami") == 0){
-        print(green_color);
-        print(argv[0]);
-        print(reset_color);
+        if(strcmp(argv[0], "root") == 0){
+            print(red_color);
+            print(argv[0]);
+            print(reset_color);
+        } else {
+            print(green_color);
+            print(argv[0]);
+            print(reset_color);
+        }
         putc('\n');
     } else if(strcmp(buffer, "fwfetch") == 0){
         fwfetch();
@@ -255,18 +285,14 @@ void execute(const char* buffer, int argc, char** argv)
         printf("touch: missing file operand");
     }  else if (strcmp(buffer, "ls") == 0) { 
         list_contents(fs);
-    } else if (strncmp(buffer, "user ", 5) == 0 || strcmp(buffer, "user") == 0) { 
-        // char tokens[MAX_WORDS][MAX_WORD_LEN];
-        // int num_tokens = 0;
-
-        // split(buffer, tokens, &num_tokens);
-
-        // printf("Number of words: %d", num_tokens);
-        // for (int i = 0; i < num_tokens; i++) {
-        //     printf("Word %d: %s", i + 1, tokens[i]);
-        // }
-        
-        user_main(buffer);
+    } else if (strncmp(buffer, "user ", 5) == 0 || strcmp(buffer, "user") == 0) {  
+        if(argv[1] != null)
+            if((int)argv[1] == 1)
+                user_main(buffer);
+            else
+                printf("Must be a root user or have permissions to execute this command. (2)");
+        else
+            printf("Must be a root user or have permissions to execute this command. (1)");
     } else {
         printf("fsh: %s: not found", buffer);
     }

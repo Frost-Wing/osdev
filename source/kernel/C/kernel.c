@@ -406,7 +406,12 @@ void main(void) {
         
         if(username != NULL){
             int argc = 1;
-            char* dummy_argv[] = {username, null};
+
+            int isSudo = 0;
+            if(strcmp(username, "root") == 0)
+                isSudo = 1;
+            
+            char* dummy_argv[] = {username, (char*)isSudo};
             shell_main(argc, dummy_argv);
         } else {
             error("Invalid credentials.", __FILE__);
