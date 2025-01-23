@@ -108,7 +108,7 @@ char* login_request(){
     return NULL;
 }
 
-void ask_password(const char* username){
+int ask_password(const char* username){
     char temp;
     int i;
 
@@ -134,6 +134,7 @@ void ask_password(const char* username){
         }
     }
     password[i] = '\0';
+    putc('\n');
 
     for(int i=0; i<users_index; i++){
         char* current_username = usernames_total[i];
@@ -146,7 +147,6 @@ void ask_password(const char* username){
         }
     }
 
-    putc('\n');
     strcpy(password, "");
     return 1;
 }

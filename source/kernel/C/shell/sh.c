@@ -13,6 +13,7 @@
 #include <sh_util.h>
 #include <memory2.h>
 #include <keyboard.h>
+#include <heap.h>
 #include <stddef.h>
 #include <strings2.h>
 #include <heap.h>

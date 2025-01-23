@@ -11,6 +11,7 @@
 #include <debugger.h>
 #include <basics.h>
 #include <stdarg.h>
+#include <strings2.h>
 
 /**
  * @brief If there was possibility for the change in port, we can easily change the E9 Port.
@@ -75,7 +76,7 @@ void debug_printf(cstring format, ...)
                 break;
 
             case 'x':
-                debug_print(hex_to_string(va_arg(argp, size_t)));
+                debug_print(hex_to_string(va_arg(argp, size_t), 0));
                 break;
             
             case 's':
