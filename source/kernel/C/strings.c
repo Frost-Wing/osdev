@@ -392,6 +392,41 @@ char* leading_trailing_trim(const char *str) {
     return &buf[i];
 }
 
+extern const char hex_digits[];
+extern const char caps_hex_digits[];
+
+/**
+ * @brief Prints Hexadecimal number
+ * 
+ * @param hex the hexadecimal number to be printed.
+ */
+char* hex_to_string(signed int num, bool caps) {    
+    int i;
+    char buf[21];
+    signed int n = num;
+
+    if(n < 0){
+        n = -n;
+    }
+
+    if (!n) {
+        print("00");
+        return NULL;
+    }
+
+    buf[16] = 0;
+
+    for (i = 15; n; i--) {
+        if(caps) buf[i] = caps_hex_digits[n % 16];
+        else buf[i] = hex_digits[n % 16];
+
+        n /= 16;
+    }
+
+    i++;
+    return &buf[i];
+}
+
 void split(const char* str, char words[][MAX_WORD_LEN], int* num_words) {
     *num_words = 0;
     int i, j, k;

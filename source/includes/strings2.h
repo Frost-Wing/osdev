@@ -142,7 +142,21 @@ long strtol(const char *str, char **endptr, int base);
  * @param num 
  * @return char* 
  */
- char* uint_to_string(unsigned int num);
+char* uint_to_string(unsigned int num);
 
+/**
+ * @brief Prints Hexadecimal number
+ * 
+ * @param hex the hexadecimal number to be printed.
+ */
+char* hex_to_string(signed int num, bool caps);
 
- char** splitf(const char* str, char delim, int* num_tokens);
+/**
+ * @brief Removes the leading and trailing spaces.
+ * 
+ * @param str 
+ * @return char* 
+ */
+char* leading_trailing_trim(const char *str);
+
+char** splitf(const char* str, char delim, int* num_tokens);

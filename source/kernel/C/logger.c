@@ -187,38 +187,6 @@ void printbin(uint8_t value)
  * 
  * @param hex the hexadecimal number to be printed.
  */
- char* hex_to_string(signed int num, bool caps) {    
-    int i;
-    char buf[21];
-    signed int n = num;
-
-    if(n < 0){
-        n = -n;
-    }
-
-    if (!n) {
-        print("00");
-        return;
-    }
-
-    buf[16] = 0;
-
-    for (i = 15; n; i--) {
-        if(caps) buf[i] = caps_hex_digits[n % 16];
-        else buf[i] = hex_digits[n % 16];
-
-        n /= 16;
-    }
-
-    i++;
-    return &buf[i];
-}
-
-/**
- * @brief Prints Hexadecimal number
- * 
- * @param hex the hexadecimal number to be printed.
- */
 void printhex(signed int num, bool caps) {    
     int i;
     char buf[21];

@@ -62,7 +62,7 @@ ahci_command_header_t* get_free_command_header() {
         if (!(global_ahci_ctrl->ports[0].ci & 1)) { 
             info("FOUND FREE CMD HEADER!", __FILE__);
             printf("Command header = %d", i);
-            return &global_ahci_ctrl->ports[0].cmd; 
+            return (ahci_command_header_t*)&global_ahci_ctrl->ports[0].cmd; 
         }
     }
     // No free command headers available
