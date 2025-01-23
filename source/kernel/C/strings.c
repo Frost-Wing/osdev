@@ -415,3 +415,27 @@ void split(const char* str, char words[][MAX_WORD_LEN], int* num_words) {
         }
     }
 }
+
+void splitw(const char* str, char words[][MAX_WORD_LEN], int* num_words, char delimiter) {
+    *num_words = 0;
+    int i, j, k;
+    for (i = 0; str[i] != '\0'; i++) {
+        // Skip leading delimiters
+        while (str[i] == delimiter && str[i] != '\0') {
+            i++;
+        }
+
+        // Start of a word
+        j = i;
+        while (str[i] != delimiter && str[i] != '\0') {
+            i++;
+        }
+
+        // Copy the word
+        if (i > j && *num_words < MAX_WORDS) {
+            strncpy(words[*num_words], &str[j], i - j);
+            words[*num_words][i - j] = '\0'; // Null-terminate the word
+            (*num_words)++;
+        }
+    }
+}
