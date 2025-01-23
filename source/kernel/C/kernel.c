@@ -226,22 +226,24 @@ void main(void) {
     print(public_key);
     print("\n");
 
-    if(graphics_base_Address != null){
-        isBufferReady = no;
-        ft_ctx = flanterm_fb_simple_init(
-            (uint32_t*)graphics_base_Address,
-            framebuffer->width,
-            framebuffer->height,
-            framebuffer->pitch
-        );
-        isBufferReady = yes;
-        info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
-        done("Displaying using graphics card! (Goodbye framebuffer)", __FILE__);
-        print("Graphics card used is " green_color);
-        print(using_graphics_card);
-        print(reset_color "\n");
-    }else{
-        warn("Still using framebuffer, graphics card base address is null.", __FILE__);
+    if(virtualized){
+        if(graphics_base_Address != null){
+            isBufferReady = no;
+            ft_ctx = flanterm_fb_simple_init(
+                (uint32_t*)graphics_base_Address,
+                framebuffer->width,
+                framebuffer->height,
+                framebuffer->pitch
+            );
+            isBufferReady = yes;
+            info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
+            done("Displaying using graphics card! (Goodbye framebuffer)", __FILE__);
+            print("Graphics card used is " green_color);
+            print(using_graphics_card);
+            print(reset_color "\n");
+        }else{
+            warn("Still using framebuffer, graphics card base address is null.", __FILE__);
+        }
     }
 
     printf("Display Resolution: %dx%d (%d) pixels. Pitch: %d", framebuffer->width, framebuffer->height, framebuffer->width*framebuffer->height, framebuffer->pitch);
@@ -326,6 +328,8 @@ void main(void) {
     SetMouseButtonHandler(mouseButtonHandler);
 
     create_user("root", "prad");
+
+    info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
 
     // glDestroyContext(null);
 

@@ -18,6 +18,7 @@
 #include <heap.h>
 #include <stdint.h>
 #include <flanterm/flanterm.h>
+#include <filesystems/fwrfs.h>
 
 
 void init_command_list(command_list* lst)
@@ -93,12 +94,18 @@ void welcome_message(){
 
 extern struct flanterm_context* ft_ctx;
 
+struct fwrfs* fs;
+
 int shell_main(int argc, char** argv){
     running = true;
     char* command = malloc(BUFFER_SIZE);
     size_t commandBufferSize = BUFFER_SIZE;
     size_t commandSize = 0;
     size_t cursor = 0;
+
+    fs = (struct fwrfs*)malloc(sizeof(struct fwrfs));
+    fs->nfiles = 0; // RAM Filesystem, so no need to permananly store files.
+    fs->nfolders = 0;
 
     print("\x1b[2J\x1b[H");
     welcome_message();
@@ -125,7 +132,7 @@ int shell_main(int argc, char** argv){
             command[cursor] = '\0'; // Null-terminate the string
             putc('\n');
             execute(command, argc, argv);
-            push_command_to_list(&commandHistory, command, cursor); // <-- doesn't work because of malloc i assume
+            // push_command_to_list(&commandHistory, command, cursor); // <-- doesn't work because of malloc i assume
             cursor = 0;
             commandSize = 0;
             memset(command, 0, commandBufferSize);
@@ -217,12 +224,37 @@ void execute(const char* buffer, int argc, char** argv)
         putc('\n');
     } else if (strncmp(buffer, "echo ", 5) == 0) { 
         char* arg = buffer + 5;
-        if(arg[0] == '\"' && arg[strlen_(arg)-1] == '\''){
-            arg++;
-            arg[strlen_(arg)-1] = '\0';
-        }else{
-            printf("%s", arg);
+
+        if(contains(arg, ">")){
+            char words[MAX_WORDS][MAX_WORD_LEN];
+            int num = 0;
+
+            splitw(arg, words, &num, '>');
+
+            write_file(fs, leading_trailing_trim(words[1]), leading_trailing_trim(words[0]));
         }
+        else
+            printf("%s", arg);
+        
+    } else if (strcmp(buffer, "echo") == 0) { 
+        // do nothing.
+    } else if (strncmp(buffer, "touch ", 6) == 0) { 
+        char* arg = buffer + 6;
+        create_file(fs, arg, "");
+    } else if (strcmp(buffer, "touch") == 0) { 
+        printf("touch: missing file operand");
+    } else if (strncmp(buffer, "mkdir ", 6) == 0) { 
+        char* arg = buffer + 6;
+        create_folder(fs, arg);
+    } else if (strcmp(buffer, "mkdir") == 0) { 
+        printf("mkdir: missing file operand");
+    } else if (strncmp(buffer, "cat ", 4) == 0) { 
+        char* arg = buffer + 4;
+        printf("%s", read_file(fs, arg));
+    } else if (strcmp(buffer, "touch") == 0) { 
+        printf("touch: missing file operand");
+    }  else if (strcmp(buffer, "ls") == 0) { 
+        list_contents(fs);
     } else if (strncmp(buffer, "user ", 5) == 0 || strcmp(buffer, "user") == 0) { 
         // char tokens[MAX_WORDS][MAX_WORD_LEN];
         // int num_tokens = 0;
