@@ -331,6 +331,8 @@ void main(void) {
 
     create_user("root", "prad");
 
+    enable_fpu();
+
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
 
     // glDestroyContext(null);
