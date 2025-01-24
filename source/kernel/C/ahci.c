@@ -39,9 +39,9 @@ void detect_ahci_devices(ahci_controller* ahci_ctrl) {
                     error("sector reading failed!", __FILE__);
                 }
 
-                for(int x = 0; x < SECTOR_SIZE * 1; x++){
-                    debug_printf("%u ", sector_buffer[x]);
-                }
+                // for(int x = 0; x < SECTOR_SIZE * 1; x++){
+                //     debug_printf("%u ", sector_buffer[x]);
+                // }
             } else if (sig == satapi_disk) {
                 printf("SATAPI Disk detected at port %d", i);
             } else if (sig == semb_disk) {
