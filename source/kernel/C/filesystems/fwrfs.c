@@ -19,9 +19,9 @@ int is_validfilename(char c) {
         (c >= 'A' && c <= 'Z') || 
         (c >= '0' && c <= '9') ||
         (c == '.')) {
-        return 1; // Character is alphanumeric
+        return 1;
     } else {
-        return 0; // Character is not alphanumeric
+        return 0;
     }
 }
 
@@ -94,6 +94,8 @@ int delete_file(struct fwrfs* fs, const char* filename) {
             return 0;
         }
     }
+
+    printf("rm: cannot remove \'%s\': No such file or directory", filename);
     return -1; 
 }
 
@@ -145,9 +147,11 @@ size_t calculate_memory_usage(struct fwrfs* fs) {
 }
 
 void list_contents(struct fwrfs* fs) {
-    size_t total_memory = calculate_memory_usage(fs);
-
-    printf("%sTotal Memory Used: %u bytes%s", "\x1b[38;2;128;128;128m", total_memory, reset_color);
+    
+    if(fs->nfolders != 0 || fs->nfiles != 0){
+        size_t total_memory = calculate_memory_usage(fs);
+        printf("%sTotal Memory Used: %u bytes%s", "\x1b[38;2;128;128;128m", total_memory, reset_color);
+    }
 
     for (int i = 0; i < fs->nfolders; i++) {
         printf("%s%s%s", yellow_color, fs->folders[i].name, reset_color);

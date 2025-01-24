@@ -274,6 +274,11 @@ void execute(const char* buffer, int argc, char** argv)
         create_file(fs, arg, "");
     } else if (strcmp(buffer, "touch") == 0) { 
         printf("touch: missing file operand");
+    } else if (strncmp(buffer, "rm ", 3) == 0) { 
+        char* arg = buffer + 3;
+        delete_file(fs, arg);
+    } else if (strcmp(buffer, "rm") == 0) { 
+        printf("rm: missing file operand");
     } else if (strncmp(buffer, "mkdir ", 6) == 0) { 
         char* arg = buffer + 6;
         create_folder(fs, arg);
