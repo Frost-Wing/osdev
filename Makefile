@@ -3,6 +3,7 @@ all:
 	@cp -v \
 	source/wing_kernel.elf \
 	source/boot/limine.cfg \
+	source/boot/libFrostedWM.so \
 	limine/limine-bios.sys \
 	limine/limine-bios-pxe.bin \
 	limine/limine-bios-cd.bin \
