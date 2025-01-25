@@ -389,6 +389,9 @@ void main(void) {
 
     int failed_attempts = 0;
 
+    int (*execute_binary)() = (int (*)())module_request.response->modules[1]->address;
+    // int status_code = execute_binary();
+
     // glCreateContext();
     // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
     // glClearColor(0, 0, 0, 0xff);
