@@ -41,6 +41,7 @@
 #include <ps2-mouse.h>
 #include <image/targa.h>
 #include <executables/fwde.h>
+#include <fdlfcn.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.
