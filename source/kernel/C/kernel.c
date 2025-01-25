@@ -9,6 +9,7 @@
  * 
  */
 #include "fb.h"
+#include "fdlfcn.h"
 #include <kernel.h>
 #include <stdint.h>
 
@@ -379,6 +380,12 @@ void main(void) {
     // int* test2 = malloc(sizeof(int));
     // int* test3 = malloc(sizeof(int));
     // int* test4 = malloc(sizeof(int));
+
+    // void* file_addr = module_request.response->modules[0]->address;
+    // elf_load_from_memory(file_addr);
+    // fdlfcn_handle* handle = fdlopen(file_addr, FDL_IMMEDIATE);
+    // if (handle != NULL)
+    //     info("IT'S WORKING", __FILE__);
 
     int failed_attempts = 0;
 
