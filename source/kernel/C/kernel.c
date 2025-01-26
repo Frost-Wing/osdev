@@ -381,16 +381,21 @@ void main(void) {
     // int* test3 = malloc(sizeof(int));
     // int* test4 = malloc(sizeof(int));
 
-    // void* file_addr = module_request.response->modules[0]->address;
-    // elf_load_from_memory(file_addr);
-    // fdlfcn_handle* handle = fdlopen(file_addr, FDL_IMMEDIATE);
-    // if (handle != NULL)
-    //     info("IT'S WORKING", __FILE__);
+    void* file_addr = module_request.response->modules[0]->address;
+    elf_load_from_memory(file_addr);
+    fdlfcn_handle* handle = fdlopen(file_addr, FDL_IMMEDIATE);
+    void* startFunction = fdlsym(handle, "frostedwm_create_context");
+    if (startFunction != NULL)
+        info("Successfully loaded function from .so file", __FILE__);
+    fdlclose(handle);
 
     int failed_attempts = 0;
 
-    int (*execute_binary)() = (int (*)())module_request.response->modules[1]->address;
+    // void* binaddress = module_request.response->modules[1]->address;
+    // printf("binary addr: 0x%x", binaddress);
+    // int (*execute_binary)(void) = binaddress;
     // int status_code = execute_binary();
+    // printf("return code: 0x%x", status_code);
 
     // glCreateContext();
     // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
