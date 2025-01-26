@@ -44,7 +44,11 @@ char *strncpy(char *dest, const char *src, size_t n) {
     return dest;
 }
 
-int strcmp(const char *s1, const char *s2) {
+int strcmp(const char *s1, const char *s2)
+{
+    if (s1 == NULL || s2 == NULL)
+        return -1;
+
     for (size_t i = 0; ; i++) {
         char c1 = s1[i], c2 = s2[i];
         if (c1 != c2)
@@ -54,7 +58,11 @@ int strcmp(const char *s1, const char *s2) {
     }
 }
 
-int strncmp(const char *s1, const char *s2, size_t n) {
+int strncmp(const char *s1, const char *s2, size_t n)
+{
+    if (s1 == NULL || s2 == NULL)
+        return -1;
+
     for (size_t i = 0; i < n; i++) {
         char c1 = s1[i], c2 = s2[i];
         if (c1 != c2)
@@ -411,7 +419,7 @@ char* hex_to_string(signed int num, bool caps) {
 
     if (!n) {
         print("00");
-        return NULL;
+        return "0";
     }
 
     buf[16] = 0;
