@@ -12,6 +12,7 @@ typedef struct
     Elf64_Rela* relocations;
 
     int symtab_index;
+    int text_section_index;
     void* string_table_data;
     void* text_section_data;
     void* data_section_data;
@@ -19,8 +20,10 @@ typedef struct
     void* symtab_str_section_data;
 
     Elf64_Shdr* text_section_header;
+    Elf64_Shdr* string_table_header;
     Elf64_Shdr* data_section_header;
     Elf64_Shdr* rodata_section_header;
+    Elf64_Shdr* symtab_str_section_header;
 } fdlfcn_handle;
 
 // immediately load sections into memory

@@ -384,9 +384,14 @@ void main(void) {
     void* file_addr = module_request.response->modules[0]->address;
     elf_load_from_memory(file_addr);
     fdlfcn_handle* handle = fdlopen(file_addr, FDL_IMMEDIATE);
-    void* startFunction = fdlsym(handle, "frostedwm_create_context");
-    if (startFunction != NULL)
+    int(*startfunction)(void);
+    startfunction = (int(*)(void))fdlsym(handle, "_start");
+    if (startfunction != NULL)
+    {
+        int result = startfunction();
+        printf("Result function: %d\n", result);
         info("Successfully loaded function from .so file", __FILE__);
+    }
     fdlclose(handle);
 
     int failed_attempts = 0;
