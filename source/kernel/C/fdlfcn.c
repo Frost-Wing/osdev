@@ -92,12 +92,14 @@ void* fdlsym(fdlfcn_handle* handle, const char* symbol_name)
 
     for (int j = 0; j < symtab_section.sh_size / sizeof(Elf64_Sym); j++)
     {
-        char* symbol_name_str = (char*)((uint64_t)handle->symtab_str_section_data + symbols[j].st_name); 
-        if (strcmp(symbol_name_str, symbol_name) == 0 && ELF64_ST_BIND(symbols[j].st_info) != STB_LOCAL)
+        Elf64_Sym symbol = symbols[j];
+        char* symbol_name_str = (char*)((uint64_t)handle->symtab_str_section_data + symbol.st_name); 
+        printf("Symbol name: '%s'", symbol_name_str);
+        if (strcmp(symbol_name_str, symbol_name) == 0 && ELF64_ST_BIND(symbol.st_info) != STB_LOCAL && symbol.st_shndx == handle->text_section_index)
         {
-            uintptr_t symbol_address = (uintptr_t)handle->text_section_data + symbols[j].st_value;
-            printf("Found symbol '%s'", symbol_name);
-            return (void*)symbol_address;
+            uintptr_t symbol_address = (uintptr_t)handle->text_section_data + symbol.st_value - handle->text_section_header->sh_offset;
+            if (symbol.st_shndx != SHN_UNDEF)
+                return (void*)symbol_address;
         }
     }
 
@@ -172,6 +174,7 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
     int data_section_index = -1;
     int rodata_section_index = -1;
     int reloc_section_index = -1;
+    int symtab_str_section_index = -1;
 
     void* strtableAddr = fdl_load_section(filedata, &section_headers[strtab_index]);
     for (int i = 0; i < elf_header.e_shnum; i++)
@@ -239,7 +242,9 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
         Elf64_Shdr symtab_section = section_headers[symtab_index];
         handle->symbols = malloc(symtab_section.sh_size);
         READ_FROM_MEMORY(handle->symbols, filedata, symtab_section.sh_offset, symtab_section.sh_size);
-        symtab_str_section_data = fdl_load_section(filedata, &section_headers[symtab_section.sh_link]);
+        symtab_str_section_index = symtab_section.sh_link;
+        if (symtab_str_section_index != -1)
+            symtab_str_section_data = fdl_load_section(filedata, &section_headers[symtab_str_section_index]);
     }
     else
         handle->symbols = NULL; 
@@ -255,12 +260,16 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
 
     handle->address = text_section_data;
     handle->text_section_data = text_section_data;
-    handle->symtab_str_section_data = symtab_str_section_data;
+    handle->text_section_index = text_section_index;
     handle->text_section_header = &section_headers[text_section_index];
+    handle->string_table_data = strtableAddr;
+    handle->string_table_header = &section_headers[strtab_index];
     handle->data_section_data = data_section_data;
     handle->data_section_header = &section_headers[data_section_index];
     handle->rodata_section_data = rodata_section_data;
     handle->rodata_section_header = &section_headers[rodata_section_index];
+    handle->symtab_str_section_data = symtab_str_section_data;
+    handle->symtab_str_section_header = &section_headers[symtab_str_section_index];
     handle->string_table_data = strtableAddr;
     handle->ehdr = elf_header;
     handle->shdrs = section_headers;
