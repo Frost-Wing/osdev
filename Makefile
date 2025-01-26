@@ -5,6 +5,7 @@ all:
 	source/wing_kernel.elf \
 	source/boot/limine.cfg \
 	source/boot/libFrostedWM.so \
+	source/boot/Vera.sfn \
 	limine/limine-bios.sys \
 	limine/limine-bios-pxe.bin \
 	limine/limine-bios-cd.bin \
