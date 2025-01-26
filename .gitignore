@@ -21,3 +21,4 @@ keys/private_key.pem
 *.css
 *.bin
 *.raw
+*.so
