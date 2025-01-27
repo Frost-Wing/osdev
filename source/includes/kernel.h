@@ -73,6 +73,8 @@ extern int64 fb_width;
  */
 extern int64 fb_height;
 
+extern int64* wm_addr;
+
 /**
  * @brief The main kernel function
  * @attention main() to something else, make sure to change the linker script accordingly.
