@@ -3,7 +3,10 @@
 
 #include <elf.h>
 
-typedef struct
+// signifies that (for example dlysm) should look through the list of loaded so files and find the address of the given symbol
+#define FLD_NEXT (void*)-1
+
+typedef struct fdlfcn_handle
 {
     void* address;
     Elf64_Ehdr ehdr;
@@ -24,6 +27,9 @@ typedef struct
     Elf64_Shdr* data_section_header;
     Elf64_Shdr* rodata_section_header;
     Elf64_Shdr* symtab_str_section_header;
+
+    struct fdlfcn_handle* prev;
+    struct fdlfcn_handle* next;
 } fdlfcn_handle;
 
 // immediately load sections into memory
@@ -32,5 +38,10 @@ typedef struct
 fdlfcn_handle* fdlopen(void* filedata, int flags);
 void* fdlsym(fdlfcn_handle* handle, const char* symbol_name);
 int fdlclose(fdlfcn_handle* handle);
+
+// defines that make my life easier
+#define dlopen fdlopen
+#define dlsym fdlsym
+#define dlclose fdlclose
 
 #endif
