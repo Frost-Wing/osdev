@@ -89,6 +89,8 @@ void welcome_message(){
     print("Website : \e[1;34mhttps://prad.digital\033[0m\n");
     print("Wiki    : \e[1;34mhttps://github.com/Frost-Wing/osdev/wiki\033[0m\n");
     print("Github  : \e[1;34mhttps://github.com/Frost-Wing\033[0m\n\n");
+
+    print("Run \e[1;34mfrostedwm\033[0m to execute the window-manager.\n\n");
     
     display_time();
 }
