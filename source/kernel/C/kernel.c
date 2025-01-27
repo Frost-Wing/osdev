@@ -19,6 +19,8 @@ int terminal_columns = 0;
 int64 fb_width = 0;
 int64 fb_height = 0;
 
+int64* wm_addr;
+
 int64* font_address = null;
 
 /**
@@ -381,18 +383,7 @@ void main(void) {
     // int* test3 = malloc(sizeof(int));
     // int* test4 = malloc(sizeof(int));
 
-    void* file_addr = module_request.response->modules[0]->address;
-    elf_load_from_memory(file_addr);
-    fdlfcn_handle* handle = fdlopen(file_addr, FDL_IMMEDIATE);
-    int(*startfunction)(void);
-    startfunction = (int(*)(void))fdlsym(handle, "_start");
-    if (startfunction != NULL)
-    {
-        int result = startfunction();
-        printf("Result function: %d\n", result);
-        info("Successfully loaded function from .so file", __FILE__);
-    }
-    fdlclose(handle);
+    wm_addr = module_request.response->modules[0]->address;
 
     int failed_attempts = 0;
 

@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <flanterm/flanterm.h>
 #include <filesystems/fwrfs.h>
-
+#include <fdlfcn.h>
 
 void init_command_list(command_list* lst)
 {
@@ -91,6 +91,23 @@ void welcome_message(){
     print("Github  : \e[1;34mhttps://github.com/Frost-Wing\033[0m\n\n");
     
     display_time();
+}
+
+extern int64* wm_addr;
+
+void start_window_manager(){
+    void* file_addr = wm_addr;
+    elf_load_from_memory(file_addr);
+    fdlfcn_handle* handle = fdlopen(file_addr, FDL_IMMEDIATE);
+    int(*startfunction)(void);
+    startfunction = (int(*)(void))fdlsym(handle, "_start");
+    if (startfunction != NULL)
+    {
+        int result = startfunction();
+        printf("Result function: %d\n", result);
+        info("Successfully loaded function from .so file", __FILE__);
+    }
+    fdlclose(handle);
 }
 
 extern struct flanterm_context* ft_ctx;
@@ -291,6 +308,8 @@ void execute(const char* buffer, int argc, char** argv)
         printf("touch: missing file operand");
     }  else if (strcmp(buffer, "ls") == 0) { 
         list_contents(fs);
+    } else if (strncmp(buffer, "frostedwm", 9) == 0 || strcmp(buffer, "frostedwm") == 0) { 
+        start_window_manager();
     } else if (strncmp(buffer, "user ", 5) == 0 || strcmp(buffer, "user") == 0) {  
         if(argv[1] != null)
             if((int)argv[1] == 1)
