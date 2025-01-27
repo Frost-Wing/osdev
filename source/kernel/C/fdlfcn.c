@@ -6,7 +6,9 @@
 #include <heap.h>
 #include <elf.h>
 
-#define READ_FROM_MEMORY(dest, base, offset, size) printf("reading at address 0x%x", (uint64_t)base + (uint64_t)offset); memcpy(dest, (void*)( (uint64_t)base + (uint64_t)offset ), size)
+fdlfcn_handle* global_library_handles;
+
+#define READ_FROM_MEMORY(dest, base, offset, size) memcpy(dest, (void*)( (uint64_t)base + (uint64_t)offset ), size)
 
 void* fdl_load_section(void* filedata, Elf64_Shdr* section_header)
 {
@@ -69,6 +71,17 @@ void* fdlsym(fdlfcn_handle* handle, const char* symbol_name)
 {
     if (handle == NULL)
         return NULL;
+    if (handle == FLD_NEXT)
+    {
+        for (fdlfcn_handle* entry = global_library_handles; entry != NULL; entry = entry->next)
+        {
+            void* addr = fdlsym(entry, symbol_name);
+            if (addr != NULL)
+                return addr;
+        }
+        printf("Error: No library loaded with symbol '%s'", symbol_name);
+        return NULL;
+    }
 
     Elf64_Sym* symbols = handle->symbols;
 
@@ -93,8 +106,7 @@ void* fdlsym(fdlfcn_handle* handle, const char* symbol_name)
     for (int j = 0; j < symtab_section.sh_size / sizeof(Elf64_Sym); j++)
     {
         Elf64_Sym symbol = symbols[j];
-        char* symbol_name_str = (char*)((uint64_t)handle->symtab_str_section_data + symbol.st_name); 
-        printf("Symbol name: '%s'", symbol_name_str);
+        char* symbol_name_str = (char*)((uint64_t)handle->symtab_str_section_data + symbol.st_name);
         if (strcmp(symbol_name_str, symbol_name) == 0 && ELF64_ST_BIND(symbol.st_info) != STB_LOCAL && symbol.st_shndx == handle->text_section_index)
         {
             uintptr_t symbol_address = (uintptr_t)handle->text_section_data + symbol.st_value - handle->text_section_header->sh_offset;
@@ -111,6 +123,23 @@ int fdlclose(fdlfcn_handle* handle)
 {
     if (handle == NULL)
         return 1;
+
+    for (fdlfcn_handle* entry = global_library_handles; entry != NULL; entry = entry->next)
+    {
+        if (entry != handle)
+            continue;
+
+        if (entry->prev != NULL)
+            entry->prev->next = entry->next;
+
+        if (entry->next != NULL)
+            entry->next->prev = entry->prev;
+
+        if (entry == global_library_handles)
+            global_library_handles = NULL;
+
+        break;
+    }
 
     return 0; /// TODO: somehow all the free calls cause a gp fault, fix that
 
@@ -274,6 +303,8 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
     handle->ehdr = elf_header;
     handle->shdrs = section_headers;
     handle->symtab_index = symtab_index;
+    handle->next = NULL;
+    handle->prev = NULL;
 
     if (fdl_apply_relocations(handle, reloc_section_index) != 0 && reloc_section_index != -1)
     {
@@ -295,6 +326,17 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
         free(handle->relocations);
         free(handle);
         return NULL;
+    }
+
+    if (global_library_handles == NULL)
+    {
+        global_library_handles = handle;
+    }
+    else
+    {
+        global_library_handles->prev = handle;
+        handle->next = global_library_handles;
+        global_library_handles = handle;
     }
 
     info("fdlopen: Successfully loaded .so file", __FILE__);

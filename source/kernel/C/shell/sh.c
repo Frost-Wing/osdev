@@ -99,10 +99,9 @@ extern int64* wm_addr;
 
 void start_window_manager(){
     void* file_addr = wm_addr;
-    elf_load_from_memory(file_addr);
     fdlfcn_handle* handle = fdlopen(file_addr, FDL_IMMEDIATE);
     int(*startfunction)(void);
-    startfunction = (int(*)(void))fdlsym(handle, "_start");
+    startfunction = (int(*)(void))fdlsym(FLD_NEXT, "_start");
     if (startfunction != NULL)
     {
         int result = startfunction();
