@@ -410,8 +410,6 @@ void main(void) {
         // ivec2 mousePos = GetMousePosition();
         // decode_targa_image(module_request.response->modules[3]->address, (uvec2){mousePos.x, mousePos.y}, framebuffer->width, framebuffer->height);
 
-        // pit_sleep((int32)16.6666); // 60 Hz approx.
-
         if (failed_attempts >= 5){
             error("You tried 5 diffrent wrong attempts. You've been locked out.", __FILE__);
             hcf();

@@ -60,7 +60,6 @@ char scancode_to_char(int scancode, bool uppercase) {
     return '\0';
 }
 
-char c = '\0';
 bool shift = no;
 uint8_t modifiers = 0;
 
@@ -71,10 +70,10 @@ uint8_t modifiers = 0;
 void process_keyboard(InterruptFrame* frame){
     if(!enable_keyboard) return;
 
-    int data = inb(0x60);
+    // int data = inb(0x60);
+
+    asm("int $0x81");
     
-    exit_interrupt:
-    c = '\0';
     outb(0x20, 0x20); // End PIC Master
 }
 
@@ -128,9 +127,11 @@ uint8_t get_extended_keyboard_data() // only called if last data was the 0xE0 ex
 
 uint8_t get_keyboard_data()
 {
-    while (1)
+    while (1) {
         if (inb(0x64) & 1)
             break;
+        asm("hlt");
+    }       
 
     uint8_t data = inb(0x60);
     if (data == 0xE0)
