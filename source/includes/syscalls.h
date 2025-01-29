@@ -11,8 +11,22 @@
 #include <basics.h>
 #include <isr.h>
 
+/**
+ * @brief Prefix for the syscalls
+ * 
+ */
 #define syscalls_prefix "Syscall Invoked: "
 
+/**
+ * @brief Syscall number for the read syscall
+ * 
+ * @param num Syscall number.
+ */
 void invoke_syscall(int64 num);
 
+/**
+ * @brief Function to handle syscalls.
+ * 
+ * @param frame The interrupt frame.
+ */
 void syscalls_handler(InterruptFrame* frame);
