@@ -16,7 +16,7 @@ void meltdown_screen(cstring message, cstring file, int line, int64 error_code, 
 
     debug_println(message);
 
-    print("\x1b[41m");
+    print("\x1b[48;2;26;17;14m");
     for(int x=0;x<=terminal_columns*terminal_rows;x++){
         print(" ");
     }
