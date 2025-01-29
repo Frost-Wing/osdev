@@ -72,4 +72,11 @@ int memcmp(const void *s1, const void *s2, size_t n);
  */
 void memory_dump(const void* start, const void* end);
 
+/**
+ * @brief Allocates memory at an specific address.
+ * 
+ * @param phys_addr Physical address to allocate memory.
+ * @param size Size of the memory to allocate.
+ * @return Pointer to the allocated memory, or NULL if allocation fails.
+ */
 void* allocate_memory_at_address(int64 phys_addr, size_t size);

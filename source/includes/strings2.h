@@ -134,6 +134,15 @@ string strcat(string dest, cstring src);
  */
 void remove_last_char(string str);
 
+/**
+/**
+ * @brief Converts a string to a long integer.
+ * 
+ * @param str The input string to be converted.
+ * @param endptr Reference to a pointer that will be updated to point to the character after the last valid character.
+ * @param base The base of the number.
+ * @return long 
+ */
 long strtol(const char *str, char **endptr, int base);
 
 /**
@@ -159,4 +168,12 @@ char* hex_to_string(signed int num, bool caps);
  */
 char* leading_trailing_trim(const char *str);
 
+/**
+ * @brief Splits a string into tokens based on a delimiter.
+ * 
+ * @param str The input string to be split.
+ * @param delim The delimiter character.
+ * @param num_tokens The number of tokens found.
+ * @return char** Returns an array of strings containing the tokens.
+ */
 char** splitf(const char* str, char delim, int* num_tokens);

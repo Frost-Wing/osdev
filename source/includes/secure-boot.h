@@ -10,4 +10,8 @@
  */
 #include <basics.h>
 
+/**
+ * @brief Declaration of the public key used for secure boot.
+ * 
+ */
 extern cstring public_key;
