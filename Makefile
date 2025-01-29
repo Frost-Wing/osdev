@@ -1,4 +1,4 @@
-all:
+iso:
 	@rm -rf ./disk_root
 	@mkdir -p disk_root
 	@cp -v \
@@ -42,6 +42,21 @@ run-x86:
 	-m 512 \
 	-no-reboot
 
+run-x86-hdd:
+	@qemu-system-x86_64 \
+	-vga std \
+	-debugcon stdio \
+	-serial file:serial.log \
+	-audiodev pa,id=speaker \
+	-device rtl8139,netdev=eth0 \
+	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
+	-hda FrostWing.img \
+	-drive id=disk,file=disk.txt,if=none \
+	-device ahci,id=ahci \
+	-device ide-hd,drive=disk,bus=ahci.0 \
+	-m 512 \
+	-no-reboot
+
 run-x86-uefi:
 	@qemu-system-x86_64 \
 	-bios ./firmware/uefi/tianocore-64.uefi \
@@ -58,23 +73,11 @@ run-x86-uefi:
 	-m 512 \
 	-no-reboot
 
-run-x86-vnc:
-	@qemu-system-x86_64 \
-	-vga std \
-	-debugcon stdio \
-	-serial file:serial.log \
-	-device rtl8139,netdev=eth0 \
-	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
-	-cdrom FrostWing.iso \
-	-m 128 \
-	-no-reboot \
-	-vnc :1 -display none &
-
 everything:
-	@make clean all -C source && make all tarball run-x86
+	@make clean all -C source && make iso tarball run-x86
 
 everything-sign:
-	@make clean all -C source && make sign-kernel && make all tarball run-x86
+	@make clean all -C source && make sign-kernel && make iso tarball run-x86
 
 doxygen:
 	# I coded this for my use but you can you can use it, if you know why I have this.
@@ -94,6 +97,7 @@ fonts:
 	sfnconv -U -B 40 -t b1 ~/Downloads/FiraSans-Regular.ttf ~/Desktop/FrostWing/source/boot/Vera.sfn
 
 top-clean:
+	@rm -rf ./disk_root
 	@rm -rf FrostWing.iso
 	@rm -rf FrostWing.iso.sha256
 	@rm -rf FrostWing.iso.tar.gz
