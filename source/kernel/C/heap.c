@@ -97,16 +97,13 @@ void free(void* ptr) {
 
 void* realloc(void* ptr, size_t size) {
     if (ptr == NULL) {
-        return malloc(size);
+        return malloc(size); // Use your malloc
     }
 
     if (size == 0) {
-        free(ptr);
+        free(ptr); // Use your free
         return NULL;
     }
-
-    // Align allocation to page size
-    size_t aligned_size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
 
     Node* current = head;
     while (current != NULL && current->data != ptr) {
@@ -117,19 +114,24 @@ void* realloc(void* ptr, size_t size) {
         return NULL; // Invalid pointer
     }
 
-    if (current->size >= aligned_size) {
-        // Existing block is large enough
-        return ptr;
+    if (current->size == size) {
+        return ptr; // No change needed
     }
 
-    // Allocate a new block and copy data
-    void* new_ptr = malloc(size);
+    // Try to expand in place (more efficient)
+    // ... (Implementation for expanding in place, if possible) ...
+
+    // If expanding in place isn't possible, allocate a new block
+    void* new_ptr = malloc(size); // Use your malloc
     if (new_ptr == NULL) {
         return NULL;
     }
 
-    memcpy(new_ptr, ptr, current->size);
-    free(ptr);
+    size_t copy_size = (size < current->size) ? size : current->size; // Don't copy more than the smaller size
+    memcpy(new_ptr, ptr, copy_size);
+    free(ptr); // Use your free
 
+    current->data = new_ptr;
+    current->size = size; // Update the size!
     return new_ptr;
 }
