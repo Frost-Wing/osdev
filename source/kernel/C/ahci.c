@@ -35,7 +35,7 @@ void detect_ahci_devices(ahci_controller* ahci_ctrl) {
                 printf("SATA Disk detected at port %d", i);
                 uint8_t sector_buffer[SECTOR_SIZE * 1]; // Buffer to store 5 sectors
 
-                if (read_sectors(1, 1, sector_buffer) != 0) {
+                if (read_sectors_broken(1, 1, sector_buffer) != 0) {
                     error("sector reading failed!", __FILE__);
                 }
 
@@ -81,7 +81,7 @@ prdt_entry_t* free_prdt(prdt_entry_t* a) {
     return (prdt_entry_t*)free(a); 
 }
 
-int read_sectors(uint32_t lba, uint32_t sector_count, void* buffer) {
+int read_sectors_broken(uint32_t lba, uint32_t sector_count, void* buffer) {
     if (sector_count == 0) return -1; // Handle invalid input
 
     ahci_command_header_t* cmd_header = get_free_command_header();
