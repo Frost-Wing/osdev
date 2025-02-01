@@ -23,6 +23,7 @@ uint32_t memory_used = 0;
 
 void mm_init(uint32_t kernel_end)
 {
+    info("Initializing heap.", __FILE__);
 	last_alloc = kernel_end + 0x1000;
 	heap_begin = last_alloc;
 	pheap_end = 0x400000;
@@ -30,14 +31,20 @@ void mm_init(uint32_t kernel_end)
 	heap_end = pheap_begin;
 	heap_begin = heap_end - heap_begin;
 	pheap_desc = (uint8_t *)malloc(MAX_PAGE_ALIGNED_ALLOCS);
+    done("Heap initialized.", __FILE__);
 }
 
 void mm_extend(uint32_t additional_size)
 {
-    if (additional_size <= 0) return;
+    if (additional_size <= 0){
+        warn("mm_extend: Invalid size.", __FILE__);
+        return;
+    }
 
+    info("Extending heap.", __FILE__);
     heap_end += additional_size;
     printf("Heap extended by %d bytes. New heap end: 0x%x", additional_size, heap_end);
+    done("Heap extended.", __FILE__);
 }
 
 void mm_print_out()
