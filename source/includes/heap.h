@@ -8,36 +8,25 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
+#ifdef HEAP_H
+#define HEAP_H
+
 #include <stddef.h>
 #include <basics.h>
 
-/**
- * @brief Initialize the memory allocator.
- */
-void init_heap(int size);
+typedef struct {
+	uint8_t status;
+	uint32_t size;
+}alloc_t;
 
-/**
- * @brief Allocate memory of the specified size.
- * @param size The size of memory to allocate.
- * @return A pointer to the allocated memory, or null if allocation fails.
- */
-void* malloc(size_t size);
+#define MAX_PAGE_ALIGNED_ALLOCS 32
 
-/**
- * @brief Reallocate memory for the given pointer with the specified size.
- * @param ptr A pointer to the memory block to be reallocated.
- * @param size The new size of the memory block.
- * @return A pointer to the reallocated memory block, or null if reallocation fails.
- */
-void* realloc(void* ptr, size_t size);
+extern void mm_init();
+extern void mm_print_out();
 
-/**
- * @brief Free a previously allocated memory block.
- * @param ptr A pointer to the memory block to be freed.
- */
-void free(void* ptr);
+extern char* pmalloc(size_t size);
+extern char* malloc(size_t size);
+extern char* realloc(void *ptr, size_t size);
+extern void free(void *mem);
 
-/**
- * @brief Clean up resources and release allocated memory.
- */
-void cleanup_heap();
+#endif

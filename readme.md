@@ -138,6 +138,7 @@ FrostWing is open-source software released under the [CC0-1.0 License](https://g
 ## FrostWing Team
 - Owner and founder - Pradosh ([@PradoshGame](https://twitter.com/@PradoshGame))
 - OpenGL & Head Developer - GAMINGNOOB ([@GAMINGNOOBdev](https://github.com/GAMINGNOOBdev))
+- Secondary Head Developer - Lucas ([@lucas-hooghof](https://github.com/lucas-hooghof))
 - Sources
     - [Flanterm](https://github.com/mintsuki/flanterm/tree/trunk) from Mintsuki
     - [ACPI and Shutdown](https://github.com/mintsuki/acpi-shutdown-hack) from Mintsuki

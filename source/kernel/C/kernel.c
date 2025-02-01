@@ -166,6 +166,8 @@ void main(void) {
         probe_serial();
     }
 
+    mm_init(kend);
+
     RTL8139 = (struct rtl8139*)malloc(sizeof(struct rtl8139));
 
     struct memory_context memory;
@@ -331,6 +333,8 @@ void main(void) {
     init_ps2_mouse();
     SetMouseMovementHandler(mouseMovementHandler);
     SetMouseButtonHandler(mouseButtonHandler);
+
+    mm_print_out();
 
     create_user("root", "prad");
 
