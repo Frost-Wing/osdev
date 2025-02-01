@@ -11,6 +11,7 @@
 #define HEAP_H
 #include <heap.h>
 #include <stddef.h>
+#include <graphics.h>
 
 uint32_t last_alloc = 0;
 uint32_t heap_end = 0;
@@ -33,9 +34,9 @@ void mm_init(uint32_t kernel_end)
 
 void mm_print_out()
 {
-    printf("Memory used : %d bytes", memory_used);
-    printf("Memory free : %d bytes", heap_end - heap_begin - memory_used);
-    printf("Heap size   : %d bytes", heap_end - heap_begin);
+    printf("%sMemory used :%s %d bytes", yellow_color, reset_color, memory_used);
+    printf("%sMemory free :%s %d bytes", yellow_color, reset_color, heap_end - heap_begin - memory_used);
+    printf("%sHeap size   :%s %d bytes", yellow_color, reset_color, heap_end - heap_begin);
 }
 
 void free(void *mem)
