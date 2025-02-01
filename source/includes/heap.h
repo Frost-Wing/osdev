@@ -21,7 +21,9 @@ typedef struct {
 
 #define MAX_PAGE_ALIGNED_ALLOCS 32
 
-extern void mm_init();
+extern void mm_init(uint32_t kernel_end);
+extern void mm_extend(uint32_t additional_size);
+
 extern void mm_print_out();
 
 extern char* pmalloc(size_t size);

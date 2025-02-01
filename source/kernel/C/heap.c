@@ -32,6 +32,14 @@ void mm_init(uint32_t kernel_end)
 	pheap_desc = (uint8_t *)malloc(MAX_PAGE_ALIGNED_ALLOCS);
 }
 
+void mm_extend(uint32_t additional_size)
+{
+    if (additional_size <= 0) return;
+
+    heap_end += additional_size;
+    printf("Heap extended by %d bytes. New heap end: 0x%x", additional_size, heap_end);
+}
+
 void mm_print_out()
 {
     printf("%sMemory used :%s %d bytes", yellow_color, reset_color, memory_used);
