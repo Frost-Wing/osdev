@@ -39,8 +39,7 @@ run-x86:
 	-drive id=disk,file=disk.txt,if=none \
 	-device ahci,id=ahci \
 	-device ide-hd,drive=disk,bus=ahci.0 \
-	-m 512 \
-	-no-reboot
+	-m 512
 
 run-x86-hdd:
 	@qemu-system-x86_64 \
@@ -54,8 +53,7 @@ run-x86-hdd:
 	-drive id=disk,file=disk.txt,if=none \
 	-device ahci,id=ahci \
 	-device ide-hd,drive=disk,bus=ahci.0 \
-	-m 512 \
-	-no-reboot
+	-m 512
 
 run-x86-uefi:
 	@qemu-system-x86_64 \
@@ -70,8 +68,7 @@ run-x86-uefi:
 	-drive id=disk,file=disk.txt,if=none \
 	-device ahci,id=ahci \
 	-device ide-hd,drive=disk,bus=ahci.0 \
-	-m 512 \
-	-no-reboot
+	-m 512
 
 everything:
 	@make clean all -C source && make iso tarball run-x86
