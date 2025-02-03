@@ -12,6 +12,7 @@
 #include <ahci.h>
 #include <hal.h>
 #include <pci.h>
+#include <isr.h>
 
 const char* display_adapter_name = "Frost Generic Display Adapter";
 const char* GPUName[1] = {"Frost Generic Display Driver for Graphics Processing Unit."}; //Max 2 GPUs allowed
@@ -395,6 +396,11 @@ void probe_pci(){
                         if(device == 0x8139){ // Indeed it is an RTL8139 Card
                             RTL8139->io_base = (int16)(pci_read_word(bus, slot, 0, RTL8139_IOADDR1) & 0xFFFC);
                             deviceName = "RTL8139 Networking Card";
+                            int8 rtl8139_irq = pci_read_word(bus, slot, 0, RTL8139_IRQ_LINE);
+
+                            printf("Handler number : 0x%x", rtl8139_irq);
+                            
+                            registerInterruptHandler(rtl8139_irq, rtl8139_handler);
                         }
                     }
 
