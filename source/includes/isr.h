@@ -1,3 +1,13 @@
+/**
+ * @file isr.h
+ * @author Pradosh (pradoshgame@gmail.com) & GAMINGNOOB
+ * @brief Interrupts handler header.
+ * @version 0.1
+ * @date 2025-02-03
+ * 
+ * @copyright Copyright Pradosh (c) 2025
+ * 
+ */
 #ifndef ISR_H
 #define ISR_H
 

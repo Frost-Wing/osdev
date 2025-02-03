@@ -1,3 +1,15 @@
+/**
+ * @file idt.h
+ * @author Pradosh (pradoshgame@gmail.com) & GAMINGNOOB
+ * @brief 
+ * @version 0.1
+ * @date 2025-02-03
+ * 
+ * @copyright Copyright Pradosh (c) 2025
+ * 
+ */
+
+
 #ifndef IDT_H
 #define IDT_H
 

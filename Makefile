@@ -70,6 +70,18 @@ run-x86-uefi:
 	-device ide-hd,drive=disk,bus=ahci.0 \
 	-m 512
 
+run-x86-vnc:
+	@qemu-system-x86_64 \
+	-vga std \
+	-debugcon stdio \
+	-serial file:serial.log \
+	-device rtl8139,netdev=eth0 \
+	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
+	-cdrom FrostWing.iso \
+	-m 256 \
+	-no-reboot \
+	-vnc :1 -display none &
+
 everything:
 	@make clean all -C source && make iso tarball run-x86
 

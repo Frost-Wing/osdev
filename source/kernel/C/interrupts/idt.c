@@ -1,3 +1,14 @@
+/**
+ * @file idt.c
+ * @author Pradosh (pradoshgame@gmail.com) & GAMINGNOOB
+ * @brief Interrupt descriptor table code.
+ * @version 0.1
+ * @date 2025-02-03
+ * 
+ * @copyright Copyright Pradosh (c) 2025
+ * 
+ */
+
 #include <idt.h>
 #include <isr.h>
 #include <keyboard.h>

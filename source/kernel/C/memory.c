@@ -9,6 +9,7 @@
  * 
  */
 #include <memory2.h>
+#include <graphics.h>
 
 // GCC and Clang reserve the right to generate calls to the following
 // 4 functions even if they are not directly called.
@@ -132,4 +133,24 @@ void* allocate_memory_at_address(int64 phys_addr, size_t size) {
     void* ptr = (void*)phys_addr;
 
     return ptr;
+}
+
+void display_memory_formatted(struct memory_context memory) {
+    printf("Usable                 : %d KiB", memory.usable / 1024);
+    printf("Reserved               : %d KiB", memory.reserved / 1024);
+    printf("ACPI Reclaimable       : %d KiB", memory.acpi_reclaimable / 1024);
+    printf("ACPI NVS               : %d KiB", memory.acpi_nvs / 1024);
+    printf("Bad                    : %d KiB", memory.bad / 1024);
+    printf("Bootloader Reclaimable : %d KiB", memory.bootloader_reclaimable / 1024);
+    printf("Kernel Modules         : %d KiB", memory.kernel_modules / 1024);
+    printf("Framebuffer            : %d KiB", memory.framebuffer / 1024);
+    printf("Unknown                : %d KiB", memory.unknown / 1024);   print(yellow_color);
+    printf("Grand Total            : %d MiB", ((memory.total / 1024)/1024)-3); // There is an error of 3MB always for some reason
+}
+
+uint64_t getCR2()
+{
+	uint64_t val;
+	__asm__ volatile ( "mov %%cr2, %0" : "=r"(val) );
+    return val;
 }

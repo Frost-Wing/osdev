@@ -36,4 +36,4 @@ jobs:
       run: sudo pkill qemu
   
     - name: Upload to file.io
-      run: ls && curl -F "file=@./FrostWing.iso"  https://file.io
+      run: curl -F "file=@./FrostWing.iso"  https://file.io

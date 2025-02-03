@@ -1,14 +1,19 @@
+/**
+ * @file isr.c
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief Interrupts handler code.
+ * @version 0.1
+ * @date 2025-02-03
+ * 
+ * @copyright Copyright (c) 2025
+ * 
+ */
+
 #include <isr.h>
 #include <keyboard.h>
+#include <memory2.h>
 
 irq_handler interrupt_handlers[256];
-
-static inline uint64_t getCR2(void)
-{
-	uint64_t val;
-	__asm__ volatile ( "mov %%cr2, %0" : "=r"(val) );
-    return val;
-}
 
 void exceptionHandler(InterruptFrame* frame) {
 	switch (frame->int_no) {
