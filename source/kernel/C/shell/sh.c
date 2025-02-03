@@ -21,6 +21,7 @@
 #include <flanterm/flanterm.h>
 #include <filesystems/fwrfs.h>
 #include <fdlfcn.h>
+#include <heap.h>
 
 void init_command_list(command_list* lst)
 {
@@ -311,6 +312,10 @@ void execute(const char* buffer, int argc, char** argv)
         list_contents(fs);
     } else if (strncmp(buffer, "frostedwm", 9) == 0 || strcmp(buffer, "frostedwm") == 0) { 
         start_window_manager();
+    } else if (strncmp(buffer, "meminfo", 7) == 0 || strcmp(buffer, "meminfo") == 0) { 
+        display_memory_formatted(memory);
+    } else if (strncmp(buffer, "heapinfo", 7) == 0 || strcmp(buffer, "heapinfo") == 0) { 
+        mm_print_out();
     } else if (strncmp(buffer, "user ", 5) == 0 || strcmp(buffer, "user") == 0) {  
         if(argv[1] != null)
             if((int)argv[1] == 1)

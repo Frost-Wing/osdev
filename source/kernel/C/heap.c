@@ -12,6 +12,7 @@
 #include <heap.h>
 #include <stddef.h>
 #include <graphics.h>
+#include <memory2.h>
 
 uint32_t last_alloc = 0;
 uint32_t heap_end = 0;
@@ -47,6 +48,19 @@ void mm_extend(uint32_t additional_size)
     done("Heap extended.", __FILE__);
 }
 
+void mm_constrict(uint32_t removal_size)
+{
+    if (removal_size <= 0){
+        warn("mm_extend: Invalid size.", __FILE__);
+        return;
+    }
+
+    info("Constricting heap.", __FILE__);
+    heap_end -= removal_size;
+    printf("Heap constricting by %d bytes. New heap end: 0x%x", removal_size, heap_end);
+    done("Heap Constricted.", __FILE__);
+}
+
 void mm_print_out()
 {
     printf("%sMemory used :%s %d bytes", yellow_color, reset_color, memory_used);
@@ -56,6 +70,11 @@ void mm_print_out()
 
 void free(void *mem)
 {
+	if(mem == 0){
+		warn("free: Cannot free null pointer.", __FILE__);
+		return;
+	}
+
 	alloc_t *alloc = (mem - sizeof(alloc_t));
 	memory_used -= alloc->size + sizeof(alloc_t);
 	alloc->status = 0;
@@ -75,7 +94,11 @@ void pfree(void *mem)
 
 char* pmalloc(size_t size)
 {
-	/* Loop through the avail_list */
+	if(size <= 0){
+		warn("pmalloc: Cannot allocate 0 bytes.", __FILE__);
+		return 0;
+	}
+
 	for(int i = 0; i < MAX_PAGE_ALIGNED_ALLOCS; i++)
 	{
 		if(pheap_desc[i]) continue;
@@ -89,7 +112,10 @@ char* pmalloc(size_t size)
 
 char* malloc(size_t size)
 {
-	if(!size) return 0;
+	if(size <= 0){
+		warn("malloc: Cannot allocate 0 bytes.", __FILE__);
+		return 0;
+	}
 
 	/* Loop through blocks and find a block sized the same or bigger */
 	uint8_t *mem = (uint8_t *)heap_begin;
@@ -134,7 +160,7 @@ char* malloc(size_t size)
 	nalloc:;
 	if(last_alloc+size+sizeof(alloc_t) >= heap_end)
 	{
-        meltdown_screen("Heap out of memory!", __FILE__, __LINE__, 0, 0, 0);
+        meltdown_screen("Heap out of memory!", __FILE__, __LINE__, 0, getCR2(), 0);
         hcf();
 	}
 	alloc_t *alloc = (alloc_t *)last_alloc;
@@ -144,6 +170,7 @@ char* malloc(size_t size)
 	last_alloc += size;
 	last_alloc += sizeof(alloc_t);
 	last_alloc += 4;
+
 	// printf("Allocated %d bytes from  to 0x%x", size, (uint32_t)alloc + sizeof(alloc_t), last_alloc);
 	memory_used += size + 4 + sizeof(alloc_t);
 	memset((char *)((uint32_t)alloc + sizeof(alloc_t)), 0, size);

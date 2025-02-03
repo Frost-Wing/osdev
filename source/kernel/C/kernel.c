@@ -58,25 +58,10 @@ struct limine_module_request module_request = {
     LIMINE_MODULE_REQUEST, 0, null
 };
 
-struct memory_context {
-    int64 total;
-    int64 usable;
-    int64 reserved;
-    int64 acpi_reclaimable;
-    int64 acpi_nvs;
-    int64 bad;
-    int64 bootloader_reclaimable;
-    int64 kernel_modules;
-    int64 framebuffer;            // Mostly unneeded because frame buffer struct separately gives it,
-    int64 unknown;                // This value must be always 0.
-};
-
-
 struct flanterm_context *ft_ctx = null;
 struct limine_framebuffer *framebuffer = null;
 
 bool isBufferReady = no;
-// bool logoBoot = no;
 
 int32 ctr = 0;
 
@@ -140,6 +125,8 @@ void mouseButtonHandler(uint8_t button, uint8_t action)
     }
 }
 
+struct memory_context memory;
+
 void main(void) {
     if (framebuffer_request.response == null) {
         hcf2();
@@ -168,9 +155,10 @@ void main(void) {
 
     mm_init(kend);
 
+    mm_extend(2 MiB);
+
     RTL8139 = (struct rtl8139*)malloc(sizeof(struct rtl8139));
 
-    struct memory_context memory;
     memory.total = 0;
     memory.usable = 0;
     memory.reserved = 0;
@@ -254,16 +242,7 @@ void main(void) {
     printf("Display Resolution: %dx%d (%d) pixels. Pitch: %d", framebuffer->width, framebuffer->height, framebuffer->width*framebuffer->height, framebuffer->pitch);
 
     info("Memory Values begin! ===", __FILE__);
-    printf("Usable                 : %d KiB", memory.usable / 1024);
-    printf("Reserved               : %d KiB", memory.reserved / 1024);
-    printf("ACPI Reclaimable       : %d KiB", memory.acpi_reclaimable / 1024);
-    printf("ACPI NVS               : %d KiB", memory.acpi_nvs / 1024);
-    printf("Bad                    : %d KiB", memory.bad / 1024);
-    printf("Bootloader Reclaimable : %d KiB", memory.bootloader_reclaimable / 1024);
-    printf("Kernel Modules         : %d KiB", memory.kernel_modules / 1024);
-    printf("Framebuffer            : %d KiB", memory.framebuffer / 1024);
-    printf("Unknown                : %d KiB", memory.unknown / 1024);   print(yellow_color);
-    printf("Grand Total            : %d MiB", ((memory.total / 1024)/1024)-3); // There is an error of 3MB always for some reason
+    display_memory_formatted(memory);
     info(reset_color "Memory values end! =====", __FILE__);
 
     if(memory.bad != 0){

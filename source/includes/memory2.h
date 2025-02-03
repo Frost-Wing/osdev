@@ -9,6 +9,24 @@
 
 #include <basics.h>
 
+#ifndef MEMORY_H
+#define MEMORY_H
+
+struct memory_context {
+    int64 total;
+    int64 usable;
+    int64 reserved;
+    int64 acpi_reclaimable;
+    int64 acpi_nvs;
+    int64 bad;
+    int64 bootloader_reclaimable;
+    int64 kernel_modules;
+    int64 framebuffer;            // Mostly unneeded because frame buffer struct separately gives it,
+    int64 unknown;                // This value must be always 0.
+};
+
+extern struct memory_context memory;
+
 /**
  * @brief Copies a block of memory from a source location to a destination location.
  *
@@ -80,3 +98,19 @@ void memory_dump(const void* start, const void* end);
  * @return Pointer to the allocated memory, or NULL if allocation fails.
  */
 void* allocate_memory_at_address(int64 phys_addr, size_t size);
+
+/**
+ * @brief Display the formatted memory context.
+ * 
+ * @param memory The memory context to display.
+ */
+void display_memory_formatted(struct memory_context memory);
+
+/**
+ * @brief Returns the CR2 register.
+ * 
+ * @return uint64_t value of CR2.
+ */
+uint64_t getCR2();
+
+#endif // MEMORY_H
