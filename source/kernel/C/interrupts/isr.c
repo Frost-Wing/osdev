@@ -12,6 +12,7 @@
 #include <isr.h>
 #include <keyboard.h>
 #include <memory2.h>
+#include <drivers/rtl8139.h>
 
 irq_handler interrupt_handlers[256];
 
@@ -69,4 +70,15 @@ void irqHandler(InterruptFrame* frame)
     irq_handler handler = (irq_handler)interrupt_handlers[frame->int_no];
     if (handler != NULL)
         handler(frame);
+}
+
+void rtl8139_handler(InterruptFrame* frame) {
+	uint16_t status = inw(RTL8139->io_base + 0x3e);
+	outw(RTL8139->io_base + 0x3E, 0x05);
+	if(status & TOK) {
+		info("Successfully sent a packet!", __FILE__);
+	}
+	if (status & ROK) {
+		info("Successfully recieved a packet!", __FILE__);
+	}
 }

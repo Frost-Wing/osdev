@@ -33,6 +33,12 @@
 #define RTL8139_IOADDR1     0x10
 #define RTL8139_CMD         0x37
 
+// RTL8139 Status
+#define TOK 0x0001
+#define ROK 0x0002
+
+#define RTL8139_IRQ_LINE 0x3C 
+
 struct rtl8139 {
     int16 io_base;
     int8 mac_address[6];
@@ -45,7 +51,7 @@ extern struct rtl8139* RTL8139;
  * 
  * @param nic 
  */
-void read_mac_address(struct rtl8139* nic);
+void read_mac_address();
 
 /**
  * @brief Initialize RTL8139 NIC
@@ -57,21 +63,19 @@ void rtl8139_init(struct rtl8139* nic);
 /**
  * @brief Transmit a packet from the RTL8139
  * 
- * @param nic 
  * @param data 
  * @param length 
  * @return true if successfully sent.
  * @return false if failed to sent.
  */
-bool rtl8139_send_packet(struct rtl8139* nic, const int8* data, int16 length);
+bool rtl8139_send_packet(const int8* data, int16 length);
 
 /**
  * @brief Receives a packet
  * 
- * @param nic the pointer to RTL structure
  * @param buffer the received data
  * @param length the length of buffer
  * @return [true] Return yes if a packet was received
  * @return [false] Return false if a packet was not received
  */
-bool rtl8139_receive_packet(struct rtl8139* nic, int8* buffer, int16* length);
+bool rtl8139_receive_packet(int8* buffer, int16* length);

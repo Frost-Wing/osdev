@@ -39,4 +39,6 @@ void irqHandler(InterruptFrame* frame);
  */
 void registerInterruptHandler(uint8_t irq, irq_handler handler);
 
+void rtl8139_handler(InterruptFrame* frame);
+
 #endif
