@@ -8,7 +8,9 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#pragma once
+#ifndef rtl8139_h
+#define rtl8139_h
+ 
 #include <stdint.h>
 #include <stdbool.h>
 #include <basics.h>
@@ -44,6 +46,10 @@ struct rtl8139 {
     int8 mac_address[6];
 };
 
+/**
+ * @brief Global pointer for the RTL card.
+ * 
+ */
 extern struct rtl8139* RTL8139;
 
 /**
@@ -79,3 +85,5 @@ bool rtl8139_send_packet(const int8* data, int16 length);
  * @return [false] Return false if a packet was not received
  */
 bool rtl8139_receive_packet(int8* buffer, int16* length);
+
+#endif
