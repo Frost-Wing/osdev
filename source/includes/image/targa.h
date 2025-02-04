@@ -11,6 +11,10 @@
 #include <basics.h>
 #include <opengl/glbackend.h>
 
+/**
+ * @brief Targa header.
+ * 
+ */
 typedef struct {
     int8  idLength;
     int8  colorMapType;

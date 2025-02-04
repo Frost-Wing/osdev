@@ -321,6 +321,14 @@ void main(void) {
 
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
 
+    // glCreateContext();
+    // glCreateContextCustom(framebuffer->address, framebuffer->width, framebuffer->height);
+    // glClearColor(0, 0, 0, 0xff);
+    // glClear(GL_COLOR_BUFFER_BIT);
+    // display_png(module_request.response->modules[1]->address, module_request.response->modules[1]->size);
+    // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
+    // glDestroyContext(null);
+
     // glDestroyContext(null);
 
     // Below code is for triggering Page Fault
@@ -376,12 +384,6 @@ void main(void) {
     // int status_code = execute_binary();
     // printf("return code: 0x%x", status_code);
 
-    // glCreateContext();
-    // glCreateContextCustom(front_buffer, framebuffer->width, framebuffer->height);
-    // glClearColor(0, 0, 0, 0xff);
-    // glClear(GL_COLOR_BUFFER_BIT);
-    // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
-    // glDestroyContext(null);
 
     extern char* login_request();
 
