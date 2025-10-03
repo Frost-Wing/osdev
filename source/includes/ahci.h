@@ -25,50 +25,63 @@
 
 // Structure to represent an AHCI command header
 typedef struct {
-    uint32_t cfl;       // Command FIS length
-    uint8_t cfis[64];    // Command FIS
-    uint32_t prdtl;      // Physical Region Descriptor Table Length
-    uint32_t prdt;      // Physical Region Descriptor Table
-    uint32_t reserved[4];
-    uint32_t ciss;      // Command and Status
-    uint32_t iss;       // Interrupt Status
-    uint32_t sact;      // Start/Activate
-    uint32_t ci;        // Command Issue
-    uint32_t dsts;      // Data Strobe
-    uint32_t serr;      // Serialization Error
-    uint32_t intm;      // Interrupt Mask
-    uint32_t cmd;       // Command
-    uint32_t fis;       // FIS register
-    uint32_t ctl;       // Control register
+    uint16_t cfl:5;      // Command FIS length in DWORDS
+    uint16_t a:1;        // ATAPI
+    uint16_t w:1;        // Write (1 = H->D, 0 = D->H)
+    uint16_t p:1;        // Prefetchable
+    uint16_t r:1;        // Reset
+    uint16_t b:1;        // BIST
+    uint16_t c:1;        // Clear busy upon R_OK
+    uint16_t rsv0:1;     // Reserved
+    uint16_t pmp:4;      // Port multiplier port
+    uint16_t prdtl;      // Number of PRDT entries
+    uint32_t prdbc;      // Physical region descriptor byte count transferred
+    uint32_t ctba;       // Command table base address (lower 32-bit)
+    uint32_t ctbau;      // Command table base address upper 32-bit
+    uint32_t rsv1[4];    // Reserved
 } __attribute__((packed)) ahci_command_header_t;
+
 
 // Structure to represent a Physical Region Descriptor
 typedef struct {
-    uint32_t dba;     // Device Base Address
-    uint32_t dbc;     // Data Base Count
+    uint32_t dba;      // Data base address
+    uint32_t dbau;     // Data base address upper 32 bits
+    uint32_t rsv0;     // Reserved
+    uint32_t dbc:22;   // Byte count, 4M max
+    uint32_t rsv1:9;   
+    uint32_t i:1;      // Interrupt on completion
 } __attribute__((packed)) prdt_entry_t;
 
+typedef struct {
+    uint8_t cfis[64];          // Command FIS
+    uint8_t acmd[16];          // ATAPI command (optional)
+    uint8_t rsv[48];           // Reserved
+    prdt_entry_t prdt_entry[1]; // PRDT entries (can allocate more)
+} __attribute__((packed)) ahci_command_table_t;
+
 typedef volatile struct {
-    int32 clb;         // Command List Base Address, 1K-byte aligned
-    int32 clbu;        // Command List Base Address Upper 32 Bits
-    int32 fb;          // FIS Base Address, 256-byte aligned
-    int32 fbu;         // FIS Base Address Upper 32 Bits
-    int32 is;          // Interrupt Status
-    int32 ie;          // Interrupt Enable
-    int32 cmd;         // Command and Status
-    int32 rsv0;        // Reserved
-    int32 tfd;         // Task File Data
-    int32 sig;         // Signature
-    int32 ssts;        // Serial ATA Status (SCR0:SStatus)
-    int32 sctl;        // Serial ATA Control (SCR2:SControl)
-    int32 serr;        // Serial ATA Error (SCR1:SError)
-    int32 sact;        // Serial ATA Active (SCR3:SActive)
-    int32 ci;          // Command Issue
-    int32 sntf;        // SATA Notification Register
-    int32 fbs;         // FIS-based Switching Control
-    int32 rsv1[11];    // Reserved
-    int32 vendor[4];   // Vendor specific
+    int32 clb;        // 0x00, command list base address, 1K-byte aligned
+    int32 clbu;       // 0x04, command list base address upper 32 bits
+    int32 fb;         // 0x08, FIS base address, 256-byte aligned
+    int32 fbu;        // 0x0C, FIS base address upper 32 bits
+    int32 is;         // 0x10, interrupt status
+    int32 ie;         // 0x14, interrupt enable
+    int32 cmd;        // 0x18, command and status
+    int32 rsv0;       // 0x1C, reserved
+    int32 tfd;        // 0x20, task file data
+    int32 sig;        // 0x24, signature
+    int32 ssts;       // 0x28, SATA status (SCR0:SStatus)
+    int32 sctl;       // 0x2C, SATA control (SCR2:SControl)
+    int32 serr;       // 0x30, SATA error (SCR1:SError)
+    int32 sact;       // 0x34, SATA active (SCR3:SActive)
+    int32 ci;         // 0x38, command issue
+    int32 sntf;       // 0x3C, SATA notification (SCR4:SNotification)
+    int32 fbs;        // 0x40, FIS-based switch control
+    int32 rsv1[11];   // 0x44 ~ 0x6F, reserved
+    int32 vendor[4];  // 0x70 ~ 0x7F, vendor specific
+    ahci_command_header_t* cmd_list; // pointer to command header array
 } ahci_port;
+
 
 typedef volatile struct {
     int32 cap;         // Host Capabilities
@@ -95,3 +108,6 @@ extern ahci_controller* global_ahci_ctrl;
  * @param ahci_ctrl The pointer to the ahci_controller structure or BAR of AHCI
  */
 void detect_ahci_devices(ahci_controller* ahci_ctrl);
+
+
+int ahci_read_sectors_polling(int port_number, uint64_t lba, uint32_t sector_count, void* buffer);

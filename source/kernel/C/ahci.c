@@ -10,6 +10,9 @@
  */
 #include <ahci.h>
 #include <stdbool.h>
+#define READ_DMA_EXT 0x25
+#define SECTOR_SIZE 512
+
 
 ahci_controller* global_ahci_ctrl = null;
 
@@ -19,6 +22,11 @@ void detect_ahci_devices(ahci_controller* ahci_ctrl) {
     for (int i = 0; i < 32; i++)
     {
         ahci_port* port = &ahci_ctrl->ports[i];
+
+        if (!port->cmd_list) {
+            port->cmd_list = (ahci_command_header_t*)kmalloc(sizeof(ahci_command_header_t) * 32, 1024); // 32 headers, 1K aligned
+            memset(port->cmd_list, 0, sizeof(ahci_command_header_t) * 32);
+        }
     
         if (ahci_ctrl->pi & (1 << 0)) {
             port->cmd |= AHCI_PORT_CMD_ST;
@@ -33,17 +41,22 @@ void detect_ahci_devices(ahci_controller* ahci_ctrl) {
             int32 sig = port->sig;
             if (sig == sata_disk) {
                 printf("SATA Disk detected at port %d", i);
-                uint8_t sector_buffer[SECTOR_SIZE * 1]; // Buffer to store 5 sectors
+                uint8_t buffer[SECTOR_SIZE * 1]; // Buffer to store 5 sectors
 
-                if (read_sectors_broken(1, 1, sector_buffer) != 0) {
+                if (ahci_read_sectors_polling(i, 2048, 1, buffer) != 0) {
                     error("sector reading failed!", __FILE__);
                 }
 
-                // for(int x = 0; x < SECTOR_SIZE * 1; x++){
-                //     debug_printf("%u ", (int)sector_buffer[x]);
-                // }
-                // debug_print("\n");
+                if (buffer[510] == 0x55 && buffer[511] == 0xAA) {
+                    debug_printf("Boot sector signature correct!\n");
+                } else {
+                    debug_printf("Boot sector signature invalid.\n");
+                }
 
+                for (int h = 0; h < 16; h++) {
+                    debug_printf("%x ", buffer[h]);
+                }
+                
             } else if (sig == satapi_disk) {
                 printf("SATAPI Disk detected at port %d", i);
             } else if (sig == semb_disk) {
@@ -58,100 +71,71 @@ void detect_ahci_devices(ahci_controller* ahci_ctrl) {
     }
 }
 
-ahci_command_header_t* get_free_command_header() {
-    // Iterate through command headers to find a free one
+int ahci_read_sectors_polling(int port_number, uint64_t lba, uint32_t sector_count, void* buffer) {
+    if (!global_ahci_ctrl) return -1;
+    // cmd_table->prdt_entry[0].dba = (uint32_t)(uintptr_t)buffer;
+
+    ahci_port* port = &global_ahci_ctrl->ports[port_number];
+    if (!port) return -2;
+
+    // Find a free command slot (0-31)
+    int slot = -1;
     for (int i = 0; i < 32; i++) {
-        if (!(global_ahci_ctrl->ports[0].ci & 1)) { 
-            info("FOUND FREE CMD HEADER!", __FILE__);
-            printf("Command header = %d", i);
-            return (ahci_command_header_t*)&global_ahci_ctrl->ports[0].cmd; 
+        if (!(port->ci & (1 << i))) {
+            slot = i;
+            break;
         }
     }
-    // No free command headers available
-    return NULL;
-}
+    if (slot == -1) return -3; // no free slot
 
-// Function to allocate memory for PRDT entries
-prdt_entry_t* allocate_prdt(size_t num_entries) {
-    // Allocate memory for the desired number of PRDT entries
-    return (prdt_entry_t*)malloc(num_entries * sizeof(prdt_entry_t)); 
-}
+    // Allocate command table in contiguous memory
+    ahci_command_header_t* cmd_header = &port->cmd_list[slot];
+    ahci_command_table_t* cmd_table = (ahci_command_table_t*)kmalloc(sizeof(ahci_command_table_t));
+    if (!cmd_table) return -4;
 
-prdt_entry_t* free_prdt(prdt_entry_t* a) {
-    return (prdt_entry_t*)free(a); 
-}
+    memset(cmd_table, 0, sizeof(ahci_command_table_t));
+    cmd_header->ctba = (uint32_t)(uintptr_t)cmd_table;
+    cmd_header->ctbau = 0; // upper 32-bit (assuming 32-bit for now)
+    cmd_header->prdtl = 1; // one PRDT entry
 
-int read_sectors_broken(uint32_t lba, uint32_t sector_count, void* buffer) {
-    if (sector_count == 0) return -1; // Handle invalid input
+    // Fill PRDT entry
+    cmd_table->prdt_entry[0].dba = (uint32_t)(uintptr_t)buffer;   // physical address
+    cmd_table->prdt_entry[0].dbau = 0;
+    cmd_table->prdt_entry[0].dbc = sector_count * SECTOR_SIZE - 1;
+    cmd_table->prdt_entry[0].i = 1; // interrupt on completion (ignored in polling)
 
-    ahci_command_header_t* cmd_header = get_free_command_header();
-    if (!cmd_header) return -1; // Handle allocation failure
+    // Fill CFIS (20-byte ATA Read DMA EXT command)
+    uint8_t* cfis = cmd_table->cfis;
+    memset(cfis, 0, 64);
+    cfis[0] = 0x27;       // FIS type: Host to device
+    cfis[1] = 0x80;       // H2D, command
+    cfis[2] = READ_DMA_EXT; // ATA command
+    // 48-bit LBA
+    cfis[4] = lba & 0xFF;
+    cfis[5] = (lba >> 8) & 0xFF;
+    cfis[6] = (lba >> 16) & 0xFF;
+    cfis[7] = (lba >> 24) & 0xFF;
+    cfis[8] = (lba >> 32) & 0xFF;
+    cfis[9] = (lba >> 40) & 0xFF;
+    // Sector count
+    cfis[12] = sector_count & 0xFF;
+    cfis[13] = (sector_count >> 8) & 0xFF;
 
-    prdt_entry_t* prdt = allocate_prdt(1);
-    if (!prdt) {
-        // free_command_header(cmd_header);
-        return -1;
+    // Issue command
+    port->ci |= (1 << slot);
+
+    // Poll for completion
+    while ((port->ci & (1 << slot)) || (port->tfd & 0x88)) {
+        // optional: timeout or pause
     }
 
-    // 1. Fill command FIS (Corrected for 48-bit LBA if needed)
-    cmd_header->cfis[0] = 0x20; // ATA command: Read (0x20 for 28-bit, 0x24 for 48-bit)
-
-    if (lba > 0xFFFFFFF || (lba + sector_count) > 0xFFFFFFF) { // Check for 28-bit overflow
-      cmd_header->cfis[0] = 0x24; // Use 48-bit command if needed
-      cmd_header->cfis[1] = 0;
-      cmd_header->cfis[2] = lba & 0xFF;
-      cmd_header->cfis[3] = (lba >> 8) & 0xFF;
-      cmd_header->cfis[4] = (lba >> 16) & 0xFF;
-      cmd_header->cfis[5] = (lba >> 24) & 0xFF;
-      cmd_header->cfis[6] = (lba >> 32) & 0xFF; // LBA 48 bit
-      cmd_header->cfis[7] = (lba >> 40) & 0xFF;  // LBA 48 bit
-      cmd_header->cfis[8] = sector_count & 0xFF;
-      cmd_header->cfis[9] = (sector_count >> 8) & 0xFF; // Sector count 16 bit
-    } else {
-      cmd_header->cfis[2] = lba & 0xFF;
-      cmd_header->cfis[3] = (lba >> 8) & 0xFF;
-      cmd_header->cfis[4] = (lba >> 16) & 0xFF;
-      cmd_header->cfis[5] = (lba >> 24) & 0xFF;
-      cmd_header->cfis[7] = sector_count & 0xFF;
-      cmd_header->cfis[8] = (sector_count >> 8) & 0xFF;
+    // Check errors
+    if (port->tfd & (0x1 | 0x20)) { // ERR or DF
+        kfree(cmd_table);
+        return -5;
     }
 
-
-    // 2. Fill PRDT (Corrected DBC)
-    prdt[0].dba = (uint32_t)buffer;
-    prdt[0].dbc = sector_count * SECTOR_SIZE - 1; // Byte count, not sector count
-
-    // 3. Set up command header
-    cmd_header->prdtl = 1; // Number of PRDT entries, not size in bytes.
-    cmd_header->prdt = (uint32_t)prdt;
-
-    // 4. Issue the command
-    cmd_header->ci = 1;
-
-    // 5. **CRITICAL:** Wait for command completion.  This is the most likely source of your original problem.
-    wait_for_command_completion(cmd_header);
-
-    // 6. Check for errors (add this!)
-    if (cmd_header->ciss & 0x1) { // Error bit set
-    //   free_command_header(cmd_header);
-      free_prdt(prdt);
-        return -1; // Or a more specific error code.
-    }
-
-    // free_command_header(cmd_header);
-    free_prdt(prdt);
-
-    return 0;
+    // Free command table
+    kfree(cmd_table);
+    return 0; // success
 }
-
-void wait_for_command_completion(ahci_command_header_t* cmd_header) {
-    volatile uint32_t* status_reg = (volatile uint32_t*)(cmd_header + 0x08); // Example, adjust as needed.
-      while (1) {
-          if (! (status_reg[0] & (1 << 7))) { // Check BSY (Busy) bit in PxSATASTATUS register
-            break;
-          }
-      }
-  
-      // Check the command complete (CC) bit in the command header.
-    //   while (cmd_header->ci) ; // Wait for CI to clear (command complete)
-  }

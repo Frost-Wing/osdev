@@ -3,7 +3,6 @@
 #include <fdlfcn.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <heap.h>
 #include <elf.h>
 
 fdlfcn_handle* global_library_handles;
@@ -12,7 +11,7 @@ fdlfcn_handle* global_library_handles;
 
 void* fdl_load_section(void* filedata, Elf64_Shdr* section_header)
 {
-    void* section_data = malloc(section_header->sh_size);
+    void* section_data = kmalloc(section_header->sh_size);
     if (section_data == NULL)
     {
         error("fdlopen: malloc failed for section", __FILE__);
@@ -21,7 +20,7 @@ void* fdl_load_section(void* filedata, Elf64_Shdr* section_header)
 
     READ_FROM_MEMORY(section_data, filedata, section_header->sh_offset, section_header->sh_size);
 
-    return section_data;
+    return NULL;
 }
 
 int fdl_apply_relocations(fdlfcn_handle* lib, int reloc_section_index)
@@ -144,23 +143,23 @@ int fdlclose(fdlfcn_handle* handle)
     return 0; /// TODO: somehow all the free calls cause a gp fault, fix that
 
     if (handle->text_section_data != NULL)
-        free(handle->text_section_data);
+        kfree(handle->text_section_data);
     if (handle->data_section_data != NULL)
-        free(handle->data_section_data);
+        kfree(handle->data_section_data);
     if (handle->rodata_section_data != NULL)
-        free(handle->rodata_section_data);
+        kfree(handle->rodata_section_data);
     if (handle->string_table_data != NULL)
-        free(handle->string_table_data);
+        kfree(handle->string_table_data);
     if (handle->symtab_str_section_data != NULL)
-        free(handle->symtab_str_section_data);
+        kfree(handle->symtab_str_section_data);
     if (handle->shdrs != NULL)
-        free(handle->shdrs);
+        kfree(handle->shdrs);
     if (handle->symbols != NULL)
-        free(handle->symbols);
+        kfree(handle->symbols);
     if (handle->relocations != NULL)
-        free(handle->relocations);
+        kfree(handle->relocations);
 
-    free(handle);
+    kfree(handle);
 
     return 0;
 }
@@ -170,7 +169,7 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
     if (filedata == NULL || flags != FDL_IMMEDIATE)
         return NULL;
 
-    fdlfcn_handle* handle = malloc(sizeof(fdlfcn_handle));
+    fdlfcn_handle* handle = kmalloc(sizeof(fdlfcn_handle));
     if (handle == NULL)
     {
         error("Could not allocate memory for shared object file handle", __FILE__);
@@ -185,14 +184,14 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
         elf_header.e_machine != EM_X86_64 || elf_header.e_version != EV_CURRENT)
     {
         error("Not a valid .so file", __FILE__);
-        free(handle);
+        kfree(handle);
         return NULL;
     }
 
-    Elf64_Shdr* section_headers = malloc(elf_header.e_shnum * sizeof(Elf64_Shdr));
+    Elf64_Shdr* section_headers = kmalloc(elf_header.e_shnum * sizeof(Elf64_Shdr));
     if (section_headers == NULL)
     {
-        free(handle);
+        kfree(handle);
         return NULL;
     }
     READ_FROM_MEMORY(section_headers, filedata, elf_header.e_shoff, elf_header.e_shnum * sizeof(Elf64_Shdr));
@@ -233,7 +232,7 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
         text_section_data = fdl_load_section(filedata, &section_headers[text_section_index]);
         if (text_section_data == NULL)
         {
-            free(section_headers);
+            kfree(section_headers);
             return NULL;
         }
     }
@@ -244,9 +243,9 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
         if (data_section_data == NULL)
         {
             if (text_section_data)
-                free(text_section_data);
+                kfree(text_section_data);
 
-            free(section_headers);
+            kfree(section_headers);
             return NULL;
         }
     }
@@ -257,11 +256,11 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
         if (rodata_section_data == NULL)
         {
             if (text_section_data)
-                free(text_section_data);
+                kfree(text_section_data);
             if (data_section_data)
-                free(data_section_data);
+                kfree(data_section_data);
 
-            free(section_headers);
+            kfree(section_headers);
             return NULL;
         }
     }
@@ -269,7 +268,7 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
     if (symtab_index != -1)
     {
         Elf64_Shdr symtab_section = section_headers[symtab_index];
-        handle->symbols = malloc(symtab_section.sh_size);
+        handle->symbols = kmalloc(symtab_section.sh_size);
         READ_FROM_MEMORY(handle->symbols, filedata, symtab_section.sh_offset, symtab_section.sh_size);
         symtab_str_section_index = symtab_section.sh_link;
         if (symtab_str_section_index != -1)
@@ -281,7 +280,7 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
     if (reloc_section_index != -1)
     {
         Elf64_Shdr reloc_section = section_headers[reloc_section_index];
-        handle->relocations = malloc(reloc_section.sh_size);
+        handle->relocations = kmalloc(reloc_section.sh_size);
         READ_FROM_MEMORY(handle->relocations, filedata, reloc_section.sh_offset, reloc_section.sh_size);
     }
     else
@@ -311,20 +310,20 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
         error("fdlopen: Relocation failed", __FILE__);
 
         if (text_section_data)
-            free(text_section_data);
+            kfree(text_section_data);
         if (data_section_data)
-            free(data_section_data);
+            kfree(data_section_data);
         if (rodata_section_data)
-            free(rodata_section_data);
+            kfree(rodata_section_data);
         if (strtableAddr)
-            free(strtableAddr);
+            kfree(strtableAddr);
         if (symtab_str_section_data)
-            free(symtab_str_section_data);
+            kfree(symtab_str_section_data);
 
-        free(section_headers);
-        free(handle->symbols);
-        free(handle->relocations);
-        free(handle);
+        kfree(section_headers);
+        kfree(handle->symbols);
+        kfree(handle->relocations);
+        kfree(handle);
         return NULL;
     }
 

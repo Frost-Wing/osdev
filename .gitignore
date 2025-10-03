@@ -22,3 +22,5 @@ keys/private_key.pem
 *.bin
 *.raw
 *.so
+*.img
+*.img.tar.gz

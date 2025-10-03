@@ -41,7 +41,7 @@ namespace std
         void clear()
         {
             if (mData != nullptr)
-                free(mData);
+                kfree(mData);
 
             mData = nullptr;
             mSize = 0;
@@ -56,7 +56,7 @@ namespace std
         {
             if (empty())
             {
-                mData = (T*)malloc(sizeof(T)*(mSize+1));
+                mData = (T*)kmalloc(sizeof(T)*(mSize+1));
                 mData[mSize] = element;
                 mSize++;
 
@@ -64,9 +64,9 @@ namespace std
             }
 
             T* oldData = mData;
-            mData = (T*)malloc(sizeof(T)*(mSize+1));
+            mData = (T*)kmalloc(sizeof(T)*(mSize+1));
             memcpy(mData, oldData, sizeof(T)*mSize);
-            free(oldData);
+            kfree(oldData);
 
             mData[mSize] = element;
             mSize++;
@@ -82,9 +82,9 @@ namespace std
 
             T* oldData = mData;
             mSize--;
-            mData = (T*)malloc(sizeof(T)*mSize);
+            mData = (T*)kmalloc(sizeof(T)*mSize);
             memcpy(mData, oldData, sizeof(T)*mSize);
-            free(oldData);
+            kfree(oldData);
         }
 
         /**

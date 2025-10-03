@@ -39,8 +39,8 @@ void dispose_command_list(command_list* lst)
     for (command_list_entry* entry = lst->start; entry != NULL;)
     {
         command_list_entry* next = entry->next;
-        free(entry->command);
-        free(entry);
+        kfree(entry->command);
+        kfree(entry);
         entry = next;
     }
 }
@@ -50,14 +50,14 @@ void push_command_to_list(command_list* lst, const char* value, size_t length)
     if (lst == NULL || value == NULL || length == 0)
         return;
 
-    command_list_entry* entry = malloc(sizeof(command_list_entry));
+    command_list_entry* entry = kmalloc(sizeof(command_list_entry));
     assert(entry != NULL, __FILE__, __LINE__);
     if (entry == NULL)
         return;
 
     memset(entry, 0, sizeof(command_list_entry));
     entry->length = length;
-    entry->command = malloc(length+1);
+    entry->command = kmalloc(length+1);
     memset(entry->command, 0, length+1);
     memcpy(entry->command, value, length);
 
@@ -118,12 +118,12 @@ struct fwrfs* fs;
 
 int shell_main(int argc, char** argv){
     running = true;
-    char* command = malloc(BUFFER_SIZE);
+    char* command = kmalloc(BUFFER_SIZE);
     size_t commandBufferSize = BUFFER_SIZE;
     size_t commandSize = 0;
     size_t cursor = 0;
 
-    fs = (struct fwrfs*)malloc(sizeof(struct fwrfs));
+    fs = (struct fwrfs*)kmalloc(sizeof(struct fwrfs));
     fs->nfiles = 0; // RAM Filesystem, so no need to permananly store files.
     fs->nfolders = 0;
 
@@ -203,7 +203,7 @@ int shell_main(int argc, char** argv){
             if (commandSize+1 >= commandBufferSize)
             {
                 commandBufferSize += BUFFER_SIZE;
-                command = realloc(command, commandBufferSize);
+                command = krealloc(command, commandBufferSize);
             }
 
             command[cursor] = (char)c;
@@ -213,7 +213,7 @@ int shell_main(int argc, char** argv){
 
         putc(c);
     }
-    free(command);
+    kfree(command);
 
     dispose_command_list(&commandHistory);
 

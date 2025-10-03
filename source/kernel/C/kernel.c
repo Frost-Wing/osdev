@@ -126,6 +126,8 @@ void mouseButtonHandler(uint8_t button, uint8_t action)
 }
 
 struct memory_context memory;
+struct gdt_entry gdt[5];
+struct gdt_ptr gdt_desc;
 
 void main(void) {
     if (framebuffer_request.response == null) {
@@ -157,7 +159,7 @@ void main(void) {
 
     mm_extend(2 MiB);
 
-    RTL8139 = (struct rtl8139*)malloc(sizeof(struct rtl8139));
+    RTL8139 = (struct rtl8139*)kmalloc(sizeof(struct rtl8139));
 
     memory.total = 0;
     memory.usable = 0;
@@ -319,6 +321,20 @@ void main(void) {
 
     enable_fpu();
 
+    // GDT INIT
+    info("GDT Initalizing...", __FILE__);
+    memset(&gdt, 0, sizeof(gdt));
+    set_gdt_entry(0, 0, 0, 0, 0);               // NULL
+    set_gdt_entry(1, 0, 0xFFFFF, 0x9A, 0xA0);   // Kernel code
+    set_gdt_entry(2, 0, 0xFFFFF, 0x92, 0xA0);   // Kernel data
+    set_gdt_entry(3, 0, 0xFFFFF, 0xFA, 0xA0);   // User code
+    set_gdt_entry(4, 0, 0xFFFFF, 0xF2, 0xA0);   // User data
+    gdt_desc.limit = sizeof(gdt) - 1;
+    gdt_desc.base  = (uint64_t)&gdt;
+    load_gdt(&gdt_desc);
+    done("GDT Successfully Initialized!", __FILE__);
+    // GDT END
+
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
 
     // glCreateContext();
@@ -352,11 +368,11 @@ void main(void) {
 
     // extract_tarball(module_request.response->modules[0]->address);
 
-    // allocate_memory_at_address((int64)malloc(0x32), 0x32);
+    // allocate_memory_at_address((int64)kmalloc(0x32), 0x32);
 
     // font_address = module_request.response->modules[1]->address;
 
-    // kernel_data* data = (kernel_data*) malloc(sizeof(kernel_data));
+    // kernel_data* data = (kernel_data*) kmalloc(sizeof(kernel_data));
     // data->fb_addr = framebuffer->address;
     // data->width = framebuffer->width;
     // data->height = framebuffer->height;
@@ -364,15 +380,15 @@ void main(void) {
     // data->print = print;
     // execute_fwde(module_request.response->modules[2]->address, data);
 
-    // free(data);
+    // kfree(data);
 
     // print("\x1b[2J"); // Clears screen
     // print("\x1b[H");  // Resets Cursor to 0, 0
 
-    // int* test1 = malloc(sizeof(int));
-    // int* test2 = malloc(sizeof(int));
-    // int* test3 = malloc(sizeof(int));
-    // int* test4 = malloc(sizeof(int));
+    // int* test1 = kmalloc(sizeof(int));
+    // int* test2 = kmalloc(sizeof(int));
+    // int* test3 = kmalloc(sizeof(int));
+    // int* test4 = kmalloc(sizeof(int));
 
     wm_addr = module_request.response->modules[0]->address;
 
@@ -450,6 +466,16 @@ void putc(char c){
     }
 
     __putc(c);
+}
+
+void set_gdt_entry(int num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
+    gdt[num].base_low    = base & 0xFFFF;
+    gdt[num].base_middle = (base >> 16) & 0xFF;
+    gdt[num].base_high   = (base >> 24) & 0xFF;
+    gdt[num].limit_low   = limit & 0xFFFF;
+    gdt[num].granularity = (limit >> 16) & 0x0F;
+    gdt[num].granularity |= gran & 0xF0;
+    gdt[num].access      = access;
 }
 
 /**

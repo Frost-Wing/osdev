@@ -197,7 +197,7 @@ string trim(cstring str) {
     }
 
     size_t len = strlen_(str);
-    string trimmedStr = (string)malloc(len + 1); // +1 for null-terminator
+    string trimmedStr = (string)kmalloc(len + 1); // +1 for null-terminator
 
     if (trimmedStr == NULL) {
         return NULL; // Memory allocation failed
@@ -326,7 +326,7 @@ bool starts_with(const char *str, const char *prefix) {
     }
 
     size_t len = strlen_(str) + 1; // Include space for null terminator
-    char* dup = (char*)malloc(len);
+    char* dup = (char*)kmalloc(len);
     if (dup == NULL) {
         return NULL;
     }
@@ -365,7 +365,7 @@ char* leading_trailing_trim(const char *str) {
     }
 
     // Allocate memory for the trimmed string
-    char* trimmed = (char*)malloc(end - start + 2); 
+    char* trimmed = (char*)kmalloc(end - start + 2); 
     if (trimmed == NULL) {
         return NULL;
     }

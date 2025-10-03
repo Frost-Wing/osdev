@@ -31,3 +31,15 @@ int64 hash_string(string data){
     }
     return hash;
 }
+
+int64 baranium_hash(const char* name)
+{
+    int64 identifier = 9780;
+    size_t length = strlen_(name);
+    for (size_t i = 0; i < length; i++)
+    {
+        char c = name[i];
+        identifier = ((identifier << 5) + identifier) + c;
+    }
+    return (int64)identifier;
+}
