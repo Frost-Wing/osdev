@@ -1,6 +1,6 @@
 /**
  * @file acpi.c
- * @author Mintsuki (https://github.com/mintsuki)
+ * @author Pradosh & Mintsuki (https://github.com/mintsuki)
  * @brief The full ACPI Source
  * @version 0.1
  * @date 2023-10-29
@@ -39,11 +39,23 @@ struct rsdt {
     symbol ptrs_start;
 } __attribute__((packed));
 
-struct fadt{
+struct fadt {
     char signature[4];
     uint32_t length;
-    // other fields are not necessary now
-};
+    uint8_t revision;
+    uint8_t checksum;
+    char oem_id[6];
+    char oem_table_id[8];
+    uint32_t oem_revision;
+    uint32_t creator_id;
+    uint32_t creator_revision;
+
+    // ...
+    uint16_t reset_register_io_port; // 0x64 in ACPI spec, but can vary
+    uint8_t reset_value;             // value to write to reset
+    // ...
+} __attribute__((packed));
+
 
 static bool use_xsdt;
 static struct rsdt *rsdt;
@@ -103,27 +115,39 @@ void *acpi_find_sdt(const char *signature, size_t index)
     return NULL;
 }
 
-void acpi_reboot(){
+void acpi_reboot() {
     clear_interrupts();
 
-    struct fadt* fadt_ptr = null;
-    fadt_ptr = (struct fadt*)acpi_find_sdt("FACP", 0);
-
-    // Check if FADT is found
-    if (fadt_ptr == NULL) {
-        meltdown_screen("FADT not present but tried to call ACPI reboot. Not possible! Hard reseting in 5 seconds.", __FILE__, __LINE__, 0xdeadbeef);
+    struct fadt* fadt_ptr = (struct fadt*)acpi_find_sdt("FACP", 0);
+    if (!fadt_ptr) {
+        meltdown_screen("FADT not found! Falling back to hard reset.", __FILE__, __LINE__, 0xdeadbeef);
         sleep(5);
         hard_reset();
     }
 
-    // 3. Write the reset value to the reset register
-    int16* reset_register = (int16*)((int_pointer)fadt_ptr + 0x30);
-    *reset_register = 0x6;
+    // ACPI reset uses the reset register GAS
+    struct acpi_gas* reg = (struct acpi_gas*)((uintptr_t)fadt_ptr + 0x64); // offset for reset reg in FADT
+    if (!reg->address) {
+        meltdown_screen("ACPI Reset register not present! Hard reset in 5 sec.", __FILE__, __LINE__, 0xdeadbeef);
+        sleep(5);
+        hard_reset();
+    }
 
-    meltdown_screen("ACPI Reboot failed! Hard reset will occur in 5 seconds.", __FILE__, __LINE__, 0xfaded);
+    // Only IO space is widely supported
+    if (reg->address_space == 1) { // IO port
+        outb((uint16_t)reg->address, fadt_ptr->reset_value);
+    } else {
+        meltdown_screen("ACPI Reset register not IO space! Hard reset in 5 sec.", __FILE__, __LINE__, 0xdeadbeef);
+        sleep(5);
+        hard_reset();
+    }
+
+    // If that fails
+    meltdown_screen("ACPI Reset failed! Falling back to hard reset.", __FILE__, __LINE__, 0xfaded);
     sleep(5);
     hard_reset();
 }
+
 
 void hard_reset()
 {
