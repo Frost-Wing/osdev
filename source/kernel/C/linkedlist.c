@@ -15,7 +15,7 @@ struct list_node* list_create_node(void* data, struct list_node* prev, struct li
     if (data == NULL)
         return NULL;
 
-    struct list_node *node = (struct list_node*)malloc(sizeof(struct list_node));
+    struct list_node *node = (struct list_node*)kmalloc(sizeof(struct list_node));
 
     node->data = data;
     node->prev = prev;
@@ -34,7 +34,7 @@ void list_delete_node(struct list_node* node)
     if (node == NULL)
         return;
 
-    free(node);
+    kfree(node);
 }
 
 /**

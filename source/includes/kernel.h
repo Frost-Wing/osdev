@@ -42,6 +42,7 @@
 #include <image/targa.h>
 #include <executables/fwde.h>
 #include <fdlfcn.h>
+#include <gdt.h>
 
 /**
  * @brief The memory address pointer where the kernel ends.

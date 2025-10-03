@@ -52,7 +52,7 @@ int create_file(struct fwrfs* fs, const char* filename, const char* data) {
     }
 
     strcpy(fs->files[fs->nfiles].name, filename);
-    fs->files[fs->nfiles].data = (char*)malloc(strlen_(data) + 1);
+    fs->files[fs->nfiles].data = (char*)kmalloc(strlen_(data) + 1);
     strcpy(fs->files[fs->nfiles].data, data);
     fs->nfiles++;
 
@@ -85,7 +85,7 @@ int write_file(struct fwrfs* fs, const char* filename, const char* data) {
 int delete_file(struct fwrfs* fs, const char* filename) {
     for (int i = 0; i < fs->nfiles; i++) {
         if (strcmp(fs->files[i].name, filename) == 0) {
-            free(fs->files[i].data); 
+            kfree(fs->files[i].data); 
             // Shift remaining files
             for (int j = i; j < fs->nfiles - 1; j++) {
                 fs->files[j] = fs->files[j + 1];

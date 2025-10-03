@@ -8,32 +8,43 @@
  * @copyright Copyright (c) 2025
  * 
  */
-#define HEAP_H
 #include <heap.h>
 #include <stddef.h>
 #include <graphics.h>
 #include <memory2.h>
 
-uint32_t last_alloc = 0;
-uint32_t heap_end = 0;
-uint32_t heap_begin = 0;
-uint32_t pheap_begin = 0;
-uint32_t pheap_end = 0;
+uint64_t last_alloc = 0;
+uint64_t heap_end = 0;
+uint64_t heap_begin = 0;
+uint64_t pheap_begin = 0;
+uint64_t pheap_end = 0;
 uint8_t *pheap_desc = 0;
-uint32_t memory_used = 0;
+uint64_t memory_used = 0;
 
-void mm_init(uint32_t kernel_end)
+void mm_init(void* kernel_end)
 {
     info("Initializing heap.", __FILE__);
-	last_alloc = kernel_end + 0x1000;
-	heap_begin = last_alloc;
-	pheap_end = 0x400000;
-	pheap_begin = pheap_end - (MAX_PAGE_ALIGNED_ALLOCS * 4096);
-	heap_end = pheap_begin;
-	heap_begin = heap_end - heap_begin;
-	pheap_desc = (uint8_t *)malloc(MAX_PAGE_ALIGNED_ALLOCS);
+
+    // Convert kernel_end pointer to integer address
+    uint64_t kernel_end_addr = (uint64_t)kernel_end;
+
+    // Align last_alloc to next 4 KB page
+    last_alloc = kernel_end_addr + 0x1000;
+    heap_begin = last_alloc;
+
+    // Setup page heap (for page-aligned allocations)
+    pheap_end = 0x400000ULL; // 4 MB mark
+    pheap_begin = pheap_end - (MAX_PAGE_ALIGNED_ALLOCS * 4096ULL);
+
+    // heap_end is just before page heap
+    heap_end = pheap_begin;
+
+    // Allocate page descriptor array
+    pheap_desc = (uint8_t *)kmalloc(MAX_PAGE_ALIGNED_ALLOCS);
+
     done("Heap initialized.", __FILE__);
 }
+
 
 void mm_extend(uint32_t additional_size)
 {
@@ -68,10 +79,10 @@ void mm_print_out()
     printf("%sHeap size   :%s %d bytes", yellow_color, reset_color, heap_end - heap_begin);
 }
 
-void free(void *mem)
+void kfree(void *mem)
 {
 	if(mem == 0){
-		warn("free: Cannot free null pointer.", __FILE__);
+		warn("kfree: Cannot free null pointer.", __FILE__);
 		return;
 	}
 
@@ -92,7 +103,7 @@ void pfree(void *mem)
 	return;
 }
 
-char* pmalloc(size_t size)
+void* pmalloc(size_t size)
 {
 	if(size <= 0){
 		warn("pmalloc: Cannot allocate 0 bytes.", __FILE__);
@@ -104,16 +115,16 @@ char* pmalloc(size_t size)
 		if(pheap_desc[i]) continue;
 		pheap_desc[i] = 1;
 		// printf("PAllocated from 0x%x to 0x%x\n", pheap_begin + i*4096, pheap_begin + (i+1)*4096);
-		return (char *)(pheap_begin + i*4096);
+		return (void *)(pheap_begin + i*4096);
 	}
 	warn("pmalloc: Failed to allocate memory! Out of memory.", __FILE__);
 	return 0;
 }
 
-char* malloc(size_t size)
+void* kmalloc(size_t size)
 {
 	if(size <= 0){
-		warn("malloc: Cannot allocate 0 bytes.", __FILE__);
+		warn("kmalloc: Cannot allocate 0 bytes.", __FILE__);
 		return 0;
 	}
 
@@ -146,7 +157,7 @@ char* malloc(size_t size)
 			//mprint("RE:Allocated %d bytes from 0x%x to 0x%x\n", size, mem + sizeof(alloc_t), mem + sizeof(alloc_t) + size);
 			memset(mem + sizeof(alloc_t), 0, size);
 			memory_used += size + sizeof(alloc_t);
-			return (char *)(mem + sizeof(alloc_t));
+			return (void *)(mem + sizeof(alloc_t));
 		}
 		/* If it isn't allocated, but the size is not good, then
 		 * add its size and the sizeof alloc_t to the pointer and
@@ -173,8 +184,8 @@ char* malloc(size_t size)
 
 	// printf("Allocated %d bytes from  to 0x%x", size, (uint32_t)alloc + sizeof(alloc_t), last_alloc);
 	memory_used += size + 4 + sizeof(alloc_t);
-	memset((char *)((uint32_t)alloc + sizeof(alloc_t)), 0, size);
-	return (char *)((uint32_t)alloc + sizeof(alloc_t));
+	memset((void *)((uint32_t)alloc + sizeof(alloc_t)), 0, size);
+	return (void *)((uint32_t)alloc + sizeof(alloc_t));
 /*
 	char* ret = (char*)last_alloc;
 	last_alloc += size;
@@ -186,13 +197,13 @@ char* malloc(size_t size)
 	return ret;*/
 }
 
-char* realloc(void *ptr, size_t size) {
+void* krealloc(void *ptr, size_t size) {
     if (!ptr) {
-        return malloc(size); // If ptr is NULL, treat as malloc
+        return kmalloc(size); // If ptr is NULL, treat as malloc
     }
 
     if (size == 0) {
-        free(ptr);         // If size is 0, treat as free
+        kfree(ptr);         // If size is 0, treat as free
         return NULL;
     }
 
@@ -203,7 +214,7 @@ char* realloc(void *ptr, size_t size) {
         return ptr; // If size is the same, return the original pointer
     }
 
-    char *new_ptr = malloc(size); // Allocate new memory
+    void *new_ptr = kmalloc(size); // Allocate new memory
 
     if (!new_ptr) {
         return NULL; // Allocation failed
@@ -212,7 +223,7 @@ char* realloc(void *ptr, size_t size) {
     size_t copy_size = (size < old_size) ? size : old_size; // Copy the smaller of the two sizes
     memcpy(new_ptr, ptr, copy_size); // Copy the data
 
-    free(ptr); // Free the old memory block
+    kfree(ptr); // Free the old memory block
 
     return new_ptr;
 }
