@@ -1,3 +1,13 @@
+/**
+ * @file tss.c
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief The TSS Header file.
+ * @version 0.1
+ * @date 2025-10-03
+ * 
+ * @copyright Copyright (c) Pradosh 2025
+ * 
+ */
 #include <tss.h>
 #include <gdt.h>
 #include <memory2.h>

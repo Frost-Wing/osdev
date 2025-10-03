@@ -1,11 +1,11 @@
 /**
  * @file fwfetch.c
- * @author your name (you@domain.com)
+ * @author Pradosh (pradoshgame@gmail.com)
  * @brief A neofetch clone for fwfetch
  * @version 0.1
  * @date 2025-01-15
  * 
- * @copyright Copyright (c) 2025
+ * @copyright Copyright (c) Pradosh 2025
  * 
  */
 

@@ -1,11 +1,11 @@
 /**
  * @file userland.h
- * @author your name (you@domain.com)
- * @brief 
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief The Header file for userland/userspace.
  * @version 0.1
  * @date 2025-10-03
  * 
- * @copyright Copyright (c) 2025
+ * @copyright Copyright (c) Pradosh 2025
  * 
  */
 #ifndef USERLAND_H

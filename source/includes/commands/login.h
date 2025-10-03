@@ -1,11 +1,11 @@
 /**
  * @file login.h
- * @author your name (you@domain.com)
- * @brief 
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief Handle the logging-in functions.
  * @version 0.1
  * @date 2025-01-16
  * 
- * @copyright Copyright (c) 2025
+ * @copyright Copyright (c) Pradosh 2025
  * 
  */
 

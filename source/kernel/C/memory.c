@@ -11,11 +11,13 @@
 #include <memory2.h>
 #include <graphics.h>
 
-// GCC and Clang reserve the right to generate calls to the following
-// 4 functions even if they are not directly called.
-// Implement them as the C specification mandates.
-// DO NOT remove or rename these functions, or stuff will eventually break!
-// They CAN be moved to a different .c file.
+/*
+ * GCC and Clang reserve the right to generate calls to the following
+ * 4 functions even if they are not directly called.
+ * Implement them as the C specification mandates.
+ * DO NOT remove or rename these functions, or stuff will eventually break!
+ * They CAN be moved to a different .c file.
+ */
 
 void *memcpy(void *dest, const void *src, size_t n) {
     uint8_t *pdest = (uint8_t *)dest;

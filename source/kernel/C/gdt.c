@@ -1,3 +1,13 @@
+/**
+ * @file gdt.c
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief The Global Descriptor Table for the OS.
+ * @version 0.1
+ * @date 2025-10-03
+ * 
+ * @copyright Copyright (c) Pradosh 2025
+ * 
+ */
 #include <gdt.h>
 
 struct gdt_entry gdt[7];
