@@ -83,12 +83,12 @@ void initIdt()
 
     for (uint8_t i = 0; i < 32; i++) 
     {
-        setIdtEntry(&idt_entries[i], (uint64_t)isr_stub_table[i], 0x28, 0, 0x8E);
+        setIdtEntry(&idt_entries[i], (uint64_t)isr_stub_table[i], 0x08, 0, 0x8E);
     }
 
     for (uint8_t i = 32; i < 255; i++) 
     {
-        setIdtEntry(&idt_entries[i], (uint64_t)irq_stub_table[i-32], 0x28, 0, 0x8E);
+        setIdtEntry(&idt_entries[i], (uint64_t)irq_stub_table[i-32], 0x08, 0, 0x8E);
     }
 
     remap_pic();
