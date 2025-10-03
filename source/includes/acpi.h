@@ -1,6 +1,6 @@
 /**
  * @file acpi.h
- * @author Mintsuki (https://github.com/mintsuki)
+ * @author Pradosh & Mintsuki (https://github.com/mintsuki)
  * @brief The ACPI Header
  * @version 0.1
  * @date 2023-10-29
@@ -29,6 +29,15 @@ struct sdt {
     uint32_t creator_id;
     uint32_t creator_rev;
 } __attribute__((packed));
+
+struct acpi_gas {
+    uint8_t address_space;
+    uint8_t bit_width;
+    uint8_t bit_offset;
+    uint8_t access_size;
+    uint64_t address;
+};
+
 
 /**
  * @brief Initializes and iterates through all ACPI tables
