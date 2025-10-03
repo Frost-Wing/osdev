@@ -8,35 +8,44 @@
  * @copyright Copyright (c) 2025
  * 
  */
- #include <userland.h>
+#include <userland.h>
+
+uint8_t user_stack[USER_STACK_SIZE] __attribute__((aligned(16)));
 
 void userland_main() {
-    // This is now "userland"
-    printf(">>> Entered userland!\n");
+    asm volatile (
+        "movq %0, %%rax\n\t"
+        "int $0x80\n\t"
+        :
+        : "g" ((int64)1)
+        : "rax"
+    );
 
-    // Call a syscall
-    invoke_syscall(1);
-
-    // Halt CPU after userland
-    hcf2();
+    for(;;) asm volatile("hlt");
 }
 
 void enter_userland() {
-    uint64_t user_stack_top = (uint64_t)&user_stack[USER_STACK_SIZE];
+    setup_userland_memory();
+    done("Setuped memory for userland", __FILE__);
+    
+    uint64_t user_stack_top = 0x70000000 + USER_STACK_SIZE; // mapped stack top
+    uint64_t user_code = 0x40000000; // mapped code entry
+
+    done("Expect to jump to userland_main()", __FILE__);
 
     asm volatile(
-        "cli\n\t"                       // disable interrupts
-        "movq %0, %%rsp\n\t"            // set stack pointer to user stack
-        "pushq $0x23\n\t"               // user data segment selector (example)
-        "pushq %0\n\t"                  // initial RSP for iretq
-        "pushfq\n\t"                    // push RFLAGS
-        "pushq $0x1B\n\t"               // user code segment selector
-        "pushq $1f\n\t"                 // RIP
-        "iretq\n\t"                      // switch to userland
-        "1:\n\t"
-        "call userland_main\n\t"        // jump to C userland function
+        "cli\n\t"
+        "movq %0, %%rsp\n\t"
+        "pushq $0x23\n\t"        // user data segment
+        "pushq %0\n\t"           // user RSP
+        "pushq $0x202\n\t"       // RFLAGS, IF=1
+        "pushq $0x1B\n\t"        // user code segment
+        "pushq %1\n\t"           // user RIP
+        "iretq\n\t"
         :
-        : "r"(user_stack_top)
+        : "r"(user_stack_top), "r"(user_code)
         : "memory"
     );
+
+    warn("This should not execute something went wrong", __FILE__);
 }

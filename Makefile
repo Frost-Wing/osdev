@@ -62,7 +62,7 @@ QEMU_COMMON = \
 	-audiodev pa,id=speaker \
 	-device rtl8139,netdev=eth0 \
 	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
-	-hda FrostWing.iso \
+	-hda FrostWing.img \
 	-drive if=none,file=disk.txt,id=disk \
 	-device ahci,id=ahci \
 	-device ide-hd,drive=disk,bus=ahci.0 \

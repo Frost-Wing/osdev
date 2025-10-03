@@ -8,16 +8,9 @@
  * @copyright Copyright (c) 2025
  * 
  */
-
 #ifndef GDT_H
 #define GDT_H
-
-#include <stdint.h>
-
-#define KERNEL_CS 0x08
-#define KERNEL_DS 0x10
-#define USER_CS   0x18
-#define USER_DS   0x20
+#include <basics.h>
 
 struct gdt_entry {
     uint16_t limit_low;
@@ -33,6 +26,8 @@ struct gdt_ptr {
     uint64_t base;
 } __attribute__((packed));
 
-extern void load_gdt(struct gdt_ptr* gdt_descriptor);
+extern struct gdt_entry gdt[7];
+extern struct gdt_ptr gdtp;
 
+void setup_gdt();
 #endif

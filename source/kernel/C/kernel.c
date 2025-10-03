@@ -126,8 +126,6 @@ void mouseButtonHandler(uint8_t button, uint8_t action)
 }
 
 struct memory_context memory;
-struct gdt_entry gdt[5];
-struct gdt_ptr gdt_desc;
 
 void main(void) {
     if (framebuffer_request.response == null) {
@@ -158,6 +156,11 @@ void main(void) {
     mm_init(kend);
 
     mm_extend(2 MiB);
+
+    setup_gdt();
+
+    tss_init();
+    tss_load();
 
     RTL8139 = (struct rtl8139*)kmalloc(sizeof(struct rtl8139));
 
@@ -321,19 +324,7 @@ void main(void) {
 
     enable_fpu();
 
-    // GDT INIT
-    info("GDT Initalizing...", __FILE__);
-    memset(&gdt, 0, sizeof(gdt));
-    set_gdt_entry(0, 0, 0, 0, 0);               // NULL
-    set_gdt_entry(1, 0, 0xFFFFF, 0x9A, 0xA0);   // Kernel code
-    set_gdt_entry(2, 0, 0xFFFFF, 0x92, 0xA0);   // Kernel data
-    set_gdt_entry(3, 0, 0xFFFFF, 0xFA, 0xA0);   // User code
-    set_gdt_entry(4, 0, 0xFFFFF, 0xF2, 0xA0);   // User data
-    gdt_desc.limit = sizeof(gdt) - 1;
-    gdt_desc.base  = (uint64_t)&gdt;
-    load_gdt(&gdt_desc);
-    done("GDT Successfully Initialized!", __FILE__);
-    // GDT END
+    enter_userland();
 
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
 
@@ -466,16 +457,6 @@ void putc(char c){
     }
 
     __putc(c);
-}
-
-void set_gdt_entry(int num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
-    gdt[num].base_low    = base & 0xFFFF;
-    gdt[num].base_middle = (base >> 16) & 0xFF;
-    gdt[num].base_high   = (base >> 24) & 0xFF;
-    gdt[num].limit_low   = limit & 0xFFFF;
-    gdt[num].granularity = (limit >> 16) & 0x0F;
-    gdt[num].granularity |= gran & 0xF0;
-    gdt[num].access      = access;
 }
 
 /**
