@@ -66,6 +66,7 @@ QEMU_COMMON = \
 	-drive if=none,file=disk.txt,id=disk \
 	-device ahci,id=ahci \
 	-device ide-hd,drive=disk,bus=ahci.0 \
+	-rtc base=localtime,clock=host \
 	-m 512
 
 run-x86-hdd:
@@ -74,6 +75,11 @@ run-x86-hdd:
 run-x86-uefi:
 	@qemu-system-x86_64 \
 	-bios ./firmware/uefi/tianocore-64.uefi \
+	$(QEMU_COMMON)
+
+run-x86-vnc:
+	@qemu-system-x86_64 \
+	-vnc :0 \
 	$(QEMU_COMMON)
 
 # -----------------------------
