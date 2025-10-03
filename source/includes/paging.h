@@ -53,3 +53,17 @@ void* allocate_page();
  * @param addr Address of the allocated page.
  */
 void free_page(void* addr);
+
+/**
+ * @brief Function to map userland pages
+ * 
+ * @param virt Virtual memory address
+ * @param phys Physical memory address
+ */
+void map_user_page(uint64_t virt, uint64_t phys);
+
+/**
+ * @brief Set the up physical memory for userland
+ * 
+ */
+void setup_userland_memory();

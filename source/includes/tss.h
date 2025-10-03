@@ -1,11 +1,11 @@
 /**
  * @file tss.h
- * @author your name (you@domain.com)
- * @brief 
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief Header file for TSS.
  * @version 0.1
  * @date 2025-10-03
  * 
- * @copyright Copyright (c) 2025
+ * @copyright Copyright (c) Pradosh 2025
  * 
  */
 #ifndef TSS_H
@@ -14,7 +14,10 @@
 #include <basics.h>   // uint64_t, uint8_t, etc.
 #include <gdt.h>      // gdt_set_entry
 
-// x86_64 TSS structure (16-byte aligned)
+/**
+ * @brief x86_64 TSS Structure
+ * 
+ */
 struct tss_entry {
     uint32_t reserved0;
     uint64_t rsp0;
@@ -34,9 +37,22 @@ struct tss_entry {
 } __attribute__((packed));
 
 extern struct tss_entry tss;
-extern uint8_t kernel_stack[0x4000]; // 16 KB kernel stack
+/**
+ * @brief 16 KB kernel stack
+ * 
+ */
+extern uint8_t kernel_stack[0x4000];
 
+/**
+ * @brief Initialize TSS.
+ * 
+ */
 void tss_init();
+
+/**
+ * @brief Load the TSS.
+ * 
+ */
 void tss_load();
 
 #endif

@@ -101,5 +101,6 @@ fonts:
 # -----------------------------
 # Cleanup
 # -----------------------------
-top-clean:
+clean:
 	@rm -rf ./disk_root $(IMG_FILE) $(IMG_FILE).tar.gz serial.log
+	@cd source && make deep-clean && cd ..

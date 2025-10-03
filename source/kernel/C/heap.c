@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2025-02-01
  * 
- * @copyright Copyright (c) 2025
+ * @copyright Copyright (c) Pradosh 2025
  * 
  */
 #include <heap.h>

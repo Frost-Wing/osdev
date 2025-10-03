@@ -1,7 +1,7 @@
 /**
  * @file tarball.h
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief 
+ * @brief The header for tarball.
  * @version 0.1
  * @date 2023-12-30
  * 
@@ -10,8 +10,17 @@
  */
 #include <basics.h>
 
+
+/**
+ * @brief Size of a tar block in bytes.
+ */
 #define block_size 512
 
+/**
+ * @brief Structure representing a TAR archive header.
+ *
+ * This structure corresponds to the standard TAR header format.
+ */
 struct tarball_header {
     char name[100];
     char mode[8];
@@ -31,4 +40,13 @@ struct tarball_header {
     char prefix[155];
 };
 
+/**
+ * @brief Extracts a TAR archive from a memory location.
+ *
+ * This function reads the TAR archive located at the memory address
+ * `tarball_addr` and reads all contained files and directories
+ * to the current working directory.
+ *
+ * @param tarball_addr Pointer to the memory location where the TAR archive is stored.
+ */
 void extract_tarball(int64* tarball_addr);
