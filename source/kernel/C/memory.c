@@ -84,6 +84,12 @@ void registers_dump(){
                        rbp_value, rsp_value, r8_value, r9_value, r10_value, r11_value, 
                        r12_value, r13_value, r14_value, r15_value;
 
+    unsigned long long rip_value;
+    asm volatile(
+        "leaq (%%rip), %0"
+        : "=r"(rip_value)
+    );
+
     asm("movq %%rax, %0" : "=r" (rax_value));
     asm("movq %%rbx, %0" : "=r" (rbx_value));
     asm("movq %%rcx, %0" : "=r" (rcx_value));
@@ -102,6 +108,7 @@ void registers_dump(){
     asm("movq %%r15, %0" : "=r" (r15_value));
 
     print("=[ Register Dump ]=\n");
+    printf("        RIP = 0x%x", rip_value);
     printf("        RAX = 0x%x", rax_value);
     printf("        RBX = 0x%x", rbx_value);
     printf("        RCX = 0x%x", rcx_value);
