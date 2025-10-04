@@ -320,11 +320,11 @@ void main(void) {
 
     mm_print_out();
 
-    create_user("root", "prad");
+    create_user_str("root", "prad");
 
     enable_fpu();
 
-    enter_userland();
+    // enter_userland();
 
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
 

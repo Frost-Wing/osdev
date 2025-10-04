@@ -11,30 +11,36 @@
 
 #include <commands/login.h>
 
-char usernames_total[MAX_USERS_ALLOWED][MAX_USERNAME_LENGTH];
-char passwords_total[MAX_USERS_ALLOWED][MAX_PASSWORD_LENGTH];
+int64 usernames_total[MAX_USERS_ALLOWED];
+int64 passwords_total[MAX_USERS_ALLOWED];
 int users_index = 0;
 
-void create_user(char* name, char* password){
+void create_user(int64 name_hash, int64 password_hash){
     if(users_index >= MAX_USERS_ALLOWED){
         error("Too many user accounts!", __FILE__);
         return;
     }
-    
-    
-    for(int i=0; i<MAX_USERS_ALLOWED; i++){
-        char* current_username = usernames_total[i];
 
-        if(strcmp(current_username, name) == 0){
+    for(int i=0; i<users_index; i++){   // only check existing users
+        int64 current_username = usernames_total[i];
+        if(current_username == name_hash){
             error("Already have an user with same name!", __FILE__);
             return;
         }
     }
 
-    strcpy(usernames_total[users_index], name);
-    strcpy(passwords_total[users_index], password);
+    usernames_total[users_index] = name_hash;
+    passwords_total[users_index] = password_hash;
     users_index++;
-    printf("Created a user named \'%s\'", name);
+    printf("Created a user. id → 0x%X", (unsigned long long)name_hash);
+}
+
+
+void create_user_str(cstring name, cstring password){
+    int64 name_hash = baranium_hash(name);
+    int64 password_hash = baranium_hash(password);
+
+    create_user(name_hash, password_hash);
 }
 
 char* login_request(){
@@ -93,13 +99,16 @@ char* login_request(){
     password[i] = '\0';
 
     __putc('\n');
+
+    // Start hashing
+    int64 username_hash = baranium_hash(username);
+    int64 password_hash = baranium_hash(password);
     
     for(int i=0; i<users_index; i++){
-        char* current_username = usernames_total[i];
-        char* current_password = passwords_total[i];
+        int64 current_username = usernames_total[i];
+        int64 current_password = passwords_total[i];
 
-
-        if(strcmp(current_username, &username[0]) == 0 && strcmp(current_password, password) == 0){
+        if(current_username == username_hash && current_password == password_hash){
             return &username[0];
         }
     }
@@ -111,6 +120,8 @@ char* login_request(){
 int ask_password(const char* username){
     char temp;
     int i;
+
+    int64 username_hash = baranium_hash(username);
 
     static char password[21];
 
@@ -136,12 +147,14 @@ int ask_password(const char* username){
     password[i] = '\0';
     putc('\n');
 
+    int64 password_hash = baranium_hash(password);
+
     for(int i=0; i<users_index; i++){
-        char* current_username = usernames_total[i];
-        char* current_password = passwords_total[i];
+        int64 current_username = usernames_total[i];
+        int64 current_password = passwords_total[i];
 
 
-        if(strcmp(current_username, username) == 0 && strcmp(current_password, password) == 0){
+        if(current_username == username_hash && current_password == password_hash){
             strcpy(password, "");
             return 0;
         }
