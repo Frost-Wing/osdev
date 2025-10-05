@@ -20,8 +20,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <limine.h>
-#include <memory2.h>
-#include <strings2.h>
+#include <memory.h>
+#include <strings.h>
 #include <math/fpu.h>
 #include <sse.h>
 #include <debugger.h>
@@ -47,7 +47,7 @@
  * @brief The memory address pointer where the kernel ends.
  * 
  */
-extern int64* kend;
+extern int8 kend[];
 
 /**
  * @brief An integer value which stores terminal's rows

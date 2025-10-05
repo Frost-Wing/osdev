@@ -148,21 +148,30 @@ void main(void) {
     fb_width = framebuffer->width;
     fb_height = framebuffer->height;
 
-    acpi_init();
     if(virtualized){ // The code inside this will not work on a real machine.
         probe_serial();
     }
+    
+    mm_init((uintptr_t)0x1000000);
+    acpi_init();
 
-    mm_init(kend);
-
-    mm_extend(2 MiB);
+    printf("KERNEL END -> 0x%X", (uintptr_t)kend);
+    
+    // * OS FAILSAFE -> IF MALLOC FAILS.. IT FAILS HERE RATHER THAN MAIN CODE SO THIS SHOULD NOT BE REMOVED.
+    uint8_t* a = (uint8_t*)kmalloc(16);
+    uint8_t* b = (uint8_t*)kmalloc(32);
+    
+    *a = 0x42;
+    b[0] = 0x99;
+    
+    mm_print_out();
 
     setup_gdt();
-
+    
     tss_init();
     tss_load();
-
-    RTL8139 = (struct rtl8139*)kmalloc(sizeof(struct rtl8139));
+    
+    RTL8139 = (struct rtl8139*) kmalloc(sizeof(struct rtl8139));
 
     memory.total = 0;
     memory.usable = 0;
@@ -219,8 +228,9 @@ void main(void) {
         printf("Base: 0x%x, Length: 0x%x, Type: %s", memory_map_request.response->entries[i]->base, length, type);
     }
 
+    
     probe_pci();
-
+    
     print(public_key);
     print("\n");
 
@@ -254,24 +264,12 @@ void main(void) {
         warn("Bad blocks of memory found, it is recommended to replace your RAM.", __FILE__);
     }
 
-    if(((memory.total / 1024)/1024) - 3 <= 75){
-        warn("INSUFFICIENT MEMORY TO PROCEED WITH RE-INITIALIZATION HEAP!", __FILE__);
-    } else{
-        // Re-initializing heap with vast memory.
-        // init_heap(memory.usable / 2);
-    }
-
     printf("Total CPU(s): %d", smp_request.response->cpu_count);
     for(int i=0;i<smp_request.response->cpu_count;i++){
         printf("Processor  ID [%d] : 0x%x", i+1, smp_request.response->cpus[i]->processor_id);
         printf("Local APIC ID [%d] : 0x%x", i+1, smp_request.response->cpus[i]->lapic_id);
-#if defined (__x86_64__)
+
         if (smp_request.response->cpus[i]->lapic_id !=  smp_request.response->bsp_lapic_id) {
-#elif defined (__aarch64__)
-        if (smp_request.response->cpus[i]->mpidr != smp_request.response->bsp_mpidr) {
-#elif defined (__riscv)
-        if (smp_request.response->cpus[i]->hartid != smp_request.response->bsp_hartid) {
-#endif
             uint32_t old_ctr = __atomic_load_n(&ctr, __ATOMIC_SEQ_CST);
 
             __atomic_store_n(&smp_request.response->cpus[i]->goto_address, ap_entry, __ATOMIC_SEQ_CST);
@@ -296,8 +294,6 @@ void main(void) {
 
     frost_compilation_information();
 
-    // initialize_page_bitmap();
-
     initIdt();
     
     init_hashing();
@@ -312,11 +308,11 @@ void main(void) {
     // glDrawRect((uvec2){110, 110}, (uvec2){200, 200}, 0xffdadbad);
     // glDestroyContext(null);
 
-    glCreateContext();
-    glCreateContextCustom(framebuffer->address, framebuffer->width, framebuffer->height);
-    init_ps2_mouse();
-    SetMouseMovementHandler(mouseMovementHandler);
-    SetMouseButtonHandler(mouseButtonHandler);
+    // glCreateContext();
+    // glCreateContextCustom(framebuffer->address, framebuffer->width, framebuffer->height);
+    // init_ps2_mouse();
+    // SetMouseMovementHandler(mouseMovementHandler);
+    // SetMouseButtonHandler(mouseButtonHandler);
 
     mm_print_out();
 

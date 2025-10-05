@@ -137,24 +137,28 @@ void acpi_reboot() {
     if (reg->address_space == 1) { // IO port
         outb((uint16_t)reg->address, fadt_ptr->reset_value);
     } else {
-        meltdown_screen("ACPI Reset register not IO space! Hard reset in 5 sec.", __FILE__, __LINE__, 0xdeadbeef);
-        sleep(5);
+        meltdown_screen("ACPI Reset register not IO space! Hard reset.", __FILE__, __LINE__, 0xdeadbeef);
         hard_reset();
     }
 
     // If that fails
     meltdown_screen("ACPI Reset failed! Falling back to hard reset.", __FILE__, __LINE__, 0xfaded);
-    sleep(5);
     hard_reset();
 }
 
 
-void hard_reset()
-{
-    uint8_t foo = 0x02;
-    while (foo & 0x02) foo = inb(0x64);
+void hard_reset(void) {
+    // Wait until input buffer is clear (bit 1 of 0x64)
+    for (int i = 0; i < 100000; i++) {
+        if (!(inb(0x64) & 0x02)) break;
+    }
+
+    // Request CPU reset via keyboard controller
     outb(0x64, 0xFE);
 
-    meltdown_screen("Hard reset failed! (what kind of shi**y computer is this?)", __FILE__, __LINE__, 0xbadbed);
+    // If we reach here, reset failed
+    meltdown_screen("Hard reset failed! (unsupported hardware?)", __FILE__, __LINE__, 0xBADBED);
+
+    // Halt forever
     hcf2();
 }

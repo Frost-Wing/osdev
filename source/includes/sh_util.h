@@ -9,7 +9,7 @@
  * 
  */
 #include <basics.h>
-#include <memory2.h>
+#include <memory.h>
 #include <graphics.h>
 
 #define BUFFER_SIZE 128

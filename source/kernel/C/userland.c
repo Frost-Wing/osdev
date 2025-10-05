@@ -13,13 +13,7 @@
 uint8_t user_stack[USER_STACK_SIZE] __attribute__((aligned(16)));
 
 void userland_main() {
-    asm volatile (
-        "movq %0, %%rax\n\t"
-        "int $0x80\n\t"
-        :
-        : "g" ((int64)1)
-        : "rax"
-    );
+    info("HELLO FROM USERLAND", __FILE__);
 
     for(;;) asm volatile("hlt");
 }

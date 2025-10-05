@@ -8,7 +8,7 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include <memory2.h>
+#include <memory.h>
 #include <graphics.h>
 
 /*

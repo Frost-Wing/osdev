@@ -1,5 +1,5 @@
 /**
- * @file strings2.h
+ * @file strings.h
  * @author Pradosh (pradoshgame@gmail.com)
  * @brief The header file for strings.c
  * @version 0.1

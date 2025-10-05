@@ -112,12 +112,10 @@ void done(cstring message, cstring file) {
  * @param c char to print
  * @note Internally using Flanterm's putchar function
  */
-void __putc(char c) {
-    char str[1];
-
+ void __putc(char c) {
+    char str[2];
     str[0] = c;
     str[1] = '\0';
-
     print(str);
 }
 
@@ -259,9 +257,9 @@ void printf(cstring format, ...) {
                 break;
             }
         } else {
-            if(*format == "\n") print("\n");
-            else if(*format == "\r") print("\r");
-            else if(*format == "\t") print("\t");
+            if(*format == '\n') print("\n");
+            else if(*format == '\r') print("\r");
+            else if(*format == '\t') print("\t");
             else putc(*format);
         }
         format++;

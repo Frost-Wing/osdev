@@ -10,7 +10,7 @@
  */
 
 #include <basics.h>
-#include <strings2.h>
+#include <strings.h>
 #include <graphics.h>
 
 struct fwrfs_file {

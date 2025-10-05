@@ -9,10 +9,9 @@
  * 
  */
 #include <executables/elf.h>
-#include <memory2.h>
+#include <memory.h>
 #include <stdint.h>
 #include <heap.h>
-#include <elf.h>
 
 void elf_load_program_header(Elf64_Phdr* program_header, void* file_base_addr)
 {

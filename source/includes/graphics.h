@@ -16,7 +16,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <basics.h>
-#include <strings2.h>
+#include <strings.h>
 
 // ANSI color codes for text formatting
 #define reset_color  "\033[37m"

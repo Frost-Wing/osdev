@@ -11,7 +11,7 @@
 #include <debugger.h>
 #include <basics.h>
 #include <stdarg.h>
-#include <strings2.h>
+#include <strings.h>
 
 /**
  * @brief If there was possibility for the change in port, we can easily change the E9 Port.

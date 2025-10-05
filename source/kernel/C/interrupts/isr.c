@@ -11,7 +11,7 @@
 
 #include <isr.h>
 #include <keyboard.h>
-#include <memory2.h>
+#include <memory.h>
 #include <drivers/rtl8139.h>
 
 irq_handler interrupt_handlers[256];

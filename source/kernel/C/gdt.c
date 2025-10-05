@@ -23,6 +23,8 @@ static void gdt_set_entry(int i, uint32_t base, uint32_t limit, uint8_t access, 
 }
 
 void setup_gdt() {
+    info("Setting up GDT...", __FILE__);
+
     /* Null descriptor */
     gdt_set_entry(0, 0, 0, 0, 0);
 
@@ -58,4 +60,6 @@ void setup_gdt() {
         "1:\n\t"
         : : "m"(gdtp) : "rax", "memory"
     );
+
+    done("GDT Successfully initialized!", __FILE__);
 }
