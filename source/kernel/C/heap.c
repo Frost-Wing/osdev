@@ -21,10 +21,10 @@ void mm_init(uintptr_t kernel_end)
     info("Initializing heap.", __FILE__);
 
     heap_begin = ALIGN_UP(kernel_end + 8 KiB, 8);
-    heap_end   = heap_begin + HEAP_SAFE_SIZE;
+    heap_end   = heap_begin + 64 MiB;
     last_alloc = heap_begin;
 
-    memset((void*)heap_begin, 0, HEAP_SAFE_SIZE);
+    memset((void*)heap_begin, 0, 64 MiB);
 
     printf("heap begin -> 0x%X\nheap end -> 0x%X", heap_begin, heap_end);
 
@@ -122,7 +122,7 @@ void* krealloc(void* ptr, size_t size)
 
 void mm_print_out()
 {
-    printf("%sMemory used :%s %u bytes", yellow_color, reset_color, (unsigned long long)memory_used);
-    printf("%sMemory free :%s %u bytes", yellow_color, reset_color, (unsigned long long)(heap_end - last_alloc));
-    printf("%sHeap size   :%s %u bytes", yellow_color, reset_color, (unsigned long long)(heap_end - heap_begin));
+    printf("%sMemory used :%s %u KiB", yellow_color, reset_color, memory_used/(1 KiB));
+    printf("%sMemory free :%s %u KiB", yellow_color, reset_color, (heap_end - last_alloc)/(1 KiB));
+    printf("%sHeap size   :%s %u KiB", yellow_color, reset_color, (heap_end - heap_begin)/(1 KiB));
 }

@@ -312,6 +312,8 @@ void execute(const char* buffer, int argc, char** argv)
         list_contents(fs);
     } else if (strncmp(buffer, "frostedwm", 9) == 0 || strcmp(buffer, "frostedwm") == 0) { 
         start_window_manager();
+    } else if (strncmp(buffer, "userland", 8) == 0 || strcmp(buffer, "userland") == 0) { 
+        enter_userland();
     } else if (strncmp(buffer, "meminfo", 7) == 0 || strcmp(buffer, "meminfo") == 0) { 
         display_memory_formatted(memory);
     } else if (strncmp(buffer, "heapinfo", 7) == 0 || strcmp(buffer, "heapinfo") == 0) { 

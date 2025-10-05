@@ -320,8 +320,6 @@ void main(void) {
 
     enable_fpu();
 
-    // enter_userland();
-
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
 
     // glCreateContext();
@@ -372,32 +370,13 @@ void main(void) {
     // print("\x1b[2J"); // Clears screen
     // print("\x1b[H");  // Resets Cursor to 0, 0
 
-    // int* test1 = kmalloc(sizeof(int));
-    // int* test2 = kmalloc(sizeof(int));
-    // int* test3 = kmalloc(sizeof(int));
-    // int* test4 = kmalloc(sizeof(int));
-
     wm_addr = module_request.response->modules[0]->address;
 
     int failed_attempts = 0;
 
-    // void* binaddress = module_request.response->modules[1]->address;
-    // printf("binary addr: 0x%x", binaddress);
-    // int (*execute_binary)(void) = binaddress;
-    // int status_code = execute_binary();
-    // printf("return code: 0x%x", status_code);
-
-
     extern char* login_request();
 
     while(1){
-        // decode_targa_image(module_request.response->modules[2]->address, (uvec2){0, 0}, framebuffer->width, framebuffer->height);
-
-
-        // // ivec2 lastMousePos = GetLastMousePosition();
-        // ivec2 mousePos = GetMousePosition();
-        // decode_targa_image(module_request.response->modules[3]->address, (uvec2){mousePos.x, mousePos.y}, framebuffer->width, framebuffer->height);
-
         if (failed_attempts >= 5){
             error("You tried 5 diffrent wrong attempts. You've been locked out.", __FILE__);
             hcf();
