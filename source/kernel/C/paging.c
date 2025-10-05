@@ -51,12 +51,34 @@ static inline uint64_t get_kernel_pml4() {
     return cr3;
 }
 
-void map_user_page(uint64_t virt, uint64_t phys) {
+uint64_t virtual_to_physical(uint64_t virt) {
+    uint64_t *pml4 = (uint64_t*)get_kernel_pml4();
+    uint64_t pml4_idx = (virt >> 39) & 0x1FF;
+    uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
+    uint64_t pd_idx   = (virt >> 21) & 0x1FF;
+    uint64_t pt_idx   = (virt >> 12) & 0x1FF;
+    uint64_t offset   = virt & 0xFFF;
+
+    if (!(pml4[pml4_idx] & PAGE_PRESENT)) return 0;
+    uint64_t *pdpt = (uint64_t*)(pml4[pml4_idx] & ~0xFFF);
+
+    if (!(pdpt[pdpt_idx] & PAGE_PRESENT)) return 0;
+    uint64_t *pd = (uint64_t*)(pdpt[pdpt_idx] & ~0xFFF);
+
+    if (!(pd[pd_idx] & PAGE_PRESENT)) return 0;
+    uint64_t *pt = (uint64_t*)(pd[pd_idx] & ~0xFFF);
+
+    if (!(pt[pt_idx] & PAGE_PRESENT)) return 0;
+
+    uint64_t phys = (pt[pt_idx] & ~0xFFF) | offset;
+    return phys;
+}
+
+void map_user_page(uint64_t virt, uint64_t phys, int executable) {
     // Traverse or create PML4 -> PDPT -> PD -> PT
-    uint64_t *pml4 = (uint64_t*)get_kernel_pml4(); // existing kernel PML4
+    uint64_t *pml4 = (uint64_t*)get_kernel_pml4(); // kernel PML4
     uint64_t *pdpt, *pd, *pt;
 
-    // Indexes
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
     uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
     uint64_t pd_idx   = (virt >> 21) & 0x1FF;
@@ -90,22 +112,14 @@ void map_user_page(uint64_t virt, uint64_t phys) {
     }
 
     // Map the physical page
-    pt[pt_idx] = phys | PAGE_PRESENT | PAGE_RW | PAGE_USER;
+    uint64_t flags = PAGE_PRESENT | PAGE_USER;
+    if (!executable) flags |= PAGE_RW; // writable if data/stack
+    else flags &= ~PAGE_RW;            // code = read-only
 
-    // Flush TLB for this page
+    if (!executable) flags |= PAGE_RW;
+
+    pt[pt_idx] = phys | flags;
+
+    // Flush TLB
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
-}
-
-void setup_userland_memory() {
-    // Map multiple pages for stack (16 KB total)
-    for(int i = 0; i < 4; i++) {
-        map_user_page(USER_STACK_VADDR + i*PAGE_SIZE, (uint64_t)allocate_page());
-    }
-
-    // Map 4 KB for code
-    map_user_page(USER_CODE_VADDR, (uint64_t)allocate_page());
-    memcpy((void*)USER_CODE_VADDR, (void*)userland_main, 0x1000);
-
-    // Map 4 KB for rodata / strings (for printf)
-    map_user_page(USER_CODE_VADDR + 0x1000, (uint64_t)allocate_page());
 }

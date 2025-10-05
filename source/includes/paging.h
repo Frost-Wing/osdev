@@ -13,8 +13,8 @@
 
 #define page_size 4096
 
-#define memory_start 0x100000
-#define memory_end   0x200000
+#define memory_start 0x10000000
+#define memory_end   0x20000000
 
 #define amount_of_pages    ((memory_end - memory_start) / page_size)
 
@@ -59,8 +59,9 @@ void free_page(void* addr);
  * 
  * @param virt Virtual memory address
  * @param phys Physical memory address
+ * @param executable 
  */
-void map_user_page(uint64_t virt, uint64_t phys);
+void map_user_page(uint64_t virt, uint64_t phys, int executable);
 
 /**
  * @brief Set the up physical memory for userland

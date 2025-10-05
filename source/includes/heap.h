@@ -13,9 +13,6 @@
 #include <stddef.h>
 #include <basics.h>
 
-#define HEAP_SAFE_BEGIN 0x200000 // 2 MB mark, just after kernel & stack
-#define HEAP_SAFE_SIZE  0x100000 // 1 MB heap for testing
-
 /**
  * @brief Function to initlialize heap.
  * 
