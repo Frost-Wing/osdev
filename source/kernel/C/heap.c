@@ -1,229 +1,128 @@
-/**
- * @file heap.c
- * @author Pradosh (pradoshgame@gmail.com) & levex@linux.com
- * @brief 
- * @version 0.1
- * @date 2025-02-01
- * 
- * @copyright Copyright (c) Pradosh 2025
- * 
- */
-#include <heap.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <memory.h>
 #include <graphics.h>
-#include <memory2.h>
+#include <heap.h>
 
-uint64_t last_alloc = 0;
-uint64_t heap_end = 0;
+typedef struct alloc_t {
+    uint64_t size;
+    uint8_t status; // 0 = free, 1 = allocated
+} __attribute__((packed)) alloc_t;
+
 uint64_t heap_begin = 0;
-uint64_t pheap_begin = 0;
-uint64_t pheap_end = 0;
-uint8_t *pheap_desc = 0;
+uint64_t heap_end   = 0;
+uint64_t last_alloc = 0;
 uint64_t memory_used = 0;
 
-void mm_init(void* kernel_end)
+#define ALIGN_UP(x, a) (((x) + ((a)-1)) & ~((a)-1))
+
+void mm_init(uintptr_t kernel_end)
 {
     info("Initializing heap.", __FILE__);
 
-    // Convert kernel_end pointer to integer address
-    uint64_t kernel_end_addr = (uint64_t)kernel_end;
+    heap_begin = ALIGN_UP(kernel_end + 8 KiB, 8);
+    heap_end   = heap_begin + HEAP_SAFE_SIZE;
+    last_alloc = heap_begin;
 
-    // Align last_alloc to next 4 KB page
-    last_alloc = kernel_end_addr + 0x1000;
-    heap_begin = last_alloc;
+    memset((void*)heap_begin, 0, HEAP_SAFE_SIZE);
 
-    // Setup page heap (for page-aligned allocations)
-    pheap_end = 0x400000ULL; // 4 MB mark
-    pheap_begin = pheap_end - (MAX_PAGE_ALIGNED_ALLOCS * 4096ULL);
-
-    // heap_end is just before page heap
-    heap_end = pheap_begin;
-
-    // Allocate page descriptor array
-    pheap_desc = (uint8_t *)kmalloc(MAX_PAGE_ALIGNED_ALLOCS);
+    printf("heap begin -> 0x%X\nheap end -> 0x%X", heap_begin, heap_end);
 
     done("Heap initialized.", __FILE__);
 }
 
-
-void mm_extend(uint32_t additional_size)
+void* kmalloc(size_t size)
 {
-    if (additional_size <= 0){
-        warn("mm_extend: Invalid size.", __FILE__);
-        return;
+    if (size == 0) {
+        warn("kmalloc: Cannot allocate 0 bytes.", __FILE__);
+        return NULL;
     }
 
-    info("Extending heap.", __FILE__);
-    heap_end += additional_size;
-    printf("Heap extended by %d bytes. New heap end: 0x%x", additional_size, heap_end);
-    done("Heap extended.", __FILE__);
+    size = ALIGN_UP(size, 8);
+
+    uint8_t* mem = (uint8_t*)heap_begin;
+
+    // Search for free block
+    while ((uintptr_t)mem < last_alloc) {
+        alloc_t* a = (alloc_t*)mem;
+
+        if (a->size == 0)
+            break;
+
+        if (!a->status && a->size >= size) {
+            a->status = 1;
+            memory_used += a->size + sizeof(alloc_t);
+            memset(mem + sizeof(alloc_t), 0, size);
+            return mem + sizeof(alloc_t);
+        }
+
+        mem += sizeof(alloc_t) + a->size;
+        mem = (uint8_t*)ALIGN_UP((uintptr_t)mem, 8);
+    }
+
+    // Align new block start
+    last_alloc = ALIGN_UP(last_alloc, 8);
+
+    if (last_alloc + sizeof(alloc_t) + size > heap_end) {
+        meltdown_screen("Heap out of memory!", __FILE__, __LINE__, 0, getCR2(), 0);
+        hcf();
+    }
+
+    alloc_t* new_alloc = (alloc_t*)last_alloc;
+    new_alloc->size = size;
+    new_alloc->status = 1;
+
+    uint8_t* user_ptr = (uint8_t*)new_alloc + sizeof(alloc_t);
+    memset(user_ptr, 0, size);
+
+    last_alloc += sizeof(alloc_t) + size;
+    last_alloc = ALIGN_UP(last_alloc, 8);
+
+    memory_used += size + sizeof(alloc_t);
+
+    return user_ptr;
 }
 
-void mm_constrict(uint32_t removal_size)
+void kfree(void* ptr)
 {
-    if (removal_size <= 0){
-        warn("mm_extend: Invalid size.", __FILE__);
+    if (!ptr) {
+        warn("kfree: Cannot free null pointer.", __FILE__);
         return;
     }
 
-    info("Constricting heap.", __FILE__);
-    heap_end -= removal_size;
-    printf("Heap constricting by %d bytes. New heap end: 0x%x", removal_size, heap_end);
-    done("Heap Constricted.", __FILE__);
+    alloc_t* a = (alloc_t*)((uint8_t*)ptr - sizeof(alloc_t));
+
+    if (a->status == 0) {
+        warn("kfree: Double free detected.", __FILE__);
+        return;
+    }
+
+    a->status = 0;
+    memory_used -= a->size + sizeof(alloc_t);
+}
+
+void* krealloc(void* ptr, size_t size)
+{
+    if (!ptr) return kmalloc(size);
+    if (size == 0) {
+        kfree(ptr);
+        return NULL;
+    }
+
+    alloc_t* old = (alloc_t*)((uint8_t*)ptr - sizeof(alloc_t));
+    if (old->size >= size) return ptr;
+
+    void* new_ptr = kmalloc(size);
+    if (!new_ptr) return NULL;
+
+    memcpy(new_ptr, ptr, old->size);
+    kfree(ptr);
+    return new_ptr;
 }
 
 void mm_print_out()
 {
-    printf("%sMemory used :%s %d bytes", yellow_color, reset_color, memory_used);
-    printf("%sMemory free :%s %d bytes", yellow_color, reset_color, heap_end - heap_begin - memory_used);
-    printf("%sHeap size   :%s %d bytes", yellow_color, reset_color, heap_end - heap_begin);
-}
-
-void kfree(void *mem)
-{
-	if(mem == 0){
-		warn("kfree: Cannot free null pointer.", __FILE__);
-		return;
-	}
-
-	alloc_t *alloc = (mem - sizeof(alloc_t));
-	memory_used -= alloc->size + sizeof(alloc_t);
-	alloc->status = 0;
-}
-
-void pfree(void *mem)
-{
-	if(mem < pheap_begin || mem > pheap_end) return;
-	/* Determine which page is it */
-	uint32_t ad = (uint32_t)mem;
-	ad -= pheap_begin;
-	ad /= 4096;
-	/* Now, ad has the id of the page */
-	pheap_desc[ad] = 0;
-	return;
-}
-
-void* pmalloc(size_t size)
-{
-	if(size <= 0){
-		warn("pmalloc: Cannot allocate 0 bytes.", __FILE__);
-		return 0;
-	}
-
-	for(int i = 0; i < MAX_PAGE_ALIGNED_ALLOCS; i++)
-	{
-		if(pheap_desc[i]) continue;
-		pheap_desc[i] = 1;
-		// printf("PAllocated from 0x%x to 0x%x\n", pheap_begin + i*4096, pheap_begin + (i+1)*4096);
-		return (void *)(pheap_begin + i*4096);
-	}
-	warn("pmalloc: Failed to allocate memory! Out of memory.", __FILE__);
-	return 0;
-}
-
-void* kmalloc(size_t size)
-{
-	if(size <= 0){
-		warn("kmalloc: Cannot allocate 0 bytes.", __FILE__);
-		return 0;
-	}
-
-	/* Loop through blocks and find a block sized the same or bigger */
-	uint8_t *mem = (uint8_t *)heap_begin;
-	while((uint32_t)mem < last_alloc)
-	{
-		alloc_t *a = (alloc_t *)mem;
-		/* If the alloc has no size, we have reaced the end of allocation */
-		//mprint("mem=0x%x a={.status=%d, .size=%d}\n", mem, a->status, a->size);
-		if(!a->size)
-			goto nalloc;
-		/* If the alloc has a status of 1 (allocated), then add its size
-		 * and the sizeof alloc_t to the memory and continue looking.
-		 */
-		if(a->status) {
-			mem += a->size;
-			mem += sizeof(alloc_t);
-			mem += 4;
-			continue;
-		}
-		/* If the is not allocated, and its size is bigger or equal to the
-		 * requested size, then adjust its size, set status and return the location.
-		 */
-		if(a->size >= size)
-		{
-			/* Set to allocated */
-			a->status = 1;
-
-			//mprint("RE:Allocated %d bytes from 0x%x to 0x%x\n", size, mem + sizeof(alloc_t), mem + sizeof(alloc_t) + size);
-			memset(mem + sizeof(alloc_t), 0, size);
-			memory_used += size + sizeof(alloc_t);
-			return (void *)(mem + sizeof(alloc_t));
-		}
-		/* If it isn't allocated, but the size is not good, then
-		 * add its size and the sizeof alloc_t to the pointer and
-		 * continue;
-		 */
-		mem += a->size;
-		mem += sizeof(alloc_t);
-		mem += 4;
-	}
-
-	nalloc:;
-	if(last_alloc+size+sizeof(alloc_t) >= heap_end)
-	{
-        meltdown_screen("Heap out of memory!", __FILE__, __LINE__, 0, getCR2(), 0);
-        hcf();
-	}
-	alloc_t *alloc = (alloc_t *)last_alloc;
-	alloc->status = 1;
-	alloc->size = size;
-
-	last_alloc += size;
-	last_alloc += sizeof(alloc_t);
-	last_alloc += 4;
-
-	// printf("Allocated %d bytes from  to 0x%x", size, (uint32_t)alloc + sizeof(alloc_t), last_alloc);
-	memory_used += size + 4 + sizeof(alloc_t);
-	memset((void *)((uint32_t)alloc + sizeof(alloc_t)), 0, size);
-	return (void *)((uint32_t)alloc + sizeof(alloc_t));
-/*
-	char* ret = (char*)last_alloc;
-	last_alloc += size;
-	if(last_alloc >= heap_end)
-	{
-		panic("Cannot allocate %d bytes! Out of memory.\n", size);
-	}
-	printf("Allocated %d bytes from 0x%x to 0x%x", size, ret, last_alloc);
-	return ret;*/
-}
-
-void* krealloc(void *ptr, size_t size) {
-    if (!ptr) {
-        return kmalloc(size); // If ptr is NULL, treat as malloc
-    }
-
-    if (size == 0) {
-        kfree(ptr);         // If size is 0, treat as free
-        return NULL;
-    }
-
-    alloc_t *old_alloc = (alloc_t *)((uint8_t *)ptr - sizeof(alloc_t));
-    size_t old_size = old_alloc->size;
-
-    if (size == old_size) {
-        return ptr; // If size is the same, return the original pointer
-    }
-
-    void *new_ptr = kmalloc(size); // Allocate new memory
-
-    if (!new_ptr) {
-        return NULL; // Allocation failed
-    }
-
-    size_t copy_size = (size < old_size) ? size : old_size; // Copy the smaller of the two sizes
-    memcpy(new_ptr, ptr, copy_size); // Copy the data
-
-    kfree(ptr); // Free the old memory block
-
-    return new_ptr;
+    printf("%sMemory used :%s %u bytes", yellow_color, reset_color, (unsigned long long)memory_used);
+    printf("%sMemory free :%s %u bytes", yellow_color, reset_color, (unsigned long long)(heap_end - last_alloc));
+    printf("%sHeap size   :%s %u bytes", yellow_color, reset_color, (unsigned long long)(heap_end - heap_begin));
 }

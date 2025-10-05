@@ -11,11 +11,11 @@
 
 #include <basics.h>
 #include <sh_util.h>
-#include <memory2.h>
+#include <memory.h>
 #include <keyboard.h>
 #include <heap.h>
 #include <stddef.h>
-#include <strings2.h>
+#include <strings.h>
 #include <heap.h>
 #include <stdint.h>
 #include <flanterm/flanterm.h>

@@ -2,7 +2,7 @@
 #define __FDLFCN_H_ 1
 
 #include <heap.h>
-#include <elf.h>
+#include <executables/elf.h>
 
 // signifies that (for example dlysm) should look through the list of loaded so files and find the address of the given symbol
 #define FLD_NEXT (void*)-1

@@ -1,9 +1,8 @@
 #include <graphics.h>
-#include <memory2.h>
+#include <memory.h>
 #include <fdlfcn.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <elf.h>
 
 fdlfcn_handle* global_library_handles;
 

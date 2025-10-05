@@ -8,7 +8,7 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include <strings2.h>
+#include <strings.h>
 
 /**
  * @brief The same strlen function from OEM

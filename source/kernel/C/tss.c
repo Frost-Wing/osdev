@@ -10,7 +10,7 @@
  */
 #include <tss.h>
 #include <gdt.h>
-#include <memory2.h>
+#include <memory.h>
 
 // Global TSS and kernel stack
 __attribute__((aligned(16)))
@@ -21,6 +21,7 @@ uint8_t kernel_stack[0x4000]; // 16 KB kernel stack
 
 // Initialize TSS
 void tss_init() {
+    info("Setting up TSS variables", __FILE__);
     memset(&tss, 0, sizeof(tss));
 
     // RSP0 = kernel stack pointer used on ring 0 transitions
@@ -46,9 +47,12 @@ void tss_init() {
     *upper = (base >> 32) & 0xFFFFFFFFULL;
 
     // Note: index 6 in GDT is occupied by upper TSS descriptor
+
+    done("Done setting up TSS, not loaded yet", __FILE__);
 }
 
 // Load TSS using ltr instruction
 void tss_load() {
     asm volatile("ltr %%ax" :: "a"(0x28));
+    done("Done loading TSS", __FILE__);
 }
