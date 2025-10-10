@@ -8,17 +8,20 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include <stdint.h>
-#include <stddef.h>
+#ifndef SERIAL_H
+#define SERIAL_H
+
+#include <basics.h>
+#include <graphics.h>
 #include <hal.h>
 
 #define serial_mode 1
 
 // The list of All Serial COM Ports
 #define COM1 1016
-#define COM2 760
+#define COM2 0760
 #define COM3 1000
-#define COM4 744
+#define COM4 0744
 #define COM5 1528
 #define COM6 1272
 #define COM7 1512
@@ -64,3 +67,5 @@ void serial_putc(char a);
  * @param msg the text to be displayed
  */
 void serial_print(const char* msg);
+
+#endif

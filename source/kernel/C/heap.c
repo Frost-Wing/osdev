@@ -120,6 +120,12 @@ void* krealloc(void* ptr, size_t size)
     return new_ptr;
 }
 
+void* kmalloc_aligned(size_t size, size_t align) {
+    uintptr_t ptr = (uintptr_t)kmalloc(size + align);
+    uintptr_t aligned = (ptr + align - 1) & ~(align - 1);
+    return (void*)aligned;
+}
+
 void mm_print_out()
 {
     printf("%sMemory used :%s %u KiB", yellow_color, reset_color, memory_used/(1 KiB));

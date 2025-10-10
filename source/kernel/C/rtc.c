@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include <basics.h>
+#include <graphics.h>
  
 // I/O ports for RTC
 #define RTC_PORT 0x70

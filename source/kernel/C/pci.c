@@ -330,7 +330,7 @@ void probe_pci(){
                     else if(device == 0x2918) deviceName = "LPC Interface Controller";
                     else if(device == 0x2922) {
                         deviceName = "6 port SATA Controller [AHCI mode]";
-                        ahci_controller* ahci_ctrl = (ahci_controller*)pci_config_read_dword(bus, slot, function, 0x24);
+                        ahci_hba_mem_t* ahci_ctrl = (ahci_hba_mem_t*)pci_config_read_dword(bus, slot, function, 0x24);
                         if(ahci_ctrl != null || ahci_ctrl != 0){
                             done("Found AHCI BAR!", __FILE__);
                             detect_ahci_devices(ahci_ctrl);

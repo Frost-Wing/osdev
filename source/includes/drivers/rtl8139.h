@@ -11,9 +11,8 @@
 #ifndef rtl8139_h
 #define rtl8139_h
  
-#include <stdint.h>
-#include <stdbool.h>
 #include <basics.h>
+#include <graphics.h>
 #include <hal.h>
 
 // RTL8139 registers

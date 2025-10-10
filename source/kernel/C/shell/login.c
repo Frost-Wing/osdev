@@ -53,8 +53,8 @@ char* login_request(){
     int i;
 
     for(int i = 0; i < 30; i++)
-        __putc('=');
-    __putc('\n');
+        putc('=');
+    putc('\n');
 
     print("Username: ");
     i = 0;

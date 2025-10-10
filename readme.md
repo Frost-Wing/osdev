@@ -53,14 +53,11 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 - GDT
     - BIOS
     - UEFI
-- Hardware abstraction layer
+- TSS
+- Hardware abstraction layer (HAL)
 - Memory
     - Heap memory allocator
-        - malloc
-        - free
     - Paging
-        - allocate pages
-        - free pages
 - PCI
     - Probing
     - Initializing required drivers
@@ -85,6 +82,8 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 - Serial communications (with Arduino, NodeMCU, Sparkfun, etc.)
 - Audio
     - PC Speaker
+
+**AND MUCH MORE...**
 
 ### Getting started
 [*Please refer wiki for steps for compiling**](https://github.com/Frost-Wing/osdev/wiki)
@@ -136,9 +135,8 @@ We welcome contributions to FrostWing! If you'd like to contribute code, report 
 FrostWing is open-source software released under the [CC0-1.0 License](https://github.com/Frost-Wing/osdev/blob/main/LICENSE). Feel free to use, modify, and distribute it as per the terms of this license.
 
 ## FrostWing Team
-- Owner and founder - Pradosh ([@PradoshGame](https://twitter.com/@PradoshGame))
+- Owner, founder & "The Dev" - Pradosh ([@PradoshGame](https://twitter.com/@PradoshGame))
 - OpenGL & Head Developer - GAMINGNOOB ([@GAMINGNOOBdev](https://github.com/GAMINGNOOBdev))
-- Secondary Head Developer - Lucas ([@lucas-hooghof](https://github.com/lucas-hooghof))
 - Sources
     - [Flanterm](https://github.com/mintsuki/flanterm/tree/trunk) from Mintsuki
     - [ACPI and Shutdown](https://github.com/mintsuki/acpi-shutdown-hack) from Mintsuki

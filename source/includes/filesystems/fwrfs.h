@@ -23,6 +23,8 @@ struct fwrfs_folder{
     struct fwrfs_folder* folders;
     struct fwrfs_file* files;
     int nfiles;
+    int nfolders;
+    struct fwrfs_folder* parent;  // <-- NEW: for pwd and cd ..
 };
 
 struct fwrfs
@@ -32,3 +34,32 @@ struct fwrfs
     int nfiles;
     int nfolders;
 };
+
+/**
+ * @brief Checks whether the characters in the file name follow "Good ASCII"
+ * 
+ * @param c The character to be checked.
+ * @return int status.
+ */
+bool asciifilename(char c);
+
+/**
+ * @brief Checks whether the file/folder is valid under conditions.
+ * 
+ * @param parent Parent filesystem structure pointer.
+ * @param filename filename duh?
+ * @return true 
+ * @return false 
+ */
+bool is_valid_filename(struct fwrfs_folder* parent, const char* filename);
+
+/**
+ * @brief Helper: find folder by name in a parent folder
+ * 
+ * @param parent Parent filesystem structure pointer.
+ * @param name folder name.
+ * @return struct fwrfs_folder* The pointer pointing to the folder in memory address.
+ */
+struct fwrfs_folder* find_folder(struct fwrfs_folder* parent, const char* name);
+
+char* get_pwd(struct fwrfs* fs);

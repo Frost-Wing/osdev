@@ -57,6 +57,15 @@ extern void* kmalloc(size_t size);
 extern void* krealloc(void* ptr, size_t size);
 
 /**
+ * @brief 
+ * 
+ * @param size 
+ * @param align 
+ * @return void* 
+ */
+void* kmalloc_aligned(size_t size, size_t align);
+
+/**
  * @brief The main free function for memory allocation.
  * 
  * @param ptr Location in memory.

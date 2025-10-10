@@ -17,47 +17,41 @@
 irq_handler interrupt_handlers[256];
 
 void exceptionHandler(InterruptFrame* frame) {
+    enable_logging = false; // disables logger as fast as it can to get the last instance of panic.
+    
 	switch (frame->int_no) {
         case 0:
-            meltdown_screen("Arithmetical operation with division of zero detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
-            hcf2();
+            meltdown_screen("Arithmetical operation with division of zero detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         case 5:
-            meltdown_screen("Bound Range exceeded!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
-            hcf2();
+            meltdown_screen("Bound Range exceeded!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         case 6:
-            meltdown_screen("Invalid opcode detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
-            hcf2();
+            meltdown_screen("Invalid opcode detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         case 8:
-            meltdown_screen("Double fault detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
-            hcf2();
+            meltdown_screen("Double fault detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         case 10:
-            meltdown_screen("Invalid TSS detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
-            hcf2();
+            meltdown_screen("Invalid TSS detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         case 13:
-            meltdown_screen("General protection violation detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
-            hcf2();
+            meltdown_screen("General protection violation detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
 		case 14:
-            meltdown_screen("Page protection violation detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
-            hcf2();
+            meltdown_screen("Page protection violation detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         case 16:
-            meltdown_screen("x87 Floating-Point violation detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
-            hcf2();
+            meltdown_screen("x87 Floating-Point violation detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         case 19:
-            meltdown_screen("SIMD Floating-Point violation detected! (SSE Related issue)", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
-            hcf2();
+            meltdown_screen("SIMD Floating-Point violation detected! (SSE Related issue)", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         default:
-            meltdown_screen("Unknown exception detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no);
-            hcf2();
+            meltdown_screen("Unknown exception detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 	}
+    
+    hcf2();
 }
 
 void registerInterruptHandler(uint8_t interrupt, irq_handler handler)

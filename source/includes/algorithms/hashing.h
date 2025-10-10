@@ -8,7 +8,12 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
+
+#ifndef HASHING_H
+#define HASHING_H
+
 #include <basics.h>
+#include <graphics.h>
 
 /**
  * @brief Verifies if the hash is working (not really initializing anything)
@@ -31,3 +36,5 @@ int64 hash_string(string data);
  * @return [int64] Hashed value
  */
 int64 baranium_hash(cstring name);
+
+#endif

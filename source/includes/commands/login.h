@@ -9,8 +9,12 @@
  * 
  */
 
+#ifndef LOGIN_H
+#define LOGIN_H
+
 #include <basics.h>
 #include <algorithms/hashing.h>
+#include <graphics.h>
 
 #define MAX_USERS_ALLOWED 7
 #define MAX_USERNAME_LENGTH 20
@@ -47,3 +51,5 @@ char* login_request();
  * @return Whether it was successful.
  */
 int ask_password(const char* username);
+
+#endif

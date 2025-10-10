@@ -13,6 +13,9 @@
 #include <graphics.h>
 
 #define BUFFER_SIZE 128
+#define MAX_COMMAND_LINE 1024
+#define MAX_SUBCOMMANDS  64
+#define MAX_ARGV         64
 
 typedef struct command_list_entry
 {
@@ -28,6 +31,27 @@ typedef struct
     command_list_entry* end;
     size_t count;
 } command_list;
+
+/**
+ * @brief operator types between commands 
+ * 
+ */
+typedef enum {
+    OP_NONE = 0,
+    OP_AND,   /* && */
+    OP_OR     /* || */
+} op_t;
+
+typedef struct {
+    char* cmd;
+    op_t op_after;
+} subcmd_t;
+
+/**
+ * @brief Name of the current user.
+ * 
+ */
+string current_user;
 
 /**
  * @brief Initialize the command list

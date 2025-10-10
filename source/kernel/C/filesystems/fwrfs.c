@@ -1,9 +1,9 @@
 /**
  * @file fwrfs.c
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief 
+ * @brief An completely self-made RAMFS.
  * @version 0.1
- * @date 2025-01-21
+ * @date 2025-10-07
  * 
  * @copyright Copyright (c) Pradosh 2025
  * 
@@ -12,153 +12,235 @@
 #include <filesystems/fwrfs.h>
 #include <heap.h>
 #include <basics.h>
-#include <debugger.h>
+#include <strings.h>
 
-int is_validfilename(char c) {
+struct fwrfs_folder* current_folder = NULL; // Points to current working folder
+
+bool asciifilename(char c) {
     if ((c >= 'a' && c <= 'z') || 
         (c >= 'A' && c <= 'Z') || 
         (c >= '0' && c <= '9') ||
-        (c == '.')) {
-        return 1;
+        (c == '.')|| c == '_') {
+        return true;
     } else {
-        return 0;
+        return false;
     }
 }
 
-int is_valid_filename(const char* filename) {
-    // Check for empty filename
-    if (strlen_(filename) == 0) {
-        return 0; 
+bool is_valid_filename(struct fwrfs_folder* parent, const char* filename) {
+    if (strlen(filename) == 0) {
+        return false; 
     }
 
+    // check for naming scheme
     for (int i = 0; filename[i] != '\0'; i++) {
-        if (!is_validfilename(filename[i]) && filename[i] != '_') {
-            return 0; 
+        if (!asciifilename(filename[i])) {
+            return false; 
         }
     }
 
-    return 1; // Valid filename
+    //check for existing files with same name.
+    for (int i = 0; i < current_folder->nfiles; i++) {
+        if (strcmp(current_folder->files[i].name, filename) == 0) {
+            return false; // already an file exsists with the name.
+        }
+    }
+
+    //check for exisiting folders with same name
+    if(find_folder(parent, filename) != NULL)
+        return false; // folder already exists.
+
+    return true; // Valid filename
 }
 
-int create_file(struct fwrfs* fs, const char* filename, const char* data) {
-    if (fs->nfiles >= 100) {
-        printf("Error: File system full.");
-        return -1;
+struct fwrfs_folder* find_folder(struct fwrfs_folder* parent, const char* name) {
+    if (!parent) return NULL;
+    for (int i = 0; i < parent->nfiles + 100; i++) { // crude max
+        struct fwrfs_folder* f = &parent->folders[i];
+        if (strcmp(f->name, name) == 0) return f;
+    }
+    return NULL;
+}
+
+void init_fs(struct fwrfs* fs) {
+    fs = (struct fwrfs*)kmalloc(sizeof(struct fwrfs));
+    fs->nfiles = 0;
+    fs->nfolders = 0;
+
+    // Create root folder
+    strcpy(fs->folders[0].name, "/");
+    fs->folders[0].folders = NULL;
+    fs->folders[0].files = NULL;
+    fs->folders[0].nfiles = 0;
+    fs->nfolders = 1;
+
+    current_folder = &fs->folders[0];
+}
+
+int create_folder(struct fwrfs* fs, const char* foldername) {
+    if (!current_folder) return -1;
+
+    if(!is_valid_filename(fs, foldername)){
+        printf("mkdir: file/folder already exists.");
+        return 1;
     }
 
-    if (!is_valid_filename(filename)) {
-        printf("Error: Invalid filename.");
-        return -1;
+    struct fwrfs_folder* new_folder = kmalloc(sizeof(struct fwrfs_folder));
+    strcpy(new_folder->name, foldername);
+    new_folder->folders = NULL;
+    new_folder->files = NULL;
+    new_folder->nfiles = 0;
+    new_folder->parent = current_folder;
+
+    if (!current_folder->folders) {
+        current_folder->folders = kmalloc(sizeof(struct fwrfs_folder));
     }
+    int idx = current_folder->nfiles++;
+    current_folder->folders[idx] = *new_folder;
 
-    strcpy(fs->files[fs->nfiles].name, filename);
-    fs->files[fs->nfiles].data = (char*)kmalloc(strlen_(data) + 1);
-    strcpy(fs->files[fs->nfiles].data, data);
-    fs->nfiles++;
-
+    fs->nfolders++;
     return 0;
 }
 
+// cd .. now works
+int cd(struct fwrfs* fs, const char* path) {
+    if (strcmp(path, "/") == 0) {
+        current_folder = &fs->folders[0];
+        return 0;
+    }
+
+    if (strcmp(path, "..") == 0) {
+        if (current_folder->parent) {
+            current_folder = current_folder->parent;
+            return 0;
+        }
+
+        printf("cd: already at \'/\'");
+        return 2; // already at root
+    }
+
+    // search in current folder
+    for (int i = 0; i < current_folder->nfiles; i++) {
+        struct fwrfs_folder* f = &current_folder->folders[i];
+        if (strcmp(f->name, path) == 0) {
+            current_folder = f;
+            return 0;
+        }
+    }
+    printf("cd: no such directory: %s", path);
+    return 1;
+}
+
+void pwd(struct fwrfs* fs) {
+    printf("%s", get_pwd(fs));
+}
+
+char* get_pwd(struct fwrfs* fs) {
+    if (!current_folder) return "/";
+
+    char* path = (char*)kmalloc(256);
+    path[0] = '\0';
+
+    struct fwrfs_folder* f = current_folder;
+
+    // Collect segments backwards
+    while (f && f->parent) { // stop before root (root->parent == NULL)
+        char tmp[256];
+        strcpy(tmp, "/");
+        strcat(tmp, f->name);
+        strcat(tmp, path);
+        strcpy(path, tmp);
+        f = f->parent;
+    }
+
+    // If we never added anything, we’re at root
+    if (path[0] == '\0') {
+        strcpy(path, "/");
+    }
+
+    return path;
+}
+
+
+
+// Create file in current folder
+int create_file(struct fwrfs* fs, const char* filename, const char* data) {
+    if (!current_folder) return -1;
+
+    if (!is_valid_filename(fs, filename)) {
+        printf("Error: Invalid filename or file/folder already exists.");
+        return -1;
+    }
+
+    struct fwrfs_file* file = kmalloc(sizeof(struct fwrfs_file));
+    strcpy(file->name, filename);
+    file->data = kmalloc(strlen(data) + 1);
+    strcpy(file->data, data);
+
+    if (!current_folder->files) {
+        current_folder->files = kmalloc(sizeof(struct fwrfs_file));
+    }
+
+    current_folder->files[current_folder->nfiles++] = *file;
+    fs->nfiles++; // global count
+    return 0;
+}
+
+// Read file in current folder
 char* read_file(struct fwrfs* fs, const char* filename) {
-    for (int i = 0; i < fs->nfiles; i++) {
-        if (strcmp(fs->files[i].name, filename) == 0) {
-            return fs->files[i].data;
+    if (!current_folder) return NULL;
+    for (int i = 0; i < current_folder->nfiles; i++) {
+        if (strcmp(current_folder->files[i].name, filename) == 0) {
+            return current_folder->files[i].data;
         }
     }
-    return NULL; 
+    return NULL;
 }
 
+// Write file in current folder
 int write_file(struct fwrfs* fs, const char* filename, const char* data) {
-    bool done = false;
-    for (int i = 0; i < fs->nfiles; i++) {
-        if (strcmp(fs->files[i].name, filename) == 0) {
-            strcpy(fs->files[fs->nfiles].data, data);
-            done = true;
+    if (!current_folder) return -1;
+    for (int i = 0; i < current_folder->nfiles; i++) {
+        if (strcmp(current_folder->files[i].name, filename) == 0) {
+            kfree(current_folder->files[i].data);
+            current_folder->files[i].data = kmalloc(strlen(data) + 1);
+            strcpy(current_folder->files[i].data, data);
+            return 0;
         }
     }
-    if(done == false){
-        create_file(fs, filename, data);
-    }
-    return 0; 
+    return create_file(fs, filename, data);
 }
 
+// Delete file in current folder
 int delete_file(struct fwrfs* fs, const char* filename) {
-    for (int i = 0; i < fs->nfiles; i++) {
-        if (strcmp(fs->files[i].name, filename) == 0) {
-            kfree(fs->files[i].data); 
-            // Shift remaining files
-            for (int j = i; j < fs->nfiles - 1; j++) {
-                fs->files[j] = fs->files[j + 1];
+    if (!current_folder) return -1;
+    for (int i = 0; i < current_folder->nfiles; i++) {
+        if (strcmp(current_folder->files[i].name, filename) == 0) {
+            kfree(current_folder->files[i].data);
+            for (int j = i; j < current_folder->nfiles - 1; j++) {
+                current_folder->files[j] = current_folder->files[j + 1];
             }
+            current_folder->nfiles--;
             fs->nfiles--;
             return 0;
         }
     }
-
-    printf("rm: cannot remove \'%s\': No such file or directory", filename);
-    return -1; 
+    printf("rm: cannot remove '%s': No such file", filename);
+    return -1;
 }
 
-int create_folder(struct fwrfs* fs, const char* foldername) {
-    if (fs->nfolders >= 100) {
-        printf("Error: File system full.");
-        return -1;
-    }
+// List current folder contents
+void list_contents(struct fwrfs* fs) {
+    if (!current_folder) return;
 
-    strcpy(fs->folders[fs->nfolders].name, foldername);
-    fs->folders[fs->nfolders].folders = NULL; // Initialize to NULL
-    fs->folders[fs->nfolders].files = NULL;   // Initialize to NULL
-    fs->folders[fs->nfolders].nfiles = 0;
-    fs->nfolders++;
-
-    return 0;
-}
-
-// Function to remove a folder (Simplified version - assumes empty folder)
-int remove_folder(struct fwrfs* fs, const char* foldername) {
-    for (int i = 0; i < fs->nfolders; i++) {
-        if (strcmp(fs->folders[i].name, foldername) == 0) {
-            // Shift remaining folders
-            for (int j = i; j < fs->nfolders - 1; j++) {
-                fs->folders[j] = fs->folders[j + 1];
-            }
-            fs->nfolders--;
-            return 0;
+    if (current_folder->folders) {
+        for (int i = 0; i < current_folder->nfiles; i++) {
+            printf("%s%s%s", yellow_color, current_folder->folders[i].name, reset_color);
         }
     }
-    return -1; 
-}
-
-size_t calculate_memory_usage(struct fwrfs* fs) {
-    size_t total_memory = 0;
-
-    // Calculate memory used by files
-    for (int i = 0; i < fs->nfiles; i++) {
-        total_memory += strlen_(fs->files[i].name) + 1; // Account for null terminator
-        total_memory += strlen_(fs->files[i].data) + 1; 
+    if(current_folder->files){
+        for (int i = 0; i < current_folder->nfiles; i++) {
+            printf("%s%s%s", green_color, current_folder->files[i].name, reset_color);
+        }
     }
-
-    // Calculate memory used by folders (simplified - assumes no nested folders)
-    for (int i = 0; i < fs->nfolders; i++) { 
-        total_memory += strlen_(fs->folders[i].name) + 1; 
-    }
-
-    return total_memory;
-}
-
-void list_contents(struct fwrfs* fs) {
-    
-    if(fs->nfolders != 0 || fs->nfiles != 0){
-        size_t total_memory = calculate_memory_usage(fs);
-        printf("%sTotal Memory Used: %u bytes%s", "\x1b[38;2;128;128;128m", total_memory, reset_color);
-    }
-
-    for (int i = 0; i < fs->nfolders; i++) {
-        printf("%s%s%s", yellow_color, fs->folders[i].name, reset_color);
-    }
-
-    for (int i = 0; i < fs->nfiles; i++) {
-        printf("%s%s%s", green_color, fs->files[i].name,reset_color);
-    }
-
 }

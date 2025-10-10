@@ -27,7 +27,7 @@
  * @param s The input string.
  * @return The length of the string.
  */
-int strlen_(char s[]);
+int strlen(char s[]);
 
 /**
  * @brief Copies a string from `src` to `dest`
@@ -177,3 +177,13 @@ char* leading_trailing_trim(const char *str);
  * @return char** Returns an array of strings containing the tokens.
  */
 char** splitf(const char* str, char delim, int* num_tokens);
+
+/**
+ * @brief Implemented for sh.c
+ * 
+ * @param c 
+ * @return int 
+ */
+int isspace(char c);
+
+char* trim_inplace(char* s);

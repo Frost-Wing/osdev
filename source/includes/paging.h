@@ -14,7 +14,7 @@
 #define page_size 4096
 
 #define memory_start 0x10000000
-#define memory_end   0x20000000
+#define memory_end   0x2000000000
 
 #define amount_of_pages    ((memory_end - memory_start) / page_size)
 

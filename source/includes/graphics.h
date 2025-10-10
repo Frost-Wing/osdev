@@ -26,6 +26,20 @@
 #define green_color  "\x1b[32m"
 #define orange_color "\x1b[38;5;208m"
 
+extern string last_filename;
+extern string last_filename; // for warn, info, err, done
+extern string last_print_file;
+extern string last_print_func;
+extern int32 last_print_line;
+extern bool enable_logging;
+
+#define printf(fmt, ...) \
+    printf_internal(__FILE__, __func__, __LINE__, fmt, ##__VA_ARGS__)
+
+#define printfnoln(fmt, ...) \
+    printfnoln_internal(__FILE__, __func__, __LINE__, fmt, ##__VA_ARGS__)
+
+
 /**
  * @brief Display a warning message.
  *
@@ -97,22 +111,52 @@ void printbin(uint8_t value);
 void printhex(signed int num, bool caps);
 
 /**
- * @brief More uniform print function.
- * Supports any number of arguments (va_list)
+ * @brief Prints with formatting supported.
  * 
- * @param format 
+ * @param file Filename where the function is called.
+ * @param func The function name.
+ * @param line The line.
+ * @param format String.
  * @param ... 
  */
-void printf(cstring format, ...);
+void printf_internal(cstring file, cstring func, int64 line, cstring format, ...);
 
 /**
- * @brief More uniform print function.
- * Supports any number of arguments (va_list)
+ * @brief Prints with formatting supported (does not add an new line).
  * 
- * @param format 
+ * @param file Filename where the function is called.
+ * @param func The function name.
+ * @param line The line.
+ * @param format String.
  * @param ... 
  */
-extern void print(cstring msg);
+void printfnoln_internal(cstring file, cstring func, int64 line, cstring format, ...);
+
+/**
+ * @brief Core printf implementation used internally by both printf_internal and printfnoln_internal.
+ * 
+ * This function handles all formatted output processing, including support for
+ * format specifiers such as %b, %x, %X, %u, %d, %s, and %c. It also interprets
+ * escape characters like '\n', '\r', and '\t'. 
+ * 
+ * The newline flag controls whether a newline character ('\n') is printed
+ * automatically at the end of the output.
+ * 
+ * @param file    The source file name of the caller (for logging context)
+ * @param func    The function name of the caller (for logging context)
+ * @param line    The source line number of the call (for logging context)
+ * @param newline If true, appends a newline at the end of the formatted output
+ * @param format  The printf-style format string
+ * @param argp    The variable argument list (already started via va_start)
+ */
+void vprintf_internal(cstring file, cstring func, int64 line, bool newline, cstring format, va_list argp);
+
+/**
+ * @brief Print function for plain strings. (No Formatter)
+ * 
+ * @param msg The string.
+ */
+void print(cstring msg);
 
 /**
  * @brief 
