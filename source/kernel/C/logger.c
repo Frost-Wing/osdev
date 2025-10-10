@@ -14,6 +14,13 @@
 static const char hex_digits[] = "0123456789abcdef";
 static const char caps_hex_digits[] = "0123456789ABCDEF";
 
+string last_filename = "unknown"; // for warn, info, err, done
+string last_print_file = "unknown";
+string last_print_func = "unknown";
+int32 last_print_line = 0;
+
+bool enable_logging = true;
+
 /**
  * @brief Display a warning message.
  *
@@ -35,6 +42,8 @@ void warn(cstring message, cstring file) {
     debug_print(" at " blue_color);
     debug_print(file);
     debug_print(reset_color "\n");
+
+    last_filename = file;
 }
 
 /**
@@ -58,6 +67,8 @@ void error(cstring message, cstring file) {
     debug_print(" at " blue_color);
     debug_print(file);
     debug_print(reset_color "\n");
+
+    last_filename = file;
 }
 
 /**
@@ -81,6 +92,8 @@ void info(cstring message, cstring file) {
     debug_print(" at " blue_color);
     debug_print(file);
     debug_print(reset_color "\n");
+
+    last_filename = file;
 }
 
 /**
@@ -104,6 +117,8 @@ void done(cstring message, cstring file) {
     debug_print(" at " blue_color);
     debug_print(file);
     debug_print(reset_color "\n");
+
+    last_filename = file;
 }
 
 /**
@@ -212,60 +227,69 @@ void printhex(signed int num, bool caps) {
     print(&buf[i]);
 }
 
-/**
- * @brief More uniform print function.
- * Supports any number of arguments (va_list)
- * 
- * @param format 
- * @param ... 
- */
-void printf(cstring format, ...) {
-    va_list argp;
-    va_start(argp, format);
+void vprintf_internal(cstring file, cstring func, int64 line, bool newline, cstring format, va_list argp) {
+    if (enable_logging) {
+        last_print_file = file;
+        last_print_func = func;
+        last_print_line = line;
+    }
 
     while (*format != '\0') {
         if (*format == '%') {
             format++;
-            switch (*format)
-            {
-            case 'b':
-                printbin(va_arg(argp, size_t));
-                break;
-
-            case 'x':
-                printhex(va_arg(argp, size_t), no);
-                break;
-            
-            case 'X':
-                printhex(va_arg(argp, size_t), yes);
-                break;
-            
-            case 'u':
-                printdec_unsigned(va_arg(argp, size_t));
-                break;
-            
-            case 'd':
-                printdec(va_arg(argp, size_t));
-                break;
-            
-            case 's':
-                print(va_arg(argp, char*));
-                break;
-
-            case 'c':
-                putc(va_arg(argp, char));
-                break;
+            switch (*format) {
+                case 'b':
+                    printbin(va_arg(argp, size_t));
+                    break;
+                case 'x':
+                    printhex(va_arg(argp, size_t), no);
+                    break;
+                case 'X':
+                    printhex(va_arg(argp, size_t), yes);
+                    break;
+                case 'u':
+                    printdec_unsigned(va_arg(argp, size_t));
+                    break;
+                case 'd':
+                    printdec(va_arg(argp, size_t));
+                    break;
+                case 's':
+                    print(va_arg(argp, char*));
+                    break;
+                case 'c':
+                    putc((char)va_arg(argp, int));
+                    break;
+                default:
+                    putc('%');
+                    putc(*format);
+                    break;
             }
         } else {
-            if(*format == '\n') print("\n");
-            else if(*format == '\r') print("\r");
-            else if(*format == '\t') print("\t");
-            else putc(*format);
+            switch (*format) {
+                case '\n': print("\n"); break;
+                case '\r': print("\r"); break;
+                case '\t': print("\t"); break;
+                default: putc(*format); break;
+            }
         }
         format++;
     }
 
-    print("\n");
+    if (newline)
+        print("\n");
+}
+
+void printf_internal(cstring file, cstring func, int64 line, cstring format, ...) {
+    va_list argp;
+    va_start(argp, format);
+    vprintf_internal(file, func, line, true, format, argp);
+    va_end(argp);
+}
+
+void printfnoln_internal(cstring file, cstring func, int64 line, cstring format, ...) {
+    va_list argp;
+    va_start(argp, format);
+    vprintf_internal(file, func, line, false, format, argp);
     va_end(argp);
 }
 

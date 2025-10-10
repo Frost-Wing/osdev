@@ -131,6 +131,7 @@ void main(void) {
     if (framebuffer_request.response == null) {
         hcf2();
     }
+
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
@@ -160,9 +161,6 @@ void main(void) {
     // * OS FAILSAFE -> IF MALLOC FAILS.. IT FAILS HERE RATHER THAN MAIN CODE SO THIS SHOULD NOT BE REMOVED.
     uint8_t* a = (uint8_t*)kmalloc(16);
     uint8_t* b = (uint8_t*)kmalloc(32);
-    
-    *a = 0x42;
-    b[0] = 0x99;
     
     mm_print_out();
 
@@ -244,7 +242,6 @@ void main(void) {
                 framebuffer->pitch
             );
             isBufferReady = yes;
-            info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
             done("Displaying using graphics card! (Goodbye framebuffer)", __FILE__);
             print("Graphics card used is " green_color);
             print(using_graphics_card);
@@ -299,14 +296,6 @@ void main(void) {
     init_hashing();
 
     initialize_page_bitmap();
-    
-    // "OpenGL" context creation/destroying and triangle/line drawing test code (actual opengl-like implementations coming soon(tm))
-    // glCreateContext();
-    // glDrawLine((uvec2){0, 0}, (uvec2){10, 30}, 0xffbaddad);
-    // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
-    // glDrawTriangle((uvec2){110, 110}, (uvec2){200, 200}, (uvec2){200, 110}, 0xffdadbad, true);
-    // glDrawRect((uvec2){110, 110}, (uvec2){200, 200}, 0xffdadbad);
-    // glDestroyContext(null);
 
     // glCreateContext();
     // glCreateContextCustom(framebuffer->address, framebuffer->width, framebuffer->height);
@@ -321,54 +310,6 @@ void main(void) {
     enable_fpu();
 
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
-
-    // glCreateContext();
-    // glCreateContextCustom(framebuffer->address, framebuffer->width, framebuffer->height);
-    // glClearColor(0, 0, 0, 0xff);
-    // glClear(GL_COLOR_BUFFER_BIT);
-    // display_png(module_request.response->modules[1]->address, module_request.response->modules[1]->size);
-    // glDrawTriangle((uvec2){10, 10}, (uvec2){100, 100}, (uvec2){100, 10}, 0xffdadbad, false);
-    // glDestroyContext(null);
-
-    // glDestroyContext(null);
-
-    // Below code is for triggering Page Fault
-    // volatile uint32_t *ptr = (volatile uint32_t *)0xFFFFFFFFFFFFF000;
-    // uint32_t value = *ptr;
-
-    // int val0 = 10;
-    // int val1 = 20;
-    // list my_list;
-    // list_init(&my_list);
-    // printf("list is empty: %d", list_empty(&my_list));
-    // list_push_back(&my_list, &val0);
-    // printf("list size: %d", my_list.size);
-    // list_push_back(&my_list, &val1);
-    // printf("list size: %d", my_list.size);
-    // void* resultVal = list_pop_back(&my_list);
-    // printf("list size: %d", my_list.size);
-    // printf("list last pop-ed value: %d", *(int*)resultVal);
-    // list_clear(&my_list);
-    // printf("list size: %d", my_list.size);
-
-    // extract_tarball(module_request.response->modules[0]->address);
-
-    // allocate_memory_at_address((int64)kmalloc(0x32), 0x32);
-
-    // font_address = module_request.response->modules[1]->address;
-
-    // kernel_data* data = (kernel_data*) kmalloc(sizeof(kernel_data));
-    // data->fb_addr = framebuffer->address;
-    // data->width = framebuffer->width;
-    // data->height = framebuffer->height;
-    // data->pitch = framebuffer->pitch;
-    // data->print = print;
-    // execute_fwde(module_request.response->modules[2]->address, data);
-
-    // kfree(data);
-
-    // print("\x1b[2J"); // Clears screen
-    // print("\x1b[H");  // Resets Cursor to 0, 0
 
     wm_addr = module_request.response->modules[0]->address;
 
@@ -405,13 +346,13 @@ void main(void) {
  * 
  * @param msg The message to be printed
  */
-void print(cstring msg){
+void print(cstring msg) {
     if(!isBufferReady) return;
     if(msg == null){
         flanterm_write(ft_ctx, "null", 4);
         return;
     }
-    flanterm_write(ft_ctx, msg, strlen_(msg));
+    flanterm_write(ft_ctx, msg, strlen(msg));
 }
 
 /**

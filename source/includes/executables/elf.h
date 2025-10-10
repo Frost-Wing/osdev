@@ -11,6 +11,7 @@
 #ifndef ELF_H
 #define ELF_H
 #include <basics.h>
+#include <graphics.h>
 
 // Basic ELF typedefs
 typedef uint16_t Elf64_Half;

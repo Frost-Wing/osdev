@@ -8,9 +8,12 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include <stdbool.h>
-#include <stdint.h>
-#include <stddef.h>
+
+#ifndef SSE_H
+#define SSE_H
+
+#include <basics.h>
+#include <graphics.h>
 
 extern char fxsave_region[512] __attribute__((aligned(16)));
 
@@ -25,3 +28,5 @@ void load_complete_sse();
  * 
  */
 void check_sse();
+
+#endif

@@ -8,8 +8,12 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
+#ifndef TARGA_H
+#define TARGA_H
+
 #include <basics.h>
 #include <opengl/glbackend.h>
+#include <graphics.h>
 
 /**
  * @brief Targa header.
@@ -36,3 +40,5 @@ typedef struct {
  * @param targa_pointer The memory address pointer where the targa is loaded.
  */
 void decode_targa_image(const int64* targa_pointer, uvec2 position, int64 width, int64 height);
+
+#endif

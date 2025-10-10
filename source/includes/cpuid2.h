@@ -8,10 +8,8 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
 #include <basics.h>
+#include <graphics.h>
 
 /**
  * @brief Executes the CPUID instruction with the given code and stores the results.

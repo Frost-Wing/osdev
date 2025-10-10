@@ -1,6 +1,6 @@
-# ============================
+# ===================================
 # FrostWing OS Makefile (x86_64 only)
-# ============================
+# ===================================
 
 # Nuke built-in rules and variables
 override MAKEFLAGS += -rR
@@ -19,7 +19,7 @@ OBJ_DIR := obj
 
 # Flags
 CFLAGS := -std=gnu11 -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto \
-          -fPIE -Wall -Wno-implicit-function-declaration -O3 -pipe -w \
+          -fPIE -Wall -O3 -pipe -w \
           -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone \
           -mno-sse2 -mno-sse
 
@@ -79,5 +79,7 @@ deep-clean:
 	@echo -e "\033[1;31m[RM]\033[0m All build outputs"
 	@rm -rf $(OBJ_DIR) $(KERNEL)
 
+# Handling Debugging Infos
 version_info:
+	@echo -e "\033[1;32m[SH]\033[0m Fetching the versions of toolchains..."
 	@./versions.sh

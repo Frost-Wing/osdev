@@ -13,7 +13,7 @@ void* fdl_load_section(void* filedata, Elf64_Shdr* section_header)
     void* section_data = kmalloc(section_header->sh_size);
     if (section_data == NULL)
     {
-        error("fdlopen: malloc failed for section", __FILE__);
+        error("fdlopen: kmalloc failed for section", __FILE__);
         return NULL;
     }
 

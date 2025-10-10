@@ -1,4 +1,6 @@
-section .text
+bits 64
+
+section .text align=16
     extern exceptionHandler
     extern irqHandler
 

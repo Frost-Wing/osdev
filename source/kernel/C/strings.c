@@ -16,7 +16,7 @@
  * @param s (char[]) The string to know the length of.
  * @return int 
  */
-int strlen_(char s[]) {
+int strlen(char s[]) {
     int i = 0;
     while (s[i] != '\0') ++i;
     return i;
@@ -116,7 +116,7 @@ void strrev(unsigned char *str)
 	int i;
 	int j;
 	unsigned char a;
-	unsigned len = strlen_((const char *)str);
+	unsigned len = strlen((const char *)str);
 	for (i = 0, j = len - 1; i < j; i++, j--)
 	{
 		a = str[i];
@@ -139,8 +139,8 @@ bool contains(const char *str, const char *substr) {
         return false;  // Handle invalid input.
     }
 
-    size_t str_len = strlen_(str);
-    size_t substr_len = strlen_(substr);
+    size_t str_len = strlen(str);
+    size_t substr_len = strlen(substr);
 
     if (substr_len > str_len) {
         return false;  // Substring is longer than the string, so it can't be found.
@@ -168,7 +168,7 @@ bool contains(const char *str, const char *substr) {
  * @note This function modifies the input string in place.
  */
 void string_transport_front(char *str, int x) {
-    int len = strlen_(str);
+    int len = strlen(str);
 
     if (x >= len) {
         // Nothing to do, x is greater than or equal to the string length.
@@ -196,7 +196,7 @@ string trim(cstring str) {
         return NULL; // Handle NULL pointer
     }
 
-    size_t len = strlen_(str);
+    size_t len = strlen(str);
     string trimmedStr = (string)kmalloc(len + 1); // +1 for null-terminator
 
     if (trimmedStr == NULL) {
@@ -234,7 +234,7 @@ string strcat(string dest, cstring src) {
 }
 
 void remove_last_char(string str) {
-    size_t len = strlen_(str);
+    size_t len = strlen(str);
     if (len > 0) {
         str[len - 1] = '\0';
     }
@@ -325,7 +325,7 @@ bool starts_with(const char *str, const char *prefix) {
         return NULL;
     }
 
-    size_t len = strlen_(str) + 1; // Include space for null terminator
+    size_t len = strlen(str) + 1; // Include space for null terminator
     char* dup = (char*)kmalloc(len);
     if (dup == NULL) {
         return NULL;
@@ -347,7 +347,7 @@ char* leading_trailing_trim(const char *str) {
     }
 
     int start = 0;
-    int end = strlen_(str) - 1;
+    int end = strlen(str) - 1;
 
     // Find the index of the first non-space character
     while (start <= end && (str[start] == ' ' || str[start] == '\t')) {
@@ -481,4 +481,22 @@ void splitw(const char* str, char words[][MAX_WORD_LEN], int* num_words, char de
             (*num_words)++;
         }
     }
+}
+
+int isspace(char c) {
+    return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
+}
+
+char* trim_inplace(char* s)
+{
+    if(!s) return s;
+    char* start = s;
+    while(*start && isspace((unsigned char)*start)) start++;
+    if(start != s) memmove(s, start, strlen(start) + 1);
+
+    /* trim trailing */
+    char* end = s + strlen(s);
+    while(end > s && isspace((unsigned char)*(end-1))) end--;
+    *end = '\0';
+    return s;
 }
