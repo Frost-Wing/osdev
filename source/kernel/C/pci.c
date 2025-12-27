@@ -9,15 +9,26 @@
  * 
  */
 #include <pci.h>
-#include <ahci.h>
-#include <hal.h>
-#include <isr.h>
 
-const char* display_adapter_name = "Frost Generic Display Adapter";
-const char* GPUName[1] = {"Frost Generic Display Driver for Graphics Processing Unit"}; // Max 2 GPUs allowed
+int gpu_index = 0;
+cstring display_adapter_name = "Frost Generic Display Adapter";
+cstring GPUName[1] = {"Frost Generic Display Driver for Graphics Processing Unit"}; // Max 2 GPUs allowed
 
 int64* graphics_base_Address = null;
 string using_graphics_card = "unknown";
+
+typedef void (*pci_probe_fn)(
+    uint8_t bus, uint8_t slot, uint8_t function
+);
+
+typedef struct {
+    uint16_t vendor;
+    uint16_t device;
+    uint8_t  classid;    // 0xFF = ignore
+    cstring name;
+    uint8_t is_gpu;
+    pci_probe_fn probe;  // optional device-specific init
+} pci_id_entry_t;
 
 /**
  * @brief Function to read a 32-bit value from the PCI configuration space
@@ -190,124 +201,6 @@ void load_graphics_card(int16 bus, int16 slot, int16 function, cstring graphics_
 
 }
 
-string parse_vendor(int16 vendor){
-    string vendorName;
-
-    switch (vendor) {
-        case 0x8086:
-        case 0x8087:
-            vendorName = "Intel Corp.";
-            break;
-        case 0x03e7:
-            vendorName = "Intel";
-            break;
-        case 0x10DE:
-            vendorName = "NVIDIA";
-            break;
-        case 0x1002:
-            vendorName = "AMD";
-            break;
-        case 0x1234:
-            vendorName = "Brain Actuated Technologies";
-            break;
-        case 0x168c:
-            vendorName = "Qualcomm Atheros";
-            break;
-        case 0x10EC:
-            vendorName = "Realtek Semiconductor Co., Ltd.";
-            break;
-        case 0x15ad:
-            vendorName = "VMware";
-            break;
-        case 0x1af4:
-        case 0x1b36:
-            vendorName = "Red Hat, Inc.";
-            break;
-        default:
-            unsigned char str[20];
-            itoa(vendor, str, sizeof(str), 16);
-            vendorName = str;
-    }
-
-    return vendorName;
-}
-
-string parse_class(int16 classid){
-    string className;
-
-    switch (classid) {
-        case 0x01:
-            className = "Mass Storage Controller";
-            break;
-        case 0x02:
-            className = "Network Controller";
-            break;
-        case 0x03:
-            className = "Display Controller";
-            break;
-        case 0x04:
-            className = "Multimedia Controller";
-            break;
-        case 0x05:
-            className = "Memory Controller";
-            break;
-        case 0x06:
-            className = "Bridge Device";
-            break;
-        case 0x07:
-            className = "Simple Communication Controller";
-            break;
-        case 0x08:
-            className = "Base System Peripheral";
-            break;
-        case 0x09:
-            className = "Input Device";
-            break;
-        case 0x0a:
-            className = "Docking Station";
-            break;
-        case 0x0b:
-            className = "Processor";
-            break;
-        case 0x0c:
-            className = "Serial Bus Controller";
-            break;
-        case 0x0d:
-            className = "Wireless Controller";
-            break;
-        case 0x0e:
-            className = "Intelligent Controller";
-            break;
-        case 0x0f:
-            className = "Satellite Communication Controller";
-            break;
-        case 0x10:
-            className = "Encryption/Decryption Controller";
-            break;
-        case 0x11:
-            className = "Data Acquisition and Signal Processing Controller";
-            break;
-        case 0x12:
-            className = "Processing Accelerator";
-            break;
-        case 0x13:
-            className = "Non-Essential Instrumentation";
-            break;
-        case 0x40:
-            className = "Video Device";
-            break;
-        case 0x80:
-            className = "Unassigned";
-            break;
-        default:
-            unsigned char str[20];
-            itoa(classid, str, sizeof(str), 16);
-            className = str;
-    }
-
-    return className;
-}
-
 char* vendorNames[512];
 char* deviceNames[512];
 char* classNames[512];
@@ -331,120 +224,45 @@ void probe_pci(){
                     int16 classid = getClassId(bus, slot, function);
                     int16 subclassid = getSubClassId(bus, slot, function);
 
-                    const char* vendorName;
-                    const char* deviceName;
-                    const char* className;
+                    string vendorName  = parse_vendor(vendor);
+                    string className   = parse_class(classid);
+                    string deviceNameBuffer[64];
+                    string deviceName = deviceNameBuffer;
 
-                    vendorName = parse_vendor(vendor);
-                    className  = parse_class(classid);
+                    strcpy(deviceName, "Unknown Device");
 
-                    if(device == 0x29C0) deviceName = "Express DRAM Controller";
-                    else if(device == 0x2918) deviceName = "LPC Interface Controller";
-                    else if(device == 0x2922) {
-                        deviceName = "6 port SATA Controller [AHCI mode]";
-                        ahci_hba_mem_t* ahci_ctrl = (ahci_hba_mem_t*)pci_config_read_dword(bus, slot, function, 0x24);
-                        if(ahci_ctrl != null && ahci_ctrl != 0){
-                            done("Found AHCI BAR!", __FILE__);
-                            detect_ahci_devices(ahci_ctrl);
-                        }else{
-                            warn("Failed to find the BAR address of AHCI!", __FILE__);
+                    const pci_id_entry_t* entry = pci_lookup(vendor, device, classid);
+
+                    if (entry) {
+                        deviceName = entry->name;
+
+                        if (entry->is_gpu) {
+                            display_adapter_name = deviceName;
+                            GPUName[gpu_index++] = deviceName;
                         }
-                    }
-                    else if(device == 0x2930) deviceName = "SMBus Controller";
-                    else if(vendor == 0x1234 && device == 0x4321) deviceName = "Human Interface Device";
-                    else if(vendor == 0x1002 && device == 0x10280810 && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "AMD Radeon R7 M440/M445 (Radeon 530)";}
-                    else if(vendor == 0x1002 && device == 0x0128079c && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "AMD Radeon R7 465X";}
-                    else if(vendor == 0x1002 && device == 0x10020124 && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "Radeon HD 6470M";}
-                    else if(vendor == 0x1002 && device == 0x10020134 && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "Radeon HD 6470M";}
-                    else if(vendor == 0x1002 && device == 0x6900 && classid == 0x03) {display_adapter_name = deviceName = "Radeon R7 M260/M265 / M340/M360 / M440/M445";}
-                    else if(vendor == 0x8086 && device == 0x1606 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics";}
-                    else if(vendor == 0x8086 && device == 0x1612 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics 5600";}
-                    else if(vendor == 0x8086 && device == 0x1616 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics 5500";}
-                    else if(vendor == 0x8086 && device == 0x161e && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics 5300";}
-                    else if(vendor == 0x8086 && device == 0x1626 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics 6000";}
-                    else if(vendor == 0x8086 && device == 0x1902 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics 510"; }
-                    else if(vendor == 0x8086 && device == 0x1906 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics 500"; }
-                    else if(vendor == 0x8086 && device == 0x1912 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics 530"; }
-                    else if(vendor == 0x8086 && device == 0x1916 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics 520"; }
-                    else if(vendor == 0x8086 && device == 0x191b && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics 530"; }
-                    else if(vendor == 0x8086 && device == 0x191d && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) HD Graphics P530";}
-                    else if(vendor == 0x8086 && device == 0x3e92 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) UHD Graphics 630";}
-                    else if(vendor == 0x8086 && device == 0x5917 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) UHD Graphics 620";}
-                    else if(vendor == 0x8086 && device == 0x3ea0 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) UHD Graphics 620 (Whiskey Lake)";}
-                    else if(vendor == 0x8086 && device == 0x3e93 && classid == 0x03) {display_adapter_name = deviceName = GPUName[0] = "Intel(R) UHD Graphics 610";}
-                    else if(vendor == 0x8086 && device == 70 && classid == 0x03)     {display_adapter_name = deviceName = GPUName[0] = "Intel(R) Graphics";}
-                    else if(vendor == 0x1b36) {
-                        if(device == 0x100){
-                            display_adapter_name = deviceName = GPUName[0] = "QXL Paravirtual Graphics card";
-                        }
-                    }
-                    else if(vendor == 0x1af4){
-                        if(device == 0x1050){
-                            display_adapter_name = deviceName = GPUName[0] = "Virtio graphics card";
-                            // load_graphics_card(bus, slot, function);
-                        }
-                    }
-                    else if(device == 0x1237){deviceName = "440FX - 82441FX PMC [Natoma]";}
-                    else if(device == 0x7000){deviceName = "82371SB PIIX3 ISA [Natoma/Triton II]";}
-                    else if(device == 0x7010){deviceName = "82371SB PIIX3 IDE [Natoma/Triton II]";}
-                    else if(device == 0x7113){deviceName = "82371AB/EB/MB PIIX4 ACPI";}
-                    else if(device == 0x100e){deviceName = "82540EM Gigabit Ethernet Controller";}
-                    else if(device == 0x1111){
-                        display_adapter_name = deviceName = GPUName[0] = "Qemu Virtual Graphics";
-                        // load_graphics_card(bus, slot, function);
-                    }
-                    else if(vendor == 0x1ff7 && device == 0x001a){deviceName = "Human Interface Device";}
-                    else if(vendor == 0x04b4 && device == 0x1006){deviceName = "Human Interface Device";}
-                    else if(vendor == 0x04e8 && device == 0x7081){deviceName = "Human Interface Device";}
-                    else if(vendor == 5549 && device == 1029){display_adapter_name = deviceName = GPUName[0] = "VMware SVGA Graphics";}
-                    else if(vendor == 4115 && device == 184){display_adapter_name = deviceName = GPUName[0] = "Cirrus Graphics";}
-                    else {
-                        unsigned char str[20];
-                        itoa(device, str, sizeof(str), 16);
-                        deviceName = str;
+
+                        if (entry->probe)
+                            entry->probe(bus, slot, function);
+                    } else if (classid == 0x03) {
+                        deviceName = auto_name_gpu(vendor, device);
+                        display_adapter_name = deviceName;
+                        GPUName[gpu_index++] = deviceName;
                     }
 
-                    if(vendor == 0x10EC){
-                        if(device == 0x8139){ // Indeed it is an RTL8139 Card
-                            RTL8139->io_base = (int16)(pci_read_word(bus, slot, 0, RTL8139_IOADDR1) & 0xFFFC);
-                            deviceName = "RTL8139 Networking Card";
-                            int8 rtl8139_irq = pci_read_word(bus, slot, 0, RTL8139_IRQ_LINE);
-
-                            printf("Handler number : 0x%x", rtl8139_irq);
-                            
-                            registerInterruptHandler(rtl8139_irq, rtl8139_handler);
-                        }
-                    }
-
-                    if(vendor == 0x10DE)
-                    {
-                        if(device == 0x0040)      {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 Ultra]";}
-                        else if(device == 0x0041) {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800]";   }
-                        else if(device == 0x0042) {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 LE]";}
-                        else if(device == 0x0043) {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 XE]";}
-                        else if(device == 0x0044) {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 XT]";}
-                        else if(device == 0x0045) {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 GT]";}
-                        else if(device == 0x0046) {display_adapter_name = deviceName = GPUName[1] =  "NV40 [GeForce 6800 GS]";}
-                        else if(device == 0x0090) {display_adapter_name = deviceName = GPUName[1] =  "G70 [GeForce 7800 GTX]";}
-                        else if(device == 0x0091) {display_adapter_name = deviceName = GPUName[1] =  "G70 [GeForce 7800 GTX]";}
-                        else if(device == 0x0092) {display_adapter_name = deviceName = GPUName[1] =  "G70 [GeForce 7800 GT]";}
-                        else if(device == 0x0093) {display_adapter_name = deviceName = GPUName[1] =  "G70 [GeForce 7800 GS]";}
-                        else if(device == 0x0094) {display_adapter_name = deviceName = GPUName[1] =  "G70 [GeForce 7800 SLI]";}
-                        else if(device == 0x1b83) {display_adapter_name = deviceName = GPUName[1] =  "GP104 [GeForce GTX 1060 6GB]";} // My fav GPU for this OS
-                        else if(device == 0x1b84) {display_adapter_name = deviceName = GPUName[1] =  "GP104 [GeForce GTX 1060 3GB]";}
-                        else {display_adapter_name = "Frost Generic Display Adapter"; return;}
-                    }
-
-                    if(classid == 0x03){
-                        if(vendor == 0x1b36 && device == 0x100){
-                            warn("QXL Paravirtual Graphics card is not supported by the driver.", __FILE__);
-                        }else{
+                    if (classid == 0x03) {
+                        if (vendor == 0x1b36 && device == 0x0100)
+                            warn("QXL graphics not supported.", __FILE__);
+                        else
                             load_graphics_card(bus, slot, function, deviceName);
-                        }
+                    }
+
+                    
+                    if (strcmp(deviceName, "Unknown Device") == 0) {
+                        snprintf(deviceName, sizeof(deviceNameBuffer), "Unknown Device (0x%04X)", device);
                     }
 
                     print(green_color);
-                    printf("%s : Device : %s -- Class : %s", vendorName, deviceName, className);
+                    printf("%9s : Device : %9s -- Class : %9s", vendorName, deviceName, className);
                     print(reset_color);
 
                     debug_printf(green_color);

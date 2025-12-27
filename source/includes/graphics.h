@@ -104,13 +104,6 @@ void printdec(int num);
 void printbin(uint8_t value);
 
 /**
- * @brief Prints Hexadecimal number
- * 
- * @param hex the hexadecimal number to be printed.
- */
-void printhex(signed int num, bool caps);
-
-/**
  * @brief Prints with formatting supported.
  * 
  * @param file Filename where the function is called.
@@ -150,6 +143,28 @@ void printfnoln_internal(cstring file, cstring func, int64 line, cstring format,
  * @param argp    The variable argument list (already started via va_start)
  */
 void vprintf_internal(cstring file, cstring func, int64 line, bool newline, cstring format, va_list argp);
+
+/**
+ * @brief Formats a string into a buffer using a va_list.
+ *
+ * @param buf  destination buffer.
+ * @param size buffer size in bytes.
+ * @param fmt  format string.
+ * @param args variable argument list.
+ * @return number of characters written (excluding null terminator).
+ */
+int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
+
+/**
+ * @brief Formats a string into a fixed-size buffer.
+ *
+ * @param buf  destination buffer.
+ * @param size buffer size in bytes.
+ * @param fmt  format string.
+ * @return number of characters written (excluding null terminator).
+ */
+int snprintf(char *buf, size_t size, const char *fmt, ...);
+
 
 /**
  * @brief Prints a char, using print(&c);

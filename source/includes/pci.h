@@ -17,19 +17,14 @@
 #include <graphics.h>
 #include <drivers/rtl8139.h>
 #include <debugger.h>
+#include <ahci.h>
+#include <hal.h>
+#include <isr.h>
 
 extern cstring display_adapter_name;
 extern cstring GPUName[1]; //Max 2 GPUs allowed
 extern string using_graphics_card;
 extern int64* graphics_base_Address;
-
-typedef struct {
-    int16 vendor;
-    int16 device;
-    int8  classid;
-    string name;
-    int8 is_gpu;
-} pci_id_entry_t;
 
 // Define the base address for the PCI configuration space
 #define PCI_CONFIG_ADDRESS 0xCF8
