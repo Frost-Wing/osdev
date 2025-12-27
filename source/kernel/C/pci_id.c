@@ -14,11 +14,22 @@
 
 static pci_id_entry_t pci_ids[] = {
 
+    // * This is the entire array for the known PCI devices.
+    // FORMAT :
+    // {vendor, device, class, name, isgpu, handler_function}
+    //
+    // class may be 0xFF which means any class.
+
     // --- Intel chipset ---
     {0x8086, 0x29C0, 0xFF, "(Intel) Express DRAM Controller", 0, NULL},
     {0x8086, 0x2918, 0xFF, "(Intel) LPC Interface Controller", 0, NULL},
     {0x8086, 0x2922, 0xFF, "(Intel) 6 port SATA Controller [AHCI mode]", 0, probe_ahci},
     {0x8086, 0x2930, 0xFF, "(Intel) SMBus Controller", 0, NULL},
+    {0x8086, 0x1237, 0xFF, "440FX - 82441FX PMC [Natoma]", 0, NULL},
+    {0x8086, 0x7000, 0xFF, "82371SB PIIX3 ISA [Natoma/Triton II]", 0, NULL},
+    {0x8086, 0x7010, 0xFF, "82371SB PIIX3 IDE [Natoma/Triton II]", 0, NULL},
+    {0x8086, 0x7113, 0xFF, "82371AB/EB/MB PIIX4 ACPI", 0, NULL},
+
 
     // --- AMD chipset ---
     {0x1022, 0x7800, 0xFF, "AMD SATA Controller [AHCI]", 0, probe_ahci},

@@ -89,12 +89,7 @@ void done(cstring message, cstring  file);
  */
 void putc(char c);
 
-/**
- * @brief Prints decimal numbers
- * 
- * @param num the number to be printed
- */
-void printdec(int num);
+
 
 /**
  * @brief Prints a value in binary format
@@ -172,7 +167,7 @@ int snprintf(char *buf, size_t size, const char *fmt, ...);
  * @param c char to print
  * @note Internally using Flanterm's putchar function
  */
- void vputc(char c);
+void vputc(char c);
 
 /**
  * @brief Print function for plain strings. (No Formatter)
