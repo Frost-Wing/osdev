@@ -67,14 +67,7 @@ static inline int8 parse_integer(int8* s5_addr, int64* value) {
     }
 }
 
-int acpi_shutdown_hack(
-        uintptr_t direct_map_base,
-        void     *(*find_sdt)(cstring signature, size_t index),
-        int8   (*inb)(int16 port),
-        int16  (*inw)(int16 port),
-        void      (*outb)(int16 port, int8 value),
-        void      (*outw)(int16 port, int16 value)
-    ) {
+int acpi_shutdown_hack(uintptr_t direct_map_base, void *(*find_sdt)(cstring signature, size_t index)) {
     struct facp *facp = find_sdt("FACP", 0);
 
     int8 *dsdt_ptr = (int8 *)(uintptr_t)facp->dsdt + 36 + direct_map_base;

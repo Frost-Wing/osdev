@@ -256,9 +256,9 @@ void putc(char c){
 }
 
 /**
- * @brief ACPI Shutdown code.
+ * @brief ACPI Shutdown code wrapper.
  * 
  */
 void shutdown(){
-    acpi_shutdown_hack(hhdm_request.response->offset, acpi_find_sdt, inb, inw, outb, outw);
+    acpi_shutdown_hack(hhdm_request.response->offset, acpi_find_sdt);
 }

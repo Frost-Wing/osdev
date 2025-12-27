@@ -8,17 +8,15 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include <stdint.h>
+#include <pci.h>
 #include <ahci.h>
 #include <hal.h>
-#include <pci.h>
 #include <isr.h>
 
 const char* display_adapter_name = "Frost Generic Display Adapter";
-const char* GPUName[1] = {"Frost Generic Display Driver for Graphics Processing Unit."}; //Max 2 GPUs allowed
+const char* GPUName[1] = {"Frost Generic Display Driver for Graphics Processing Unit"}; // Max 2 GPUs allowed
 
 int64* graphics_base_Address = null;
-
 string using_graphics_card = "unknown";
 
 /**
@@ -192,6 +190,124 @@ void load_graphics_card(int16 bus, int16 slot, int16 function, cstring graphics_
 
 }
 
+string parse_vendor(int16 vendor){
+    string vendorName;
+
+    switch (vendor) {
+        case 0x8086:
+        case 0x8087:
+            vendorName = "Intel Corp.";
+            break;
+        case 0x03e7:
+            vendorName = "Intel";
+            break;
+        case 0x10DE:
+            vendorName = "NVIDIA";
+            break;
+        case 0x1002:
+            vendorName = "AMD";
+            break;
+        case 0x1234:
+            vendorName = "Brain Actuated Technologies";
+            break;
+        case 0x168c:
+            vendorName = "Qualcomm Atheros";
+            break;
+        case 0x10EC:
+            vendorName = "Realtek Semiconductor Co., Ltd.";
+            break;
+        case 0x15ad:
+            vendorName = "VMware";
+            break;
+        case 0x1af4:
+        case 0x1b36:
+            vendorName = "Red Hat, Inc.";
+            break;
+        default:
+            unsigned char str[20];
+            itoa(vendor, str, sizeof(str), 16);
+            vendorName = str;
+    }
+
+    return vendorName;
+}
+
+string parse_class(int16 classid){
+    string className;
+
+    switch (classid) {
+        case 0x01:
+            className = "Mass Storage Controller";
+            break;
+        case 0x02:
+            className = "Network Controller";
+            break;
+        case 0x03:
+            className = "Display Controller";
+            break;
+        case 0x04:
+            className = "Multimedia Controller";
+            break;
+        case 0x05:
+            className = "Memory Controller";
+            break;
+        case 0x06:
+            className = "Bridge Device";
+            break;
+        case 0x07:
+            className = "Simple Communication Controller";
+            break;
+        case 0x08:
+            className = "Base System Peripheral";
+            break;
+        case 0x09:
+            className = "Input Device";
+            break;
+        case 0x0a:
+            className = "Docking Station";
+            break;
+        case 0x0b:
+            className = "Processor";
+            break;
+        case 0x0c:
+            className = "Serial Bus Controller";
+            break;
+        case 0x0d:
+            className = "Wireless Controller";
+            break;
+        case 0x0e:
+            className = "Intelligent Controller";
+            break;
+        case 0x0f:
+            className = "Satellite Communication Controller";
+            break;
+        case 0x10:
+            className = "Encryption/Decryption Controller";
+            break;
+        case 0x11:
+            className = "Data Acquisition and Signal Processing Controller";
+            break;
+        case 0x12:
+            className = "Processing Accelerator";
+            break;
+        case 0x13:
+            className = "Non-Essential Instrumentation";
+            break;
+        case 0x40:
+            className = "Video Device";
+            break;
+        case 0x80:
+            className = "Unassigned";
+            break;
+        default:
+            unsigned char str[20];
+            itoa(classid, str, sizeof(str), 16);
+            className = str;
+    }
+
+    return className;
+}
+
 char* vendorNames[512];
 char* deviceNames[512];
 char* classNames[512];
@@ -219,119 +335,15 @@ void probe_pci(){
                     const char* deviceName;
                     const char* className;
 
-                    switch (vendor) {
-                        case 0x8086:
-                        case 0x8087:
-                            vendorName = "Intel Corp.";
-                            break;
-                        case 0x03e7:
-                            vendorName = "Intel";
-                            break;
-                        case 0x10DE:
-                            vendorName = "NVIDIA";
-                            break;
-                        case 0x1002:
-                            vendorName = "AMD";
-                            break;
-                        case 0x1234:
-                            vendorName = "Brain Actuated Technologies";
-                            break;
-                        case 0x168c:
-                            vendorName = "Qualcomm Atheros";
-                            break;
-                        case 0x10EC:
-                            vendorName = "Realtek Semiconductor Co., Ltd.";
-                            break;
-                        case 0x15ad:
-                            vendorName = "VMware";
-                            break;
-                        case 0x1af4:
-                        case 0x1b36:
-                            vendorName = "Red Hat, Inc.";
-                            break;
-                        default:
-                            unsigned char str[20];
-                            itoa(vendor, str, sizeof(str), 16);
-                            vendorName = str;
-                    }
-
-
-                    switch (classid) {
-                        case 0x01:
-                            className = "Mass Storage Controller";
-                            break;
-                        case 0x02:
-                            className = "Network Controller";
-                            break;
-                        case 0x03:
-                            className = "Display Controller";
-                            break;
-                        case 0x04:
-                            className = "Multimedia Controller";
-                            break;
-                        case 0x05:
-                            className = "Memory Controller";
-                            break;
-                        case 0x06:
-                            className = "Bridge Device";
-                            break;
-                        case 0x07:
-                            className = "Simple Communication Controller";
-                            break;
-                        case 0x08:
-                            className = "Base System Peripheral";
-                            break;
-                        case 0x09:
-                            className = "Input Device";
-                            break;
-                        case 0x0a:
-                            className = "Docking Station";
-                            break;
-                        case 0x0b:
-                            className = "Processor";
-                            break;
-                        case 0x0c:
-                            className = "Serial Bus Controller";
-                            break;
-                        case 0x0d:
-                            className = "Wireless Controller";
-                            break;
-                        case 0x0e:
-                            className = "Intelligent Controller";
-                            break;
-                        case 0x0f:
-                            className = "Satellite Communication Controller";
-                            break;
-                        case 0x10:
-                            className = "Encryption/Decryption Controller";
-                            break;
-                        case 0x11:
-                            className = "Data Acquisition and Signal Processing Controller";
-                            break;
-                        case 0x12:
-                            className = "Processing Accelerator";
-                            break;
-                        case 0x13:
-                            className = "Non-Essential Instrumentation";
-                            break;
-                        case 0x40:
-                            className = "Video Device";
-                            break;
-                        case 0x80:
-                            className = "Unassigned";
-                            break;
-                        default:
-                            unsigned char str[20];
-                            itoa(classid, str, sizeof(str), 16);
-                            className = str;
-                    }
+                    vendorName = parse_vendor(vendor);
+                    className  = parse_class(classid);
 
                     if(device == 0x29C0) deviceName = "Express DRAM Controller";
                     else if(device == 0x2918) deviceName = "LPC Interface Controller";
                     else if(device == 0x2922) {
                         deviceName = "6 port SATA Controller [AHCI mode]";
                         ahci_hba_mem_t* ahci_ctrl = (ahci_hba_mem_t*)pci_config_read_dword(bus, slot, function, 0x24);
-                        if(ahci_ctrl != null || ahci_ctrl != 0){
+                        if(ahci_ctrl != null && ahci_ctrl != 0){
                             done("Found AHCI BAR!", __FILE__);
                             detect_ahci_devices(ahci_ctrl);
                         }else{
@@ -340,7 +352,7 @@ void probe_pci(){
                     }
                     else if(device == 0x2930) deviceName = "SMBus Controller";
                     else if(vendor == 0x1234 && device == 0x4321) deviceName = "Human Interface Device";
-                    else if(vendor == 0x1002 && device == 0x10280810 && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "AMD Radeon 530";}
+                    else if(vendor == 0x1002 && device == 0x10280810 && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "AMD Radeon R7 M440/M445 (Radeon 530)";}
                     else if(vendor == 0x1002 && device == 0x0128079c && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "AMD Radeon R7 465X";}
                     else if(vendor == 0x1002 && device == 0x10020124 && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "Radeon HD 6470M";}
                     else if(vendor == 0x1002 && device == 0x10020134 && classid == 0x03) {display_adapter_name = deviceName = GPUName[1] = "Radeon HD 6470M";}
@@ -435,27 +447,24 @@ void probe_pci(){
                     printf("%s : Device : %s -- Class : %s", vendorName, deviceName, className);
                     print(reset_color);
 
-                    debug_println(vendorName);
-                    debug_println(deviceName);
-                    debug_println(className);                    
+                    debug_printf(green_color);
+                    debug_printf("%s : Device : %s -- Class : %s\n", vendorName, deviceName, className);
+                    debug_printf(reset_color);
 
                     vendorNames[i] = vendorName;
                     deviceNames[i] = deviceName;
-                    classNames[i] = className;
-                    vendorName = null;
-                    deviceName = null;
-                    className = null;
+                    classNames[i]  = className;
+                    vendorName = "";
+                    deviceName = "";
+                    className  = "";
                     i++;
             }
         }
     }
     done("Successfully completed probe!", __FILE__);
-    done("Successfully saved to a array! and verified.", __FILE__);
-    print("Graphics Card (GPU0) :");
-    print(GPUName[0]);
-    print("\nGraphics Card (GPU1) :");
-    print(GPUName[1]);
-    print("\nDisplay Adapter      :");
-    print(display_adapter_name);
-    print("\n");
+    done("Successfully saved to a array and verified.", __FILE__);
+
+    printf(yellow_color "GPU(0) : %s", GPUName[0]);
+    printf("GPU(1) : %s" reset_color,  GPUName[1]);
+    printf("Display Adapter : %s", display_adapter_name);
 }
