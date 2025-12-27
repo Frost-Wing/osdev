@@ -11,6 +11,8 @@
 #include <pci.h>
 
 int gpu_index = 0;
+int total_devices = 0;
+
 cstring display_adapter_name = "Frost Generic Display Adapter";
 cstring GPUName[1] = {"Frost Generic Display Driver for Graphics Processing Unit"}; // Max 2 GPUs allowed
 
@@ -20,6 +22,12 @@ string using_graphics_card = "unknown";
 typedef void (*pci_probe_fn)(
     uint8_t bus, uint8_t slot, uint8_t function
 );
+
+typedef struct {
+    int16 bus;
+    int16 slot;
+    int16 func;
+} pci_location_t;
 
 typedef struct {
     uint16_t vendor;
@@ -204,6 +212,7 @@ void load_graphics_card(int16 bus, int16 slot, int16 function, cstring graphics_
 char* vendorNames[512];
 char* deviceNames[512];
 char* classNames[512];
+pci_location_t pciLocations[512];
 
 /**
  * @brief Scans (Probes) PCI Devices
@@ -261,17 +270,20 @@ void probe_pci(){
                         snprintf(deviceName, sizeof(deviceNameBuffer), "Unknown Device (0x%04X)", device);
                     }
 
+                    
                     print(green_color);
                     printf("%9s : Device : %9s -- Class : %9s", vendorName, deviceName, className);
                     print(reset_color);
-
+                    
                     debug_printf(green_color);
                     debug_printf("%s : Device : %s -- Class : %s\n", vendorName, deviceName, className);
                     debug_printf(reset_color);
-
+                    
                     vendorNames[i] = vendorName;
                     deviceNames[i] = deviceName;
                     classNames[i]  = className;
+                    pciLocations[i] = (pci_location_t){bus, slot, function};
+
                     vendorName = "";
                     deviceName = "";
                     className  = "";
@@ -282,7 +294,24 @@ void probe_pci(){
     done("Successfully completed probe!", __FILE__);
     done("Successfully saved to a array and verified.", __FILE__);
 
+    total_devices = i;
+    printf("Total PCI Devices : %02d", total_devices);
     printf(yellow_color "GPU(0) : %s", GPUName[0]);
     printf("GPU(1) : %s" reset_color,  GPUName[1]);
     printf("Display Adapter : %s", display_adapter_name);
+}
+
+void print_lspci() {
+    for (int i = 0; i < total_devices; i++) {
+        if (vendorNames[i] == NULL || deviceNames[i] == NULL || classNames[i] == NULL)
+            continue; // Skip empty entries
+
+            printf("%02d:%2x.%d " yellow_color "%s " green_color "%s " red_color "%s" reset_color,
+                pciLocations[i].bus,
+                pciLocations[i].slot, 
+                pciLocations[i].func,
+                vendorNames[i],
+                deviceNames[i],
+                classNames[i]);
+    }
 }

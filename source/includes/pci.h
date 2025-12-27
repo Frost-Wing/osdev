@@ -25,6 +25,7 @@ extern cstring display_adapter_name;
 extern cstring GPUName[1]; //Max 2 GPUs allowed
 extern string using_graphics_card;
 extern int64* graphics_base_Address;
+extern int total_devices;
 
 // Define the base address for the PCI configuration space
 #define PCI_CONFIG_ADDRESS 0xCF8
