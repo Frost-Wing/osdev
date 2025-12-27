@@ -144,17 +144,76 @@ void* allocate_memory_at_address(int64 phys_addr, size_t size) {
     return ptr;
 }
 
-void display_memory_formatted(struct memory_context memory) {
-    printf("Usable                 : %d KiB", memory.usable / 1024);
-    printf("Reserved               : %d KiB", memory.reserved / 1024);
-    printf("ACPI Reclaimable       : %d KiB", memory.acpi_reclaimable / 1024);
-    printf("ACPI NVS               : %d KiB", memory.acpi_nvs / 1024);
-    printf("Bad                    : %d KiB", memory.bad / 1024);
-    printf("Bootloader Reclaimable : %d KiB", memory.bootloader_reclaimable / 1024);
-    printf("Kernel Modules         : %d KiB", memory.kernel_modules / 1024);
-    printf("Framebuffer            : %d KiB", memory.framebuffer / 1024);
-    printf("Unknown                : %d KiB", memory.unknown / 1024);   print(yellow_color);
-    printf("Grand Total            : %d MiB", ((memory.total / 1024)/1024)-3); // There is an error of 3MB always for some reason
+void display_memory_formatted(struct memory_context* memory) {
+    printf("Usable                 : %d KiB", memory->usable / 1024);
+    printf("Reserved               : %d KiB", memory->reserved / 1024);
+    printf("ACPI Reclaimable       : %d KiB", memory->acpi_reclaimable / 1024);
+    printf("ACPI NVS               : %d KiB", memory->acpi_nvs / 1024);
+    printf("Bad                    : %d KiB", memory->bad / 1024);
+    printf("Bootloader Reclaimable : %d KiB", memory->bootloader_reclaimable / 1024);
+    printf("Kernel Modules         : %d KiB", memory->kernel_modules / 1024);
+    printf("Framebuffer            : %d KiB", memory->framebuffer / 1024);
+    printf("Unknown                : %d KiB", memory->unknown / 1024);   print(yellow_color);
+    printf("Grand Total            : %d MiB", ((memory->total / 1024)/1024)-3); // There is an error of 3MB (approx.) beacuse of division.
+}
+
+void analyze_memory_map(struct memory_context* memory, struct limine_memmap_request memory_map_request){
+
+    memory->total = 0;
+    memory->usable = 0;
+    memory->reserved = 0;
+    memory->acpi_reclaimable = 0;
+    memory->acpi_nvs = 0;
+    memory->bad = 0;
+    memory->bootloader_reclaimable = 0;
+    memory->kernel_modules = 0;
+    memory->framebuffer = 0;
+    memory->unknown = 0;
+
+    for (size_t i = 0; i < memory_map_request.response->entry_count; ++i) {
+        int length = memory_map_request.response->entries[i]->length;
+        memory->total += length;
+        string type = "";
+        switch (memory_map_request.response->entries[i]->type)
+        {
+            case 0:
+                memory->usable += length;
+                type = "Usable";
+                break;
+            case 1:
+                memory->reserved += length;
+                type = "Reserved";
+                break;
+            case 2:
+                memory->acpi_reclaimable += length;
+                type = "ACPI Reclaimable";
+                break;
+            case 3:
+                memory->acpi_nvs += length;
+                type = "ACPI NVS";
+                break;
+            case 4:
+                memory->bad += length;
+                type = "Faulty";
+                break;
+            case 5:
+                memory->bootloader_reclaimable += length;
+                type = "Bootloader Reclaimable";
+                break;
+            case 6:
+                memory->kernel_modules += length;
+                type = "Kernel & Modules";
+                break;
+            case 7:
+                memory->framebuffer += length;
+                type = "Framebuffer";
+                break;
+            default:
+                memory->unknown += length;
+                type = "Unknown";
+        }
+        printf("Base: 0x%x, Length: 0x%x, Type: %s", memory_map_request.response->entries[i]->base, length, type);
+    }
 }
 
 uint64_t getCR2()

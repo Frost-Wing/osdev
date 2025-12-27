@@ -7,10 +7,12 @@
  * `memmove`, and `memcmp`.
  */
 
-#include <basics.h>
-
+ 
 #ifndef MEMORY_H
 #define MEMORY_H
+
+#include <basics.h>
+#include <limine.h>
 
 struct memory_context {
     int64 total;
@@ -24,8 +26,6 @@ struct memory_context {
     int64 framebuffer;            // Mostly unneeded because frame buffer struct separately gives it,
     int64 unknown;                // This value must be always 0.
 };
-
-extern struct memory_context memory;
 
 /**
  * @brief Copies a block of memory from a source location to a destination location.
@@ -104,7 +104,15 @@ void* allocate_memory_at_address(int64 phys_addr, size_t size);
  * 
  * @param memory The memory context to display.
  */
-void display_memory_formatted(struct memory_context memory);
+void display_memory_formatted(struct memory_context* memory);
+
+/**
+ * @brief Reads the Limine memory map and saves to an usable context.
+ * 
+ * @param memory The memory context.
+ * @param memory_map_request Limine Memory Mam Request.
+ */
+void analyze_memory_map(struct memory_context* memory, volatile struct limine_memmap_request memory_map_request);
 
 /**
  * @brief Returns the CR2 register.
