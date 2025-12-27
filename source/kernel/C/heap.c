@@ -16,17 +16,18 @@ uint64_t memory_used = 0;
 
 #define ALIGN_UP(x, a) (((x) + ((a)-1)) & ~((a)-1))
 
-void mm_init(uintptr_t kernel_end)
+void mm_init(uintptr_t kernel_end, int64 heap_size)
 {
     info("Initializing heap.", __FILE__);
 
     heap_begin = ALIGN_UP(kernel_end + 8 KiB, 8);
-    heap_end   = heap_begin + 64 MiB;
+    heap_end   = heap_begin + heap_size;
     last_alloc = heap_begin;
 
-    memset((void*)heap_begin, 0, 64 MiB);
+    memset((void*)heap_begin, 0, heap_size);
 
-    printf("heap begin -> 0x%X\nheap end -> 0x%X", heap_begin, heap_end);
+    printf("heap begin -> 0x%X", heap_begin);
+    printf("heap end   -> 0x%X", heap_end);
 
     done("Heap initialized.", __FILE__);
 }
@@ -131,4 +132,7 @@ void mm_print_out()
     printf("%sMemory used :%s %u KiB", yellow_color, reset_color, memory_used/(1 KiB));
     printf("%sMemory free :%s %u KiB", yellow_color, reset_color, (heap_end - last_alloc)/(1 KiB));
     printf("%sHeap size   :%s %u KiB", yellow_color, reset_color, (heap_end - heap_begin)/(1 KiB));
+    debug_printf("%sMemory used :%s %u KiB\n", yellow_color, reset_color, memory_used/(1 KiB));
+    debug_printf("%sMemory free :%s %u KiB\n", yellow_color, reset_color, (heap_end - last_alloc)/(1 KiB));
+    debug_printf("%sHeap size   :%s %u KiB\n", yellow_color, reset_color, (heap_end - heap_begin)/(1 KiB));
 }

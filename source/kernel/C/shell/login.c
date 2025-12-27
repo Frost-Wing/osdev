@@ -32,7 +32,8 @@ void create_user(int64 name_hash, int64 password_hash){
     usernames_total[users_index] = name_hash;
     passwords_total[users_index] = password_hash;
     users_index++;
-    printf("Created a user. id → 0x%X", (unsigned long long)name_hash);
+    printf("Created a user with id → 0x%X", (int64)name_hash);
+    info("Done creating an user!", __FILE__);
 }
 
 
@@ -98,7 +99,7 @@ char* login_request(){
     }
     password[i] = '\0';
 
-    __putc('\n');
+    vputc('\n');
 
     // Start hashing
     int64 username_hash = baranium_hash(username);

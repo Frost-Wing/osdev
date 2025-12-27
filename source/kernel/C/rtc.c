@@ -1,34 +1,22 @@
 /**
  * @file rtc.c
- * @author Pradosh
- * @brief Real time clock code (safe & BCD aware)
- * @version 0.2
- * @date 2025-10-03
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief The basic/main RTC code for the OS.
+ * @version 0.1
+ * @date 2025-10-11
+ * 
+ * @copyright Copyright (c) Pradosh 2025
+ * 
  */
 
-#include <stdint.h>
-#include <basics.h>
-#include <graphics.h>
- 
-// I/O ports for RTC
-#define RTC_PORT 0x70
-#define RTC_DATA 0x71
- 
-// RTC Registers
-#define RTC_SECONDS 0x00
-#define RTC_MINUTES 0x02
-#define RTC_HOURS   0x04
-#define RTC_DAY     0x07
-#define RTC_MONTH   0x08
-#define RTC_YEAR    0x09
-#define RTC_CENTURY 0x32  // Optional, not all BIOSes use it
+#include <rtc.h>
  
  // --- Helpers ---
-uint8_t bcd_to_bin(uint8_t val) {
+int8 bcd_to_bin(int8 val) {
     return (val & 0x0F) + ((val >> 4) * 10);
 }
  
-uint8_t read_rtc_register(uint8_t reg) {
+int8 read_rtc_register(int8 reg) {
     outb(RTC_PORT, reg);
     return inb(RTC_DATA);
 }
@@ -39,8 +27,8 @@ void wait_rtc_update() {
 }
  
 // Safe read of a register (avoid tick glitch)
-uint8_t rtc_read_stable(uint8_t reg) {
-    uint8_t last, val;
+int8 rtc_read_stable(int8 reg) {
+    int8 last, val;
     do {
         last = read_rtc_register(reg);
         val = read_rtc_register(reg);
@@ -49,26 +37,28 @@ uint8_t rtc_read_stable(uint8_t reg) {
 }
  
 void init_rtc() {
+    info("Initializing RTC", __FILE__);
     // Enable periodic interrupts if desired, not strictly necessary
-    uint8_t prev = read_rtc_register(0x0B);
+    int8 prev = read_rtc_register(0x0B);
     outb(RTC_PORT, 0x0B);
     outb(RTC_DATA, prev | 0x40); // Set bit 6 = Update-Ended Interrupt Enable (optional)
+    done("Initialized RTC", __FILE__);
 }
  
- void update_system_time(uint8_t *second, uint8_t *minute, uint8_t *hour, uint8_t *day, uint8_t *month, uint16_t *year) {
+void update_system_time(int8 *second, int8 *minute, int8 *hour, int8 *day, int8 *month, int16 *year) {
     wait_rtc_update();
  
-    uint8_t regB = rtc_read_stable(0x0B);
+    int8 regB = rtc_read_stable(0x0B);
     int is_bcd = !(regB & 0x04);
     int is_24h = regB & 0x02;
  
-    uint8_t sec   = rtc_read_stable(RTC_SECONDS);
-    uint8_t min   = rtc_read_stable(RTC_MINUTES);
-    uint8_t hr    = rtc_read_stable(RTC_HOURS);
-    uint8_t day_r = rtc_read_stable(RTC_DAY);
-    uint8_t mon   = rtc_read_stable(RTC_MONTH);
-    uint16_t yr    = rtc_read_stable(RTC_YEAR);
-    uint8_t cent  = rtc_read_stable(RTC_CENTURY); // optional
+    int8 sec   = rtc_read_stable(RTC_SECONDS);
+    int8 min   = rtc_read_stable(RTC_MINUTES);
+    int8 hr    = rtc_read_stable(RTC_HOURS);
+    int8 day_r = rtc_read_stable(RTC_DAY);
+    int8 mon   = rtc_read_stable(RTC_MONTH);
+    int16 yr   = rtc_read_stable(RTC_YEAR);
+    int8 cent  = rtc_read_stable(RTC_CENTURY); // optional
  
     if (is_bcd) {
         sec   = bcd_to_bin(sec);
@@ -97,13 +87,13 @@ void display_time() {
     int8 sec, min, hr, day, mon;
     int16 yr;
     update_system_time(&sec, &min, &hr, &day, &mon, &yr);
-    printf("Time: %02d:%02d:%02d %02d/%02d/%04d\n", hr, min, sec, mon, day, yr);
+    printf("Time: %d:%d:%d %d/%d/%d", hr, min, sec, mon, day, yr);
 }
  
 void sleep(int seconds) {
-    uint8_t start_sec, cur_sec;
-    uint8_t start_min, cur_min;
-    uint8_t start_hr, cur_hr;
+    int8 start_sec, cur_sec;
+    int8 start_min, cur_min;
+    int8 start_hr, cur_hr;
     
     start_sec = rtc_read_stable(RTC_SECONDS);
     start_min = rtc_read_stable(RTC_MINUTES);

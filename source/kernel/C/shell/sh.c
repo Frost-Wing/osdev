@@ -143,6 +143,33 @@ int show_prompt(int argc, char** argv){
     return 0;
 }
 
+void sh_exec(){
+    int failed_attempts = 0;
+
+    while(true){
+        if (failed_attempts >= 5){
+            error("You tried 5 diffrent wrong attempts. You've been locked out.", __FILE__);
+            hcf2();
+        }
+
+        char* username = login_request();
+        
+        if(username != NULL){
+            int argc = 1;
+
+            int isSudo = 0;
+            if(strcmp(username, "root") == 0)
+                isSudo = 1;
+            
+            char* dummy_argv[] = {username, (char*)isSudo};
+            shell_main(argc, dummy_argv);
+        } else {
+            error("Invalid credentials.", __FILE__);
+            failed_attempts++;
+        }
+    }
+}
+
 int shell_main(int argc, char** argv){
     running = true;
     char* command = kmalloc(BUFFER_SIZE);

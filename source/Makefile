@@ -19,7 +19,7 @@ OBJ_DIR := obj
 
 # Flags
 CFLAGS := -std=gnu11 -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto \
-          -fPIE -Wall -O3 -pipe -w \
+          -fPIE -O3 -pipe -w \
           -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone \
           -mno-sse2 -mno-sse
 

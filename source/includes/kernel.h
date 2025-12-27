@@ -47,7 +47,7 @@
  * @brief The memory address pointer where the kernel ends.
  * 
  */
-extern int8 kend[];
+extern int64 kend[];
 
 /**
  * @brief An integer value which stores terminal's rows

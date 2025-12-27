@@ -18,7 +18,7 @@ iso:
 		source/wing_kernel.elf \
 		source/boot/limine.cfg \
 		source/boot/libFrostedWM.so \
-		source/boot/Vera.sfn \
+		source/boot/font.sfn \
 		limine/limine-bios.sys \
 		limine/limine-bios-pxe.bin \
 		limine/limine-bios-cd.bin \
@@ -104,7 +104,7 @@ sign-kernel:
 # Fonts
 # -----------------------------
 fonts:
-	sfnconv -U -B 40 -t b1 ~/Downloads/FiraSans-Regular.ttf ~/Desktop/FrostWing/source/boot/Vera.sfn
+	./sfnconv -U -B 32 ./fira.ttf ./source/boot/font.sfn
 
 # -----------------------------
 # Cleanup

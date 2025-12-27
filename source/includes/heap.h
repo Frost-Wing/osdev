@@ -17,8 +17,9 @@
  * @brief Function to initlialize heap.
  * 
  * @param kernel_end The position in memory where kernel ends.
+ * @param heap_size The size of heap allocated.
  */
-extern void mm_init(uintptr_t kernel_end);
+extern void mm_init(uintptr_t kernel_end, int64 heap_size);
 
 /**
  * @brief Function to extend available heap.

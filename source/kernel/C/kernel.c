@@ -8,10 +8,8 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
-#include "fb.h"
-#include "fdlfcn.h"
+
 #include <kernel.h>
-#include <stdint.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
@@ -22,14 +20,6 @@ int64 fb_height = 0;
 int64* wm_addr;
 
 int64* font_address = null;
-
-/**
- * @brief Assert Definition
- * @authors GAMINGNOOB (Coded Original) & Pradosh (Modified it)
- */
-#define assert(expression, file, line) if(!(expression)){printf("\x1b[31mAssert Failed! at \x1b[36m%s:%d\x1b[0m => \x1b[32m%s\x1b[0m", file, line, #expression); hcf();}
-
-extern int typescript_main(void);
 
 // The Limine requests can be placed anywhere, but it is important that
 // the compiler does not optimise them away, so, usually, they should
@@ -137,7 +127,7 @@ void main(void) {
 
     ft_ctx = flanterm_fb_simple_init(
         framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
-    );
+    );    
     isBufferReady = yes;
 
     if(framebuffer_request.response->framebuffer_count > 1){
@@ -153,11 +143,11 @@ void main(void) {
         probe_serial();
     }
     
-    mm_init((uintptr_t)0x1000000);
+    mm_init(0x1000000, 64 MiB);
     acpi_init();
 
-    printf("KERNEL END -> 0x%X", (uintptr_t)kend);
-    
+    debug_printf("KERNEL END -> 0x%u\n", (uintptr_t)kend);
+
     // * OS FAILSAFE -> IF MALLOC FAILS.. IT FAILS HERE RATHER THAN MAIN CODE SO THIS SHOULD NOT BE REMOVED.
     uint8_t* a = (uint8_t*)kmalloc(16);
     uint8_t* b = (uint8_t*)kmalloc(32);
@@ -225,31 +215,11 @@ void main(void) {
         }
         printf("Base: 0x%x, Length: 0x%x, Type: %s", memory_map_request.response->entries[i]->base, length, type);
     }
-
     
     probe_pci();
     
     print(public_key);
     print("\n");
-
-    if(virtualized){
-        if(graphics_base_Address != null){
-            isBufferReady = no;
-            ft_ctx = flanterm_fb_simple_init(
-                (uint32_t*)graphics_base_Address,
-                framebuffer->width,
-                framebuffer->height,
-                framebuffer->pitch
-            );
-            isBufferReady = yes;
-            done("Displaying using graphics card! (Goodbye framebuffer)", __FILE__);
-            print("Graphics card used is " green_color);
-            print(using_graphics_card);
-            print(reset_color "\n");
-        }else{
-            warn("Still using framebuffer, graphics card base address is null.", __FILE__);
-        }
-    }
 
     printf("Display Resolution: %dx%d (%d) pixels. Pitch: %d", framebuffer->width, framebuffer->height, framebuffer->width*framebuffer->height, framebuffer->pitch);
 
@@ -263,8 +233,8 @@ void main(void) {
 
     printf("Total CPU(s): %d", smp_request.response->cpu_count);
     for(int i=0;i<smp_request.response->cpu_count;i++){
-        printf("Processor  ID [%d] : 0x%x", i+1, smp_request.response->cpus[i]->processor_id);
-        printf("Local APIC ID [%d] : 0x%x", i+1, smp_request.response->cpus[i]->lapic_id);
+        printf("Processor  ID [%d] : 0x%X", i+1, smp_request.response->cpus[i]->processor_id);
+        printf("Local APIC ID [%d] : 0x%X", i+1, smp_request.response->cpus[i]->lapic_id);
 
         if (smp_request.response->cpus[i]->lapic_id !=  smp_request.response->bsp_lapic_id) {
             uint32_t old_ctr = __atomic_load_n(&ctr, __ATOMIC_SEQ_CST);
@@ -297,48 +267,15 @@ void main(void) {
 
     initialize_page_bitmap();
 
-    // glCreateContext();
-    // glCreateContextCustom(framebuffer->address, framebuffer->width, framebuffer->height);
-    // init_ps2_mouse();
-    // SetMouseMovementHandler(mouseMovementHandler);
-    // SetMouseButtonHandler(mouseButtonHandler);
-
     mm_print_out();
-
     create_user_str("root", "prad");
 
     enable_fpu();
+    wm_addr = module_request.response->modules[0]->address;
 
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
 
-    wm_addr = module_request.response->modules[0]->address;
-
-    int failed_attempts = 0;
-
-    extern char* login_request();
-
-    while(1){
-        if (failed_attempts >= 5){
-            error("You tried 5 diffrent wrong attempts. You've been locked out.", __FILE__);
-            hcf();
-        }
-
-        char* username = login_request();
-        
-        if(username != NULL){
-            int argc = 1;
-
-            int isSudo = 0;
-            if(strcmp(username, "root") == 0)
-                isSudo = 1;
-            
-            char* dummy_argv[] = {username, (char*)isSudo};
-            shell_main(argc, dummy_argv);
-        } else {
-            error("Invalid credentials.", __FILE__);
-            failed_attempts++;
-        }
-    }
+    sh_exec();
 }
 
 /**
@@ -360,7 +297,7 @@ void print(cstring msg) {
  * 
  * @param c The char to be printed
  */
-extern void __putc(char c);
+extern void vputc(char c);
 void putc(char c){
     if(!isBufferReady)
         return;
@@ -368,11 +305,11 @@ void putc(char c){
 
     if (c == '\b')
     {
-        __putc('\b');
-        __putc(' ');
+        vputc('\b');
+        vputc(' ');
     }
 
-    __putc(c);
+    vputc(c);
 }
 
 /**
