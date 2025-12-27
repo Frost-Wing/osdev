@@ -127,7 +127,7 @@ void done(cstring message, cstring file) {
  * @param c char to print
  * @note Internally using Flanterm's putchar function
  */
- void __putc(char c) {
+void vputc(char c) {
     char str[2];
     str[0] = c;
     str[1] = '\0';

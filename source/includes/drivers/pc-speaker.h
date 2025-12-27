@@ -9,6 +9,7 @@
  * 
  */
 #include <basics.h>
+#include <rtc.h>
 
 /**
  * @brief Plays a specific frequency

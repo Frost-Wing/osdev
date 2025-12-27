@@ -27,18 +27,23 @@ void setup_gdt() {
 
     /* Null descriptor */
     gdt_set_entry(0, 0, 0, 0, 0);
+    info("Null descriptor has been set", __FILE__);
 
     /* Kernel code: access=0x9A, gran: G=1,L=1 -> 0xA0 */
     gdt_set_entry(1, 0, 0xFFFFF, 0x9A, 0xA0);
+    info("Kernel code descriptor has been set", __FILE__);
 
     /* Kernel data: access=0x92, gran: G=1, L=0 -> 0x80 */
     gdt_set_entry(2, 0, 0xFFFFF, 0x92, 0x80);
+    info("Kernel data descriptor has been set", __FILE__);
 
     /* User code: access=0xFA, gran: G=1,L=1 -> 0xA0 */
     gdt_set_entry(3, 0, 0xFFFFF, 0xFA, 0xA0);
+    info("User code descriptor has been set", __FILE__);
 
     /* User data: access=0xF2, gran: G=1,L=0 -> 0x80 */
     gdt_set_entry(4, 0, 0xFFFFF, 0xF2, 0x80);
+    info("User data descriptor has been set", __FILE__);
 
     gdtp.limit = sizeof(gdt) - 1;
     gdtp.base  = (uint64_t)&gdt;

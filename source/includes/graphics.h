@@ -152,6 +152,14 @@ void printfnoln_internal(cstring file, cstring func, int64 line, cstring format,
 void vprintf_internal(cstring file, cstring func, int64 line, bool newline, cstring format, va_list argp);
 
 /**
+ * @brief Prints a char, using print(&c);
+ * 
+ * @param c char to print
+ * @note Internally using Flanterm's putchar function
+ */
+ void vputc(char c);
+
+/**
  * @brief Print function for plain strings. (No Formatter)
  * 
  * @param msg The string.

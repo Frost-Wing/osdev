@@ -12,9 +12,9 @@
 
 void init_hashing(){
     string data = "PradoshGame";
-    int hash = hash_string(data);
+    int64 hash = hash_string(data);
 
-    if(hash == 0x393e7fd){
+    if(hash == (int64)0x393e7fd){
         done("Hashing worked as intended!", __FILE__);
     }else{
         error("Hashing failed!", __FILE__);

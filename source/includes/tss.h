@@ -12,6 +12,7 @@
 #define TSS_H
 
 #include <basics.h>   // uint64_t, uint8_t, etc.
+#include <graphics.h>
 #include <gdt.h>      // gdt_set_entry
 
 /**

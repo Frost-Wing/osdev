@@ -24,7 +24,7 @@ void play_sound(int32 frequency) {
  	outb(0x42, (int8) (div) );
  	outb(0x42, (int8) (div >> 8));
 
- 	tmp = inb(0x61);
+ 	tmp = (int8)inb(0x61);
   	if (tmp != (tmp | 3)) {
  		outb(0x61, tmp | 3);
  	}
@@ -35,7 +35,7 @@ void play_sound(int32 frequency) {
  * 
  */
  void mute() {
- 	int8 tmp = inb(0x61) & 0xFC;
+ 	int8 tmp = (int8)inb(0x61) & 0xFC;
  
  	outb(0x61, tmp);
  }
@@ -47,7 +47,7 @@ void play_sound(int32 frequency) {
  * @param time in Seconds
  */
 void beep(int frequency, int time) {
-    play_sound(frequency);
+    play_sound((unsigned int)frequency);
     sleep(time);
     mute();
 }

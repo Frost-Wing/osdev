@@ -72,6 +72,7 @@ void acpi_init()
 {
     struct rsdp *rsdp = rsdp_req.response->address;
     info("Found RSDP address!", __FILE__);
+
     if (rsdp->rev >= 2 && rsdp->xsdt_addr)
     {
         use_xsdt = true;
@@ -82,7 +83,7 @@ void acpi_init()
     {
         use_xsdt = false;
         rsdt = (struct rsdt *)((uintptr_t)rsdp->rsdt_addr);
-        warn(" XSDT Not found! But we can ignore that!", __FILE__);
+        warn("XSDT Not found! But we can ignore that!", __FILE__);
     }
 
     done("Successfully loaded!", __FILE__);
