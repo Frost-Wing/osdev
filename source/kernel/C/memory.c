@@ -145,15 +145,15 @@ void* allocate_memory_at_address(int64 phys_addr, size_t size) {
 }
 
 void display_memory_formatted(struct memory_context* memory) {
-    printf("Usable                 : %d KiB", memory->usable / 1024);
-    printf("Reserved               : %d KiB", memory->reserved / 1024);
-    printf("ACPI Reclaimable       : %d KiB", memory->acpi_reclaimable / 1024);
-    printf("ACPI NVS               : %d KiB", memory->acpi_nvs / 1024);
-    printf("Bad                    : %d KiB", memory->bad / 1024);
-    printf("Bootloader Reclaimable : %d KiB", memory->bootloader_reclaimable / 1024);
-    printf("Kernel Modules         : %d KiB", memory->kernel_modules / 1024);
-    printf("Framebuffer            : %d KiB", memory->framebuffer / 1024);
-    printf("Unknown                : %d KiB", memory->unknown / 1024);   print(yellow_color);
+    printf("Usable                 : %05d KiB", memory->usable / 1024);
+    printf("Reserved               : %05d KiB", memory->reserved / 1024);
+    printf("ACPI Reclaimable       : %05d KiB", memory->acpi_reclaimable / 1024);
+    printf("ACPI NVS               : %05d KiB", memory->acpi_nvs / 1024);
+    printf("Bad                    : %05d KiB", memory->bad / 1024);
+    printf("Bootloader Reclaimable : %05d KiB", memory->bootloader_reclaimable / 1024);
+    printf("Kernel Modules         : %05d KiB", memory->kernel_modules / 1024);
+    printf("Framebuffer            : %05d KiB", memory->framebuffer / 1024);
+    printf("Unknown                : %05d KiB", memory->unknown / 1024);   print(yellow_color);
     printf("Grand Total            : %d MiB", ((memory->total / 1024)/1024)-3); // There is an error of 3MB (approx.) beacuse of division.
 }
 
@@ -212,7 +212,7 @@ void analyze_memory_map(struct memory_context* memory, struct limine_memmap_requ
                 memory->unknown += length;
                 type = "Unknown";
         }
-        printf("Base: 0x%x, Length: 0x%x, Type: %s", memory_map_request.response->entries[i]->base, length, type);
+        printf("Base: 0x%09x, Length: 0x%09x, Type: %s", memory_map_request.response->entries[i]->base, length, type);
     }
 }
 
