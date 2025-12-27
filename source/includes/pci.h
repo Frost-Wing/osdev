@@ -8,6 +8,10 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
+
+#ifndef PCI_H
+#define PCI_H
+
 #include <stdint.h>
 #include <hal.h>
 #include <graphics.h>
@@ -16,10 +20,16 @@
 
 extern cstring display_adapter_name;
 extern cstring GPUName[1]; //Max 2 GPUs allowed
-
 extern string using_graphics_card;
-
 extern int64* graphics_base_Address;
+
+typedef struct {
+    int16 vendor;
+    int16 device;
+    int8  classid;
+    string name;
+    int8 is_gpu;
+} pci_id_entry_t;
 
 // Define the base address for the PCI configuration space
 #define PCI_CONFIG_ADDRESS 0xCF8
@@ -127,3 +137,5 @@ int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset);
  * @return int32 
  */
 int32 get_ahci_bar_address(int8 bus, int slot, int func, int bar_num);
+
+#endif
