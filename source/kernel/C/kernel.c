@@ -115,8 +115,6 @@ void mouseButtonHandler(uint8_t button, uint8_t action)
     }
 }
 
-struct memory_context memory;
-
 void main(void) {
     if (framebuffer_request.response == null) {
         hcf2();
@@ -144,13 +142,11 @@ void main(void) {
     }
     
     mm_init(0x1000000, 64 MiB);
+    struct memory_context* memory = (struct memory_context*)kmalloc(sizeof(struct memory_context));
+
     acpi_init();
 
     debug_printf("KERNEL END -> 0x%u\n", (uintptr_t)kend);
-
-    // * OS FAILSAFE -> IF MALLOC FAILS.. IT FAILS HERE RATHER THAN MAIN CODE SO THIS SHOULD NOT BE REMOVED.
-    uint8_t* a = (uint8_t*)kmalloc(16);
-    uint8_t* b = (uint8_t*)kmalloc(32);
     
     mm_print_out();
 
@@ -161,60 +157,7 @@ void main(void) {
     
     RTL8139 = (struct rtl8139*) kmalloc(sizeof(struct rtl8139));
 
-    memory.total = 0;
-    memory.usable = 0;
-    memory.reserved = 0;
-    memory.acpi_reclaimable = 0;
-    memory.acpi_nvs = 0;
-    memory.bad = 0;
-    memory.bootloader_reclaimable = 0;
-    memory.kernel_modules = 0;
-    memory.framebuffer = 0;
-    memory.unknown = 0;
-    for (size_t i = 0; i < memory_map_request.response->entry_count; ++i) {
-        int length = memory_map_request.response->entries[i]->length;
-        memory.total += length;
-        string type = "";
-        switch (memory_map_request.response->entries[i]->type)
-        {
-            case 0:
-                memory.usable += length;
-                type = "Usable";
-                break;
-            case 1:
-                memory.reserved += length;
-                type = "Reserved";
-                break;
-            case 2:
-                memory.acpi_reclaimable += length;
-                type = "ACPI Reclaimable";
-                break;
-            case 3:
-                memory.acpi_nvs += length;
-                type = "ACPI NVS";
-                break;
-            case 4:
-                memory.bad += length;
-                type = "Faulty";
-                break;
-            case 5:
-                memory.bootloader_reclaimable += length;
-                type = "Bootloader Reclaimable";
-                break;
-            case 6:
-                memory.kernel_modules += length;
-                type = "Kernel & Modules";
-                break;
-            case 7:
-                memory.framebuffer += length;
-                type = "Framebuffer";
-                break;
-            default:
-                memory.unknown += length;
-                type = "Unknown";
-        }
-        printf("Base: 0x%x, Length: 0x%x, Type: %s", memory_map_request.response->entries[i]->base, length, type);
-    }
+    analyze_memory_map(memory, memory_map_request);
     
     probe_pci();
     
@@ -227,7 +170,7 @@ void main(void) {
     display_memory_formatted(memory);
     info(reset_color "Memory values end! =====", __FILE__);
 
-    if(memory.bad != 0){
+    if(memory->bad != 0){
         warn("Bad blocks of memory found, it is recommended to replace your RAM.", __FILE__);
     }
 
