@@ -15,7 +15,7 @@
 #include <basics.h>
 #include <graphics.h>
 
-extern struct FileSystem* global_fs;
+extern struct fwrfs* global_fs;
 
 int cmd_echo(int argc, char** argv);
 int cmd_touch(int argc, char** argv);
@@ -30,5 +30,7 @@ int cmd_shutdown(int argc, char** argv);
 int cmd_reboot(int argc, char** argv);
 int cmd_fwfetch(int argc, char** argv);
 int cmd_help(int argc, char** argv);
+int cmd_lspci(int argc, char** argv);
+int cmd_clear(int argc, char** argv);
 
 #endif
