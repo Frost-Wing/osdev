@@ -8,9 +8,23 @@
  * @copyright Copyright (c) Pradosh 2025
  * 
  */
+
+#ifndef SH_UTIL_H
+#define SH_UTIL_H
+
 #include <basics.h>
 #include <memory.h>
 #include <graphics.h>
+#include <memory.h>
+#include <keyboard.h>
+#include <heap.h>
+#include <stddef.h>
+#include <strings.h>
+#include <stdint.h>
+#include <flanterm/flanterm.h>
+#include <filesystems/fwrfs.h>
+#include <fdlfcn.h>
+#include <commands/commands.h>
 
 #define BUFFER_SIZE 128
 #define MAX_COMMAND_LINE 1024
@@ -31,6 +45,21 @@ typedef struct
     command_list_entry* end;
     size_t count;
 } command_list;
+
+/**
+ * @brief Wrapper to store properly the function commands list.
+ * 
+ */
+typedef int (*cmd_func_t)(int argc, char** argv);
+
+/**
+ * @brief Wrapper to store the command and its respective function.
+ * 
+ */
+typedef struct {
+    const char* name;
+    cmd_func_t func;
+} command_t;
 
 /**
  * @brief operator types between commands 
@@ -92,3 +121,5 @@ void execute(const char* buffer, int argc, char** argv);
  * @param argument_values 
  */
 void user_main(char* buffer);
+
+#endif

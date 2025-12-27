@@ -9,19 +9,7 @@
  * 
  */
 
-#include <basics.h>
 #include <sh_util.h>
-#include <memory.h>
-#include <keyboard.h>
-#include <heap.h>
-#include <stddef.h>
-#include <strings.h>
-#include <heap.h>
-#include <stdint.h>
-#include <flanterm/flanterm.h>
-#include <filesystems/fwrfs.h>
-#include <fdlfcn.h>
-#include <heap.h>
 
 int last_status_code = 0;
 
@@ -303,27 +291,37 @@ static int parse_chain(const char* line, subcmd_t* out, int max_out)
     return count;
 }
 
+static command_t commands[] = {
+    { "echo", cmd_echo },
+    { "touch", cmd_touch },
+    { "rm", cmd_rm },
+    { "mkdir", cmd_mkdir },
+    { "cat", cmd_cat },
+    { "ls", cmd_ls },
+    { "clear", cmd_clear },
+    { "pwd", cmd_pwd },
+    { "cd", cmd_cd },
+    { "whoami", cmd_whoami },
+    { "shutdown", cmd_shutdown },
+    { "lspci", cmd_lspci }
+    // { "reboot", cmd_reboot },
+    // { "fwfetch", cmd_fwfetch },
+    // { "help", cmd_help },
+};
+
+
 static int dispatch(int argc, char** argv)
 {
     if(argc == 0) return 0;
     const char* cmd = argv[0];
 
-    if(strcmp(cmd, "echo") == 0) return cmd_echo(argc, argv);
-    if(strcmp(cmd, "touch") == 0) return cmd_touch(argc, argv);
-    if(strcmp(cmd, "rm") == 0) return cmd_rm(argc, argv);
-    if(strcmp(cmd, "mkdir") == 0) return cmd_mkdir(argc, argv);
-    if(strcmp(cmd, "cat") == 0) return cmd_cat(argc, argv);
-    if(strcmp(cmd, "ls") == 0) return cmd_ls(argc, argv);
-    if(strcmp(cmd, "clear") == 0) return cmd_clear(argc, argv);
-    if(strcmp(cmd, "pwd") == 0) return cmd_pwd(argc, argv);
-    if(strcmp(cmd, "cd") == 0) return cmd_cd(argc, argv);
-    if(strcmp(cmd, "whoami") == 0) return cmd_whoami(argc, argv);
-    if(strcmp(cmd, "shutdown") == 0) return cmd_shutdown(argc, argv);
-    // if(strcmp(cmd, "reboot") == 0) return cmd_reboot(argc, argv);
-    // if(strcmp(cmd, "fwfetch") == 0) return cmd_fwfetch(argc, argv);
-    // if(strcmp(cmd, "help") == 0) return cmd_help(argc, argv);
+    for(size_t i = 0; i < sizeof(commands)/sizeof(commands[0]); i++) {
+        if(strcmp(cmd, commands[i].name) == 0) {
+            return commands[i].func(argc, argv);
+        }
+    }
 
-    printf("fsh: %s: not found", cmd);
+    printf("fsh: %s: not found\n", cmd);
     return 127;
 }
 
