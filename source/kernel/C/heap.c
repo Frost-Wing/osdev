@@ -20,7 +20,7 @@ void mm_init(uintptr_t kernel_end, int64 heap_size)
 {
     info("Initializing heap.", __FILE__);
 
-    heap_begin = ALIGN_UP(kernel_end + 8 KiB, 8);
+    heap_begin = kernel_end;
     heap_end   = heap_begin + heap_size;
     last_alloc = heap_begin;
 
@@ -64,7 +64,7 @@ void* kmalloc(size_t size)
     // Align new block start
     last_alloc = ALIGN_UP(last_alloc, 8);
 
-    if (last_alloc + sizeof(alloc_t) + size > heap_end) {
+    if (last_alloc + sizeof(alloc_t) + size >= heap_end) {
         meltdown_screen("Heap out of memory!", __FILE__, __LINE__, 0, getCR2(), 0);
         hcf();
     }

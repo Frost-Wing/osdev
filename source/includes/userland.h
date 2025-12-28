@@ -14,8 +14,13 @@
 #include <basics.h>
 #include <syscalls.h>
  
-#define USER_STACK_SIZE 0x4000
-extern uint8_t user_stack[USER_STACK_SIZE] __attribute__((aligned(16)));
+#define USER_STACK_SIZE 0x4000      // 16 KB
+#define USER_STACK_VADDR 0x70000000
+#define USER_HEAP_VADDR 0x50000000
+#define USER_HEAP_SIZE  0x100000   // 1 MB
+#define USER_CODE_VADDR  0x00400000ULL
+#define USER_STACK_TOP   0x00007FFFFFF000ULL
+
 
 extern void userland_main();
 extern void enter_userland();

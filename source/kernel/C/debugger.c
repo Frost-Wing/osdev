@@ -75,6 +75,10 @@ void debug_printf(cstring format, ...)
                 debug_print(uint_to_string(va_arg(argp, size_t)));
                 break;
 
+            case 'z':
+                debug_print(uint64_to_hex(va_arg(argp, size_t)));
+                break;
+
             case 'x':
                 debug_print(hex_to_string(va_arg(argp, size_t), 0));
                 break;
@@ -88,10 +92,7 @@ void debug_printf(cstring format, ...)
                 break;
             }
         } else {
-            if(*format == "\n") debug_putc('\n');
-            else if(*format == "\r") debug_putc('\r');
-            else if(*format == "\t") debug_putc('\t');
-            else debug_putc(*format);
+            debug_putc(*format);
         }
         format++;
     }

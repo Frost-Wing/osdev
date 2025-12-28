@@ -11,6 +11,8 @@
 #include <paging.h>
 
 int8 page_bitmap[amount_of_pages / 8];
+extern uint8_t user_code_start[];
+extern uint8_t user_code_end[];
 
 void initialize_page_bitmap() {
     info("Initializing paging!", __FILE__);
@@ -22,17 +24,16 @@ void initialize_page_bitmap() {
 
 void* allocate_page() {
     for (size_t i = 0; i < amount_of_pages; ++i) {
-        size_t byte_offset = i / 8;
-        size_t bit_offset = i % 8;
+        size_t byte = i / 8;
+        size_t bit  = i % 8;
 
-        if (!(page_bitmap[byte_offset] & (1 << bit_offset))) {
-            page_bitmap[byte_offset] |= (1 << bit_offset);
-
+        if (!(page_bitmap[byte] & (1 << bit))) {
+            page_bitmap[byte] |= (1 << bit);
             return (void*)(memory_start + i * page_size);
         }
     }
 
-    error("No free pages available!", __FILE__);
+    error("Out of physical pages!", __FILE__);
     return NULL;
 }
 
@@ -122,4 +123,18 @@ void map_user_page(uint64_t virt, uint64_t phys, int executable) {
 
     // Flush TLB
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
+}
+
+void map_user_code() {
+    uint64_t size = (uint64_t)user_code_end - (uint64_t)user_code_start;
+
+    for (uint64_t off = 0; off < size; off += page_size) {
+        uint64_t phys = (uint64_t)allocate_page();
+        void *virt = (void*)(phys + KERNEL_OFFSET);
+
+        uint64_t copy = (size - off >= page_size) ? page_size : (size - off);
+        memcpy(virt, user_code_start + off, copy);
+
+        map_user_page(USER_CODE_VADDR + off, phys, 1);
+    }
 }

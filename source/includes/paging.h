@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
+#ifndef PAGING_H
+#define PAGING_H
+
 #include <basics.h>
 #include <userland.h>
 
@@ -18,15 +21,18 @@
 
 #define amount_of_pages    ((memory_end - memory_start) / page_size)
 
-#define PAGE_PRESENT 0x1
-#define PAGE_RW      0x2
-#define PAGE_USER    0x4
+#define KERNEL_OFFSET 0xFFFFFFFE80000000ULL
+#define PAGE_PRESENT  0x1
+#define PAGE_RW       0x2
+#define PAGE_USER     0x4
+#define PAGE_NX       (1ULL << 63)
+#define page_size     0x1000
+
 
 #define PAGE_SIZE        0x1000      // 4 KB
 #define USER_STACK_VADDR 0x70000000  // virtual top of user stack
 #define USER_CODE_VADDR  0x40000000  // virtual address for user code
 #define USER_STACK_SIZE  0x4000      // 16 KB stack
-
 
 /**
  * @brief Bitmap to keep track of page allocation status.
@@ -68,3 +74,11 @@ void map_user_page(uint64_t virt, uint64_t phys, int executable);
  * 
  */
 void setup_userland_memory();
+
+/**
+ * @brief Maps user code in paging.
+ * 
+ */
+void map_user_code();
+
+#endif
