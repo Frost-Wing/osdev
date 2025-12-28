@@ -23,6 +23,8 @@
 #define READ_DMA_EXT        0x25
 #define SECTOR_SIZE         512
 
+#define ATA_CMD_WRITE_DMA_EXT 0x35
+
 /**
  * @brief AHCI device signatures.
  */
@@ -75,6 +77,15 @@ typedef struct __attribute__((packed)) {
     uint8_t reserved[48];
     prdt_entry_t prdt[1]; /* flexible / variable sized in allocation */
 } ahci_cmd_table_t;
+
+typedef struct {
+    ahci_cmd_header_t* cmd_list;
+    ahci_cmd_table_t*  cmd_tables[32];
+    void*              fis;
+} ahci_port_mem_t;
+
+static ahci_port_mem_t port_mem[32];
+
 
 /**
  * @brief AHCI port registers and command header pointer.

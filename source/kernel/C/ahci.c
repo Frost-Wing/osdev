@@ -36,29 +36,8 @@ void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
         switch (sig) {
             case sata_disk:
                 printf("[AHCI] SATA Disk detected on port %d", i);
-
-                void* sector_buf = kmalloc_aligned(SECTOR_SIZE, 512);
-                if (!sector_buf) {
-                    error("Memory allocation failed for sector buffer", __FILE__);
-                    break;
-                }
-
-                // Try reading LBA 0 (the first sector)
-                int status = ahci_read_sector(i, 0, sector_buf, 1);
-
-                if (status == 0) {
-                    printf("[AHCI] Successfully read sector 0 on port %d", i);
-
-                    // Print first 16 bytes as hex
-                    uint8_t* data = (uint8_t*)sector_buf;
-                    printf("Sector 0 data: ");
-                    for (int b = 0; b < 16; b++)
-                        printfnoln("%c ", data[b]);
-
-                    printf("...\n");
-                } else {
-                    printf("[AHCI] Failed to read sector on port %d (status=%d)", i, status);
-                }
+                
+                handle_sata_disk(i);
                 break;
             case satapi_disk:
                 printf("[AHCI] SATAPI device detected on port %d", i);
@@ -76,89 +55,188 @@ void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
     }
 }
 
-/**
- * @brief Read sectors via AHCI (LBA48 READ_DMA_EXT)
- */
-int ahci_read_sector(int port_number, uint64_t lba, void* buffer, uint32_t sector_count) {
-    if (!global_ahci_ctrl)
-        return -1;
+void handle_sata_disk(int portno) {
+    ahci_init_port(portno);
 
-    ahci_port_t* port = &global_ahci_ctrl->ports[port_number];
+    uint8_t* buf = kmalloc_aligned(512, 512);
+    memset(buf, 0, 512);
 
-    // Stop command engine
+    if (ahci_read_sector(portno, 0, buf, 1) != 0) {
+        printf("[AHCI] Read LBA failed on port %d\n", portno);
+        return;
+    }
+
+    for (int i = 0; i < 32; i++) printfnoln("%c", buf[i]);
+
+    print("\n");
+
+    // char* msg = "FROSTWING WAS HERE";
+    // memset(buf, 0, 512);
+    // memcpy(buf, msg, strlen(msg));
+
+    // uint64_t write_lba = 2; // or 10 for testing
+
+    // if (ahci_write_sector(portno, 0, buf, 1) != 0) {
+    //     printf("[AHCI] Write LBA failed\n");
+    //     return;
+    // }
+
+    // memset(buf, 0, 512);
+    // if (ahci_read_sector(portno, 0, buf, 1) != 0) {
+    //     printf("[AHCI] Read LBA failed\n");
+    //     return;
+    // }
+
+    // for (int i = 0; i < 32; i++) printfnoln("%c", buf[i]);
+
+    // print("\n");
+}
+
+void ahci_init_port(int portno) {
+    ahci_port_t* port = &global_ahci_ctrl->ports[portno];
+    ahci_port_mem_t* mem = &port_mem[portno];
+
     port->cmd &= ~AHCI_PORT_CMD_ST;
     while (port->cmd & AHCI_PORT_CMD_CR);
 
-    // Allocate command list (1K aligned)
-    ahci_cmd_header_t* cmd_list = kmalloc_aligned(sizeof(ahci_cmd_header_t) * 32, 1024);
-    memset(cmd_list, 0, sizeof(ahci_cmd_header_t) * 32);
-    port->clb = (uint32_t)(uintptr_t)cmd_list;
+    port->cmd &= ~AHCI_PORT_CMD_FRE;
+    while (port->cmd & AHCI_PORT_CMD_FR);
+
+    mem->cmd_list = kmalloc_aligned(1024, 1024);
+    memset(mem->cmd_list, 0, 1024);
+    port->clb  = (uint32_t)(uintptr_t)mem->cmd_list;
     port->clbu = 0;
 
-    // Allocate FIS receive buffer (256-byte aligned)
-    void* fis_base = kmalloc_aligned(256, 256);
-    memset(fis_base, 0, 256);
-    port->fb = (uint32_t)(uintptr_t)fis_base;
+    mem->fis = kmalloc_aligned(256, 256);
+    memset(mem->fis, 0, 256);
+    port->fb = (uint32_t)(uintptr_t)mem->fis;
     port->fbu = 0;
 
-    // Clear interrupts and errors
-    port->is = 0xFFFFFFFF;
-    port->serr = 0xFFFFFFFF;
-
-    // Start command engine
-    port->cmd |= (AHCI_PORT_CMD_FRE | AHCI_PORT_CMD_ST);
-
-    // Find a free command slot
-    int slot = -1;
     for (int i = 0; i < 32; i++) {
-        if (!(port->ci & (1 << i))) {
-            slot = i;
-            break;
+        mem->cmd_tables[i] = kmalloc_aligned(sizeof(ahci_cmd_table_t), 128);
+        memset(mem->cmd_tables[i], 0, sizeof(ahci_cmd_table_t));
+        mem->cmd_list[i].ctba = (uint32_t)(uintptr_t)mem->cmd_tables[i];
+        mem->cmd_list[i].ctbau = 0;
+    }
+
+    port->serr = 0xFFFFFFFF;
+    port->is   = 0xFFFFFFFF;
+
+    port->cmd |= AHCI_PORT_CMD_FRE | AHCI_PORT_CMD_ST;
+}
+
+static int ahci_find_slot(ahci_port_t* port) {
+    uint32_t slots = port->ci | port->sact;
+    for (int i = 0; i < 32; i++) {
+        if (!(slots & (1 << i))) return i;
+    }
+    return -1;
+}
+
+int ahci_read_sector(int portno, uint64_t lba, void* buffer, uint32_t count) {
+    ahci_port_t* port = &global_ahci_ctrl->ports[portno];
+    ahci_port_mem_t* mem = &port_mem[portno];
+
+    while (port->tfd & (0x80 | 0x08));
+
+    int slot = ahci_find_slot(port);
+    if (slot == -1) return -1;
+
+    ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
+    memset(hdr, 0, sizeof(*hdr));
+    hdr->flags = 5;
+    hdr->prdtl = 1;
+    hdr->ctba = (uint32_t)(uintptr_t)mem->cmd_tables[slot];
+    hdr->ctbau = 0;
+
+    ahci_cmd_table_t* tbl = mem->cmd_tables[slot];
+    memset(tbl->cfis, 0, 64);
+    memset(tbl->prdt, 0, sizeof(tbl->prdt));
+
+    tbl->prdt[0].dba  = (uint32_t)(uintptr_t)buffer;
+    tbl->prdt[0].dbau = 0;
+    tbl->prdt[0].dbc  = (count * 512 - 1) | (1 << 31);
+
+    uint8_t* cfis = tbl->cfis;
+    cfis[0] = 0x27;
+    cfis[1] = 1 << 7;
+    cfis[2] = READ_DMA_EXT;
+
+    cfis[4] = (uint8_t)lba;
+    cfis[5] = (uint8_t)(lba >> 8);
+    cfis[6] = (uint8_t)(lba >> 16);
+    cfis[7] = 0x40;
+    cfis[8] = (uint8_t)(lba >> 24);
+    cfis[9] = (uint8_t)(lba >> 32);
+    cfis[10] = (uint8_t)(lba >> 40);
+    cfis[12] = count & 0xFF;
+    cfis[13] = (count >> 8) & 0xFF;
+
+    port->serr = 0xFFFFFFFF;
+    port->is = 0xFFFFFFFF;
+
+    port->ci = 1 << slot;
+
+    while (port->ci & (1 << slot)) {
+        if (port->tfd & (0x01 | 0x20)) return -2;
+    }
+
+    port->is = 0xFFFFFFFF;
+    return 0;
+}
+
+int ahci_write_sector(int portno, uint64_t lba, void* buffer, uint32_t count) {
+    ahci_port_t* port = &global_ahci_ctrl->ports[portno];
+    ahci_port_mem_t* mem = &port_mem[portno];
+
+    while (port->tfd & (0x80 | 0x08));
+
+    int slot = ahci_find_slot(port);
+    if (slot == -1) return -1;
+
+    ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
+    memset(hdr, 0, sizeof(*hdr));
+    hdr->flags = 5 | AHCI_CMD_HDR_W_BIT;
+    hdr->prdtl = 1;
+    hdr->ctba = (uint32_t)(uintptr_t)mem->cmd_tables[slot];
+    hdr->ctbau = 0;
+
+    ahci_cmd_table_t* tbl = mem->cmd_tables[slot];
+    memset(tbl->cfis, 0, 64);
+    memset(tbl->prdt, 0, sizeof(tbl->prdt));
+
+    tbl->prdt[0].dba  = (uint32_t)(uintptr_t)buffer;
+    tbl->prdt[0].dbau = 0;
+    tbl->prdt[0].dbc  = (count * 512 - 1) | (1 << 31);
+
+    uint8_t* cfis = tbl->cfis;
+    cfis[0] = 0x27;
+    cfis[1] = 1 << 7;
+    cfis[2] = ATA_CMD_WRITE_DMA_EXT;
+
+    cfis[4] = (uint8_t)lba;
+    cfis[5] = (uint8_t)(lba >> 8);
+    cfis[6] = (uint8_t)(lba >> 16);
+    cfis[7] = 0x40;
+    cfis[8] = (uint8_t)(lba >> 24);
+    cfis[9] = (uint8_t)(lba >> 32);
+    cfis[10] = (uint8_t)(lba >> 40);
+    cfis[12] = count & 0xFF;
+    cfis[13] = (count >> 8) & 0xFF;
+
+    port->serr = 0xFFFFFFFF;
+    port->is = 0xFFFFFFFF;
+
+    port->ci = 1 << slot;
+
+    while (port->ci & (1 << slot)) {
+        if (port->tfd & (0x01 | 0x20)) { // ERR | DF
+            port->is = 0xFFFFFFFF;
+            printf("[AHCI] Write error! tfd=0x%X\n", port->tfd);
+            return -3;
         }
     }
-    if (slot == -1)
-        return -2; // no free slot
 
-    ahci_cmd_header_t* header = &cmd_list[slot];
-
-    // Allocate command table
-    ahci_cmd_table_t* table = kmalloc_aligned(sizeof(ahci_cmd_table_t), 128);
-    memset(table, 0, sizeof(ahci_cmd_table_t));
-
-    header->flags = (sizeof(table->cfis) / 4) & AHCI_CMD_HDR_CFL_MASK;
-    header->prdtl = 1;
-    header->ctba = (uint32_t)(uintptr_t)table;
-    header->ctbau = 0;
-
-    // Setup PRDT
-    table->prdt[0].dba  = (uint32_t)(uintptr_t)buffer;
-    table->prdt[0].dbau = 0;
-    table->prdt[0].dbc  = (sector_count * SECTOR_SIZE - 1) | (1 << 31); // set interrupt bit
-
-    // Setup command FIS
-    uint8_t* cfis = table->cfis;
-    memset(cfis, 0, 64);
-    cfis[0] = 0x27;  // Host to device FIS
-    cfis[1] = 0x80;  // Command FIS
-    cfis[2] = READ_DMA_EXT;
-    cfis[4] = (uint8_t)(lba & 0xFF);
-    cfis[5] = (uint8_t)((lba >> 8) & 0xFF);
-    cfis[6] = (uint8_t)((lba >> 16) & 0xFF);
-    cfis[7] = (uint8_t)((lba >> 24) & 0xFF);
-    cfis[8] = (uint8_t)((lba >> 32) & 0xFF);
-    cfis[9] = (uint8_t)((lba >> 40) & 0xFF);
-    cfis[12] = (uint8_t)(sector_count & 0xFF);
-    cfis[13] = (uint8_t)((sector_count >> 8) & 0xFF);
-
-    // Issue command
-    port->ci |= (1 << slot);
-
-    // Wait for completion
-    uint64_t timeout = 1000000;
-    while ((port->ci & (1 << slot)) && --timeout);
-
-    if (timeout == 0 || (port->tfd & (0x1 | 0x20)))
-        return -3; // timeout or error
-
-    return 0; // success
+    port->is = 0xFFFFFFFF;
+    return 0;
 }
