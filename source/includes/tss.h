@@ -19,7 +19,7 @@
  * @brief x86_64 TSS Structure
  * 
  */
-struct tss_entry {
+struct __attribute__((packed)) tss_entry {
     uint32_t reserved0;
     uint64_t rsp0;
     uint64_t rsp1;
@@ -35,7 +35,18 @@ struct tss_entry {
     uint64_t reserved2;
     uint16_t reserved3;
     uint16_t iomap_base;
-} __attribute__((packed));
+};
+
+struct __attribute__((packed)) tss_descriptor {
+    uint16_t limit_low;
+    uint16_t base_low;
+    uint8_t  base_mid;
+    uint8_t  access;
+    uint8_t  gran;
+    uint8_t  base_high;
+    uint32_t base_upper;
+    uint32_t reserved;
+};
 
 extern struct tss_entry tss;
 /**

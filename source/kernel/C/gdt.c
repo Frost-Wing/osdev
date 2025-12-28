@@ -42,29 +42,34 @@ void setup_gdt() {
     info("User code descriptor has been set", __FILE__);
 
     /* User data: access=0xF2, gran: G=1,L=0 -> 0x80 */
-    gdt_set_entry(4, 0, 0xFFFFF, 0xF2, 0x80);
+    gdt_set_entry(4, 0, 0xFFFFF, 0xF2, 0x80); // user data
     info("User data descriptor has been set", __FILE__);
+
+    /* TSS Setup */
+    tss_init();
 
     gdtp.limit = sizeof(gdt) - 1;
     gdtp.base  = (uint64_t)&gdt;
 
     /* Load GDT, reload data segments, then reload CS with lretq. */
     asm volatile (
-        "cli\n\t"                 /* disable interrupts during transition */
-        "lgdt %0\n\t"             /* load new GDT */
-        /* reload data segment registers with kernel data selector (index 2 -> 0x10) */
-        "mov $0x10, %%ax\n\t"
-        "mov %%ax, %%ds\n\t"
-        "mov %%ax, %%es\n\t"
-        "mov %%ax, %%ss\n\t"
-        /* lretq to reload CS (kernel code selector = index 1 -> 0x08) */
-        "pushq $0x08\n\t"         /* kernel code selector */
-        "leaq 1f(%%rip), %%rax\n\t"
-        "pushq %%rax\n\t"
-        "lretq\n\t"
-        "1:\n\t"
-        : : "m"(gdtp) : "rax", "memory"
+        "cli\n"
+        "lgdt %0\n"
+        "mov $0x10, %%ax\n"   // kernel data
+        "mov %%ax, %%ds\n"
+        "mov %%ax, %%es\n"
+        "mov %%ax, %%ss\n"
+        "pushq $0x08\n"       // kernel code
+        "lea 1f(%%rip), %%rax\n"
+        "pushq %%rax\n"
+        "lretq\n"
+        "1:\n"
+        :
+        : "m"(gdtp)
+        : "rax", "memory"
     );
 
     done("GDT Successfully initialized!", __FILE__);
+
+    tss_load();
 }
