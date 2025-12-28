@@ -59,9 +59,9 @@ void interrupt_frame_dump(InterruptFrame* frame) {
     printf("===[ Interrupt Frame Dump ]===");
 
     printf(" General Purpose Registers:");
-    printf("\tRAX = 0x%X\n\tRBX = NULL   RCX = 0x%X", frame->rax, frame->rcx);
-    printf("\tRDX = 0x%X   RSI = 0x%X   RDI = 0x%X", frame->rdx, frame->rsi, frame->rdi);
-    printf("\tR8  = 0x%X   R9  = 0x%X   R10 = 0x%X   R11 = 0x%X", frame->r8, frame->r9, frame->r10, frame->r11);
+    printf("\tRAX = 0x%08X   RCX = 0x%X", frame->rax, frame->rcx);
+    printf("\tRDX = 0x%08X   RSI = 0x%08X   RDI = 0x%X", frame->rdx, frame->rsi, frame->rdi);
+    printf("\tR8  = 0x%08X   R9  = 0x%08X   R10 = 0x%08X   R11 = 0x%X", frame->r8, frame->r9, frame->r10, frame->r11);
 
     printf(" Control Registers:");
     printf("\tRIP    = 0x%X", frame->rip);
