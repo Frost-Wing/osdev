@@ -9,10 +9,10 @@ ENTRY(main)
 /* MMU permissions */
 PHDRS
 {
-    text    PT_LOAD    FLAGS((1 << 0) | (1 << 2)) ; /* Execute + Read */
-    rodata  PT_LOAD    FLAGS((1 << 2)) ;            /* Read only */
-    data    PT_LOAD    FLAGS((1 << 1) | (1 << 2)) ; /* Write + Read */
-    dynamic PT_DYNAMIC FLAGS((1 << 1) | (1 << 2)) ; /* Dynamic PHDR for relocations */
+    text   PT_LOAD FLAGS((1 << 0) | (1 << 2)); /* RX */
+    rodata PT_LOAD FLAGS((1 << 2));            /* R */
+    data   PT_LOAD FLAGS((1 << 1) | (1 << 2)); /* RW */
+    user   PT_LOAD FLAGS((1 << 0) | (1 << 2)); /* RX */
 }
  
 SECTIONS
@@ -22,6 +22,7 @@ SECTIONS
     /* Any address in this region will do, but often 0xffffffff80000000 is chosen as */
     /* that is the beginning of the region. */
     . = 0xffffffff80000000;
+    kstart = .;
 
     .text : {
         *(.text .text.*)
@@ -42,11 +43,6 @@ SECTIONS
         *(.data .data.*)
     } :data
  
-    /* Dynamic section for relocations, both in its own PHDR and inside data PHDR */
-    .dynamic : {
-        *(.dynamic)
-    } :data :dynamic
- 
     /* NOTE: .bss needs to be the last thing mapped to :data, otherwise lots of */
     /* unnecessary zeros will be written to the binary. */
     /* If you need, for example, .init_array and .fini_array, those should be placed */
@@ -55,6 +51,12 @@ SECTIONS
         *(.bss .bss.*)
         *(COMMON)
     } :data
+
+    .user : ALIGN(4096) {
+        user_code_start = .;
+        *(.user)
+        user_code_end = .;
+    } :user
  
     /* Discard .note.* and .eh_frame since they may cause issues on some hosts. */
     /DISCARD/ : {

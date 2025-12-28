@@ -44,10 +44,22 @@
 #include <fdlfcn.h>
 
 /**
- * @brief The memory address pointer where the kernel ends.
+ * @brief  Long story short: linker is a mole-rat and gives virtual addresses. But we asked the linker to allocate at this address, so we are spoofing its "security" to get the real memory address of kernel start and end.
  * 
  */
-extern int64 kend[];
+#define KERNEL_OFFSET 0xffffffff00000000
+
+/**
+ * @brief The memory address where the kernel starts.
+ * 
+ */
+extern int8 kstart[];
+
+/**
+ * @brief The memory address where the kernel ends.
+ * 
+ */
+extern int8 kend[];
 
 /**
  * @brief An integer value which stores terminal's rows

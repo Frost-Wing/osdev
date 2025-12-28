@@ -140,20 +140,29 @@ void main(void) {
     if(virtualized){ // The code inside this will not work on a real machine.
         probe_serial();
     }
+
+    int64 kernel_phys_start = ((int64)kstart) + (int64)KERNEL_OFFSET;
+    int64 kernel_phys_end   = ((int64)kend)   + (int64)KERNEL_OFFSET;
+
+    debug_printf("KERNEL STR -> %z : %z\n", (int64)virtual_to_physical(kstart), kstart);
+    debug_printf("KERNEL END -> %z : %z\n", (int64)virtual_to_physical(kend), kend);
     
-    mm_init(0x1000000, 64 MiB);
+    /**
+     * ! In memory, kernel is loaded at higher half and at 0x8000000.
+     * ! Therefore heap, userland (and more..) can be in the range of 0x1000000 to <= 0x8000000
+     */
+    mm_init(virtual_to_physical(kstart) - 65 MiB, 64 MiB);
+
     struct memory_context* memory = (struct memory_context*)kmalloc(sizeof(struct memory_context));
 
     acpi_init();
-
-    debug_printf("KERNEL END -> 0x%u\n", (uintptr_t)kend);
     
     mm_print_out();
 
     setup_gdt();
-    
     tss_init();
     tss_load();
+    initIdt();
     
     RTL8139 = (struct rtl8139*) kmalloc(sizeof(struct rtl8139));
 
@@ -203,21 +212,20 @@ void main(void) {
     rtl8139_init(RTL8139);
 
     frost_compilation_information();
-
-    initIdt();
     
     init_hashing();
 
     initialize_page_bitmap();
-
+    
     mm_print_out();
     create_user_str("root", "prad");
-
-    enable_fpu();
+    
     wm_addr = module_request.response->modules[0]->address;
-
+    enable_fpu();
+    
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
-
+    
+    // enter_userland();
     sh_exec();
 }
 

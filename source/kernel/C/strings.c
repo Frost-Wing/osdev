@@ -383,7 +383,7 @@ char* leading_trailing_trim(const char *str) {
  * @param num 
  * @return char* 
  */
- char* uint_to_string(unsigned int num) {
+char* uint_to_string(unsigned int num) {
     if (num == 0) {
         return "0";
     }
@@ -398,6 +398,21 @@ char* leading_trailing_trim(const char *str) {
     }
 
     return &buf[i];
+}
+
+char* uint64_to_hex(uint64_t num) {
+    static char buf[19]; // "0x" + 16 hex digits + '\0'
+    buf[0] = '0';
+    buf[1] = 'x';
+    buf[18] = '\0';
+
+    for (int i = 0; i < 16; i++) {
+        uint8_t nibble = (num >> (60 - i * 4)) & 0xF;
+        if (nibble < 10) buf[2 + i] = '0' + nibble;
+        else buf[2 + i] = 'A' + (nibble - 10);
+    }
+
+    return buf;
 }
 
 extern const char hex_digits[];
