@@ -160,8 +160,6 @@ void main(void) {
     mm_print_out();
 
     setup_gdt();
-    tss_init();
-    tss_load();
     initIdt();
     
     RTL8139 = (struct rtl8139*) kmalloc(sizeof(struct rtl8139));
