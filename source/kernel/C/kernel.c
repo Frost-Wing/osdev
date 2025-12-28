@@ -159,6 +159,8 @@ void main(void) {
     
     mm_print_out();
 
+    initialize_page_bitmap((int64)virtual_to_physical(kstart), (int64)virtual_to_physical(kend));
+
     setup_gdt();
     initIdt();
     
@@ -212,8 +214,6 @@ void main(void) {
     frost_compilation_information();
     
     init_hashing();
-
-    initialize_page_bitmap();
     
     mm_print_out();
     create_user_str("root", "prad");

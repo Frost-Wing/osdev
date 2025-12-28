@@ -11,7 +11,7 @@ __attribute__((section(".user")))
 __attribute__((naked))
 void user_entry() {
     asm volatile (
-        "1: hlt\n"
+        "1: pause\n"
         "jmp 1b\n"
     );
 }
@@ -26,36 +26,37 @@ void setup_userland_heap() {
 }
 
 void enter_userland() {
-    map_user_code();
-    setup_userland_heap();
+    printf("Setting up kernel to move to userland...\n");
 
-    uint64_t stack_top = USER_STACK_VADDR + USER_STACK_SIZE;
+    map_user_code();
+    // setup_userland_heap();
+
+    uint64_t stack_top  = USER_STACK_TOP;
     uint64_t code_entry = USER_CODE_VADDR;
 
-    // Map user stack pages downward
+    // Map user stack
     for (uint64_t off = 0; off < USER_STACK_SIZE; off += 0x1000) {
         void *phys = allocate_page();
-        map_user_page(stack_top - off - 0x1000, (uint64_t)phys, 0); // RW, non-executable
+        map_user_page(USER_STACK_TOP - off - 0x1000,
+                      (uint64_t)phys,
+                      USER_DATA_FLAGS);
     }
-        
-    done("Switching to userland...", __FILE__);
 
+    done("Switching to userland...", __FILE__);
+    debug_printf("User RIP target = %z\n", code_entry);
+    debug_printf("User RSP target = %z\n", stack_top);
+
+    // 🔥 Actually enter userland
     asm volatile (
         "cli\n"
-        "mov $0x23, %%ax\n"
-        "mov %%ax, %%ds\n"
-        "mov %%ax, %%es\n"
-        "mov %%ax, %%fs\n"
-        "mov %%ax, %%gs\n"
-        "pushq $0x23\n"
-        "pushq %0\n"
-        "pushfq\n"
-        "pushq $0x1B\n"
-        "pushq %1\n"
+        "pushq $0x23\n"        // User SS
+        "pushq %0\n"           // User RSP
+        "pushq $0x202\n"       // RFLAGS
+        "pushq $0x1B\n"        // User CS
+        "pushq %1\n"           // User RIP
         "iretq\n"
         :
         : "r"(stack_top), "r"(code_entry)
         : "memory"
     );
 }
-

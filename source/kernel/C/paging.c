@@ -10,40 +10,82 @@
  */
 #include <paging.h>
 
-int8 page_bitmap[amount_of_pages / 8];
+uint64_t memory_start;
+uint64_t memory_end;
+size_t   amount_of_pages;
+int8*    page_bitmap;
+
 extern uint8_t user_code_start[];
 extern uint8_t user_code_end[];
 
-void initialize_page_bitmap() {
-    info("Initializing paging!", __FILE__);
-    for (size_t i = 0; i < sizeof(page_bitmap) / sizeof(page_bitmap[0]); ++i) {
-        page_bitmap[i] = 0;
+static void mark_page_used(uint64_t addr) {
+    if (addr < MEMORY_START || addr >= MEMORY_END) return;
+    size_t page_index = (addr - MEMORY_START) / PAGE_SIZE;
+    size_t byte = page_index / 8;
+    size_t bit  = page_index % 8;
+    page_bitmap[byte] |= (1 << bit);
+}
+
+static void mark_page_free(uint64_t addr) {
+    if (addr < MEMORY_START || addr >= MEMORY_END) return;
+    size_t page_index = (addr - MEMORY_START) / PAGE_SIZE;
+    size_t byte = page_index / 8;
+    size_t bit  = page_index % 8;
+    page_bitmap[byte] &= ~(1 << bit);
+}
+
+void initialize_page_bitmap(int64 kernel_start, int64 kernel_end) {
+    info("Initializing paging", __FILE__);
+
+    size_t physical_memory_size = 32 MiB;
+    void* memory_block = kmalloc(physical_memory_size);
+    if (!memory_block) {
+        error("Failed to allocate physical memory block!", __FILE__);
+        return;
     }
-    done("Successfully initialized page bitmap!", __FILE__);
+
+    memory_start = (uint64_t)memory_block;
+    memory_end   = memory_start + physical_memory_size;
+    amount_of_pages = physical_memory_size / PAGE_SIZE;
+
+    size_t bitmap_size = amount_of_pages / 8;
+    page_bitmap = (int8*)kmalloc(bitmap_size);
+    if (!page_bitmap) {
+        error("Failed to allocate page bitmap!", __FILE__);
+        return;
+    }
+
+    memset(page_bitmap, 0, bitmap_size);
+
+    // Reserve kernel memory
+    for (uint64_t addr = (uint64_t)kernel_start; addr < (uint64_t)kernel_end; addr += PAGE_SIZE)
+        mark_page_used(addr);
+
+    // Reserve user code memory
+    for (uint64_t addr = (uint64_t)user_code_start; addr < (uint64_t)user_code_end; addr += PAGE_SIZE)
+        mark_page_used(addr);
+
+    mm_print_out();
+
+    done("Successfully initialized page bitmap", __FILE__);
 }
 
 void* allocate_page() {
     for (size_t i = 0; i < amount_of_pages; ++i) {
         size_t byte = i / 8;
         size_t bit  = i % 8;
-
         if (!(page_bitmap[byte] & (1 << bit))) {
             page_bitmap[byte] |= (1 << bit);
-            return (void*)(memory_start + i * page_size);
+            return (void*)(memory_start + i * PAGE_SIZE);
         }
     }
-
     error("Out of physical pages!", __FILE__);
     return NULL;
 }
 
 void free_page(void* addr) {
-    size_t page_index = ((int64)addr - memory_start) / page_size;
-
-    size_t byte_offset = page_index / 8;
-    size_t bit_offset = page_index % 8;
-
-    page_bitmap[byte_offset] &= ~(1 << bit_offset);
+    uint64_t aligned_addr = ((uint64_t)addr / PAGE_SIZE) * PAGE_SIZE;
+    mark_page_free(aligned_addr);
 }
 
 static inline uint64_t get_kernel_pml4() {
@@ -75,7 +117,7 @@ uint64_t virtual_to_physical(uint64_t virt) {
     return phys;
 }
 
-void map_user_page(uint64_t virt, uint64_t phys, int executable) {
+void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
     // Traverse or create PML4 -> PDPT -> PD -> PT
     uint64_t *pml4 = (uint64_t*)get_kernel_pml4(); // kernel PML4
     uint64_t *pdpt, *pd, *pt;
@@ -112,13 +154,6 @@ void map_user_page(uint64_t virt, uint64_t phys, int executable) {
         pt = (uint64_t*)(pd[pd_idx] & ~0xFFF);
     }
 
-    // Map the physical page
-    uint64_t flags = PAGE_PRESENT | PAGE_USER;
-    if (!executable) flags |= PAGE_RW; // writable if data/stack
-    else flags &= ~PAGE_RW;            // code = read-only
-
-    if (!executable) flags |= PAGE_RW;
-
     pt[pt_idx] = phys | flags;
 
     // Flush TLB
@@ -128,13 +163,40 @@ void map_user_page(uint64_t virt, uint64_t phys, int executable) {
 void map_user_code() {
     uint64_t size = (uint64_t)user_code_end - (uint64_t)user_code_start;
 
-    for (uint64_t off = 0; off < size; off += page_size) {
-        uint64_t phys = (uint64_t)allocate_page();
-        void *virt = (void*)(phys + KERNEL_OFFSET);
+    debug_printf("size of user code -> %z\n", size);
+    debug_printf("user code start   -> %z\n", user_code_start);
+    debug_printf("user code end     -> %z\n", user_code_end);
 
-        uint64_t copy = (size - off >= page_size) ? page_size : (size - off);
-        memcpy(virt, user_code_start + off, copy);
+    for (uint64_t off = 0; off < size; off += PAGE_SIZE) {
+        void* kernel_va = allocate_page();
+        uint64_t phys = (int64)virtual_to_physical((int64)kernel_va);
 
-        map_user_page(USER_CODE_VADDR + off, phys, 1);
+        if (!phys)
+            error("page allocation failed", __FILE__);
+        else
+            info("page allocation is fine", __FILE__);
+        
+        uint64_t vaddr = USER_CODE_VADDR + off;
+        map_user_page(vaddr, phys, USER_CODE_FLAGS);
+        info("map_user_code: mapped executable user page", __FILE__);
+
+        // Verify mapping
+        uint64_t resolved = virtual_to_physical(vaddr) & ~0xFFF;
+        if (resolved != (phys & ~0xFFF)) {
+            error("map_user_code: VA->PA mismatch", __FILE__);
+        } else {
+            info("map_user_code: VA->PA matches", __FILE__);
+        }
+
+        // The code bytes to copy.
+        uint64_t copy = (size - off >= PAGE_SIZE) ? PAGE_SIZE : (size - off);
+        memcpy(kernel_va, user_code_start + off, copy);
+
+        // Verify the copy of userland.
+        if (memcmp(kernel_va, user_code_start + off, copy) != 0) {
+            error("map_user_code: memcpy verification failed", __FILE__);
+        } else {
+            info("map_user_code: memcpy verification succeeded", __FILE__);
+        }
     }
 }

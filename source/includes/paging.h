@@ -14,37 +14,26 @@
 #include <basics.h>
 #include <userland.h>
 
-#define page_size 4096
-
-#define memory_start 0x10000000
-#define memory_end   0x2000000000
-
-#define amount_of_pages    ((memory_end - memory_start) / page_size)
+#define PAGE_SIZE      4096ULL
+#define MEMORY_START   0x10000000ULL
+#define MEMORY_END     0x2000000000ULL
+#define AMOUNT_OF_PAGES ((MEMORY_END - MEMORY_START) / PAGE_SIZE)
 
 #define KERNEL_OFFSET 0xFFFFFFFE80000000ULL
 #define PAGE_PRESENT  0x1
 #define PAGE_RW       0x2
 #define PAGE_USER     0x4
 #define PAGE_NX       (1ULL << 63)
-#define page_size     0x1000
-
-
 #define PAGE_SIZE        0x1000      // 4 KB
-#define USER_STACK_VADDR 0x70000000  // virtual top of user stack
-#define USER_CODE_VADDR  0x40000000  // virtual address for user code
-#define USER_STACK_SIZE  0x4000      // 16 KB stack
 
-/**
- * @brief Bitmap to keep track of page allocation status.
- * 
- */
-extern int8 page_bitmap[];
+#define USER_CODE_FLAGS (PAGE_PRESENT | PAGE_USER)          // executable
+#define USER_DATA_FLAGS (PAGE_PRESENT | PAGE_USER | PAGE_RW | PAGE_NX)
 
 /**
  * @brief Function to initialize the page bitmap
  * 
  */
-void initialize_page_bitmap();
+void initialize_page_bitmap(int64 kernel_start, int64 kernel_end);
 
 /**
  * @brief Function to allocate a page.
@@ -63,11 +52,11 @@ void free_page(void* addr);
 /**
  * @brief Function to map userland pages
  * 
- * @param virt Virtual memory address
- * @param phys Physical memory address
- * @param executable 
+ * @param virt Virtual memory address of user
+ * @param phys Physical memory address of kernel's user code.
+ * @param flags Permissions
  */
-void map_user_page(uint64_t virt, uint64_t phys, int executable);
+void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags);
 
 /**
  * @brief Set the up physical memory for userland
