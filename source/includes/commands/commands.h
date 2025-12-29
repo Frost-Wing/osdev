@@ -32,5 +32,6 @@ int cmd_fwfetch(int argc, char** argv);
 int cmd_help(int argc, char** argv);
 int cmd_lspci(int argc, char** argv);
 int cmd_clear(int argc, char** argv);
+int cmd_lsblk(int argc, char** argv);
 
 #endif

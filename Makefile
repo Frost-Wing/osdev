@@ -58,18 +58,21 @@ tarball:
 # QEMU targets
 # -----------------------------
 QEMU_COMMON = \
-	-vga std \
-	-debugcon stdio \
-	-serial file:serial.log \
-	-audiodev pa,id=speaker \
-	-device rtl8139,netdev=eth0 \
-	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
-	-cdrom $(ISO_FILE) \
-	-drive if=none,file=disk.txtimg,id=disk \
-	-device ahci,id=ahci \
-	-device ide-hd,drive=disk,bus=ahci.0 \
-	-rtc base=localtime,clock=host \
-	-m 512
+    -vga std \
+    -debugcon stdio \
+    -serial file:serial.log \
+	-boot menu=on \
+    -audiodev pa,id=speaker \
+    -device rtl8139,netdev=eth0 \
+    -netdev user,hostfwd=tcp::5555-:22,id=eth0 \
+    -device usb-ehci,id=ehci \
+    -drive if=none,format=raw,file=$(ISO_FILE),id=usbdisk,index=0\
+    -device usb-storage,drive=usbdisk \
+    -drive if=none,format=raw,file=disk.txtimg,id=disk,index=1 \
+    -device ahci,id=ahci \
+    -device ide-hd,drive=disk,bus=ahci.0 \
+    -rtc base=localtime,clock=host \
+    -m 512
 
 run-x86-hdd:
 	@qemu-system-x86_64 $(QEMU_COMMON)

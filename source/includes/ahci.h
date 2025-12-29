@@ -24,6 +24,8 @@
 #define SECTOR_SIZE         512
 
 #define ATA_CMD_WRITE_DMA_EXT 0x35
+#define ATA_CMD_IDENTIFY 0xEC
+
 
 /**
  * @brief AHCI device signatures.
@@ -130,6 +132,27 @@ typedef volatile struct {
     ahci_port_t ports[32];       /* array of port structures (0x100.. ) */
 } ahci_hba_mem_t;
 
+typedef struct {
+    uint64_t total_sectors;
+    int present;
+} ahci_disk_info_t;
+
+extern ahci_disk_info_t ahci_disks[32];
+
+typedef struct {
+    int disk;
+    uint32_t lba_start;
+    uint32_t sectors;
+    uint8_t type;
+} block_part_t;
+
+// For block devics
+typedef struct {
+    int port;
+    uint64_t sectors;
+
+    block_part_t partitions[4];
+} block_disk_t;
 
 /**
  * @brief Global AHCI controller pointer.

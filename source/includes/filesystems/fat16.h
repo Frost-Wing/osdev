@@ -1,0 +1,87 @@
+/**
+ * @file fat16.h
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief The header file for reading in FAT16 file system
+ * @version 0.1
+ * @date 2025-12-28
+ * 
+ * @copyright Copyright (c) Pradosh 2025
+ * 
+ */
+
+#ifndef FAT16_H
+#define FAT16_H
+
+#include <basics.h>
+#include <graphics.h>
+
+typedef struct {
+    uint8_t  jmp[3];
+    uint8_t  oem[8];
+    uint16_t bytes_per_sector;
+    uint8_t  sectors_per_cluster;
+    uint16_t reserved_sectors;
+    uint8_t  num_fats;
+    uint16_t max_root_dir_entries;
+    uint16_t total_sectors_short; // if zero, use total_sectors_long
+    uint8_t  media_descriptor;
+    uint16_t sectors_per_fat;
+    uint16_t sectors_per_track;
+    uint16_t num_heads;
+    uint32_t hidden_sectors;
+    uint32_t total_sectors_long;
+    // We ignore the rest for now
+} __attribute__((packed)) fat16_boot_sector_t;
+
+typedef struct {
+    char     name[8];
+    char     ext[3];
+    uint8_t  attr;
+    uint8_t  reserved;
+    uint8_t  creation_time_tenths;
+    uint16_t creation_time;
+    uint16_t creation_date;
+    uint16_t last_access_date;
+    uint16_t ignore;       // high word of first cluster (FAT32 only)
+    uint16_t last_mod_time;
+    uint16_t last_mod_date;
+    uint16_t first_cluster;
+    uint32_t filesize;
+} __attribute__((packed)) fat16_dir_entry_t;
+
+typedef struct {
+    int portno;
+    uint32_t partition_lba;
+
+    fat16_boot_sector_t bs;
+
+    uint32_t fat_start;
+    uint32_t root_dir_start;
+    uint32_t root_dir_sectors;
+    uint32_t data_start;
+} fat16_fs_t;
+
+typedef struct {
+    fat16_fs_t* fs;
+    fat16_dir_entry_t entry;
+    uint32_t pos;
+    uint16_t cluster;
+} fat16_file_t;
+
+int detect_fat_type(int8* buf);
+int fat16_mount(int portno, uint32_t partition_lba, fat16_fs_t* fs) ;
+uint16_t fat16_read_fat_fs(fat16_fs_t* fs, uint16_t cluster);
+void fat16_list_root(fat16_fs_t* fs);
+int fat16_find_path(fat16_fs_t* fs, const char* path, fat16_dir_entry_t* out);
+int fat16_match_name(fat16_dir_entry_t* e, const char* name);
+int fat16_find_in_dir(fat16_fs_t* fs, uint16_t current_cluster, const char* name, fat16_dir_entry_t* out);
+void fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster);
+void fat16_format_name(const char* input, char out[11]);
+int fat16_find_file(fat16_fs_t* fs, const char* name, fat16_dir_entry_t* out);
+void fat16_read_file(fat16_fs_t* fs, fat16_dir_entry_t* file);
+int fat16_open(fat16_fs_t* fs, const char* path, fat16_file_t* f);
+int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size);
+int fat16_write(fat16_file_t* f, const uint8_t* data, uint32_t size);
+void fat16_close(fat16_file_t* f);
+
+#endif

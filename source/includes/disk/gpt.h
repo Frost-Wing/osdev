@@ -11,10 +11,6 @@
 #define GPT_PART_ATTRIB_USED_BY_OS      0b10
 #define GPT_ENTRIES_SIZE                (512*31)/sizeof(GPT_PartitionEntry)
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 extern uint8_t GPT_EFI_SIGNATURE[]; // it's just "EFI PART"
 
 struct GPT_PartTableHeader{
@@ -52,9 +48,5 @@ struct GPT_START{
 struct GPT_END{
     GPT_PartTableHeader PartitionTableHeaderMirror; // Has to be same as at the start
 } __attribute__((packed)) ;
-
-#if defined(__cplusplus)
-} // extern "C"
-#endif
 
 #endif
