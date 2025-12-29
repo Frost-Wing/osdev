@@ -23,7 +23,7 @@ static pci_id_entry_t pci_ids[] = {
     // --- Intel chipset ---
     {0x8086, 0x29C0, 0xFF, "(Intel) Express DRAM Controller", 0, NULL},
     {0x8086, 0x2918, 0xFF, "(Intel) LPC Interface Controller", 0, NULL},
-    {0x8086, 0x2922, 0xFF, "(Intel) 6 port SATA Controller [AHCI mode]", 0, probe_ahci},
+    {0x8086, 0x2922, 0xFF, "(Intel) 6 port SATA Controller [AHCI mode]", 0, NULL},
     {0x8086, 0x2930, 0xFF, "(Intel) SMBus Controller", 0, NULL},
     {0x8086, 0x1237, 0xFF, "440FX - 82441FX PMC [Natoma]", 0, NULL},
     {0x8086, 0x7000, 0xFF, "82371SB PIIX3 ISA [Natoma/Triton II]", 0, NULL},
@@ -32,7 +32,7 @@ static pci_id_entry_t pci_ids[] = {
 
 
     // --- AMD chipset ---
-    {0x1022, 0x7800, 0xFF, "AMD SATA Controller [AHCI]", 0, probe_ahci},
+    {0x1022, 0x7800, 0xFF, "AMD SATA Controller [AHCI]", 0, NULL},
     {0x1022, 0x7801, 0xFF, "AMD SATA Controller [IDE]",  0, NULL},
     {0x1022, 0x7802, 0xFF, "AMD SATA Controller [RAID]", 0, NULL},
     {0x1022, 0x780B, 0xFF, "AMD SMBus Controller", 0, NULL},
@@ -41,7 +41,7 @@ static pci_id_entry_t pci_ids[] = {
     {0x1022, 0x7814, 0xFF, "AMD USB OHCI Controller", 0, NULL},
 
     // --- AMD (new) chipset ---
-    {0x1022, 0x7901, 0xFF, "AMD Promontory SATA Controller", 0, probe_ahci},
+    {0x1022, 0x7901, 0xFF, "AMD Promontory SATA Controller", 0, NULL},
     {0x1022, 0x790B, 0xFF, "AMD Promontory SMBus Controller", 0, NULL},
     {0x1022, 0x790E, 0xFF, "AMD PCI Express Bridge", 0, NULL},
 

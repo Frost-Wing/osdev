@@ -10,7 +10,8 @@
 
 #include <commands/commands.h>
 #include <disk/mbr.h>
-#include <ahci.h> 
+#include <disk/gpt.h>
+#include <ahci.h>
 
 void print_size(uint64_t sectors)
 {
@@ -27,6 +28,39 @@ void print_size(uint64_t sectors)
     }
 }
 
+static void print_part_tree(
+    int disk_id,
+    uint64_t disk_sectors,
+    void* parts,
+    int part_count,
+    int is_gpt
+) {
+    // ---- DISK ----
+    printfnoln("disk%d       ", disk_id);
+    print_size(disk_sectors);
+    printf("     disk");
+
+    for (int p = 0; p < part_count; p++) {
+        int last = (p == part_count - 1);
+
+        if (last)
+            printfnoln("└─");
+        else
+            printfnoln("├─");
+
+        printfnoln("disk%dp%d   ", disk_id, p + 1);
+
+        if (!is_gpt) {
+            block_part_t* part = &((block_part_t*)parts)[p];
+            print_size(part->sectors);
+        } else {
+            gpt_partition_t* part = &((gpt_partition_t*)parts)[p];
+            print_size(part->sectors);
+        }
+
+        printf("     part");
+    }
+}
 
 int cmd_lsblk(int argc, char** argv)
 {
@@ -35,43 +69,45 @@ int cmd_lsblk(int argc, char** argv)
 
     printf("NAME        SIZE     TYPE");
 
-    for (int i = 0; i < 10; i++) {
+    int disk_id = 0;
+
+    /* ---------- MBR DISKS ---------- */
+    for (int i = 0; i < mbr_disks_count; i++) {
         block_disk_t* d = &mbr_disks[i];
 
         if (d->sectors == 0)
             continue;
 
-        // ---- DISK ----
-        printfnoln("disk%d       ", i);
-        print_size(d->sectors);
-        printf("     disk");
-
-        // count valid partitions
+        // count partitions
         int part_count = 0;
-        for (int p = 0; p < 3; p++) {
-            if (d->partitions[p].sectors != 0)
+        for (int p = 0; p < 4; p++) {
+            if (d->partitions[p].sectors)
                 part_count++;
         }
 
-        // ---- PARTITIONS ----
-        int printed = 0;
-        for (int p = 0; p < 3; p++) {
-            block_part_t* part = &d->partitions[p];
+        print_part_tree(
+            disk_id++,
+            d->sectors,
+            d->partitions,
+            part_count,
+            0   // MBR
+        );
+    }
 
-            if (part->sectors == 0)
-                continue;
+    /* ---------- GPT DISKS ---------- */
+    for (int i = 0; i < gpt_disks_count; i++) {
+        gpt_disk_t* d = &gpt_disks[i];
 
-            printed++;
+        if (d->sectors == 0 || d->partition_count == 0)
+            continue;
 
-            if (printed == part_count)
-                printfnoln("└─");
-            else
-                printfnoln("├─");
-
-            printfnoln("disk%dp%d   ", i, p + 1);
-            print_size(part->sectors);
-            printf("     part");
-        }
+        print_part_tree(
+            disk_id++,
+            d->sectors,
+            d->partitions,
+            d->partition_count,
+            1   // GPT
+        );
     }
 
     return 0;

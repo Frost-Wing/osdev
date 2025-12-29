@@ -82,6 +82,7 @@ void handle_sata_disk(int portno) {
     ahci_disks[portno].total_sectors = sectors;
     ahci_disks[portno].present = 1;
 
+    if(check_gpt(portno) == 0) return;
     check_mbr(portno);
 
     // char* msg = "FROSTWING WAS HERE";

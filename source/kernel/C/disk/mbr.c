@@ -16,41 +16,42 @@
 block_disk_t mbr_disks[10];
 int mbr_disks_count = 0;
 
-void check_mbr(int portno){
+int check_mbr(int portno){
     uint8_t* buf = kmalloc_aligned(512, 512);
     
     if (!buf) {
         error("[AHCI/MBR] kmalloc failed", __FILE__);
-        return;
+        return -1;
     }
     memset(buf, 0, 512);
     
     if (ahci_read_sector(portno, 0, buf, 1) != 0) {
         error("[AHCI/MBR] Read LBA failed", __FILE__);
         printf("[AHCI/MBR] Read LBA failed on port %d", portno);
-        return;
+        return -2;
     }
 
     if (buf[510] != 0x55 || buf[511] != 0xAA) {
         info("Invalid MBR signature", __FILE__);
-        return;
+        return -3;
     }
 
     info("Valid MBR signature", __FILE__);
     parse_mbr_partitions(buf, portno);
+    return 0;
 }
 
 void parse_mbr_partitions(int8* mbr, int portno){
     mbr_partition_t* partitions = (mbr_partition_t*)&mbr[446];
 
     mbr_disks[mbr_disks_count].port = portno;
-    mbr_disks[mbr_disks_count].sectors = ahci_disks[portno].total_sectors; // TODO
+    mbr_disks[mbr_disks_count].sectors = ahci_disks[portno].total_sectors;
 
     for (int i = 0; i < 4; i++) {
         if (partitions[i].partition_type == 0)
             continue;
 
-        printf("Partition %d: type=0x%X, LBA start=%u, sectors=%u, bootable=%d", i, partitions[i].partition_type, partitions[i].lba_start, partitions[i].num_sectors, partitions[i].boot_flag == 0x80 ? 1 : 0);
+        printf("MBR Partition %d: type=0x%X, LBA start=%u, sectors=%u, bootable=%d", i, partitions[i].partition_type, partitions[i].lba_start, partitions[i].num_sectors, partitions[i].boot_flag == 0x80 ? 1 : 0);
         
         mbr_disks[mbr_disks_count].partitions[i].disk = i;
         mbr_disks[mbr_disks_count].partitions[i].lba_start = partitions[i].lba_start;
