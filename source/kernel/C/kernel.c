@@ -159,7 +159,7 @@ void main(void) {
     
     mm_print_out();
 
-    initialize_page_bitmap((int64)virtual_to_physical(kstart), (int64)virtual_to_physical(kend));
+    initialize_page_bitmap((int64)(kstart), (int64)(kend));
 
     setup_gdt();
     initIdt();
@@ -223,7 +223,7 @@ void main(void) {
     
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
     
-    // enter_userland();
+    // enter_userland(module_request.response->modules[0]->address, module_request.response->modules[0]->size);
     sh_exec();
 }
 

@@ -18,21 +18,22 @@ int8*    page_bitmap;
 extern uint8_t user_code_start[];
 extern uint8_t user_code_end[];
 
-static void mark_page_used(uint64_t addr) {
-    if (addr < MEMORY_START || addr >= MEMORY_END) return;
-    size_t page_index = (addr - MEMORY_START) / PAGE_SIZE;
-    size_t byte = page_index / 8;
-    size_t bit  = page_index % 8;
-    page_bitmap[byte] |= (1 << bit);
+inline void* phys_to_virt(uint64_t phys) {
+    return (void*)(phys + KERNEL_PHYS_OFFSET);
 }
 
-static void mark_page_free(uint64_t addr) {
-    if (addr < MEMORY_START || addr >= MEMORY_END) return;
-    size_t page_index = (addr - MEMORY_START) / PAGE_SIZE;
-    size_t byte = page_index / 8;
-    size_t bit  = page_index % 8;
-    page_bitmap[byte] &= ~(1 << bit);
+void mark_page_used(uint64_t addr) {
+    if (addr < memory_start || addr >= memory_end) return;
+    size_t page_index = (addr - memory_start) / PAGE_SIZE;
+    page_bitmap[page_index / 8] |= (1 << (page_index % 8));
 }
+
+void mark_page_free(uint64_t addr) {
+    if (addr < memory_start || addr >= memory_end) return;
+    size_t page_index = (addr - memory_start) / PAGE_SIZE;
+    page_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+}
+
 
 void initialize_page_bitmap(int64 kernel_start, int64 kernel_end) {
     info("Initializing paging", __FILE__);
@@ -158,45 +159,4 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
 
     // Flush TLB
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
-}
-
-void map_user_code() {
-    uint64_t size = (uint64_t)user_code_end - (uint64_t)user_code_start;
-
-    debug_printf("size of user code -> %z\n", size);
-    debug_printf("user code start   -> %z\n", user_code_start);
-    debug_printf("user code end     -> %z\n", user_code_end);
-
-    for (uint64_t off = 0; off < size; off += PAGE_SIZE) {
-        void* kernel_va = allocate_page();
-        uint64_t phys = (int64)virtual_to_physical((int64)kernel_va);
-
-        if (!phys)
-            error("page allocation failed", __FILE__);
-        else
-            info("page allocation is fine", __FILE__);
-        
-        uint64_t vaddr = USER_CODE_VADDR + off;
-        map_user_page(vaddr, phys, USER_CODE_FLAGS);
-        info("map_user_code: mapped executable user page", __FILE__);
-
-        // Verify mapping
-        uint64_t resolved = virtual_to_physical(vaddr) & ~0xFFF;
-        if (resolved != (phys & ~0xFFF)) {
-            error("map_user_code: VA->PA mismatch", __FILE__);
-        } else {
-            info("map_user_code: VA->PA matches", __FILE__);
-        }
-
-        // The code bytes to copy.
-        uint64_t copy = (size - off >= PAGE_SIZE) ? PAGE_SIZE : (size - off);
-        memcpy(kernel_va, user_code_start + off, copy);
-
-        // Verify the copy of userland.
-        if (memcmp(kernel_va, user_code_start + off, copy) != 0) {
-            error("map_user_code: memcpy verification failed", __FILE__);
-        } else {
-            info("map_user_code: memcpy verification succeeded", __FILE__);
-        }
-    }
 }

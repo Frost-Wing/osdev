@@ -15,19 +15,16 @@
 #include <userland.h>
 
 #define PAGE_SIZE      4096ULL
-#define MEMORY_START   0x10000000ULL
-#define MEMORY_END     0x2000000000ULL
-#define AMOUNT_OF_PAGES ((MEMORY_END - MEMORY_START) / PAGE_SIZE)
 
-#define KERNEL_OFFSET 0xFFFFFFFE80000000ULL
 #define PAGE_PRESENT  0x1
 #define PAGE_RW       0x2
 #define PAGE_USER     0x4
 #define PAGE_NX       (1ULL << 63)
-#define PAGE_SIZE        0x1000      // 4 KB
 
 #define USER_CODE_FLAGS (PAGE_PRESENT | PAGE_USER)          // executable
 #define USER_DATA_FLAGS (PAGE_PRESENT | PAGE_USER | PAGE_RW | PAGE_NX)
+
+#define KERNEL_PHYS_OFFSET 0xFFFF800000000000ULL
 
 /**
  * @brief Function to initialize the page bitmap
@@ -68,6 +65,6 @@ void setup_userland_memory();
  * @brief Maps user code in paging.
  * 
  */
-void map_user_code();
+void map_user_code(uint64_t code_entry);
 
 #endif
