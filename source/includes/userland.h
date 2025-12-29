@@ -13,16 +13,12 @@
 
 #include <basics.h>
 #include <syscalls.h>
- 
-#define USER_STACK_SIZE 0x4000      // 16 KB
-#define USER_HEAP_VADDR 0x50000000
-#define USER_HEAP_SIZE  0x100000   // 1 MB
-#define USER_CODE_VADDR  0x1000000ULL
-#define USER_STACK_VADDR 0x4000000ULL
-#define USER_STACK_TOP   0x7FFFFFF000ULL
 
+#define USER_STACK_SIZE  (16 * 1024)
+#define USER_HEAP_SIZE   (1 * 1024 * 1024)
 
-extern void userland_main();
-extern void enter_userland();
+#define USER_CODE_VADDR  0x40000000ULL   // 1 GB
+#define USER_HEAP_VADDR  0x50000000ULL   // 1.25 GB
+#define USER_STACK_TOP   0x7FFFFFF000ULL // top of canonical user space
 
 #endif
