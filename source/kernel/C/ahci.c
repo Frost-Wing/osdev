@@ -12,6 +12,7 @@
 #include <heap.h>
 
 ahci_hba_mem_t* global_ahci_ctrl;
+ahci_disk_info_t ahci_disks[32];
 
 void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
     global_ahci_ctrl = ahci_ctrl;
@@ -32,6 +33,8 @@ void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
             continue;
 
         uint32_t sig = port->sig;
+
+        printf("port->sig = 0x%x", port->sig);
 
         switch (sig) {
             case sata_disk:
@@ -58,17 +61,28 @@ void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
 void handle_sata_disk(int portno) {
     ahci_init_port(portno);
 
-    uint8_t* buf = kmalloc_aligned(512, 512);
-    memset(buf, 0, 512);
+    int16* id = kmalloc_aligned(512, 4096);
 
-    if (ahci_read_sector(portno, 0, buf, 1) != 0) {
-        printf("[AHCI] Read LBA failed on port %d\n", portno);
+    if (!id) {
+        error("[AHCI] Allocation failed!", __FILE__);
         return;
     }
 
-    for (int i = 0; i < 32; i++) printfnoln("%c", buf[i]);
+    if (ahci_identify(portno, id) != 0) {
+        printf("[AHCI] IDENTIFY failed on port %d", portno);
+        return;
+    }
 
-    print("\n");
+    uint64_t sectors =
+            ((uint64_t)id[103] << 48) |
+            ((uint64_t)id[102] << 32) |
+            ((uint64_t)id[101] << 16) |
+            ((uint64_t)id[100]);
+
+    ahci_disks[portno].total_sectors = sectors;
+    ahci_disks[portno].present = 1;
+
+    check_mbr(portno);
 
     // char* msg = "FROSTWING WAS HERE";
     // memset(buf, 0, 512);
@@ -77,13 +91,13 @@ void handle_sata_disk(int portno) {
     // uint64_t write_lba = 2; // or 10 for testing
 
     // if (ahci_write_sector(portno, 0, buf, 1) != 0) {
-    //     printf("[AHCI] Write LBA failed\n");
+    //     printf("[AHCI] Write LBA failed");
     //     return;
     // }
 
     // memset(buf, 0, 512);
     // if (ahci_read_sector(portno, 0, buf, 1) != 0) {
-    //     printf("[AHCI] Read LBA failed\n");
+    //     printf("[AHCI] Read LBA failed");
     //     return;
     // }
 
@@ -234,6 +248,57 @@ int ahci_write_sector(int portno, uint64_t lba, void* buffer, uint32_t count) {
             port->is = 0xFFFFFFFF;
             printf("[AHCI] Write error! tfd=0x%X\n", port->tfd);
             return -3;
+        }
+    }
+
+    port->is = 0xFFFFFFFF;
+    return 0;
+}
+
+int ahci_identify(int portno, void* buffer) {
+    ahci_port_t* port = &global_ahci_ctrl->ports[portno];
+    ahci_port_mem_t* mem = &port_mem[portno];
+
+    // Wait until port is ready
+    while (port->tfd & (0x80 | 0x08)); // BSY | DRQ
+
+    int slot = ahci_find_slot(port);
+    if (slot == -1) return -1;
+
+    ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
+    memset(hdr, 0, sizeof(*hdr));
+    hdr->flags = 5; 
+    hdr->prdtl = 1; // one PRDT entry
+    hdr->ctba = (uint32_t)(uintptr_t)mem->cmd_tables[slot];
+    hdr->ctbau = 0;
+
+
+    ahci_cmd_table_t* tbl = mem->cmd_tables[slot];
+    memset(tbl->cfis, 0, 64);
+    memset(tbl->prdt, 0, sizeof(tbl->prdt));
+
+
+    tbl->prdt[0].dba  = (uint32_t)(uintptr_t)buffer;
+    tbl->prdt[0].dbau = 0;
+    tbl->prdt[0].dbc  = (512 - 1) | (1 << 31); // 512 bytes, IOC
+
+    uint8_t* cfis = tbl->cfis;
+    cfis[0] = 0x27;        // Host to device
+    cfis[1] = 1 << 7;      // Command
+    cfis[2] = ATA_CMD_IDENTIFY; // IDENTIFY DEVICE
+    cfis[7] = 0;           // Features = 0
+    cfis[8] = 0; cfis[9] = 0; cfis[10] = 0; // LBA = 0
+
+    port->serr = 0xFFFFFFFF;
+    port->is   = 0xFFFFFFFF;
+
+    port->ci = 1 << slot;
+
+    // Wait for completion
+    while (port->ci & (1 << slot)) {
+        if (port->tfd & (0x01 | 0x20)) { // ERR | DF
+            port->is = 0xFFFFFFFF;
+            return -2;
         }
     }
 

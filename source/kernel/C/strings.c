@@ -74,6 +74,11 @@ int strncmp(const char *s1, const char *s2, size_t n)
     return 0;
 }
 
+char toupper(char c) {
+    return (c >= 97 && c <= 122) ? (c - 32) : c;
+}
+
+
 /**
  * @brief The OEM itoa function from C
  * 
