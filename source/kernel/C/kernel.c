@@ -151,7 +151,7 @@ void main(void) {
      * ! In memory, kernel is loaded at higher half and at 0x8000000.
      * ! Therefore heap, userland (and more..) can be in the range of 0x1000000 to <= 0x8000000
      */
-    mm_init(virtual_to_physical(kstart) - 65 MiB, 64 MiB);
+    mm_init(0x1000000, 64 MiB);
 
     struct memory_context* memory = (struct memory_context*)kmalloc(sizeof(struct memory_context));
 

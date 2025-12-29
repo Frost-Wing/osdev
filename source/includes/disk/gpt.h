@@ -2,7 +2,7 @@
 #define __GPT_H
 #include <stdint.h>
 #include <stddef.h>
-#include <mbr.h>
+#include <disk/mbr.h>
 
 #define GPT_EFI_PMBR_SECTOR             0
 #define GPT_EFI_PART_HEADER_SECTOR      1
@@ -31,22 +31,32 @@ struct GPT_PartTableHeader{
     uint8_t                  Reserved1[512-0x5C];    // Should be zeroed
 } __attribute__((packed)) ;
 
-struct GPT_PartitionEntry{
-    uint8_t                  PartitionTypeGUID[16];      // 0 == unused entry
-    uint8_t                  UniqueGUID[16];
-    uint64_t                 StartLBA;
-    uint64_t                 EndLBA;
-    uint8_t                  Attributes;
-    uint8_t                  PartitionName[72];
-} __attribute__((packed)) ;
+struct GPT_PartitionEntry {
+    uint8_t   PartitionTypeGUID[16];   // 0 = unused
+    uint8_t   UniqueGUID[16];
+    uint64_t  StartLBA;
+    uint64_t  EndLBA;
+    uint64_t  Attributes;
+    uint16_t  PartitionName[36];       // UTF-16LE
+} __attribute__((packed));
 
-struct GPT_START{
-    MBR PMBR;  // Protected MBR
-    GPT_PartTableHeader PartitionTableHeader;
-} __attribute__((packed)) ;
+typedef struct {
+    int port;
+    uint64_t start_lba;
+    uint64_t end_lba;
+    uint64_t sectors;
+    uint8_t type_guid[16];
+} gpt_partition_t;
 
-struct GPT_END{
-    GPT_PartTableHeader PartitionTableHeaderMirror; // Has to be same as at the start
-} __attribute__((packed)) ;
+typedef struct {
+    int port;
+    uint64_t sectors;
+    gpt_partition_t partitions[128]; // max typical
+    int partition_count;
+} gpt_disk_t;
+
+extern gpt_disk_t gpt_disks[10];
+extern int gpt_disks_count;
+
 
 #endif

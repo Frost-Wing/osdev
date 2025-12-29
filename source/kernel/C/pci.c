@@ -270,6 +270,10 @@ void probe_pci(){
                         snprintf(deviceName, sizeof(deviceNameBuffer), "Unknown Device (0x%04X)", device);
                     }
 
+                    if (classid == 0x01) { // If it is an mass-storage controller, intitialize using AHCI.
+                        done("AHCI controller detected (generic)", __FILE__);
+                        probe_ahci(bus, slot, function);
+                    }
                     
                     print(green_color);
                     printf("%9s : Device : %9s -- Class : %9s", vendorName, deviceName, className);

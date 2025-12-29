@@ -16,6 +16,7 @@
 #define MBR_PART_BOOTABLE   0x80
 
 extern block_disk_t mbr_disks[10];
+extern int mbr_disks_count;
 
 typedef struct {
     uint8_t boot_flag;
@@ -26,7 +27,7 @@ typedef struct {
     uint32_t num_sectors;
 } __attribute__((packed)) mbr_partition_t;
 
-void check_mbr(int portno);
+int check_mbr(int portno);
 void parse_mbr_partitions(int8* mbr, int portno);
 
 #endif
