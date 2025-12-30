@@ -13,7 +13,7 @@
 #include <ahci.h>
 #include <filesystems/fat16.h>
 
-block_disk_t mbr_disks[10];
+mbr_disk_t mbr_disks[10];
 int mbr_disks_count = 0;
 
 int check_mbr(int portno){

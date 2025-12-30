@@ -11,12 +11,8 @@
 #ifndef MBR_H
 #define MBR_H
 #include <basics.h>
-#include <ahci.h>
 
 #define MBR_PART_BOOTABLE   0x80
-
-extern block_disk_t mbr_disks[10];
-extern int mbr_disks_count;
 
 typedef struct {
     uint8_t boot_flag;
@@ -26,6 +22,25 @@ typedef struct {
     uint32_t lba_start;
     uint32_t num_sectors;
 } __attribute__((packed)) mbr_partition_t;
+
+// Simplified and cleaned up mbr
+typedef struct {
+    int disk;
+    uint32_t lba_start;
+    uint32_t sectors;
+    uint8_t type;
+} mbr_part_t;
+
+// For block devics
+typedef struct {
+    int port;
+    uint64_t sectors;
+
+    mbr_part_t partitions[4];
+} mbr_disk_t;
+
+extern mbr_disk_t mbr_disks[10];
+extern int mbr_disks_count;
 
 int check_mbr(int portno);
 void parse_mbr_partitions(int8* mbr, int portno);
