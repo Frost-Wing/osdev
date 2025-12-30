@@ -58,15 +58,27 @@ int fat16_mount(int portno, uint32_t partition_lba, fat16_fs_t* fs) {
 }
 
 uint16_t fat16_read_fat_fs(fat16_fs_t* fs, uint16_t cluster) {
-    uint32_t fat_offset = cluster * 2;
-    uint32_t fat_sector = fs->fat_start + (fat_offset / fs->bs.bytes_per_sector);
-    uint32_t ent_offset = fat_offset % fs->bs.bytes_per_sector;
-
     uint8_t buf[512];
-    ahci_read_sector(fs->portno, fat_sector, buf, 1);
+    uint32_t offset = cluster * 2;
+    uint32_t sector = fs->fat_start + offset / fs->bs.bytes_per_sector;
 
-    return *(uint16_t*)&buf[ent_offset];
+    ahci_read_sector(fs->portno, sector, buf, 1);
+    return *(uint16_t*)(buf + (offset % fs->bs.bytes_per_sector));
 }
+
+// HELPERS ============
+static inline uint32_t fat16_cluster_lba(fat16_fs_t* fs, uint16_t cluster) {
+    return fs->data_start + (cluster - 2) * fs->bs.sectors_per_cluster;
+}
+
+static inline int fat16_dir_valid(fat16_dir_entry_t* e) {
+    if (e->name[0] == 0x00) return 0; // end
+    if (e->name[0] == 0xE5) return -1; // deleted
+    if (e->attr == 0x0F) return -1;    // LFN
+    if (e->attr & 0x08) return -1;     // volume label
+    return 1;
+}
+// END =========
 
 void fat16_list_root(fat16_fs_t* fs) {
     uint8_t buf[512];
@@ -159,24 +171,18 @@ int fat16_find_in_dir(
 ) {
     uint8_t buf[512];
     char fatname[11];
-
     fat16_format_name(name, fatname);
 
-    // ---------------- ROOT DIRECTORY ----------------
+    // ---------- ROOT DIRECTORY ----------
     if (current_cluster == 0) {
         for (uint32_t i = 0; i < fs->root_dir_sectors; i++) {
             ahci_read_sector(fs->portno, fs->root_dir_start + i, buf, 1);
             fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
 
-            for (int j = 0; j < 16; j++) {
-                if (e[j].name[0] == 0x00)
-                    return -1; // end of directory
-                if (e[j].name[0] == 0xE5)
-                    continue;  // deleted
-                if (e[j].attr & 0x08)
-                    continue;  // volume label
-                if (e[j].attr == 0x0F)
-                    continue;  // LFN
+            for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
+                int v = fat16_dir_valid(&e[j]);
+                if (v == 0) return -1;
+                if (v < 0) continue;
 
                 if (memcmp(e[j].name, fatname, 11) == 0) {
                     *out = e[j];
@@ -187,27 +193,20 @@ int fat16_find_in_dir(
         return -1;
     }
 
-    // ---------------- SUBDIRECTORY ----------------
+    // ---------- SUBDIRECTORY ----------
     uint16_t cluster = current_cluster;
 
-    while (cluster < 0xFFF8) {
-        uint32_t lba =
-            fs->data_start +
-            (cluster - 2) * fs->bs.sectors_per_cluster;
+    while (cluster < FAT16_EOC) {
+        uint32_t lba = fat16_cluster_lba(fs, cluster);
 
         for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
             ahci_read_sector(fs->portno, lba + s, buf, 1);
             fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
 
-            for (int j = 0; j < 16; j++) {
-                if (e[j].name[0] == 0x00)
-                    return -1;
-                if (e[j].name[0] == 0xE5)
-                    continue;
-                if (e[j].attr & 0x08)
-                    continue;
-                if (e[j].attr == 0x0F)
-                    continue;
+            for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
+                int v = fat16_dir_valid(&e[j]);
+                if (v == 0) return -1;
+                if (v < 0) continue;
 
                 if (memcmp(e[j].name, fatname, 11) == 0) {
                     *out = e[j];
@@ -345,28 +344,38 @@ int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size) {
     uint8_t sector[512];
 
     while (read < size && f->pos < f->entry.filesize) {
-        uint32_t cluster_offset =
-            f->pos / (f->fs->bs.sectors_per_cluster * 512);
+        uint32_t cluster_size =
+            f->fs->bs.sectors_per_cluster * 512;
 
-        uint16_t cluster = f->entry.first_cluster;
-        for (uint32_t i = 0; i < cluster_offset; i++)
+        uint32_t cluster_index = f->pos / cluster_size;
+        uint32_t sector_in_cluster =
+            (f->pos / 512) % f->fs->bs.sectors_per_cluster;
+
+        uint16_t cluster = f->cluster;
+
+        // Advance cluster only when needed
+        while (cluster_index--) {
             cluster = fat16_read_fat_fs(f->fs, cluster);
+        }
 
         uint32_t lba =
-            f->fs->data_start +
-            (cluster - 2) * f->fs->bs.sectors_per_cluster;
+            fat16_cluster_lba(f->fs, cluster) + sector_in_cluster;
 
         ahci_read_sector(f->fs->portno, lba, sector, 1);
 
         uint32_t off = f->pos % 512;
         uint32_t to_copy = 512 - off;
+
         if (to_copy > size - read)
             to_copy = size - read;
+        if (to_copy > f->entry.filesize - f->pos)
+            to_copy = f->entry.filesize - f->pos;
 
         memcpy(out + read, sector + off, to_copy);
 
         f->pos += to_copy;
         read += to_copy;
+        f->cluster = cluster;
     }
 
     return read;
