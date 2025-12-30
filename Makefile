@@ -61,17 +61,15 @@ QEMU_COMMON = \
     -vga std \
     -debugcon stdio \
     -serial file:serial.log \
-	-boot menu=on \
     -audiodev pa,id=speaker \
     -device rtl8139,netdev=eth0 \
     -netdev user,hostfwd=tcp::5555-:22,id=eth0 \
-    -device usb-ehci,id=ehci \
-    -drive if=none,format=raw,file=$(ISO_FILE),id=usbdisk,index=0\
-    -device usb-storage,drive=usbdisk \
-    -drive if=none,format=raw,file=disk.txtimg,id=disk,index=1 \
+    -cdrom $(ISO_FILE) \
+    -drive if=none,format=raw,file=disk.img,id=disk,index=1 \
     -device ahci,id=ahci \
     -device ide-hd,drive=disk,bus=ahci.0 \
     -rtc base=localtime,clock=host \
+	-boot order=d \
     -m 512
 
 run-x86-hdd:
@@ -115,3 +113,14 @@ fonts:
 clean:
 	@rm -rf ./disk_root $(ISO_FILE) $(ISO_FILE).tar.gz serial.log
 	@cd source && make deep-clean && cd ..
+
+# MISC
+mount-dummy-disk:
+	sudo losetup -fP disk.img
+	sudo mkdir -p /mnt/fat16
+	sudo mount /dev/loop0p1 /mnt/fat16
+	cd /mnt/fat16
+
+umount-dummy-disk:
+	sudo umount /mnt/fat16
+	sudo losetup -d /dev/loop0

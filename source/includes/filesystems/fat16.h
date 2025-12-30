@@ -68,6 +68,7 @@ typedef struct {
 typedef struct {
     fat16_fs_t* fs;
     fat16_dir_entry_t entry;
+    uint16_t parent_cluster;
     uint32_t pos;
     uint16_t cluster;
 } fat16_file_t;
@@ -94,4 +95,6 @@ void fat16_write_fat_entry(fat16_fs_t* fs, uint16_t cluster, uint16_t value);
 uint16_t fat16_allocate_cluster(fat16_fs_t* fs);
 uint16_t fat16_append_cluster(fat16_fs_t* fs, uint16_t last_cluster);
 void fat16_update_root_entry(fat16_fs_t* fs, fat16_dir_entry_t* entry);
+int fat16_update_dir_entry(fat16_fs_t* fs, uint16_t dir_cluster, fat16_dir_entry_t* entry);
+
 #endif
