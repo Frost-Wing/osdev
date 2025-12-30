@@ -139,21 +139,6 @@ typedef struct {
 
 extern ahci_disk_info_t ahci_disks[32];
 
-typedef struct {
-    int disk;
-    uint32_t lba_start;
-    uint32_t sectors;
-    uint8_t type;
-} block_part_t;
-
-// For block devics
-typedef struct {
-    int port;
-    uint64_t sectors;
-
-    block_part_t partitions[4];
-} block_disk_t;
-
 /**
  * @brief Global AHCI controller pointer.
  */

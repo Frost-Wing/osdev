@@ -51,7 +51,7 @@ static void print_part_tree(
         printfnoln("disk%dp%d   ", disk_id, p + 1);
 
         if (!is_gpt) {
-            block_part_t* part = &((block_part_t*)parts)[p];
+            mbr_part_t* part = &((mbr_part_t*)parts)[p];
             print_size(part->sectors);
         } else {
             gpt_partition_t* part = &((gpt_partition_t*)parts)[p];
@@ -73,7 +73,7 @@ int cmd_lsblk(int argc, char** argv)
 
     /* ---------- MBR DISKS ---------- */
     for (int i = 0; i < mbr_disks_count; i++) {
-        block_disk_t* d = &mbr_disks[i];
+        mbr_disk_t* d = &mbr_disks[i];
 
         if (d->sectors == 0)
             continue;
