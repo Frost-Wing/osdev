@@ -42,7 +42,7 @@ void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
                 
                 handle_sata_disk(i);
 
-                // hcf2();
+                hcf2();
                 break;
             case satapi_disk:
                 printf("[AHCI] SATAPI device detected on port %d", i);
