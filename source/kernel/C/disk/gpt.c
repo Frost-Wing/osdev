@@ -99,8 +99,23 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
             fat16_fs_t fs;
             fat16_dir_entry_t file;
 
+            //
             fat16_mount(portno, start, &fs);
-            fat16_list_root(&fs);
+            
+            fat16_create(&fs, 0, "FWLOGS.TXT", 0x20);
+            fat16_file_t f;
+            fat16_open(&fs, "/FWLOGS.TXT", &f);
+            const char msg[] = "HELLO FAT16\n";
+            fat16_write(&f, (const uint8_t*)msg, sizeof(msg));
+
+            // rewind
+            f.pos = 0;
+            f.cluster = f.entry.first_cluster;
+            uint8_t buf[64];
+            fat16_read(&f, buf, sizeof(buf));
+            for(int k=0;k<64;k++)
+                printfnoln("%c", buf[k]);
+            print("\n");
         }
     }
 
