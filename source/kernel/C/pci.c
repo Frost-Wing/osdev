@@ -209,9 +209,9 @@ void load_graphics_card(int16 bus, int16 slot, int16 function, cstring graphics_
 
 }
 
-char* vendorNames[512];
-char* deviceNames[512];
-char* classNames[512];
+char vendorNames[512][64];
+char deviceNames[512][64];
+char classNames[512][64];
 pci_location_t pciLocations[512];
 
 /**
@@ -235,15 +235,14 @@ void probe_pci(){
 
                     string vendorName  = parse_vendor(vendor);
                     string className   = parse_class(classid);
-                    string deviceNameBuffer[64];
-                    string deviceName = deviceNameBuffer;
+                    char deviceName[64];
 
                     strcpy(deviceName, "Unknown Device");
 
                     const pci_id_entry_t* entry = pci_lookup(vendor, device, classid);
 
                     if (entry) {
-                        deviceName = entry->name;
+                        strncpy(deviceName, entry->name, sizeof(deviceName) - 1);
 
                         if (entry->is_gpu) {
                             display_adapter_name = deviceName;
@@ -253,21 +252,21 @@ void probe_pci(){
                         if (entry->probe)
                             entry->probe(bus, slot, function);
                     } else if (classid == 0x03) {
-                        deviceName = auto_name_gpu(vendor, device);
+                        cstring gpu = auto_name_gpu(vendor, device);
+                        strncpy(deviceName, gpu, sizeof(deviceName) - 1);
                         display_adapter_name = deviceName;
                         GPUName[gpu_index++] = deviceName;
+                    } else {
+                        snprintf(deviceName, sizeof(deviceName), "Unknown Device (0x%04X)", device);
                     }
+
+                    deviceName[sizeof(deviceName) - 1] = 0;
 
                     if (classid == 0x03) {
                         if (vendor == 0x1b36 && device == 0x0100)
                             warn("QXL graphics not supported.", __FILE__);
                         else
                             load_graphics_card(bus, slot, function, deviceName);
-                    }
-
-                    
-                    if (strcmp(deviceName, "Unknown Device") == 0) {
-                        snprintf(deviceName, sizeof(deviceNameBuffer), "Unknown Device (0x%04X)", device);
                     }
 
                     if (classid == 0x01) { // If it is an mass-storage controller, intitialize using AHCI.
@@ -283,14 +282,14 @@ void probe_pci(){
                     debug_printf("%s : Device : %s -- Class : %s\n", vendorName, deviceName, className);
                     debug_printf(reset_color);
                     
-                    vendorNames[i] = vendorName;
-                    deviceNames[i] = deviceName;
-                    classNames[i]  = className;
+                    strncpy(vendorNames[i], vendorName, 63);
+                    strncpy(deviceNames[i], deviceName, 63);
+                    strncpy(classNames[i],  className,  63);
                     pciLocations[i] = (pci_location_t){bus, slot, function};
 
-                    vendorName = "";
-                    deviceName = "";
-                    className  = "";
+                    vendorNames[i][63] = 0;
+                    deviceNames[i][63] = 0;
+                    classNames[i][63]  = 0;
                     i++;
             }
         }
@@ -307,9 +306,6 @@ void probe_pci(){
 
 void print_lspci() {
     for (int i = 0; i < total_devices; i++) {
-        if (vendorNames[i] == NULL || deviceNames[i] == NULL || classNames[i] == NULL)
-            continue; // Skip empty entries
-
             printf("%02d:%2x.%d " yellow_color "%s " green_color "%s " red_color "%s" reset_color,
                 pciLocations[i].bus,
                 pciLocations[i].slot, 
