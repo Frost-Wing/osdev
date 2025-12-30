@@ -385,17 +385,28 @@ int fat16_write(fat16_file_t* f, const uint8_t* data, uint32_t size) {
     uint32_t written = 0;
     uint8_t sector[512];
 
-    while (written < size && f->pos < f->entry.filesize) {
-        uint32_t cluster_offset =
-            f->pos / (f->fs->bs.sectors_per_cluster * 512);
+    while (written < size) {
+        uint32_t cluster_size =
+            f->fs->bs.sectors_per_cluster * 512;
 
-        uint16_t cluster = f->entry.first_cluster;
-        for (uint32_t i = 0; i < cluster_offset; i++)
-            cluster = fat16_read_fat_fs(f->fs, cluster);
+        uint32_t cluster_index = f->pos / cluster_size;
+        uint32_t sector_in_cluster =
+            (f->pos / 512) % f->fs->bs.sectors_per_cluster;
+
+        uint16_t cluster = f->cluster;
+
+        // Walk / extend FAT chain
+        for (uint32_t i = 0; i < cluster_index; i++) {
+            uint16_t next = fat16_read_fat_fs(f->fs, cluster);
+            if (next >= FAT16_EOC) {
+                next = fat16_append_cluster(f->fs, cluster);
+                if (!next) return written;
+            }
+            cluster = next;
+        }
 
         uint32_t lba =
-            f->fs->data_start +
-            (cluster - 2) * f->fs->bs.sectors_per_cluster;
+            fat16_cluster_lba(f->fs, cluster) + sector_in_cluster;
 
         ahci_read_sector(f->fs->portno, lba, sector, 1);
 
@@ -403,20 +414,118 @@ int fat16_write(fat16_file_t* f, const uint8_t* data, uint32_t size) {
         uint32_t to_copy = 512 - off;
         if (to_copy > size - written)
             to_copy = size - written;
-        if (to_copy > f->entry.filesize - f->pos)
-            to_copy = f->entry.filesize - f->pos;
 
         memcpy(sector + off, data + written, to_copy);
-
         ahci_write_sector(f->fs->portno, lba, sector, 1);
 
         f->pos += to_copy;
         written += to_copy;
+
+        if (f->pos > f->entry.filesize)
+            f->entry.filesize = f->pos;
+
+        f->cluster = cluster;
     }
 
+    fat16_update_root_entry(f->fs, &f->entry);
     return written;
 }
 
+
 void fat16_close(fat16_file_t* f) {
     memset(f, 0, sizeof(*f));
+}
+
+// WRITE WITH EXTEND = START ========
+uint16_t fat16_find_free_cluster(fat16_fs_t* fs) {
+    uint32_t fat_sectors = fs->bs.sectors_per_fat;
+    uint8_t buf[512];
+
+    for (uint32_t s = 0; s < fat_sectors; s++) {
+        ahci_read_sector(fs->portno, fs->fat_start + s, buf, 1);
+
+        uint16_t* fat = (uint16_t*)buf;
+        for (int i = 0; i < 256; i++) {
+            if (fat[i] == 0x0000) {
+                return s * 256 + i;
+            }
+        }
+    }
+
+    return 0; // no space
+}
+
+void fat16_write_fat_entry(fat16_fs_t* fs, uint16_t cluster, uint16_t value) {
+    uint32_t offset = cluster * 2;
+    uint32_t sector = fs->fat_start + offset / fs->bs.bytes_per_sector;
+    uint32_t off = offset % fs->bs.bytes_per_sector;
+
+    uint8_t buf[512];
+    ahci_read_sector(fs->portno, sector, buf, 1);
+
+    *(uint16_t*)(buf + off) = value;
+
+    ahci_write_sector(fs->portno, sector, buf, 1);
+}
+
+uint16_t fat16_allocate_cluster(fat16_fs_t* fs) {
+    uint16_t cluster = fat16_find_free_cluster(fs);
+    if (!cluster)
+        return 0;
+
+    fat16_write_fat_entry(fs, cluster, FAT16_EOC);
+
+    uint8_t zero[512] = {0};
+    uint32_t lba = fat16_cluster_lba(fs, cluster);
+
+    for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
+        ahci_write_sector(fs->portno, lba + s, zero, 1);
+    }
+
+    return cluster;
+}
+
+uint16_t fat16_append_cluster(fat16_fs_t* fs, uint16_t last_cluster) {
+    uint16_t new_cluster = fat16_allocate_cluster(fs);
+    if (!new_cluster)
+        return 0;
+
+    fat16_write_fat_entry(fs, last_cluster, new_cluster);
+    fat16_write_fat_entry(fs, new_cluster, FAT16_EOC);
+
+    return new_cluster;
+}
+
+void fat16_update_root_entry(
+    fat16_fs_t* fs,
+    fat16_dir_entry_t* entry
+) {
+    uint8_t buf[512];
+
+    for (uint32_t i = 0; i < fs->root_dir_sectors; i++) {
+        ahci_read_sector(fs->portno, fs->root_dir_start + i, buf, 1);
+        fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
+
+        for (int j = 0; j < 16; j++) {
+            if (e[j].name[0] == 0x00)
+                return;
+
+            if (e[j].name[0] == 0xE5)
+                continue;
+
+            if (e[j].attr == 0x0F)
+                continue;
+
+            if (memcmp(e[j].name, entry->name, 11) == 0) {
+                e[j] = *entry;
+                ahci_write_sector(
+                    fs->portno,
+                    fs->root_dir_start + i,
+                    buf,
+                    1
+                );
+                return;
+            }
+        }
+    }
 }
