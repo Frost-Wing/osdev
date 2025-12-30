@@ -1,7 +1,7 @@
 /**
  * @file fat16.h
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief The header file for reading in FAT16 file system
+ * @brief The header file for reading using FAT16 file system.
  * @version 0.1
  * @date 2025-12-28
  * 
@@ -14,6 +14,10 @@
 
 #include <basics.h>
 #include <graphics.h>
+
+#define FAT16_EOC 0xFFF8
+#define DIR_ENTRIES_PER_SECTOR 16
+#define BYTES_PER_DIR_ENTRY 32
 
 typedef struct {
     uint8_t  jmp[3];
