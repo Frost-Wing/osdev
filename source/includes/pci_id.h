@@ -13,7 +13,8 @@
 #define PCI_ID_H
 
 #include <basics.h>
-#include <pci_id.h>
+
+#define MAX_PCI_DEVICES 512
 
 typedef void (*pci_probe_fn)(uint8_t bus, uint8_t slot, uint8_t function);
 

@@ -12,7 +12,7 @@
 #ifndef PCI_H
 #define PCI_H
 
-#include <stdint.h>
+#include <basics.h>
 #include <hal.h>
 #include <graphics.h>
 #include <drivers/rtl8139.h>
@@ -20,6 +20,7 @@
 #include <ahci.h>
 #include <hal.h>
 #include <isr.h>
+#include <pci_id.h>
 
 extern cstring display_adapter_name;
 extern cstring GPUName[1]; //Max 2 GPUs allowed
@@ -30,6 +31,14 @@ extern int total_devices;
 // Define the base address for the PCI configuration space
 #define PCI_CONFIG_ADDRESS 0xCF8
 #define PCI_CONFIG_DATA    0xCFC
+
+typedef void (*pci_probe_fn)(uint8_t bus, uint8_t slot, uint8_t function);
+
+typedef struct {
+    int16 bus;
+    int16 slot;
+    int16 func;
+} pci_location_t;
 
 /**
  * @brief Read a 16-bit value from a PCI configuration register.
@@ -90,27 +99,6 @@ int16 getSubClassId(int16 bus, int16 device, int16 function);
  * 
  */
 void probe_pci();
-
-/**
- * @brief Loads a int64* to a Graphics Card's base address
- * 
- * @param bus 
- * @param slot 
- * @param function 
- * @param graphics_card_name
- */
-void load_graphics_card(int16 bus, int16 slot, int16 function, cstring graphics_card_name);
-
-/**
- * @brief Function to get the base address register (BAR) of the graphics card
- * 
- * @param bus 
- * @param slot 
- * @param func 
- * @param desiredBAR 
- * @return int64 
- */
-int64 get_graphics_card_bar_address(int8 bus, int8 slot, int8 func, int8 desiredBAR);
 
 /**
  * @brief Function to read a 32-bit value from the PCI configuration space

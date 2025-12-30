@@ -19,25 +19,6 @@ cstring GPUName[1] = {"Frost Generic Display Driver for Graphics Processing Unit
 int64* graphics_base_Address = null;
 string using_graphics_card = "unknown";
 
-typedef void (*pci_probe_fn)(
-    uint8_t bus, uint8_t slot, uint8_t function
-);
-
-typedef struct {
-    int16 bus;
-    int16 slot;
-    int16 func;
-} pci_location_t;
-
-typedef struct {
-    uint16_t vendor;
-    uint16_t device;
-    uint8_t  classid;    // 0xFF = ignore
-    cstring name;
-    uint8_t is_gpu;
-    pci_probe_fn probe;  // optional device-specific init
-} pci_id_entry_t;
-
 /**
  * @brief Function to read a 32-bit value from the PCI configuration space
  * 
@@ -87,8 +68,7 @@ int16 pci_read_word(int16 bus, int16 slot, int16 func, int16 offset)
     int64 lslot = (int64)slot;
     int64 lfunc = (int64)func;
     int16 tmp = 0;
-    address = (int64)((lbus << 16) | (lslot << 11) |
-              (lfunc << 8) | (offset & 0xfc) | ((int32)0x80000000));
+    address = (int64)((lbus << 16) | (lslot << 11) | (lfunc << 8) | (offset & 0xfc) | ((int32)0x80000000));
     outl(0xCF8, address);
     tmp = (int16)((inl(0xCFC) >> ((offset & 2) * 8)) & 0xffff);
     return (tmp);
@@ -105,8 +85,8 @@ int16 pci_read_word(int16 bus, int16 slot, int16 func, int16 offset)
  */
 int16 getVendorID(int16 bus, int16 device, int16 function)
 {
-        int32 r0 = pci_read_word(bus,device,function,0);
-        return r0;
+    int32 r0 = pci_read_word(bus,device,function,0);
+    return r0;
 }
 
 /**
@@ -119,8 +99,12 @@ int16 getVendorID(int16 bus, int16 device, int16 function)
  */
 int16 getDeviceID(int16 bus, int16 device, int16 function)
 {
-        int32 r0 = pci_read_word(bus,device,function,2);
-        return r0;
+    int32 r0 = pci_read_word(bus,device,function,2);
+    return r0;
+}
+
+int8 getRevision(int16 bus, int16 slot, int16 func) {
+    return pci_read_word(bus, slot, func, 0x08) & 0xFF;
 }
 
 /**
@@ -133,8 +117,8 @@ int16 getDeviceID(int16 bus, int16 device, int16 function)
  */
 int16 getClassId(int16 bus, int16 device, int16 function)
 {
-        int32 r0 = pci_read_word(bus,device,function,0xA);
-        return (r0 & ~0x00FF) >> 8;
+    int32 r0 = pci_read_word(bus,device,function,0xA);
+    return (r0 & ~0x00FF) >> 8;
 }
 
 /**
@@ -147,14 +131,21 @@ int16 getClassId(int16 bus, int16 device, int16 function)
  */
 int16 getSubClassId(int16 bus, int16 device, int16 function)
 {
-        int32 r0 = pci_read_word(bus,device,function,0xA);
-        return (r0 & ~0xFF00);
+    int32 r0 = pci_read_word(bus,device,function,0xA);
+    return (r0 & ~0xFF00);
 }
 
-char vendorNames[512][64];
-char deviceNames[512][64];
-char classNames[512][64];
-pci_location_t pciLocations[512];
+char vendorNames[MAX_PCI_DEVICES][64];
+char deviceNames[MAX_PCI_DEVICES][64];
+char classNames[MAX_PCI_DEVICES][64];
+
+int16 vendors[MAX_PCI_DEVICES];
+int16 devices[MAX_PCI_DEVICES];
+int16 classes[MAX_PCI_DEVICES];
+int16 subclasses[MAX_PCI_DEVICES];
+int8 revisions[MAX_PCI_DEVICES];
+
+pci_location_t pciLocations[MAX_PCI_DEVICES];
 
 /**
  * @brief Scans (Probes) PCI Devices
@@ -174,6 +165,7 @@ void probe_pci(){
                     int16 device = getDeviceID(bus, slot, function);
                     int16 classid = getClassId(bus, slot, function);
                     int16 subclassid = getSubClassId(bus, slot, function);
+                    int16 revision = getRevision(bus, slot, function);
 
                     string vendorName  = parse_vendor(vendor);
                     string className   = parse_class(classid);
@@ -222,6 +214,12 @@ void probe_pci(){
                     strncpy(classNames[i],  className,  63);
                     pciLocations[i] = (pci_location_t){bus, slot, function};
 
+                    vendors[i] = vendor;
+                    devices[i] = device;
+                    classes[i] = classid;
+                    subclasses[i] = subclassid;
+                    revisions[i] = revision;
+
                     vendorNames[i][63] = 0;
                     deviceNames[i][63] = 0;
                     classNames[i][63]  = 0;
@@ -241,12 +239,13 @@ void probe_pci(){
 
 void print_lspci() {
     for (int i = 0; i < total_devices; i++) {
-            printf("%02d:%2x.%d " yellow_color "%s " green_color "%s " red_color "%s" reset_color,
+            printf("%02d:%2x.%d " yellow_color "%s " green_color "%s " red_color "%s" reset_color " (rev %02x)",
                 pciLocations[i].bus,
                 pciLocations[i].slot, 
                 pciLocations[i].func,
                 vendorNames[i],
                 deviceNames[i],
-                classNames[i]);
+                classNames[i],
+                revisions[i]);
     }
 }
