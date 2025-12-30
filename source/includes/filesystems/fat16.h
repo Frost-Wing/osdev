@@ -83,9 +83,15 @@ void fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster);
 void fat16_format_name(const char* input, char out[11]);
 int fat16_find_file(fat16_fs_t* fs, const char* name, fat16_dir_entry_t* out);
 void fat16_read_file(fat16_fs_t* fs, fat16_dir_entry_t* file);
+
 int fat16_open(fat16_fs_t* fs, const char* path, fat16_file_t* f);
 int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size);
 int fat16_write(fat16_file_t* f, const uint8_t* data, uint32_t size);
 void fat16_close(fat16_file_t* f);
 
+uint16_t fat16_find_free_cluster(fat16_fs_t* fs);
+void fat16_write_fat_entry(fat16_fs_t* fs, uint16_t cluster, uint16_t value);
+uint16_t fat16_allocate_cluster(fat16_fs_t* fs);
+uint16_t fat16_append_cluster(fat16_fs_t* fs, uint16_t last_cluster);
+void fat16_update_root_entry(fat16_fs_t* fs, fat16_dir_entry_t* entry);
 #endif
