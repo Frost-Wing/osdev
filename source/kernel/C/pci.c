@@ -54,38 +54,6 @@ int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset) {
 }
 
 /**
- * @brief Function to get the base address register (BAR) of the graphics card
- * 
- * @param bus 
- * @param slot 
- * @param func 
- * @param desiredBAR 
- * @return int64 
- */
-int64 get_graphics_card_bar_address(int8 bus, int8 slot, int8 func, int8 desiredBAR) {
-    for (int8 barIndex = 0; barIndex < 6; ++barIndex) {  // Assume there are 6 BARs, adjust as needed
-        int32 lowerBAR = pci_config_read_dword(bus, slot, func, 0x10 + barIndex * 4);
-
-        // Check if the BAR is memory-mapped (bit 0 set to 0) and not an IO space (bit 0 set to 1)
-        if ((lowerBAR & 0x1) == 0 && (lowerBAR & 0x6) == 0) {
-            // Assuming BAR is memory-mapped, so we concatenate lower and upper halves
-            int32 upperBAR = pci_config_read_dword(bus, slot, func, 0x14 + barIndex * 4);
-            int64 barAddress = ((int64)upperBAR << 32) | lowerBAR;
-
-            // Check if this is the desired BAR
-            if (barIndex == desiredBAR) {
-                return barAddress;
-            }else {
-                warn("Desired BAR not found! (case 2)", __FILE__);
-            }
-        }
-    }
-
-    warn("Desired BAR not found! (case 1)", __FILE__);
-    return 0;
-}
-
-/**
  * @brief Gets the AHCI bar address
  * 
  * @param bus The PCI bus number.
@@ -183,32 +151,6 @@ int16 getSubClassId(int16 bus, int16 device, int16 function)
         return (r0 & ~0xFF00);
 }
 
-/**
- * @brief Loads a int64* to a Graphics Card's base address
- * 
- * @param bus 
- * @param slot 
- * @param function 
- * @param graphics_card_name
- */
-void load_graphics_card(int16 bus, int16 slot, int16 function, cstring graphics_card_name){
-
-    for(int8 barIndex = 0; barIndex < 6; barIndex++){
-        graphics_base_Address = (int64*)get_graphics_card_bar_address(bus, slot, function, barIndex);
-
-        if(graphics_base_Address != null){
-            done("Found graphics card's base address!", __FILE__);
-            // printf("%d", graphics_base_Address);
-            using_graphics_card = graphics_card_name;
-            return;
-        }else{
-            warn("Cannot use graphics card. (Attempting next BAR Index)", __FILE__);
-        }
-
-    }
-
-}
-
 char vendorNames[512][64];
 char deviceNames[512][64];
 char classNames[512][64];
@@ -261,13 +203,6 @@ void probe_pci(){
                     }
 
                     deviceName[sizeof(deviceName) - 1] = 0;
-
-                    if (classid == 0x03) {
-                        if (vendor == 0x1b36 && device == 0x0100)
-                            warn("QXL graphics not supported.", __FILE__);
-                        else
-                            load_graphics_card(bus, slot, function, deviceName);
-                    }
 
                     if (classid == 0x01) { // If it is an mass-storage controller, intitialize using AHCI.
                         done("AHCI controller detected (generic)", __FILE__);
