@@ -26,6 +26,8 @@
 #define ATA_CMD_WRITE_DMA_EXT 0x35
 #define ATA_CMD_IDENTIFY 0xEC
 
+#define MAX_PARTITIONS 128
+
 
 /**
  * @brief AHCI device signatures.
@@ -137,7 +139,70 @@ typedef struct {
     int present;
 } ahci_disk_info_t;
 
+/// GENERAL PARITION LAYOUT BEGIN
+
+typedef enum {
+    FS_UNKNOWN = 0,
+
+    // FAT family
+    FS_FAT12,
+    FS_FAT16,
+    FS_FAT32,
+    FS_EXFAT,
+
+    // Linux / Unix
+    FS_EXT2,
+    FS_EXT3,
+    FS_EXT4,
+    FS_XFS,
+    FS_BTRFS,
+
+    // Other common FS
+    FS_NTFS,
+    FS_ISO9660,
+    FS_UDF,
+
+    // OS / Custom
+    FS_FROSTFS,
+    FS_RAMFS,
+} partition_fs_type_t;
+
+
+typedef enum {
+    PART_TABLE_MBR,
+    PART_TABLE_GPT
+} partition_table_type_t;
+
+typedef struct {
+    partition_table_type_t table_type;
+
+    // Common geometry
+    int64 lba_start;
+    int64 lba_end;
+    int64 sector_count;
+    int64 ahci_port;
+
+    // Bootable?
+    bool bootable;
+
+    // Filesystem info
+    partition_fs_type_t fs_type;
+
+    // Original on-disk identifiers (optional but useful)
+    union {
+        uint8_t  mbr_type;          // raw MBR partition type
+        uint8_t  gpt_type_guid[16]; // raw GPT type GUID
+    };
+
+    char name[64]; // UTF-8, converted from GPT UTF-16 if needed
+} general_partition_t;
+
+// END
+
 extern ahci_disk_info_t ahci_disks[32];
+
+extern general_partition_t ahci_partitions[MAX_PARTITIONS];
+extern int general_partition_count;
 
 /**
  * @brief Global AHCI controller pointer.
@@ -150,4 +215,20 @@ extern ahci_hba_mem_t* global_ahci_ctrl;
  * @param ahci_ctrl Pointer to the AHCI controller structure.
  */
 void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl);
+
+general_partition_t* add_general_partition(
+    partition_table_type_t table_type,
+    int64 lba_start,
+    int64 lba_end,
+    int64 sector_count,
+    int64 ahci_port,
+    bool bootable,
+    partition_fs_type_t fs_type,
+    cstring name,
+    uint8_t mbr_type,
+    const uint8_t* gpt_guid   // must be 16 bytes
+);
+
+general_partition_t* search_general_partition(cstring partition_name);
+
 #endif // AHCI_H

@@ -13,6 +13,8 @@
 
 ahci_hba_mem_t* global_ahci_ctrl;
 ahci_disk_info_t ahci_disks[32];
+general_partition_t ahci_partitions[MAX_PARTITIONS];
+int general_partition_count = 0;
 
 void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
     global_ahci_ctrl = ahci_ctrl;
@@ -41,8 +43,6 @@ void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
                 printf("[AHCI] SATA Disk detected on port %d", i);
                 
                 handle_sata_disk(i);
-
-                hcf2();
                 break;
             case satapi_disk:
                 printf("[AHCI] SATAPI device detected on port %d", i);
@@ -75,11 +75,7 @@ void handle_sata_disk(int portno) {
         return;
     }
 
-    uint64_t sectors =
-            ((uint64_t)id[103] << 48) |
-            ((uint64_t)id[102] << 32) |
-            ((uint64_t)id[101] << 16) |
-            ((uint64_t)id[100]);
+    uint64_t sectors = ((uint64_t)id[103] << 48) | ((uint64_t)id[102] << 32) | ((uint64_t)id[101] << 16) | ((uint64_t)id[100]);
 
     ahci_disks[portno].total_sectors = sectors;
     ahci_disks[portno].present = 1;
@@ -107,6 +103,66 @@ void handle_sata_disk(int portno) {
     // for (int i = 0; i < 32; i++) printfnoln("%c", buf[i]);
 
     // print("\n");
+}
+
+general_partition_t* add_general_partition(
+    partition_table_type_t table_type,
+    int64 lba_start,
+    int64 lba_end,
+    int64 sector_count,
+    int64 ahci_port,
+    bool bootable,
+    partition_fs_type_t fs_type,
+    cstring name,
+    uint8_t mbr_type,
+    const uint8_t* gpt_guid   // must be 16 bytes
+) {
+    if (general_partition_count >= MAX_PARTITIONS)
+        return NULL;
+
+    general_partition_t* p = &ahci_partitions[general_partition_count++];
+    memset(p, 0, sizeof(general_partition_t));
+
+    p->table_type   = table_type;
+    p->lba_start    = lba_start;
+    p->lba_end      = lba_end;
+    p->sector_count = sector_count;
+    p->ahci_port    = ahci_port;
+    p->bootable     = bootable;
+    p->fs_type      = fs_type;
+
+    switch (table_type) {
+        case PART_TABLE_MBR:
+            p->mbr_type = mbr_type;
+            break;
+
+        case PART_TABLE_GPT:
+            if (gpt_guid)
+                memcpy(p->gpt_type_guid, gpt_guid, 16);
+            break;
+    }
+
+    if (name) {
+        strncpy(p->name, name, sizeof(p->name) - 1);
+        p->name[sizeof(p->name) - 1] = '\0';
+    } else {
+        strcpy(p->name, "unknown");
+    }
+
+    return p;
+}
+
+general_partition_t* search_general_partition(cstring partition_name) {
+    if (!partition_name)
+        return NULL;
+
+    for (size_t i = 0; i < general_partition_count; i++) {
+        if (strcmp(ahci_partitions[i].name, partition_name) == 0) {
+            return &ahci_partitions[i];
+        }
+    }
+
+    return NULL;  // not found
 }
 
 void ahci_init_port(int portno) {
