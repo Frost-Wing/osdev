@@ -97,4 +97,9 @@ uint16_t fat16_append_cluster(fat16_fs_t* fs, uint16_t last_cluster);
 void fat16_update_root_entry(fat16_fs_t* fs, fat16_dir_entry_t* entry);
 int fat16_update_dir_entry(fat16_fs_t* fs, uint16_t dir_cluster, fat16_dir_entry_t* entry);
 
+int fat16_unlink_path(fat16_fs_t* fs, const char* path);
+int fat16_rmdir(fat16_fs_t* fs, uint16_t dir_cluster);
+int fat16_find_parent(fat16_fs_t* fs, const char* path, uint16_t* out_cluster, char* out_name);
+int fat16_delete_entry(fat16_fs_t* fs, uint16_t parent_cluster, const char* name);
+
 #endif

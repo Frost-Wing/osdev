@@ -187,3 +187,5 @@ char** splitf(const char* str, char delim, int* num_tokens);
 int isspace(char c);
 
 char* trim_inplace(char* s);
+
+char* strrchr(const char* s, int c);
