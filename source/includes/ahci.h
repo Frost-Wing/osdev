@@ -197,12 +197,21 @@ typedef struct {
     char name[64]; // UTF-8, converted from GPT UTF-16 if needed
 } general_partition_t;
 
+typedef struct mount_entry {
+    char* mount_point;
+    char* part_name;
+    partition_fs_type_t type;
+    void* fs;
+} mount_entry_t;
+
 // END
 
 extern ahci_disk_info_t ahci_disks[32];
 
 extern general_partition_t ahci_partitions[MAX_PARTITIONS];
+extern mount_entry_t mounted_partitions[MAX_PARTITIONS];
 extern int general_partition_count;
+extern int mounted_partiion_count;
 
 /**
  * @brief Global AHCI controller pointer.
@@ -230,5 +239,7 @@ general_partition_t* add_general_partition(
 );
 
 general_partition_t* search_general_partition(cstring partition_name);
+
+mount_entry_t* add_mount(const char* mount_point, const char* part_name, partition_fs_type_t type, void* fs_ptr);
 
 #endif // AHCI_H

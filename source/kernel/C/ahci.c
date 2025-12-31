@@ -10,11 +10,15 @@
  */
 #include <ahci.h>
 #include <heap.h>
+#include <basics.h>
+#include <graphics.h>
 
 ahci_hba_mem_t* global_ahci_ctrl;
 ahci_disk_info_t ahci_disks[32];
 general_partition_t ahci_partitions[MAX_PARTITIONS];
+mount_entry_t mounted_partitions[MAX_PARTITIONS];
 int general_partition_count = 0;
+int mounted_partition_count = 0;
 
 void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
     global_ahci_ctrl = ahci_ctrl;
@@ -163,6 +167,50 @@ general_partition_t* search_general_partition(cstring partition_name) {
     }
 
     return NULL;  // not found
+}
+
+mount_entry_t* add_mount(const char* mount_point, const char* part_name, partition_fs_type_t type, void* fs_ptr)
+{
+    if (mounted_partition_count >= MAX_PARTITIONS) return NULL;
+
+    mount_entry_t* new_mount = kmalloc(sizeof(mount_entry_t));
+    if(!new_mount) return NULL;
+
+    new_mount->mount_point = strdup(mount_point);
+    new_mount->part_name = strdup(part_name);
+    new_mount->type = type;
+    new_mount->fs = fs_ptr;
+
+    // store it in the global array
+    mounted_partitions[mounted_partition_count] = *new_mount;
+
+    mounted_partition_count++;    // track number of mounts
+
+    return new_mount;
+}
+
+mount_entry_t* find_mount_by_point(const char* mount_point)
+{
+    for(int i = 0; i < mounted_partition_count; i++){
+        if(strcmp(mounted_partitions[i].mount_point, mount_point) == 0){
+            return &mounted_partitions[i];
+        }
+    }
+    return NULL; // not found
+}
+
+void list_all_mounts()
+{
+    if(mounted_partition_count == 0){
+        printf("No mounted partitions.");
+        return;
+    }
+
+    printf(yellow_color "Mounted partitions :" reset_color);
+    for(int i = 0; i < mounted_partition_count; i++){
+        mount_entry_t* mnt = &mounted_partitions[i];
+        printf("  [%d] %s -> %s (FS Type: %d)", i, mnt->part_name, mnt->mount_point, mnt->type);
+    }
 }
 
 void ahci_init_port(int portno) {
