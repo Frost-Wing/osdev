@@ -18,7 +18,8 @@ int cmd_mount(int argc, char** argv)
 {
     if (argc < 3) {
         printf("Usage: mount <device> <mount_point>");
-        return 1;
+        list_all_mounts();
+        return 0;
     }
 
     const char* device = argv[1];
@@ -28,16 +29,22 @@ int cmd_mount(int argc, char** argv)
 
     if(partition == null){
         printf("mount: %s: can't find.", device);
-        return -1;
+        return 1;
     }
 
-    fat16_fs_t fs;
     if(partition->fs_type == FS_FAT16){
-        fat16_mount(partition->ahci_port, partition->lba_start, &fs/* todo */);
+        fat16_fs_t* fs = (void*)kmalloc(sizeof(fat16_fs_t));
+        if(!fs){
+            printf("mount: kmalloc failed.");
+            return 1;
+        }
+
+        mount_entry_t* new_mount = add_mount(mount_point, device, FS_FAT16, fs);
+        fat16_mount(partition->ahci_port, partition->lba_start, (fat16_fs_t*)new_mount->fs);
     } else {
         printf("mount: bad block or unknown file system.");
 
-        return -1;
+        return 1;
     }
 
     return 0;
