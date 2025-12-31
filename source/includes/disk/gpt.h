@@ -2,6 +2,7 @@
 #define __GPT_H
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <disk/mbr.h>
 
 #define GPT_EFI_PMBR_SECTOR             0
@@ -58,5 +59,8 @@ typedef struct {
 extern gpt_disk_t gpt_disks[10];
 extern int gpt_disks_count;
 
+int check_gpt(int portno);
+void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr);
+bool gpt_is_uefi_bootable(const struct GPT_PartitionEntry* p);
 
 #endif
