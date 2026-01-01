@@ -10,6 +10,10 @@
  */
 
 #include <commands/commands.h>
+#include <filesystems/vfs.h>
+#include <basics.h>
+
+#define CAT_BUF_SIZE 512
 
 int cmd_cat(int argc, char** argv)
 {
@@ -17,8 +21,36 @@ int cmd_cat(int argc, char** argv)
         printf("cat: missing file operand");
         return 1;
     }
-    
-    printf("%s", read_file(global_fs, argv[1]));
 
+    uint8_t buf[CAT_BUF_SIZE];
+
+    for (int i = 1; i < argc; i++) {
+        vfs_file_t file;
+
+        /* Open file */
+        if (vfs_open(argv[i], &file) != 0) {
+            printf("cat: %s: No such file or directory\n", argv[i]);
+            continue;
+        }
+
+        /* Read loop */
+        while (1) {
+            int r = vfs_read(&file, buf, CAT_BUF_SIZE);
+            if (r < 0) {
+                printf("cat: %s: read error", argv[i]);
+                break;
+            }
+
+            if (r == 0)
+                break; /* EOF */
+
+            for (int j = 0; j < r; j++)
+                printfnoln("%c", buf[j]);
+        }
+
+        vfs_close(&file);
+    }
+
+    print("\n");
     return 0;
 }
