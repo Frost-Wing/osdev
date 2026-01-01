@@ -117,4 +117,6 @@ int vfs_unlink(const char* path);
  */
 const char* vfs_getcwd();
 
+const char* vfs_basename(const char* path);
+
 #endif // VFS_H

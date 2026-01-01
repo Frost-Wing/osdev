@@ -42,6 +42,10 @@ int cmd_mount(int argc, char** argv)
                 printf("mount: memory allocation failed.");
                 return 1;
             }
+            mount_entry_t* new_mount = add_mount(mount_point, device, partition->fs_type, fs_struct);
+            if (!new_mount)
+                return 1;
+
             ret = fat16_mount(partition->ahci_port, partition->lba_start, (fat16_fs_t*)fs_struct);
             break;
 
@@ -55,12 +59,6 @@ int cmd_mount(int argc, char** argv)
         return 1;
     }
 
-    mount_entry_t* new_mount = add_mount(mount_point, device, partition->fs_type, fs_struct);
-    if (!new_mount) {
-        printf("mount: add_mount failed.");
-        return 1;
-    }
-
-    printf("Mounted %s at %s", device, mount_point);
+    printf("mount: mounted %s at %s", device, mount_point);
     return 0;
 }

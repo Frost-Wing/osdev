@@ -75,8 +75,7 @@ int fat16_mount(int portno, uint32_t partition_lba, fat16_fs_t* fs) {
     fs->fat_start = partition_lba + bs->reserved_sectors;
     fs->root_dir_start = fs->fat_start + (bs->num_fats * bs->sectors_per_fat);
     fs->data_start = fs->root_dir_start + fs->root_dir_sectors;
-
-    printf("mount: successfully mounted FAT16 partition");
+    
     return FAT_OK;
 }
 
@@ -372,14 +371,14 @@ void fat16_format_name(const char* input, char out[11]) {
 
     // name
     while (input[i] && input[i] != '.' && j < 8)
-        out[j++] = toupper(input[i++]);
+        out[j++] = (input[i++]);
 
     // extension
     if (input[i] == '.') {
         i++;
         j = 8;
         while (input[i] && j < 11)
-            out[j++] = toupper(input[i++]);
+            out[j++] = (input[i++]);
     }
 }
 

@@ -530,3 +530,15 @@ char* strrchr(const char* s, int c) {
     if (c == 0) return (char*)s; // null terminator
     return last;
 }
+
+/* Find first occurrence of character c in string s */
+char* strchr(const char* s, int c) {
+    while (*s) {
+        if (*s == (char)c)
+            return (char*)s;  // cast away const
+        s++;
+    }
+    if (c == '\0')  // special case: searching for null terminator
+        return (char*)s;
+    return NULL;
+}

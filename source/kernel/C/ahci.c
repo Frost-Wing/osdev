@@ -171,7 +171,23 @@ general_partition_t* search_general_partition(cstring partition_name) {
 
 mount_entry_t* add_mount(const char* mount_point, const char* part_name, partition_fs_type_t type, void* fs_ptr)
 {
-    if (mounted_partition_count >= MAX_PARTITIONS) return NULL;
+    if (!mount_point || !part_name) return NULL;
+
+    for (int i = 0; i < mounted_partition_count; i++) {
+        if (strcmp(mounted_partitions[i].mount_point, mount_point) == 0) {
+            printf("mount: mount point '%s' already in use", mount_point);
+            return NULL;
+        }
+        if (strcmp(mounted_partitions[i].part_name, part_name) == 0) {
+            printf("mount: partition '%s' already mounted", part_name);
+            return NULL;
+        }
+    }
+
+    if (mounted_partition_count >= MAX_PARTITIONS) {
+        printf("mount: maximum number of mounts reached");
+        return NULL;
+    }
 
     mount_entry_t* new_mount = kmalloc(sizeof(mount_entry_t));
     if(!new_mount) return NULL;
@@ -202,11 +218,11 @@ mount_entry_t* find_mount_by_point(const char* mount_point)
 void list_all_mounts()
 {
     if(mounted_partition_count == 0){
-        printf("No mounted partitions.");
+        printf("no mounted partitions.");
         return;
     }
 
-    printf(yellow_color "Mounted partitions :" reset_color);
+    printf(yellow_color "mounted partitions :" reset_color);
     for(int i = 0; i < mounted_partition_count; i++){
         mount_entry_t* mnt = &mounted_partitions[i];
         printf("  [%d] %s -> %s (FS Type: %d)", i, mnt->part_name, mnt->mount_point, mnt->type);
