@@ -8,11 +8,9 @@
  * @copyright Copyright (C) 2019-2023 mintsuki and contributors.
  * 
  */
-#ifndef _ACPI_SHUTDOWN_HACK_H
-#define _ACPI_SHUTDOWN_HACK_H
+#ifndef ACPI_SHUTDOWN_H
+#define ACPI_SHUTDOWN_H
 
-#include <stddef.h>
-#include <stdint.h>
 #include <basics.h>
 
 int acpi_shutdown_hack(uintptr_t direct_map_base, void   *(*find_sdt)(cstring signature, size_t index));

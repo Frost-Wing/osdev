@@ -268,3 +268,7 @@ void putc(char c){
 void shutdown(){
     acpi_shutdown_hack(hhdm_request.response->offset, acpi_find_sdt);
 }
+
+void reboot(){
+    acpi_reboot(hhdm_request.response->offset);
+}

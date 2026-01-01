@@ -35,7 +35,7 @@ int cmd_shutdown(int argc, char** argv)
     }
 
     if (do_reboot)
-        acpi_reboot();
+        reboot();
     else if (do_halt)
         shutdown();
     else
