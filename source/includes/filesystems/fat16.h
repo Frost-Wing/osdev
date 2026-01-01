@@ -16,6 +16,7 @@
 #include <graphics.h>
 
 #define FAT16_EOC 0xFFF8
+#define FAT16_ROOT_CLUSTER 0
 #define DIR_ENTRIES_PER_SECTOR 16
 #define BYTES_PER_DIR_ENTRY 32
 
@@ -63,6 +64,9 @@ typedef struct {
     uint32_t root_dir_start;
     uint32_t root_dir_sectors;
     uint32_t data_start;
+
+    uint16_t cwd_cluster;    // 0 = root, otherwise cluster number
+    char cwd_path[128];
 } fat16_fs_t;
 
 typedef struct {
@@ -97,9 +101,15 @@ uint16_t fat16_append_cluster(fat16_fs_t* fs, uint16_t last_cluster);
 void fat16_update_root_entry(fat16_fs_t* fs, fat16_dir_entry_t* entry);
 int fat16_update_dir_entry(fat16_fs_t* fs, uint16_t dir_cluster, fat16_dir_entry_t* entry);
 
-int fat16_unlink_path(fat16_fs_t* fs, const char* path);
-int fat16_rmdir(fat16_fs_t* fs, uint16_t dir_cluster);
+int fat16_unlink_path(fat16_fs_t* fs, int16 parent_cluster, cstring name);
 int fat16_find_parent(fat16_fs_t* fs, const char* path, uint16_t* out_cluster, char* out_name);
 int fat16_delete_entry(fat16_fs_t* fs, uint16_t parent_cluster, const char* name);
-
+int fat16_mkdir(fat16_fs_t* fs, uint16_t parent_cluster, const char* name);
+int fat16_create_path(fat16_fs_t* fs, const char* path, uint16_t start_cluster, uint8_t attr);
+int fat16_resolve_path(
+    fat16_fs_t* fs,
+    const char* path,
+    uint16_t pwd_cluster,      // current working directory cluster
+    uint16_t* out_cluster      // result cluster
+);
 #endif

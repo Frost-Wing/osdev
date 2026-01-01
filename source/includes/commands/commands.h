@@ -14,6 +14,7 @@
 #pragma once
 #include <basics.h>
 #include <graphics.h>
+#include <filesystems/vfs.h>
 
 extern struct fwrfs* global_fs;
 

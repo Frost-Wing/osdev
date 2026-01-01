@@ -13,7 +13,7 @@
 
 int cmd_pwd(int argc, char** argv)
 {
-    pwd(global_fs);
+    printf("%s", vfs_getcwd());
     return 0;
 }
  

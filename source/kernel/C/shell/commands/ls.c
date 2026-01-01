@@ -13,6 +13,6 @@
 
 int cmd_ls(int argc, char** argv)
 {
-    list_contents(global_fs);
+    vfs_ls(vfs_getcwd());
     return 0;
 }

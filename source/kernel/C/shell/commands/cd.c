@@ -20,5 +20,5 @@ int cmd_cd(int argc, char** argv)
 
     const char* path = argv[1];
 
-    return cd(global_fs, path);;
+    return vfs_cd(path);;
 }

@@ -18,7 +18,7 @@ int cmd_mkdir(int argc, char** argv)
     }
 
     for (int i = 1; i < argc; i++) {
-        create_folder(global_fs, argv[i]);
+        vfs_create_path(argv[i], 0x10);
     }
 
     return 0;

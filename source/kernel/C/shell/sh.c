@@ -113,7 +113,7 @@ int show_prompt(int argc, char** argv){
     else
         printfnoln("[" red_color "%d" reset_color "] ", last_status_code);
 
-    print(get_pwd(global_fs));
+    print(vfs_getcwd());
     print(" @ ");
 
     if(strcmp(argv[0], "root") == 0){
