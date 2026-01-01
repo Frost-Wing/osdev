@@ -35,6 +35,10 @@ int detect_fat_type(int8* buf) {
     }
 }
 
+static int fat16_is_reserved_name(const char* name) {
+    return strcmp(name, ".") == 0 || strcmp(name, "..") == 0;
+}
+
 partition_fs_type_t detect_fat_type_enum(const int8* buf){
     int fat = detect_fat_type(buf);
 
@@ -86,7 +90,10 @@ uint16_t fat16_read_fat_fs(fat16_fs_t* fs, uint16_t cluster) {
 }
 
 // HELPERS ============
-static inline uint32_t fat16_cluster_lba(fat16_fs_t* fs, uint16_t cluster) {
+static uint32_t fat16_cluster_lba(fat16_fs_t* fs, uint16_t cluster) {
+    if (cluster == 0) {
+        return fs->root_dir_start;
+    }
     return fs->data_start + (cluster - 2) * fs->bs.sectors_per_cluster;
 }
 
@@ -97,45 +104,78 @@ static inline int fat16_dir_valid(fat16_dir_entry_t* e) {
     if (e->attr & 0x08) return -1;     // volume label
     return 1;
 }
+
+int fat16_name_eq(const uint8_t fat_name[11], const char* input)
+{
+    char formatted[11];
+    fat16_format_name(input, formatted);
+    return memcmp(fat_name, formatted, 11) == 0;
+}
+
 // END =========
 
 void fat16_list_root(fat16_fs_t* fs) {
     uint8_t buf[512];
 
-    for (uint32_t i = 0; i < fs->root_dir_sectors; i++) {
-        ahci_read_sector(fs->portno, fs->root_dir_start + i, buf, 1);
+    for (uint32_t s = 0; s < fs->root_dir_sectors; s++) {
+        ahci_read_sector(fs->portno, fs->root_dir_start + s, buf, 1);
+
         fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
 
-        for (int idx = 0; idx < 16; idx++) {
-            if (e[idx].name[0] == 0x00) return;   // end
-            if (e[idx].name[0] == 0xE5) continue; // deleted
-            if (e[idx].attr & 0x08) continue;     // volume label
+        for (int i = 0; i < 16; i++) {
+            /* End of directory */
+            if (e[i].name[0] == 0x00) {
+                print("\n");
+                return;
+            }
+
+            /* Deleted entry */
+            if ((uint8_t)e[i].name[0] == 0xE5)
+                continue;
+
+            /* Volume label */
+            if (e[i].attr & 0x08)
+                continue;
+
+            /* Long File Name entry */
+            if ((e[i].attr & 0x0F) == 0x0F)
+                continue;
 
             char name[9], ext[4];
-            memcpy(name, e[idx].name, 8);
-            memcpy(ext,  e[idx].ext,  3);
-            name[8] = 0;
-            ext[3]  = 0;
+            memcpy(name, e[i].name, 8);
+            memcpy(ext,  e[i].ext,  3);
+            name[8] = ext[3] = 0;
 
-            // trim spaces
-            for (int k = 7; k >= 0 && name[k] == ' '; k--) name[k] = 0;
-            for (int k = 2; k >= 0 && ext[k]  == ' '; k--) ext[k]  = 0;
+            /* Japanese Kanji delete alias */
+            if ((uint8_t)name[0] == 0x05)
+                name[0] = (char)0xE5;
 
-            if (e[idx].attr & 0x10) {
-                // directory
-                printf("[DIR ] %s (cluster=%u)", name, e[idx].first_cluster);
+            /* Trim trailing spaces */
+            for (int k = 7; k >= 0 && name[k] == ' '; k--)
+                name[k] = 0;
+            for (int k = 2; k >= 0 && ext[k] == ' '; k--)
+                ext[k] = 0;
 
-                // fat16_list_dir_cluster(fs, e[idx].first_cluster);
+            /* Skip "." and ".." */
+            if (name[0] == '.' &&
+               (name[1] == 0 ||
+               (name[1] == '.' && name[2] == 0)))
+                continue;
+
+            /* Print entry */
+            if (e[i].attr & 0x10) {
+                printfnoln(yellow_color "%s " reset_color, name);
             } else if (ext[0]) {
-                // file with extension
-                printf("[FILE] %s.%s size=%u cluster=%u", name, ext, e[idx].filesize, e[idx].first_cluster);
+                printfnoln(blue_color "%s.%s " reset_color, name, ext);
             } else {
-                // file without extension
-                printf("[FILE] %s size=%u cluster=%u", name, e[idx].filesize, e[idx].first_cluster);
+                printfnoln(blue_color "%s " reset_color, name);
             }
         }
     }
+
+    print("\n");
 }
+
 
 int fat16_find_path(
     fat16_fs_t* fs,
@@ -143,7 +183,7 @@ int fat16_find_path(
     fat16_dir_entry_t* out
 ) {
     char part[13];
-    uint16_t current_cluster = 0; // 0 = root
+    uint16_t current_cluster = FAT16_ROOT_CLUSTER;
     const char* p = path;
 
     while (*p == '/') p++;
@@ -184,27 +224,29 @@ int fat16_match_name(fat16_dir_entry_t* e, const char* name) {
 
 int fat16_find_in_dir(
     fat16_fs_t* fs,
-    uint16_t current_cluster,
+    uint16_t dir_cluster,
     const char* name,
-    fat16_dir_entry_t* out
-) {
+    fat16_dir_entry_t* out)
+{
     uint8_t buf[512];
-    char fatname[11];
-    fat16_format_name(name, fatname);
 
-    // ---------- ROOT DIRECTORY ----------
-    if (current_cluster == 0) {
-        for (uint32_t i = 0; i < fs->root_dir_sectors; i++) {
-            ahci_read_sector(fs->portno, fs->root_dir_start + i, buf, 1);
+    debug_printf("[fat16] find_in_dir cluster=%u\n", dir_cluster);
+
+    /* ROOT DIR */
+    if (dir_cluster == FAT16_ROOT_CLUSTER) {
+        uint32_t lba = fs->root_dir_start;
+        uint32_t sectors = fs->root_dir_sectors;
+
+        for (uint32_t s = 0; s < sectors; s++) {
+            ahci_read_sector(fs->portno, lba + s, buf, 1);
             fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
 
-            for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
-                int v = fat16_dir_valid(&e[j]);
-                if (v == 0) return -1;
-                if (v < 0) continue;
+            for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
+                if (e[i].name[0] == 0x00) return -1;
+                if (e[i].name[0] == 0xE5) continue;
 
-                if (memcmp(e[j].name, fatname, 11) == 0) {
-                    *out = e[j];
+                if (fat16_name_eq(e[i].name, name)) {
+                    *out = e[i];
                     return 0;
                 }
             }
@@ -212,29 +254,30 @@ int fat16_find_in_dir(
         return -1;
     }
 
-    // ---------- SUBDIRECTORY ----------
-    uint16_t cluster = current_cluster;
+    /* NORMAL DIRECTORY */
+    uint16_t cluster = dir_cluster;
 
-    while (cluster < FAT16_EOC) {
+    while (cluster >= 2 && cluster < FAT16_EOC) {
         uint32_t lba = fat16_cluster_lba(fs, cluster);
 
         for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
             ahci_read_sector(fs->portno, lba + s, buf, 1);
             fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
 
-            for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
-                int v = fat16_dir_valid(&e[j]);
-                if (v == 0) return -1;
-                if (v < 0) continue;
+            for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
+                if (e[i].name[0] == 0x00) return -1;
+                if (e[i].name[0] == 0xE5) continue;
 
-                if (memcmp(e[j].name, fatname, 11) == 0) {
-                    *out = e[j];
+                if (fat16_name_eq(e[i].name, name)) {
+                    *out = e[i];
                     return 0;
                 }
             }
         }
 
-        cluster = fat16_read_fat_fs(fs, cluster);
+        uint16_t next = fat16_read_fat_fs(fs, cluster);
+        if (next == cluster) break;
+        cluster = next;
     }
 
     return -1;
@@ -244,60 +287,102 @@ void fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster) {
     uint8_t buf[512];
     uint16_t cluster = start_cluster;
 
-    while (cluster < 0xFFF8) {
+    while (cluster >= 2 && cluster < 0xFFF8) {
         uint32_t lba =
             fs->data_start +
             (cluster - 2) * fs->bs.sectors_per_cluster;
 
-        for (int s = 0; s < fs->bs.sectors_per_cluster; s++) {
+        for (uint8_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
             ahci_read_sector(fs->portno, lba + s, buf, 1);
+
             fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
 
             for (int i = 0; i < 16; i++) {
-                if (e[i].name[0] == 0x00) return;
-                if (e[i].name[0] == 0xE5) continue;
-                if (e[i].attr & 0x08) continue; // volume label
+                /* End of directory */
+                if (e[i].name[0] == 0x00) {
+                    print("\n");
+                    return;
+                }
+
+                /* Deleted entry */
+                if ((uint8_t)e[i].name[0] == 0xE5)
+                    continue;
+
+                /* Volume label */
+                if (e[i].attr & 0x08)
+                    continue;
+
+                /* Long File Name entry */
+                if ((e[i].attr & 0x0F) == 0x0F)
+                    continue;
 
                 char name[9], ext[4];
                 memcpy(name, e[i].name, 8);
                 memcpy(ext,  e[i].ext,  3);
                 name[8] = ext[3] = 0;
 
-                for (int k = 7; k >= 0 && name[k] == ' '; k--) name[k] = 0;
-                for (int k = 2; k >= 0 && ext[k]  == ' '; k--) ext[k]  = 0;
+                /* Japanese Kanji delete alias */
+                if ((uint8_t)name[0] == 0x05)
+                    name[0] = (char)0xE5;
 
-                if (e[i].attr & 0x10){
-                    printf("[DIR ] %s", name);
-                } else if (ext[0])
-                    printf("[FILE] %s.%s (%u bytes)", name, ext, e[i].filesize);
-                else
-                    printf("[FILE] %s (%u bytes)", name, e[i].filesize);
+                /* Trim trailing spaces */
+                for (int k = 7; k >= 0 && name[k] == ' '; k--)
+                    name[k] = 0;
+                for (int k = 2; k >= 0 && ext[k] == ' '; k--)
+                    ext[k] = 0;
+
+                /* Skip "." and ".." */
+                if (name[0] == '.' &&
+                   (name[1] == 0 ||
+                   (name[1] == '.' && name[2] == 0)))
+                    continue;
+
+                /* Print entry */
+                if (e[i].attr & 0x10) {
+                    printfnoln(yellow_color "%s " reset_color, name);
+                } else if (ext[0]) {
+                    printfnoln(blue_color "%s.%s " reset_color, name, ext);
+                } else {
+                    printfnoln(blue_color "%s " reset_color, name);
+                }
             }
         }
 
         cluster = fat16_read_fat_fs(fs, cluster);
     }
+
+    print("\n");
 }
+
 
 void fat16_format_name(const char* input, char out[11]) {
     memset(out, ' ', 11);
 
+    // special cases for "." and ".."
+    if (strcmp(input, ".") == 0) {
+        out[0] = '.';
+        return;
+    } else if (strcmp(input, "..") == 0) {
+        out[0] = '.';
+        out[1] = '.';
+        return;
+    }
+
     int i = 0, j = 0;
 
     // name
-    while (input[i] && input[i] != '.' && j < 8) {
+    while (input[i] && input[i] != '.' && j < 8)
         out[j++] = toupper(input[i++]);
-    }
 
     // extension
     if (input[i] == '.') {
         i++;
         j = 8;
-        while (input[i] && j < 11) {
+        while (input[i] && j < 11)
             out[j++] = toupper(input[i++]);
-        }
     }
 }
+
 
 int fat16_find_file(fat16_fs_t* fs, const char* name, fat16_dir_entry_t* out) {
     uint8_t buf[512];
@@ -481,20 +566,21 @@ void fat16_close(fat16_file_t* f) {
 
 // WRITE WITH EXTEND = START ========
 uint16_t fat16_find_free_cluster(fat16_fs_t* fs) {
-    uint32_t fat_sectors = fs->bs.sectors_per_fat;
-    uint8_t buf[512];
+    uint8_t sector[512];
 
-    for (uint32_t s = 0; s < fat_sectors; s++) {
-        ahci_read_sector(fs->portno, fs->fat_start + s, buf, 1);
+    for (uint32_t s = 0; s < fs->bs.sectors_per_fat; s++) {
+        ahci_read_sector(fs->portno, fs->fat_start + s, sector, 1);
 
-        uint16_t* fat = (uint16_t*)buf;
+        uint16_t* fat = (uint16_t*)sector;
         for (int i = 0; i < 256; i++) {
+            uint16_t cluster = s * 256 + i;
+            if (cluster < 2) continue;
+
             if (fat[i] == 0x0000) {
-                return s * 256 + i;
+                return cluster;
             }
         }
     }
-
     return 0; // no space
 }
 
@@ -575,13 +661,13 @@ void fat16_update_root_entry(
 
 void fat16_free_chain(fat16_fs_t* fs, uint16_t start_cluster) {
     uint16_t cluster = start_cluster;
-
-    while (cluster >= 2 && cluster < FAT16_EOC) {
+    while (cluster < FAT16_EOC) {
         uint16_t next = fat16_read_fat_fs(fs, cluster);
-        fat16_write_fat_entry(fs, cluster, 0x0000); // mark free
+        fat16_write_fat_entry(fs, cluster, 0x0000); // mark as free
         cluster = next;
     }
 }
+
 
 int fat16_update_dir_entry(
     fat16_fs_t* fs,
@@ -647,15 +733,21 @@ int fat16_find_free_dir_entry(
     }
 }
 
-int fat16_create(
-    fat16_fs_t* fs,
-    uint16_t parent_cluster, // 0 = root
-    const char* name,
-    uint8_t attr
-) {
+int fat16_create(fat16_fs_t* fs, uint16_t parent_cluster, const char* name, uint8_t attr) {
+    if (fat16_is_reserved_name(name)) {
+        printf("refusing to create reserved name '%s'", name);
+        return -1;
+    }
+
+    // If directory, delegate to mkdir
+    if (attr & 0x10) {
+        return fat16_mkdir(fs, parent_cluster, name);
+    }
+
+    // Check if file already exists
     fat16_dir_entry_t tmp;
     if (fat16_find_in_dir(fs, parent_cluster, name, &tmp) == 0) {
-        printf("create: '%s' already exists", name);
+        printf("create: '%s' already exists\n", name);
         return -1;
     }
 
@@ -666,15 +758,12 @@ int fat16_create(
     e.first_cluster = 0;
     e.filesize = 0;
 
-
     uint8_t buf[512];
 
-    // ---------- ROOT ----------
-    if (parent_cluster == 0) {
+    if (parent_cluster == 0) { // root directory
         for (uint32_t i = 0; i < fs->root_dir_sectors; i++) {
             ahci_read_sector(fs->portno, fs->root_dir_start + i, buf, 1);
             fat16_dir_entry_t* d = (fat16_dir_entry_t*)buf;
-
             for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
                 if (d[j].name[0] == 0x00 || d[j].name[0] == 0xE5) {
                     d[j] = e;
@@ -686,7 +775,7 @@ int fat16_create(
         return -1;
     }
 
-    // ---------- SUBDIR ----------
+    // subdirectory
     uint32_t lba, idx;
     if (fat16_find_free_dir_entry(fs, parent_cluster, &lba, &idx) != 0)
         return -1;
@@ -697,48 +786,9 @@ int fat16_create(
     return 0;
 }
 
-int fat16_unlink(
-    fat16_fs_t* fs,
-    uint16_t parent_cluster,
-    const char* name
-) {
-
-    fat16_dir_entry_t e;
-
-    if (fat16_find_in_dir(fs, parent_cluster, name, &e) != 0) {
-        printf("unlink: '%s' not found", name);
-        return -1;
-    }
-
-    if (e.attr & 0x10) {
-        printf("unlink: '%s' is a directory", name);
-        return -1;
-    }
-
-    if (e.first_cluster)
-        fat16_free_chain(fs, e.first_cluster);
-
+int fat16_delete_entry_in_cluster(fat16_fs_t* fs, uint16_t cluster, const char* fatname) {
     uint8_t buf[512];
-    char fatname[11];
-    fat16_format_name(name, fatname);
 
-    if (parent_cluster == 0) {
-        for (uint32_t i = 0; i < fs->root_dir_sectors; i++) {
-            ahci_read_sector(fs->portno, fs->root_dir_start + i, buf, 1);
-            fat16_dir_entry_t* d = (fat16_dir_entry_t*)buf;
-
-            for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
-                if (memcmp(d[j].name, fatname, 11) == 0) {
-                    d[j].name[0] = 0xE5;
-                    ahci_write_sector(fs->portno, fs->root_dir_start + i, buf, 1);
-                    return 0;
-                }
-            }
-        }
-        return -1;
-    }
-
-    uint16_t cluster = parent_cluster;
     while (cluster < FAT16_EOC) {
         uint32_t lba = fat16_cluster_lba(fs, cluster);
 
@@ -748,17 +798,64 @@ int fat16_unlink(
 
             for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
                 if (memcmp(d[j].name, fatname, 11) == 0) {
-                    d[j].name[0] = 0xE5;
+                    memset(d[j].name, 0xE5, 11); // mark deleted
                     ahci_write_sector(fs->portno, lba + s, buf, 1);
                     return 0;
                 }
             }
         }
+
         cluster = fat16_read_fat_fs(fs, cluster);
     }
 
     return -1;
 }
+
+int fat16_unlink(fat16_fs_t* fs, uint16_t parent_cluster, const char* name) {
+    if (!fs || !name) return -1;
+
+    fat16_dir_entry_t e;
+    char fatname[11];
+    fat16_format_name(name, fatname);
+
+    if (fat16_find_in_dir(fs, parent_cluster, name, &e) != 0) {
+        printf("unlink: '%s' not found\n", name);
+        return -1;
+    }
+
+    if (e.attr & 0x10) {
+        printf("unlink: '%s' is a directory\n", name);
+        return -1;
+    }
+
+    // Free cluster chain
+    if (e.first_cluster >= 2) {
+        fat16_free_chain(fs, e.first_cluster);
+    }
+
+    if (parent_cluster == 0) {
+        // root directory
+        uint8_t buf[512];
+        for (uint32_t i = 0; i < fs->root_dir_sectors; i++) {
+            ahci_read_sector(fs->portno, fs->root_dir_start + i, buf, 1);
+            fat16_dir_entry_t* d = (fat16_dir_entry_t*)buf;
+
+            for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
+                if (memcmp(d[j].name, fatname, 11) == 0) {
+                    memset(d[j].name, 0xE5, 11);
+                    ahci_write_sector(fs->portno, fs->root_dir_start + i, buf, 1);
+                    return 0;
+                }
+            }
+        }
+        return -1;
+    }
+
+    // Subdirectory
+    return fat16_delete_entry_in_cluster(fs, parent_cluster, fatname);
+}
+
+
 
 int fat16_truncate(fat16_file_t* f, uint32_t new_size) {
     if (new_size >= f->entry.filesize)
@@ -807,6 +904,11 @@ update:
 }
 
 int fat16_mkdir(fat16_fs_t* fs, uint16_t parent_cluster, const char* name) {
+    if (fat16_is_reserved_name(name)) {
+        printf("refusing to create reserved name '%s'", name);
+        return -1;
+    }
+
     uint16_t new_cluster = fat16_allocate_cluster(fs);
     if (!new_cluster) return -1;
 
@@ -902,9 +1004,16 @@ static int fat16_dir_is_empty(fat16_fs_t* fs, uint16_t cluster) {
     return 1;
 }
 
-int fat16_create_path(fat16_fs_t* fs, const char* path, uint8_t attr) {
+int fat16_create_path(fat16_fs_t* fs,
+                      const char* path,
+                      uint16_t start_cluster,
+                      uint8_t attr)
+{
+    if (!fs || !path || !*path)
+        return -1;
+
     char part[13];
-    uint16_t current_cluster = 0;
+    uint16_t current_cluster = start_cluster;
     const char* p = path;
 
     while (*p) {
@@ -913,26 +1022,36 @@ int fat16_create_path(fat16_fs_t* fs, const char* path, uint8_t attr) {
 
         int len = 0;
         while (p[len] && p[len] != '/') len++;
+
+        if (len >= sizeof(part))
+            return -1;  // name too long for FAT16
+
         memcpy(part, p, len);
         part[len] = 0;
 
-        fat16_dir_entry_t entry;
-        int is_last = (p[len] == '\0');
+        /* BLOCK "." and ".." */
+        if (fat16_is_reserved_name(part)) {
+            printf("refusing to create reserved name '%s'\n", part);
+            return -1;
+        }
 
-        if (fat16_find_in_dir(fs, current_cluster, part, &entry) != 0) {
-            // does not exist → create
-            if (!is_last) {
-                if (fat16_mkdir(fs, current_cluster, part) != 0)
-                    return -1;
-            } else {
-                if (fat16_create(fs, current_cluster, part, attr) != 0)
-                    return -1;
-                return 0;
-            }
+        /* Detect last component properly */
+        const char* next = p + len;
+        while (*next == '/') next++;
+        int is_last = (*next == '\0');
+
+        uint8_t final_attr = is_last ? attr : 0x10;
+
+        fat16_dir_entry_t entry;
+        int exists = (fat16_find_in_dir(fs, current_cluster, part, &entry) == 0);
+
+        if (!exists) {
+            if (fat16_create(fs, current_cluster, part, final_attr) != 0)
+                return -1;
         } else {
-            // already exists
-            if (is_last) {
-                printf("create: '%s' already exists", part);
+            /* Must be directory if not last */
+            if (!is_last && !(entry.attr & 0x10)) {
+                printf("'%s' is not a directory\n", part);
                 return -1;
             }
         }
@@ -1107,5 +1226,189 @@ int fat16_ls(fat16_fs_t* fs, const char* path) {
         cluster = fat16_read_fat_fs(fs, cluster);
     }
 
+    return 0;
+}
+
+int fat16_cd(fat16_fs_t* fs, const char* path, uint16_t* pwd_cluster) {
+    uint16_t new_cluster;
+
+    if (fat16_resolve_path(fs, path, *pwd_cluster, &new_cluster) != 0) {
+        printf("cd: no such directory: %s\n", path);
+        return -1;
+    }
+
+    *pwd_cluster = new_cluster;
+    return 0;
+}
+
+
+int fat16_resolve_path(
+    fat16_fs_t* fs,
+    const char* path,
+    uint16_t pwd_cluster,      // current working directory cluster
+    uint16_t* out_cluster      // result cluster
+) {
+    char part[13];
+    uint16_t current_cluster;
+
+    const char* p = path;
+
+    // skip leading '/'
+    while (*p == '/') p++;
+
+    // absolute path starts from root
+    if (path[0] == '/') {
+        current_cluster = 0;
+    } else {
+        // relative path starts from pwd
+        current_cluster = pwd_cluster;
+    }
+
+    while (*p) {
+        int len = 0;
+        while (p[len] && p[len] != '/') len++;
+
+        if (len >= 13) len = 12;
+        memcpy(part, p, len);
+        part[len] = 0;
+
+        // handle special cases
+        if (strcmp(part, ".") == 0) {
+            // stay in current cluster
+        } else if (strcmp(part, "..") == 0) {
+            fat16_dir_entry_t entry;
+            if (fat16_find_in_dir(fs, current_cluster, "..", &entry) != 0) {
+                current_cluster = 0; // fallback to root if parent not found
+            } else {
+                current_cluster = entry.first_cluster;
+            }
+        } else {
+            fat16_dir_entry_t entry;
+            if (fat16_find_in_dir(fs, current_cluster, part, &entry) != 0)
+                return -1; // path component not found
+            if (!(entry.attr & 0x10))
+                return -1; // must be directory
+            current_cluster = entry.first_cluster;
+        }
+
+        p += len;
+        while (*p == '/') p++;
+    }
+
+    *out_cluster = current_cluster;
+    return 0;
+}
+
+
+int fat16_ls_cwd(fat16_fs_t* fs, const char* path) {
+    if (!path || path[0] == '\0') {
+        path = fs->cwd_path;
+    }
+    return fat16_ls(fs, path);
+}
+
+int fat16_unlink_path(fat16_fs_t* fs, uint16_t parent_cluster, const char* name) {
+    fat16_dir_entry_t e;
+    char fatname[11];
+    fat16_format_name(name, fatname);
+
+    if (fat16_find_in_dir(fs, parent_cluster, name, &e) != 0)
+        return -1; // not found
+
+    // Directory?
+    if (e.attr & 0x10) {
+        // Check empty
+        uint8_t buf[512];
+        uint16_t cluster = e.first_cluster;
+        int empty = 1;
+
+        while (cluster < FAT16_EOC && cluster >= 2) {
+            uint32_t lba = fat16_cluster_lba(fs, cluster);
+            for (int s = 0; s < fs->bs.sectors_per_cluster; s++) {
+                ahci_read_sector(fs->portno, lba + s, buf, 1);
+                fat16_dir_entry_t* entries = (fat16_dir_entry_t*)buf;
+                for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
+                    if (entries[i].name[0] != 0x00 && entries[i].name[0] != 0xE5) {
+                        // skip "." and ".."
+                        if (!(entries[i].name[0] == '.' && (entries[i].name[1] == 0 || entries[i].name[1] == '.')))
+                            empty = 0;
+                    }
+                }
+            }
+            cluster = fat16_read_fat_fs(fs, cluster);
+        }
+
+        if (!empty) return -2; // directory not empty
+
+        // Free cluster chain
+        if (e.first_cluster >= 2)
+            fat16_free_chain(fs, e.first_cluster);
+    } else {
+        // Free file clusters
+        if (e.first_cluster >= 2)
+            fat16_free_chain(fs, e.first_cluster);
+    }
+
+    // Delete entry from parent
+    if (parent_cluster == 0) {
+        uint8_t buf[512];
+        for (uint32_t i = 0; i < fs->root_dir_sectors; i++) {
+            ahci_read_sector(fs->portno, fs->root_dir_start + i, buf, 1);
+            fat16_dir_entry_t* entries = (fat16_dir_entry_t*)buf;
+            for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
+                if (memcmp(entries[j].name, fatname, 11) == 0) {
+                    memset(entries[j].name, 0xE5, 11);
+                    ahci_write_sector(fs->portno, fs->root_dir_start + i, buf, 1);
+                    return 0;
+                }
+            }
+        }
+    } else {
+        return fat16_delete_entry_in_cluster(fs, parent_cluster, fatname);
+    }
+
+    return -1;
+}
+
+int fat16_rmdir(fat16_fs_t* fs, uint16_t dir_cluster)
+{
+    uint8_t buf[512];
+
+    debug_printf("[fat16] rmdir cluster=%u\n", dir_cluster);
+
+    if (dir_cluster < 2)
+        return -1;
+
+    uint32_t lba = fat16_cluster_lba(fs, dir_cluster);
+
+    for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
+        ahci_read_sector(fs->portno, lba + s, buf, 1);
+        fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
+
+        for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
+
+            if (e[i].name[0] == 0x00)
+                goto done;
+
+            if (e[i].name[0] == 0xE5)
+                continue;
+
+            if (!memcmp(e[i].name, ".          ", 11) ||
+                !memcmp(e[i].name, "..         ", 11))
+                continue;
+
+            if (e[i].attr & 0x10)
+                fat16_rmdir(fs, e[i].first_cluster);
+            else
+                fat16_free_chain(fs, e[i].first_cluster);
+
+            e[i].name[0] = 0xE5;
+        }
+
+        ahci_write_sector(fs->portno, lba + s, buf, 1);
+    }
+
+done:
+    fat16_free_chain(fs, dir_cluster);
     return 0;
 }

@@ -27,25 +27,40 @@ int cmd_mount(int argc, char** argv)
 
     general_partition_t* partition = search_general_partition(device);
 
-    if(partition == null){
-        printf("mount: %s: can't find.", device);
+    if (!partition) {
+        printf("mount: %s: partition not found.\n", device);
         return 1;
     }
 
-    if(partition->fs_type == FS_FAT16){
-        fat16_fs_t* fs = (void*)kmalloc(sizeof(fat16_fs_t));
-        if(!fs){
-            printf("mount: kmalloc failed.");
+    void* fs_struct = NULL;
+    int ret = 0;
+
+    switch (partition->fs_type) {
+        case FS_FAT16:
+            fs_struct = kmalloc(sizeof(fat16_fs_t));
+            if (!fs_struct) {
+                printf("mount: memory allocation failed.");
+                return 1;
+            }
+            ret = fat16_mount(partition->ahci_port, partition->lba_start, (fat16_fs_t*)fs_struct);
+            break;
+
+        default:
+            printf("mount: unsupported filesystem.");
             return 1;
-        }
+    }
 
-        mount_entry_t* new_mount = add_mount(mount_point, device, FS_FAT16, fs);
-        fat16_mount(partition->ahci_port, partition->lba_start, (fat16_fs_t*)new_mount->fs);
-    } else {
-        printf("mount: bad block or unknown file system.");
-
+    if (ret != 0) {
+        printf("mount: mounting failed.");
         return 1;
     }
 
+    mount_entry_t* new_mount = add_mount(mount_point, device, partition->fs_type, fs_struct);
+    if (!new_mount) {
+        printf("mount: add_mount failed.");
+        return 1;
+    }
+
+    printf("Mounted %s at %s", device, mount_point);
     return 0;
 }
