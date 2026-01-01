@@ -29,7 +29,7 @@ int cmd_cat(int argc, char** argv)
 
         /* Open file */
         if (vfs_open(argv[i], &file) != 0) {
-            printf("cat: %s: No such file or directory\n", argv[i]);
+            printf("cat: %s: No such file or directory", argv[i]);
             continue;
         }
 
