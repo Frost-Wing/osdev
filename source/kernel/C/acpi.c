@@ -40,20 +40,31 @@ struct rsdt {
 } __attribute__((packed));
 
 struct fadt {
-    char signature[4];
-    uint32_t length;
-    uint8_t revision;
-    uint8_t checksum;
-    char oem_id[6];
-    char oem_table_id[8];
-    uint32_t oem_revision;
-    uint32_t creator_id;
-    uint32_t creator_revision;
+    struct sdt header;
 
-    // ...
-    uint16_t reset_register_io_port; // 0x64 in ACPI spec, but can vary
-    uint8_t reset_value;             // value to write to reset
-    // ...
+    uint32_t firmware_ctrl;
+    uint32_t dsdt;
+
+    uint8_t  reserved1;
+    uint8_t  preferred_pm_profile;
+    uint16_t sci_int;
+    uint32_t smi_cmd;
+    uint8_t  acpi_enable;
+    uint8_t  acpi_disable;
+    uint8_t  s4bios_req;
+    uint8_t  pstate_cnt;
+
+    uint32_t pm1a_evt_blk;
+    uint32_t pm1b_evt_blk;
+    uint32_t pm1a_cnt_blk;
+    uint32_t pm1b_cnt_blk;
+
+    /* skip tons of fields */
+
+    uint8_t  reserved2[76];
+
+    struct acpi_gas reset_reg;   // ✅ correct
+    uint8_t         reset_value;
 } __attribute__((packed));
 
 
@@ -98,68 +109,56 @@ void acpi_init()
     }
 }
 
-void *acpi_find_sdt(const char *signature, size_t index)
-{
-    size_t cnt = 0;
+void *acpi_find_sdt(const char *signature, size_t index) {
+    size_t entries = (rsdt->sdt.length - sizeof(struct sdt)) /
+                     (use_xsdt ? 8 : 4);
 
-    for (size_t i = 0; i < rsdt->sdt.length - sizeof(struct sdt); i++) {
-        struct sdt *ptr;
-        if (use_xsdt)
-            ptr = (struct sdt *)(uintptr_t)((int64 *)rsdt->ptrs_start)[i];
-        else
-            ptr = (struct sdt *)(uintptr_t)((int32 *)rsdt->ptrs_start)[i];
+    size_t found = 0;
 
-        if (!strncmp(ptr->signature, signature, 4) && cnt++ == index)
-            return (void *)ptr;
+    for (size_t i = 0; i < entries; i++) {
+        struct sdt *ptr =
+            use_xsdt ?
+            (struct sdt *)(uintptr_t)((uint64_t *)rsdt->ptrs_start)[i] :
+            (struct sdt *)(uintptr_t)((uint32_t *)rsdt->ptrs_start)[i];
+
+        if (!strncmp(ptr->signature, signature, 4)) {
+            if (found++ == index)
+                return ptr;
+        }
     }
-
     return NULL;
 }
 
-void acpi_reboot() {
+void acpi_reboot(uintptr_t hhdm_offset) {
     clear_interrupts();
 
-    struct fadt* fadt_ptr = (struct fadt*)acpi_find_sdt("FACP", 0);
-    if (!fadt_ptr) {
-        meltdown_screen("FADT not found! Falling back to hard reset.", __FILE__, __LINE__, 0xdeadbeef);
-        sleep(5);
-        hard_reset();
+    struct fadt *fadt = (struct fadt *)((uintptr_t)acpi_find_sdt("FACP", 0) + hhdm_offset);
+    if (!fadt) goto fallback;
+
+    struct acpi_gas *reg = &fadt->reset_reg;
+
+    if (reg->address && reg->address_space == 1) {
+        printf("ACPI reset: space=%d addr=0x%x value=0x%x", reg->address_space, reg->address, fadt->reset_value);
+        if (reg->address > 0xFFFF) 
+            printf("Invalid I/O port! Will not work.");
+
+        outb((uint16_t)reg->address, fadt->reset_value);
     }
 
-    // ACPI reset uses the reset register GAS
-    struct acpi_gas* reg = (struct acpi_gas*)((uintptr_t)fadt_ptr + 0x64); // offset for reset reg in FADT
-    if (!reg->address) {
-        meltdown_screen("ACPI Reset register not present! Hard reset in 5 sec.", __FILE__, __LINE__, 0xdeadbeef);
-        sleep(5);
-        hard_reset();
-    }
-
-    // Only IO space is widely supported
-    if (reg->address_space == 1) { // IO port
-        outb((uint16_t)reg->address, fadt_ptr->reset_value);
-    } else {
-        meltdown_screen("ACPI Reset register not IO space! Hard reset.", __FILE__, __LINE__, 0xdeadbeef);
-        hard_reset();
-    }
-
-    // If that fails
-    meltdown_screen("ACPI Reset failed! Falling back to hard reset.", __FILE__, __LINE__, 0xfaded);
-    hard_reset();
-}
-
-
-void hard_reset(void) {
-    // Wait until input buffer is clear (bit 1 of 0x64)
-    for (int i = 0; i < 100000; i++) {
+fallback:
+    outb(0xCF9, 0x02);
+    outb(0xCF9, 0x06);
+    
+    // Keyboard controller reset
+    for (int i = 0; i < 100000; i++)
         if (!(inb(0x64) & 0x02)) break;
-    }
-
-    // Request CPU reset via keyboard controller
     outb(0x64, 0xFE);
 
-    // If we reach here, reset failed
-    meltdown_screen("Hard reset failed! (unsupported hardware?)", __FILE__, __LINE__, 0xBADBED);
+    // Triple fault fallback (works everywhere)
+    asm volatile (
+        "lidt (0)\n"
+        "int $3\n"
+    );
 
-    // Halt forever
     hcf2();
 }

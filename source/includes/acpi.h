@@ -54,4 +54,11 @@ void acpi_init();
  */
 void *acpi_find_sdt(const char *signature, size_t index);
 
+/**
+ * @brief Reboots using ACPI, if ACPI is unresponsive it tires hard reset and then triple fault.
+ * 
+ * @param hhdm_offset The HHDM Offset offered by Limine bootloader.
+ */
+void acpi_reboot(uintptr_t hhdm_offset);
+
 #endif
