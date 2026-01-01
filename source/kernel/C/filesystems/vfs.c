@@ -400,6 +400,44 @@ int vfs_unlink(const char* path)
     return fat16_unlink_path(fs, parent_cluster, name);
 }
 
+int vfs_mv(const char* src, const char* dst)
+{
+    if (!src || !dst) {
+        printf("mv: invalid arguments");
+        return -1;
+    }
+
+    char src_norm[256];
+    char dst_norm[256];
+
+    vfs_normalize_path(src, src_norm);
+    vfs_normalize_path(dst, dst_norm);
+
+    vfs_mount_res_t src_res;
+    vfs_mount_res_t dst_res;
+
+    if (vfs_resolve_mount(src_norm, &src_res) != 0)
+        return -2;
+
+    if (vfs_resolve_mount(dst_norm, &dst_res) != 0)
+        return -3;
+
+    /* Must be same mounted filesystem */
+    if (src_res.mnt != dst_res.mnt) {
+        printf("mv: cross-device move not supported");
+        return -4;
+    }
+
+    /* FAT16 */
+    if (src_res.mnt->type == FS_FAT16) {
+        fat16_fs_t* fs = (fat16_fs_t*)src_res.mnt->fs;
+        return fat16_mv(fs, src_res.rel_path, dst_res.rel_path);
+    }
+
+    printf("mv: unknown filesystem");
+    return -5;
+}
+
 const char* vfs_getcwd(void) {
     return vfs_cwd;
 }
