@@ -77,6 +77,26 @@ typedef struct {
     uint16_t cluster;
 } fat16_file_t;
 
+typedef enum {
+    FAT_OK = 0,
+
+    // generic
+    FAT_ERR_IO,
+    FAT_ERR_INVALID,
+    FAT_ERR_NOT_FOUND,
+    FAT_ERR_EXISTS,
+    FAT_ERR_NOT_DIR,
+    FAT_ERR_IS_DIR,
+    FAT_ERR_NO_SPACE,
+    FAT_ERR_NAME_INVALID,
+    FAT_ERR_NOT_EMPTY,
+
+    // filesystem corruption (meltdown-worthy)
+    FAT_ERR_CORRUPT,
+    FAT_ERR_FAT_LOOP,
+    FAT_ERR_BAD_CLUSTER,
+} fat_err_t;
+
 int detect_fat_type(int8* buf);
 int fat16_mount(int portno, uint32_t partition_lba, fat16_fs_t* fs) ;
 uint16_t fat16_read_fat_fs(fat16_fs_t* fs, uint16_t cluster);
