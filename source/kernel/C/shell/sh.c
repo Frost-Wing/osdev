@@ -305,8 +305,8 @@ static command_t commands[] = {
     { "shutdown", cmd_shutdown },
     { "lspci", cmd_lspci },
     { "lsblk", cmd_lsblk },
-    { "mount", cmd_mount }
-    // { "reboot", cmd_reboot },
+    { "mount", cmd_mount },
+    { "mv", cmd_mv }
     // { "fwfetch", cmd_fwfetch },
     // { "help", cmd_help },
 };
