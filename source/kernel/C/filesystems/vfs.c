@@ -56,9 +56,9 @@ static int vfs_resolve_mount(const char* path, vfs_mount_res_t* out) {
 
     if (!best) {
         if(path)
-            printf("no mount matches path: %s", path);
+            printf("resolve_mount: no mount matches path: %s", path);
         else
-            printf("no mount matches the given path.");
+            printf("resolve_mount: no mount matches the given path.");
         return -2;
     }
 
@@ -153,42 +153,53 @@ void vfs_close(vfs_file_t* file) {
         fat16_close(&file->f);
 }
 
-int vfs_ls(const char* path) {
+int vfs_ls(const char* path)
+{
     if (!path) {
-        printf("ls: invalid path passed");
+        printf("ls: invalid path");
         return -1;
     }
 
+    char norm[256];
+    vfs_normalize_path(path, norm);
+
     vfs_mount_res_t res;
-    if (vfs_resolve_mount(path, &res) != 0)
+    if (vfs_resolve_mount(norm, &res) != 0)
         return -1;
 
-    if (res.mnt->type == FS_FAT16){
+    int listed_anything = 0;
+
+    for (int i = 0; i < mounted_partition_count; i++) {
+        mount_entry_t* m = &mounted_partitions[i];
+
+        if (vfs_is_direct_child_mount(norm, m)) {
+            const char* name = vfs_basename(m->mount_point);
+            printfnoln(yellow_color "%s " reset_color, name);
+        }
+    }
+
+    if (res.mnt->type == FS_FAT16) {
         fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
 
         if (*res.rel_path == '\0') {
             fat16_list_root(fs);
-            return 0;
+        } else {
+            fat16_dir_entry_t e;
+            if (fat16_find_path(fs, res.rel_path, &e) != 0) {
+                printf("ls: path not found");
+                return -3;
+            }
+
+            if (!(e.attr & 0x10)) {
+                printf("ls: not a directory");
+                return -4;
+            }
+
+            fat16_list_dir_cluster(fs, e.first_cluster);
         }
-
-        fat16_dir_entry_t e;
-        if (fat16_find_path(fs, res.rel_path, &e) != 0) {
-            printf("ls: path not found");
-            return -3;
-        }
-
-        if (!(e.attr & 0x10)) {
-            printf("ls: not a directory");
-            return -4;
-        }
-
-        fat16_list_dir_cluster(fs, e.first_cluster);
-
-        return 0;
     }
-    
-    printf("ls: unknown filesystem");
-    return -2;
+
+    return 0;
 }
 
 int vfs_open(const char* path, vfs_file_t* out) {
@@ -440,4 +451,33 @@ int vfs_mv(const char* src, const char* dst)
 
 const char* vfs_getcwd(void) {
     return vfs_cwd;
+}
+
+int vfs_is_direct_child_mount(const char* parent, mount_entry_t* m) {
+    if (!strcmp(parent, "/")) {
+        if (m->mount_point[0] != '/')
+            return 0;
+        /* Only one slash allowed */
+        const char* rest = m->mount_point + 1;
+        return strchr(rest, '/') == NULL;
+    }
+
+    size_t plen = strlen(parent);
+    if (strncmp(m->mount_point, parent, plen) != 0)
+        return 0;
+
+    if (m->mount_point[plen] != '/')
+        return 0;
+
+    return strchr(m->mount_point + plen + 1, '/') == NULL;
+}
+
+const char* vfs_basename(const char* path) {
+    const char* last = path;
+    while (*path) {
+        if (*path == '/')
+            last = path + 1;
+        path++;
+    }
+    return last;
 }
