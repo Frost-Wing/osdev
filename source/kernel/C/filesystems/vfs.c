@@ -113,6 +113,8 @@ static void vfs_normalize_path(const char* in, char* out) {
 
     if (oi == 0) out[oi++] = '/';
     out[oi] = '\0';
+
+    debug_printf("[vfs] normalized path: %s\n", out);
 }
 
 int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size) {

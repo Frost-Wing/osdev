@@ -990,10 +990,9 @@ static int fat16_dir_is_empty(fat16_fs_t* fs, uint16_t cluster) {
                 if (e[i].name[0] == 0xE5)
                     continue;
 
-                // skip . and ..
-                if (e[i].name[0] == '.' )
+                if (e[i].name[0] == '.' && (e[i].name[1] == ' ' || e[i].name[1] == '.'))
                     continue;
-
+                
                 return 0; // found real entry
             }
         }
@@ -1188,7 +1187,7 @@ int fat16_ls(fat16_fs_t* fs, const char* path) {
                 if (e[i].name[0] == 0xE5) continue;
 
                 char name[13];
-                fat16_unformat_name(e[i].name, name);
+                fat16_unformat_name(&e[i], name);
 
                 printf("%s%s\n",
                        name,
@@ -1217,7 +1216,7 @@ int fat16_ls(fat16_fs_t* fs, const char* path) {
                 if (e[i].name[0] == 0xE5) continue;
 
                 char name[13];
-                fat16_unformat_name(e[i].name, name);
+                fat16_unformat_name(&e[i], name);
 
                 printf("%s%s",name, (e[i].attr & 0x10) ? "/" : "");
             }
