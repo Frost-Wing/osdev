@@ -159,15 +159,31 @@ void main(void) {
     
     mm_print_out();
 
-    initialize_page_bitmap((int64)(kstart), (int64)(kend));
-
     setup_gdt();
     initIdt();
     
     RTL8139 = (struct rtl8139*) kmalloc(sizeof(struct rtl8139));
 
     analyze_memory_map(memory, memory_map_request);
-    
+    memmap = memory_map_request.response;
+
+    uintptr_t page1 = allocate_page();
+    uintptr_t page2 = allocate_page();
+
+    printf("Page1 phys: 0x%x", page1);
+    printf("Page2 phys: 0x%x", page2);
+
+    uint64_t *test1 = (uint64_t *)page1;
+    uint64_t *test2 = (uint64_t *)page2;
+
+    // Write some values
+    *test1 = 0xDEADBEEFCAFEBABE;
+    *test2 = 0x123456789ABCDEF0;
+
+    // Read back
+    printf("Read back page1: 0x%x", *test1);
+    printf("Read back page2: 0x%x", *test2);
+
     probe_pci();
     
     print(public_key);
@@ -223,7 +239,7 @@ void main(void) {
     
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
     
-    // enter_userland(module_request.response->modules[0]->address, module_request.response->modules[0]->size);
+    enter_userland();
     sh_exec();
 }
 

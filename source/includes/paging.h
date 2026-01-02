@@ -13,6 +13,7 @@
 
 #include <basics.h>
 #include <userland.h>
+#include <limine.h>
 
 #define PAGE_SIZE      4096ULL
 
@@ -24,27 +25,7 @@
 #define USER_CODE_FLAGS (PAGE_PRESENT | PAGE_USER)          // executable
 #define USER_DATA_FLAGS (PAGE_PRESENT | PAGE_USER | PAGE_RW | PAGE_NX)
 
-#define KERNEL_PHYS_OFFSET 0xFFFF800000000000ULL
-
-/**
- * @brief Function to initialize the page bitmap
- * 
- */
-void initialize_page_bitmap(int64 kernel_start, int64 kernel_end);
-
-/**
- * @brief Function to allocate a page.
- * 
- * @return Pointer to the allocated page's memory address
- */
-void* allocate_page();
-
-/**
- * @brief Function to free a page
- * 
- * @param addr Address of the allocated page.
- */
-void free_page(void* addr);
+extern struct limine_memmap_response *memmap;
 
 /**
  * @brief Function to map userland pages
@@ -54,12 +35,6 @@ void free_page(void* addr);
  * @param flags Permissions
  */
 void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags);
-
-/**
- * @brief Set the up physical memory for userland
- * 
- */
-void setup_userland_memory();
 
 /**
  * @brief Maps user code in paging.
