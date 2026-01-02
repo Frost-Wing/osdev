@@ -83,7 +83,7 @@ __attribute__((section(".user")))
 __attribute__((naked))
 void user_entry() {
     asm volatile (
-        "1: hlt\n"   // halt CPU in an infinite loop
+        "1: pause\n"   // pause CPU in an infinite loop
         "jmp 1b\n"
     );
 }
