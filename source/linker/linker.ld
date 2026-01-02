@@ -52,7 +52,7 @@ SECTIONS
         *(COMMON)
     } :data
 
-    .user : ALIGN(4096) {
+    .user : ALIGN(0x1000) {
         user_code_start = .;
         *(.user)
         user_code_end = .;
