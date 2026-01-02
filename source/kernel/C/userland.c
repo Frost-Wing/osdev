@@ -18,7 +18,7 @@ void map_user_code_physical(uint64_t code_phys, uint64_t code_size) {
     uint64_t mapped = 0;
 
     while (mapped < code_size) {
-        map_user_page(USER_CODE_VADDR + mapped, phys_page, USER_CODE_FLAGS);
+        map_user_page(USER_CODE_VADDR + mapped, phys_page, USER_CODE_FLAGS & ~PAGE_NX);
 
         if (mapped == 0 && page_offset != 0)
             mapped += PAGE_SIZE - page_offset;

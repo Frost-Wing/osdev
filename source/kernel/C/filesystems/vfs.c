@@ -306,7 +306,8 @@ int vfs_rm_recursive(const char* path)
     return 0;
 }
 
-int vfs_cd(const char* path) {
+int vfs_cd(const char* path)
+{
     if (!path || !*path) {
         printf("cd: path is null or undefined");
         return -1;
@@ -316,34 +317,38 @@ int vfs_cd(const char* path) {
     vfs_normalize_path(path, norm);
 
     vfs_mount_res_t res;
-    if (vfs_resolve_mount(norm, &res) != 0) {
+    if (vfs_resolve_mount(norm, &res) != 0)
         return -1;
+
+    if (res.mnt->type != FS_FAT16) {
+        printf("cd: unknown filesystem");
+        return -2;
     }
 
-    if (res.mnt->type == FS_FAT16) {
-        fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
+    fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
 
-        uint16_t new_cluster;
-        uint16_t base_cluster = vfs_cwd_cluster;
+    uint16_t new_cluster = FAT16_ROOT_CLUSTER;
 
-        // handle root specially
-        if (*res.rel_path == '\0') {
-            new_cluster = FAT16_ROOT_CLUSTER;
-        } else {
-            int ret = fat16_cd(fs, res.rel_path, &vfs_cwd_cluster);
+    if (*res.rel_path) {
+        fat16_dir_entry_t e;
+        if (fat16_find_path(fs, res.rel_path, &e) != FAT_OK)
+            return -3;
 
-            if (ret != FAT_OK)
-                return -4;
-            
-        }
-        strncpy(vfs_cwd, norm, sizeof(vfs_cwd));
-        debug_printf("[vfs] cd : %s cluster=%u\n", norm, new_cluster);
-        return 0;
+        if (!(e.attr & 0x10))
+            return -4;
+
+        new_cluster = e.first_cluster;
     }
 
-    printf("cd: unknown filesystem");
-    return -3;
+    /* COMMIT CWD */
+    vfs_cwd_cluster = new_cluster;
+    strncpy(vfs_cwd, norm, sizeof(vfs_cwd));
+    vfs_cwd[sizeof(vfs_cwd) - 1] = 0;
+
+    debug_printf("[vfs] cd -> %s (cluster=%u)\n", vfs_cwd, vfs_cwd_cluster);
+    return 0;
 }
+
 
 int vfs_create_path(const char* path, uint8_t attr) {
     if (!path || !*path) {

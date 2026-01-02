@@ -20,7 +20,7 @@ __attribute__((aligned(16)))
 uint8_t kernel_stack[0x4000]; // 16 KB kernel stack
 
 // Initialize TSS
-void tss_init(void) {
+void kernel_tss_init(void) {
     memset(&tss, 0, sizeof(tss));
 
     tss.rsp0 = (uint64_t)(kernel_stack + sizeof(kernel_stack));

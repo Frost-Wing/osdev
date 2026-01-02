@@ -46,7 +46,7 @@ void setup_gdt() {
     info("User data descriptor has been set", __FILE__);
 
     /* TSS Setup */
-    tss_init();
+    kernel_tss_init();
 
     gdtp.limit = sizeof(gdt) - 1;
     gdtp.base  = (uint64_t)&gdt;
