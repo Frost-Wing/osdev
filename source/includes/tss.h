@@ -59,7 +59,7 @@ extern uint8_t kernel_stack[0x4000];
  * @brief Initialize TSS.
  * 
  */
-void tss_init();
+void kernel_tss_init();
 
 /**
  * @brief Load the TSS.
