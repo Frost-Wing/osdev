@@ -22,7 +22,7 @@
 #define PAGE_USER     0x4
 #define PAGE_NX       (1ULL << 63)
 
-#define USER_CODE_FLAGS (PAGE_PRESENT | PAGE_USER)          // executable
+#define USER_CODE_FLAGS (PAGE_PRESENT | PAGE_USER | PAGE_RW )
 #define USER_DATA_FLAGS (PAGE_PRESENT | PAGE_USER | PAGE_RW | PAGE_NX)
 
 extern struct limine_memmap_response *memmap;
