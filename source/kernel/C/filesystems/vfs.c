@@ -430,40 +430,70 @@ int vfs_unlink(const char* path)
 
 int vfs_mv(const char* src, const char* dst)
 {
-    if (!src || !dst) {
-        printf("mv: invalid arguments");
-        return -1;
-    }
-
-    char src_norm[256];
-    char dst_norm[256];
-
+    char src_norm[256], dst_norm[256];
     vfs_normalize_path(src, src_norm);
     vfs_normalize_path(dst, dst_norm);
 
-    vfs_mount_res_t src_res;
-    vfs_mount_res_t dst_res;
+    vfs_mount_res_t src_res, dst_res;
+    if (vfs_resolve_mount(src_norm, &src_res) != 0) return -1;
+    if (vfs_resolve_mount(dst_norm, &dst_res) != 0) return -1;
 
-    if (vfs_resolve_mount(src_norm, &src_res) != 0)
-        return -2;
-
-    if (vfs_resolve_mount(dst_norm, &dst_res) != 0)
-        return -3;
-
-    /* Must be same mounted filesystem */
     if (src_res.mnt != dst_res.mnt) {
         printf("mv: cross-device move not supported");
-        return -4;
+        return -1;
     }
 
-    /* FAT16 */
-    if (src_res.mnt->type == FS_FAT16) {
-        fat16_fs_t* fs = (fat16_fs_t*)src_res.mnt->fs;
-        return fat16_mv(fs, src_res.rel_path, dst_res.rel_path);
+    if (src_res.mnt->type != FS_FAT16)
+        return -1;
+
+    fat16_fs_t* fs = (fat16_fs_t*)src_res.mnt->fs;
+
+    /* ---------- SPLIT SRC ---------- */
+    uint16_t src_parent = FAT16_ROOT_CLUSTER;
+    char src_name[13];
+
+    char src_tmp[256];
+    strncpy(src_tmp, src_res.rel_path, sizeof(src_tmp));
+    src_tmp[sizeof(src_tmp)-1] = 0;
+
+    char* s = strrchr(src_tmp, '/');
+    if (s) {
+        *s = 0;
+        strncpy(src_name, s + 1, sizeof(src_name));
+        if (*src_tmp) {
+            fat16_dir_entry_t e;
+            if (fat16_find_path(fs, src_tmp, &e) != 0)
+                return -1;
+            src_parent = e.first_cluster;
+        }
+    } else {
+        strncpy(src_name, src_tmp, sizeof(src_name));
     }
 
-    printf("mv: unknown filesystem");
-    return -5;
+    /* ---------- SPLIT DST ---------- */
+    uint16_t dst_parent = FAT16_ROOT_CLUSTER;
+    char dst_name[13];
+
+    char dst_tmp[256];
+    strncpy(dst_tmp, dst_res.rel_path, sizeof(dst_tmp));
+    dst_tmp[sizeof(dst_tmp)-1] = 0;
+
+    char* d = strrchr(dst_tmp, '/');
+    if (d) {
+        *d = 0;
+        strncpy(dst_name, d + 1, sizeof(dst_name));
+        if (*dst_tmp) {
+            fat16_dir_entry_t e;
+            if (fat16_find_path(fs, dst_tmp, &e) != 0)
+                return -1;
+            dst_parent = e.first_cluster;
+        }
+    } else {
+        strncpy(dst_name, dst_tmp, sizeof(dst_name));
+    }
+
+    /* ---------- REAL MOVE ---------- */
+    return fat16_mv(fs, src_parent, src_name, dst_parent, dst_name);
 }
 
 const char* vfs_getcwd(void) {

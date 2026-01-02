@@ -1428,102 +1428,75 @@ done:
     return FAT_OK;
 }
 
-int fat16_mv(fat16_fs_t* fs, const char* src, const char* dst)
-{
-    if (!fs || !src || !dst)
-        return FAT_ERR_NOT_FOUND;
-
-    uint16_t src_parent, dst_parent;
-    char src_name[13], dst_name[13];
-
-    /* ---------- resolve parents ---------- */
-    if (fat16_find_parent(fs, src, &src_parent, src_name) != FAT_OK)
-        return FAT_ERR_NOT_FOUND;
-
-    if (fat16_find_parent(fs, dst, &dst_parent, dst_name) != FAT_OK)
-        return FAT_ERR_NOT_FOUND;
-
-    /* ---------- find source entry ---------- */
+int fat16_mv(
+    fat16_fs_t* fs,
+    uint16_t src_parent,
+    const char* src_name,
+    uint16_t dst_parent,
+    const char* dst_name
+) {
     fat16_dir_entry_t src_entry;
-    if (fat16_find_in_dir(fs, src_parent, src_name, &src_entry) != FAT_OK) {
-        printf("mv: cannot stat '%s'\n", src);
-        return FAT_ERR_NOT_FOUND;
-    }
 
-    /* ---------- block "." and ".." ---------- */
-    if (fat16_is_reserved_name(src_name) || fat16_is_reserved_name(dst_name))
+    // 1. Find source
+    if (fat16_find_in_dir(fs, src_parent, src_name, &src_entry) != FAT_OK)
         return FAT_ERR_NOT_FOUND;
 
-    /* ---------- destination must not exist ---------- */
+    // 2. Ensure destination does NOT exist
     fat16_dir_entry_t tmp;
-    if (fat16_find_in_dir(fs, dst_parent, dst_name, &tmp) == FAT_OK) {
-        printf("mv: destination '%s' already exists\n", dst);
-        return FAT_ERR_NOT_FOUND;
-    }
+    if (fat16_find_in_dir(fs, dst_parent, dst_name, &tmp) == FAT_OK)
+        return FAT_ERR_EXISTS;
 
-    /* ---------- prepare new entry ---------- */
+    // 3. Prepare new entry
     fat16_dir_entry_t new_entry = src_entry;
     fat16_format_name(dst_name, new_entry.name);
 
-    /* ---------- insert into destination ---------- */
-    uint8_t buf[512];
+    // 4. Insert into destination directory
     uint32_t lba, idx;
-
     if (dst_parent == 0) {
-        /* ROOT DIRECTORY */
+        uint8_t buf[512];
         for (uint32_t i = 0; i < fs->root_dir_sectors; i++) {
             ahci_read_sector(fs->portno, fs->root_dir_start + i, buf, 1);
-            fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
-
+            fat16_dir_entry_t* d = (fat16_dir_entry_t*)buf;
             for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
-                if (e[j].name[0] == 0x00 || e[j].name[0] == 0xE5) {
-                    e[j] = new_entry;
-                    ahci_write_sector(
-                        fs->portno,
-                        fs->root_dir_start + i,
-                        buf,
-                        1
-                    );
-                    goto delete_old;
+                if (d[j].name[0] == 0x00 || d[j].name[0] == 0xE5) {
+                    d[j] = new_entry;
+                    ahci_write_sector(fs->portno, fs->root_dir_start + i, buf, 1);
+                    goto inserted;
                 }
             }
         }
         return FAT_ERR_NOT_FOUND;
+    } else {
+        if (fat16_find_free_dir_entry(fs, dst_parent, &lba, &idx) != FAT_OK)
+            return FAT_ERR_NOT_FOUND;
+
+        uint8_t buf[512];
+        ahci_read_sector(fs->portno, lba, buf, 1);
+        ((fat16_dir_entry_t*)buf)[idx] = new_entry;
+        ahci_write_sector(fs->portno, lba, buf, 1);
     }
 
-    /* SUBDIRECTORY */
-    if (fat16_find_free_dir_entry(fs, dst_parent, &lba, &idx) != FAT_OK)
-        return FAT_ERR_NOT_FOUND;
-
-    ahci_read_sector(fs->portno, lba, buf, 1);
-    ((fat16_dir_entry_t*)buf)[idx] = new_entry;
-    ahci_write_sector(fs->portno, lba, buf, 1);
-
-delete_old:
-    /* ---------- delete old entry ---------- */
+inserted:
+    // 5. Delete source entry (DO NOT FREE CLUSTERS)
     char fatname[11];
     fat16_format_name(src_name, fatname);
 
     if (src_parent == 0) {
+        uint8_t buf[512];
         for (uint32_t i = 0; i < fs->root_dir_sectors; i++) {
             ahci_read_sector(fs->portno, fs->root_dir_start + i, buf, 1);
-            fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
-
+            fat16_dir_entry_t* d = (fat16_dir_entry_t*)buf;
             for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
-                if (memcmp(e[j].name, fatname, 11) == 0) {
-                    e[j].name[0] = 0xE5;
-                    ahci_write_sector(
-                        fs->portno,
-                        fs->root_dir_start + i,
-                        buf,
-                        1
-                    );
+                if (memcmp(d[j].name, fatname, 11) == 0) {
+                    d[j].name[0] = 0xE5;
+                    ahci_write_sector(fs->portno, fs->root_dir_start + i, buf, 1);
                     return FAT_OK;
                 }
             }
         }
-        return FAT_ERR_NOT_FOUND;
+    } else {
+        return fat16_delete_entry_in_cluster(fs, src_parent, fatname);
     }
 
-    return fat16_delete_entry_in_cluster(fs, src_parent, fatname);
+    return FAT_OK;
 }
