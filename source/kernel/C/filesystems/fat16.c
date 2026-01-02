@@ -13,7 +13,11 @@
 #include <strings.h>
 #include <ahci.h>
 
-int detect_fat_type(int8* buf) {
+static int fat16_is_reserved_name(cstring name) {
+    return strcmp(name, ".") == 0 || strcmp(name, "..") == 0;
+}
+
+partition_fs_type_t detect_fat_type_enum(const int8* buf) {
     fat16_boot_sector_t* bs = (fat16_boot_sector_t*)buf;
 
     if (bs->sectors_per_fat != 0 && bs->max_root_dir_entries != 0) {
@@ -22,37 +26,16 @@ int detect_fat_type(int8* buf) {
         uint32_t cluster_count = data_sectors / bs->sectors_per_cluster;
 
         if (cluster_count < 4085) {
-            return 12;
+            return FS_FAT12;
         } else if (cluster_count < 65525) {
-            return 16;
+            return FS_FAT16;
         } else {
-            return 1;
+            return FS_UNKNOWN;
         }
     } else if (bs->max_root_dir_entries == 0) {
-        return 32;
+        return FS_FAT32;
     } else {
-        return FAT_OK;
-    }
-}
-
-static int fat16_is_reserved_name(const char* name) {
-    return strcmp(name, ".") == 0 || strcmp(name, "..") == 0;
-}
-
-partition_fs_type_t detect_fat_type_enum(const int8* buf){
-    int fat = detect_fat_type(buf);
-
-    switch(fat){
-        case 12:
-            return FS_FAT12;
-        case 16:
-            return FS_FAT16;
-        case 32:
-            return FS_FAT32;
-        case 1:
-        case 0:
-        default:
-            return FS_UNKNOWN;
+        return FS_UNKNOWN;
     }
 }
 
@@ -171,49 +154,59 @@ void fat16_list_root(fat16_fs_t* fs) {
             }
         }
     }
-
-    print("\n");
 }
 
 
-int fat16_find_path(
-    fat16_fs_t* fs,
-    const char* path,
-    fat16_dir_entry_t* out
-) {
-    char part[13];
-    uint16_t current_cluster = FAT16_ROOT_CLUSTER;
-    const char* p = path;
+int fat16_find_path(fat16_fs_t* fs, const char* path, fat16_dir_entry_t* out) {
+    if (!fs || !path || !*path) return FAT_ERR_NOT_FOUND;
 
+    uint16_t current_cluster = FAT16_ROOT_CLUSTER; // start at root
+    const char* p = path;
+    char part[13];
+
+    // Skip leading slashes
     while (*p == '/') p++;
 
+    // Root path
+    if (*p == 0) {
+        out->first_cluster = FAT16_ROOT_CLUSTER;
+        out->attr = 0x10; // mark as directory
+        return FAT_OK;
+    }
+
     while (*p) {
+        // Extract next path component
         int len = 0;
         while (p[len] && p[len] != '/') len++;
+        if (len >= sizeof(part)) return FAT_ERR_NOT_FOUND;
 
         memcpy(part, p, len);
         part[len] = 0;
 
-        if (current_cluster == 0) {
-            if (fat16_find_file(fs, part, out) != 0)
-                return FAT_ERR_NOT_FOUND;
-        } else {
-            if (fat16_find_in_dir(fs, current_cluster, part, out) != 0)
-                return FAT_ERR_NOT_FOUND;
-        }
+        fat16_dir_entry_t entry;
+        int ret = fat16_find_in_dir(fs, current_cluster, part, &entry);
+        if (ret != FAT_OK) return FAT_ERR_NOT_FOUND;
+
+        // Update current cluster for next iteration
+        current_cluster = entry.first_cluster;
+
+        // If not last component, must be a directory
+        if (p[len] == '/' && !(entry.attr & 0x10))
+            return FAT_ERR_NOT_FOUND;
 
         p += len;
         while (*p == '/') p++;
 
-        if (*p) {
-            if (!(out->attr & 0x10))
-                return FAT_ERR_NOT_FOUND; // not a directory
-            current_cluster = out->first_cluster;
+        if (*p == 0) {
+            // last component reached
+            *out = entry;
+            return FAT_OK;
         }
     }
 
-    return FAT_OK;
+    return FAT_ERR_NOT_FOUND;
 }
+
 
 int fat16_match_name(fat16_dir_entry_t* e, const char* name) {
     char fatname[11];
@@ -407,28 +400,6 @@ int fat16_find_file(fat16_fs_t* fs, const char* name, fat16_dir_entry_t* out) {
     return FAT_ERR_NOT_FOUND;
 }
 
-
-void fat16_read_file(fat16_fs_t* fs, fat16_dir_entry_t* file) {
-    uint16_t cluster = file->first_cluster;
-    uint8_t buf[512];
-
-    while (cluster < 0xFFF8) {
-        uint32_t lba =
-            fs->data_start +
-            (cluster - 2) * fs->bs.sectors_per_cluster;
-
-        for (int s = 0; s < fs->bs.sectors_per_cluster; s++) {
-            ahci_read_sector(fs->portno, lba + s, buf, 1);
-            for (int i = 0; i < 512; i++)
-                printfnoln("%c", buf[i]);
-        }
-
-        cluster = fat16_read_fat_fs(fs, cluster);
-    }
-
-    print("\n");
-}
-
 int fat16_open(fat16_fs_t* fs, const char* path, fat16_file_t* f) {
     uint16_t parent;
     char name[13];
@@ -464,11 +435,13 @@ int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size) {
         uint32_t sector_in_cluster =
             (f->pos / 512) % f->fs->bs.sectors_per_cluster;
 
-        uint16_t cluster = f->cluster;
+        uint16_t cluster = f->entry.first_cluster;
+        uint32_t idx = f->pos / cluster_size;
 
-        // Advance cluster only when needed
-        while (cluster_index--) {
+        for (uint32_t i = 0; i < idx; i++) {
             cluster = fat16_read_fat_fs(f->fs, cluster);
+            if (cluster >= FAT16_EOC)
+                return read;
         }
 
         uint32_t lba =
@@ -854,8 +827,6 @@ int fat16_unlink(fat16_fs_t* fs, uint16_t parent_cluster, const char* name) {
     return fat16_delete_entry_in_cluster(fs, parent_cluster, fatname);
 }
 
-
-
 int fat16_truncate(fat16_file_t* f, uint32_t new_size) {
     if (new_size >= f->entry.filesize)
         return FAT_OK;
@@ -1234,9 +1205,10 @@ int fat16_ls(fat16_fs_t* fs, const char* path) {
 }
 
 int fat16_cd(fat16_fs_t* fs, const char* path, uint16_t* pwd_cluster) {
-    uint16_t new_cluster;
+    uint16_t new_cluster = 0;
+    uint16_t current = *pwd_cluster;
 
-    if (fat16_resolve_path(fs, path, *pwd_cluster, &new_cluster) != 0) {
+    if (fat16_resolve_path(fs, path, current, &new_cluster) != 0) {
         printf("cd: no such directory: %s\n", path);
         return FAT_ERR_NOT_FOUND;
     }
@@ -1256,8 +1228,6 @@ int fat16_resolve_path(
     uint16_t current_cluster;
 
     const char* p = path;
-
-    // skip leading '/'
     while (*p == '/') p++;
 
     // absolute path starts from root
@@ -1378,38 +1348,72 @@ int fat16_rmdir(fat16_fs_t* fs, uint16_t dir_cluster)
 {
     uint8_t buf[512];
 
-    debug_printf("[fat16] rmdir cluster=%u\n", dir_cluster);
-
     if (dir_cluster < 2)
         return FAT_ERR_NOT_FOUND;
 
-    uint32_t lba = fat16_cluster_lba(fs, dir_cluster);
+    uint16_t cluster = dir_cluster;
 
-    for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
-        ahci_read_sector(fs->portno, lba + s, buf, 1);
-        fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
+    /* ---------- PASS 1: recurse & free children ---------- */
+    while (cluster < FAT16_EOC) {
+        uint32_t lba = fat16_cluster_lba(fs, cluster);
 
-        for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
+        for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
+            ahci_read_sector(fs->portno, lba + s, buf, 1);
+            fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
 
-            if (e[i].name[0] == 0x00)
-                goto done;
+            for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
+                if (e[i].name[0] == 0x00)
+                    goto pass2;
 
-            if (e[i].name[0] == 0xE5)
-                continue;
+                if (e[i].name[0] == 0xE5)
+                    continue;
 
-            if (!memcmp(e[i].name, ".          ", 11) ||
-                !memcmp(e[i].name, "..         ", 11))
-                continue;
+                if (fat16_name_eq(e[i].name, ".") ||
+                    fat16_name_eq(e[i].name, ".."))
+                    continue;
 
-            if (e[i].attr & 0x10)
-                fat16_rmdir(fs, e[i].first_cluster);
-            else
-                fat16_free_chain(fs, e[i].first_cluster);
+                if (e[i].first_cluster < 2)
+                    continue;
 
-            e[i].name[0] = 0xE5;
+                if (e[i].attr & 0x10)
+                    fat16_rmdir(fs, e[i].first_cluster);
+                else
+                    fat16_free_chain(fs, e[i].first_cluster);
+
+                e[i].name[0] = 0xE5;
+                ahci_write_sector(fs->portno, lba + s, buf, 1);
+            }
         }
 
-        ahci_write_sector(fs->portno, lba + s, buf, 1);
+        cluster = fat16_read_fat_fs(fs, cluster);
+    }
+
+pass2:
+    cluster = dir_cluster;
+
+    /* ---------- PASS 2: mark entries deleted ---------- */
+    while (cluster < FAT16_EOC) {
+        uint32_t lba = fat16_cluster_lba(fs, cluster);
+
+        for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
+            ahci_read_sector(fs->portno, lba + s, buf, 1);
+            fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
+
+            for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
+                if (e[i].name[0] == 0x00)
+                    goto done;
+
+                if (fat16_name_eq(e[i].name, ".") ||
+                    fat16_name_eq(e[i].name, ".."))
+                    continue;
+
+                e[i].name[0] = 0xE5;
+            }
+
+            ahci_write_sector(fs->portno, lba + s, buf, 1);
+        }
+
+        cluster = fat16_read_fat_fs(fs, cluster);
     }
 
 done:
