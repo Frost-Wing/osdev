@@ -51,28 +51,47 @@ void parse_mbr_partitions(int8* mbr, int portno){
         if (partitions[i].partition_type == 0)
             continue;
 
-        printf("MBR Partition %d: type=0x%X, LBA start=%u, sectors=%u, bootable=%d", i, partitions[i].partition_type, partitions[i].lba_start, partitions[i].num_sectors, partitions[i].boot_flag == 0x80 ? 1 : 0);
+        uint32_t start = partitions[i].lba_start;
+        uint32_t count = partitions[i].num_sectors;
+        uint32_t end   = start + count - 1;
+
+        printf("MBR Partition %d: type=0x%X, LBA start=%u, sectors=%u, bootable=%d", i, partitions[i].partition_type, start, count, partitions[i].boot_flag == MBR_PART_BOOTABLE ? 1 : 0);
         
         mbr_disks[mbr_disks_count].partitions[i].disk = i;
-        mbr_disks[mbr_disks_count].partitions[i].lba_start = partitions[i].lba_start;
-        mbr_disks[mbr_disks_count].partitions[i].sectors = partitions[i].num_sectors;
+        mbr_disks[mbr_disks_count].partitions[i].lba_start = start;
+        mbr_disks[mbr_disks_count].partitions[i].sectors = count;
         mbr_disks[mbr_disks_count].partitions[i].type = partitions[i].partition_type;
 
         uint8_t buf[512]; // FAT boot sector is one sector (usually 512 bytes)
-        if (ahci_read_sector(portno, partitions[i].lba_start, buf, 1) != 0) {
+        if (ahci_read_sector(portno, start, buf, 1) != 0) {
             error("Failed to read boot sector", __FILE__);
             return;
         }
 
-        int fat_type = detect_fat_type(buf);
-        printf("Detected FAT type: %d", fat_type);
+        partition_fs_type_t fs_type = detect_fat_type_enum(buf);
 
-        if(fat_type == 16){
-            fat16_fs_t fs;
-            fat16_dir_entry_t file;
+        char part_name[64];
+        snprintf(part_name, sizeof(part_name), "disk%up%u", portno, i+1);
 
-            fat16_mount(portno, partitions[i].lba_start, &fs);
-            fat16_list_root(&fs);
+        add_general_partition(
+            PART_TABLE_MBR,
+            start,
+            end,
+            count,
+            portno,
+            partitions[i].boot_flag == MBR_PART_BOOTABLE,
+            fs_type,
+            part_name,
+            partitions[i].partition_type,
+            null
+        );
+
+        if(fs_type == FS_FAT16){
+            // fat16_fs_t fs;
+            // fat16_dir_entry_t file;
+
+            // fat16_mount(portno, partitions[i].lba_start, &fs);
+            // fat16_list_root(&fs);
 
             // fat16_file_t f;
 
