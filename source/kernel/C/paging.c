@@ -18,75 +18,27 @@ int8*    page_bitmap;
 extern uint8_t user_code_start[];
 extern uint8_t user_code_end[];
 
-inline void* phys_to_virt(uint64_t phys) {
-    return (void*)(phys + KERNEL_PHYS_OFFSET);
-}
+struct limine_memmap_response *memmap;
+static uintptr_t bump_ptr = 0;
 
-void mark_page_used(uint64_t addr) {
-    if (addr < memory_start || addr >= memory_end) return;
-    size_t page_index = (addr - memory_start) / PAGE_SIZE;
-    page_bitmap[page_index / 8] |= (1 << (page_index % 8));
-}
-
-void mark_page_free(uint64_t addr) {
-    if (addr < memory_start || addr >= memory_end) return;
-    size_t page_index = (addr - memory_start) / PAGE_SIZE;
-    page_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
-}
-
-
-void initialize_page_bitmap(int64 kernel_start, int64 kernel_end) {
-    info("Initializing paging", __FILE__);
-
-    size_t physical_memory_size = 32 MiB;
-    void* memory_block = kmalloc(physical_memory_size);
-    if (!memory_block) {
-        error("Failed to allocate physical memory block!", __FILE__);
-        return;
+uintptr_t allocate_page() {
+    if(!memmap){
+        error("Limine failed to give the memory map", __FILE__);
+        hcf2();
     }
 
-    memory_start = (uint64_t)memory_block;
-    memory_end   = memory_start + physical_memory_size;
-    amount_of_pages = physical_memory_size / PAGE_SIZE;
-
-    size_t bitmap_size = amount_of_pages / 8;
-    page_bitmap = (int8*)kmalloc(bitmap_size);
-    if (!page_bitmap) {
-        error("Failed to allocate page bitmap!", __FILE__);
-        return;
-    }
-
-    memset(page_bitmap, 0, bitmap_size);
-
-    // Reserve kernel memory
-    for (uint64_t addr = (uint64_t)kernel_start; addr < (uint64_t)kernel_end; addr += PAGE_SIZE)
-        mark_page_used(addr);
-
-    // Reserve user code memory
-    for (uint64_t addr = (uint64_t)user_code_start; addr < (uint64_t)user_code_end; addr += PAGE_SIZE)
-        mark_page_used(addr);
-
-    mm_print_out();
-
-    done("Successfully initialized page bitmap", __FILE__);
-}
-
-void* allocate_page() {
-    for (size_t i = 0; i < amount_of_pages; ++i) {
-        size_t byte = i / 8;
-        size_t bit  = i % 8;
-        if (!(page_bitmap[byte] & (1 << bit))) {
-            page_bitmap[byte] |= (1 << bit);
-            return (void*)(memory_start + i * PAGE_SIZE);
+    if (!bump_ptr) {
+        for (uint64_t i = 0; i < memmap->entry_count; i++) {
+            struct limine_memmap_entry *e = memmap->entries[i];
+            if (e->type != LIMINE_MEMMAP_USABLE) continue;
+            bump_ptr = (e->base + PAGE_SIZE - 1) & ~0xFFFULL;
+            break;
         }
     }
-    error("Out of physical pages!", __FILE__);
-    return NULL;
-}
 
-void free_page(void* addr) {
-    uint64_t aligned_addr = ((uint64_t)addr / PAGE_SIZE) * PAGE_SIZE;
-    mark_page_free(aligned_addr);
+    uintptr_t page = bump_ptr;
+    bump_ptr += PAGE_SIZE;
+    return page;
 }
 
 static inline uint64_t get_kernel_pml4() {
