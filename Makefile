@@ -70,6 +70,7 @@ QEMU_COMMON = \
     -device ide-hd,drive=disk,bus=ahci.0 \
     -rtc base=localtime,clock=host \
 	-boot order=d \
+	-enable-kvm \
     -m 512
 
 run-x86-hdd:
