@@ -1053,29 +1053,40 @@ int fat16_create_path(fat16_fs_t* fs,
     return FAT_OK;
 }
 
-int fat16_find_parent(fat16_fs_t* fs, const char* path, uint16_t* out_cluster, char* out_name) {
+int fat16_find_parent(
+    fat16_fs_t* fs,
+    const char* path,
+    uint16_t* out_cluster,
+    char* out_name
+) {
     const char* last_slash = strrchr(path, '/');
-    if (!last_slash) return FAT_ERR_NOT_FOUND;
 
-    // Copy filename
-    strcpy(out_name, last_slash + 1);
-
-    // Handle root
-    if (last_slash == path) {
-        *out_cluster = 0;
+    /* ---------- NO SLASH → current directory ---------- */
+    if (!last_slash) {
+        *out_cluster = fs->cwd_cluster;   // or 0 if you don't support CWD yet
+        strcpy(out_name, path);
         return FAT_OK;
     }
 
-    // Copy parent path
+    /* ---------- ROOT (/file) ---------- */
+    if (last_slash == path) {
+        *out_cluster = 0;
+        strcpy(out_name, last_slash + 1);
+        return FAT_OK;
+    }
+
+    /* ---------- SUBDIRECTORY ---------- */
     char parent_path[128];
     int len = last_slash - path;
     strncpy(parent_path, path, len);
     parent_path[len] = 0;
 
     fat16_dir_entry_t entry;
-    if (fat16_find_path(fs, parent_path, &entry) != 0) return FAT_ERR_NOT_FOUND;
+    if (fat16_find_path(fs, parent_path, &entry) != 0)
+        return FAT_ERR_NOT_FOUND;
 
     *out_cluster = entry.first_cluster;
+    strcpy(out_name, last_slash + 1);
     return FAT_OK;
 }
 
