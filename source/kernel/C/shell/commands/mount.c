@@ -16,10 +16,14 @@
 
 int cmd_mount(int argc, char** argv)
 {
-    if (argc < 3) {
-        printf("Usage: mount <device> <mount_point>");
+    if(argc == 1){
         list_all_mounts();
         return 0;
+    }
+
+    if (argc < 3) {
+        printf("Usage: mount <device> <mount_point>");
+        return -1;
     }
 
     const char* device = argv[1];
