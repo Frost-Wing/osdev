@@ -120,6 +120,7 @@ void main(void) {
         hcf2();
     }
 
+    stream_init();
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
@@ -186,8 +187,7 @@ void main(void) {
 
     probe_pci();
     
-    print(public_key);
-    print("\n");
+    printf(public_key);
 
     printf("Display Resolution: %dx%d (%d) pixels. Pitch: %d", framebuffer->width, framebuffer->height, framebuffer->width*framebuffer->height, framebuffer->pitch);
 
@@ -244,7 +244,7 @@ void main(void) {
 }
 
 /**
- * @brief The basic print function.
+ * @brief The basic raw print function. (DO NOT HANDLE STREAMS)
  * 
  * @param msg The message to be printed
  */

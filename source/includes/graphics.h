@@ -9,7 +9,7 @@
  * 
  */
 #ifndef __GRAPHICS_H_
-#define __GRAPHICS_H_ 1
+#define __GRAPHICS_H_
 
 #include <stdint.h>
 #include <stddef.h>
@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include <basics.h>
 #include <strings.h>
+#include <stream.h>
 
 // ANSI color codes for text formatting
 #define reset_color  "\033[37m"
@@ -38,6 +39,9 @@ extern bool enable_logging;
 
 #define printfnoln(fmt, ...) \
     printfnoln_internal(__FILE__, __func__, __LINE__, fmt, ##__VA_ARGS__)
+
+#define eprintf(fmt, ...) \
+    eprintf_internal(__FILE__, __func__, __LINE__, fmt, ##__VA_ARGS__)
 
 
 /**
@@ -89,8 +93,6 @@ void done(cstring message, cstring  file);
  */
 void putc(char c);
 
-
-
 /**
  * @brief Prints a value in binary format
  * 
@@ -130,6 +132,7 @@ void printfnoln_internal(cstring file, cstring func, int64 line, cstring format,
  * The newline flag controls whether a newline character ('\n') is printed
  * automatically at the end of the output.
  * 
+ * @param stream  The unix like STDOUT, STDERR.
  * @param file    The source file name of the caller (for logging context)
  * @param func    The function name of the caller (for logging context)
  * @param line    The source line number of the call (for logging context)
@@ -137,7 +140,7 @@ void printfnoln_internal(cstring file, cstring func, int64 line, cstring format,
  * @param format  The printf-style format string
  * @param argp    The variable argument list (already started via va_start)
  */
-void vprintf_internal(cstring file, cstring func, int64 line, bool newline, cstring format, va_list argp);
+void vprintf_internal(stream_t stream, cstring file, cstring func, int64 line, bool newline, cstring format, va_list argp);
 
 /**
  * @brief Formats a string into a buffer using a va_list.
