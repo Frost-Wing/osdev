@@ -28,7 +28,7 @@ int cmd_mount(int argc, char** argv)
     general_partition_t* partition = search_general_partition(device);
 
     if (!partition) {
-        printf("mount: %s: partition not found.\n", device);
+        printf("mount: %s: partition not found.", device);
         return 1;
     }
 
@@ -59,6 +59,6 @@ int cmd_mount(int argc, char** argv)
         return 1;
     }
 
-    printf("mount: mounted %s at %s", device, mount_point);
+    printf("mount: mounted %s at \'%s\'", device, mount_point);
     return 0;
 }
