@@ -23,13 +23,14 @@ int cmd_cat(int argc, char** argv)
     }
 
     uint8_t buf[CAT_BUF_SIZE];
+    int j;
 
     for (int i = 1; i < argc; i++) {
         vfs_file_t file;
 
         /* Open file */
         if (vfs_open(argv[i], &file) != 0) {
-            printf("cat: %s: No such file or directory", argv[i]);
+            printf("cat: %s: no such file or directory", argv[i]);
             continue;
         }
 
@@ -44,13 +45,14 @@ int cmd_cat(int argc, char** argv)
             if (r == 0)
                 break; /* EOF */
 
-            for (int j = 0; j < r; j++)
+            for (j = 0; j < r; j++)
                 printfnoln("%c", buf[j]);
         }
 
         vfs_close(&file);
     }
 
-    print("\n");
+    if(j != 0)
+        print("\n");
     return 0;
 }
