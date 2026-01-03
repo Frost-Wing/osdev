@@ -101,11 +101,11 @@ typedef enum {
 partition_fs_type_t detect_fat_type_enum(const int8* buf);
 int fat16_mount(int portno, uint32_t partition_lba, fat16_fs_t* fs) ;
 uint16_t fat16_read_fat_fs(fat16_fs_t* fs, uint16_t cluster);
-void fat16_list_root(fat16_fs_t* fs);
+int fat16_list_root(fat16_fs_t* fs);
 int fat16_find_path(fat16_fs_t* fs, const char* path, fat16_dir_entry_t* out);
 int fat16_match_name(fat16_dir_entry_t* e, const char* name);
 int fat16_find_in_dir(fat16_fs_t* fs, uint16_t current_cluster, const char* name, fat16_dir_entry_t* out);
-void fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster);
+int fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster);
 void fat16_format_name(const char* input, char out[11]);
 int fat16_find_file(fat16_fs_t* fs, const char* name, fat16_dir_entry_t* out);
 
