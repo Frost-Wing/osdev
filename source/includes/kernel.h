@@ -42,6 +42,7 @@
 #include <image/targa.h>
 #include <executables/fwde.h>
 #include <fdlfcn.h>
+#include <stream.h>
 
 /**
  * @brief  Long story short: linker is a mole-rat and gives virtual addresses. But we asked the linker to allocate at this address, so we are spoofing its "security" to get the real memory address of kernel start and end.

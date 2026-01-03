@@ -13,6 +13,7 @@
 
 static const char hex_digits[] = "0123456789abcdef";
 static const char caps_hex_digits[] = "0123456789ABCDEF";
+static stream_t printf_stream;
 
 string last_filename = "unknown"; // for warn, info, err, done
 string last_print_file = "unknown";
@@ -31,11 +32,7 @@ bool enable_logging = true;
  */
 void warn(cstring message, cstring file) {
     cstring warn_message = yellow_color "[***] → " reset_color;
-    print(warn_message);
-    print(message);
-    print(" at " blue_color);
-    print(file);
-    print(reset_color "\n");
+    printf("%s%s at " blue_color "%s" reset_color, warn_message, message, file);
 
     debug_print(warn_message);
     debug_print(message);
@@ -56,11 +53,7 @@ void warn(cstring message, cstring file) {
  */
 void error(cstring message, cstring file) {
     cstring err_message = red_color "[***] → " reset_color;
-    print(err_message);
-    print(message);
-    print(" at " blue_color);
-    print(file);
-    print(reset_color "\n");
+    eprintf("%s%s at " blue_color "%s" reset_color, err_message, message, file);
 
     debug_print(err_message);
     debug_print(message);
@@ -81,11 +74,7 @@ void error(cstring message, cstring file) {
  */
 void info(cstring message, cstring file) {
     cstring info_message = blue_color "[***] → " reset_color;
-    print(info_message);
-    print(message);
-    print(" at " blue_color);
-    print(file);
-    print(reset_color "\n");
+    printf("%s%s at " blue_color "%s" reset_color, info_message, message, file);
 
     debug_print(info_message);
     debug_print(message);
@@ -106,11 +95,7 @@ void info(cstring message, cstring file) {
  */
 void done(cstring message, cstring file) {
     cstring done_message = green_color "[***] → " reset_color;
-    print(done_message);
-    print(message);
-    print(" at " blue_color);
-    print(file);
-    print(reset_color "\n");
+    printf("%s%s at " blue_color "%s" reset_color, done_message, message, file);
 
     debug_print(done_message);
     debug_print(message);
@@ -128,10 +113,7 @@ void done(cstring message, cstring file) {
  * @note Internally using Flanterm's putchar function
  */
 void vputc(char c) {
-    char str[2];
-    str[0] = c;
-    str[1] = '\0';
-    print(str);
+    stream_putc(printf_stream, c);
 }
 
 void printdec_fmt(int num, int width, bool zero_pad)
@@ -250,12 +232,14 @@ static void printstr_fmt(const char* s, int width)
 }
 
 
-void vprintf_internal(cstring file, cstring func, int64 line, bool newline, cstring format, va_list argp) {
+void vprintf_internal(stream_t stream, cstring file, cstring func, int64 line, bool newline, cstring format, va_list argp) {
     if (enable_logging) {
         last_print_file = file;
         last_print_func = func;
         last_print_line = line;
     }
+
+    printf_stream = stream;
 
     while (*format != '\0') {
         if (*format == '%') {
@@ -331,14 +315,21 @@ void vprintf_internal(cstring file, cstring func, int64 line, bool newline, cstr
 void printf_internal(cstring file, cstring func, int64 line, cstring format, ...) {
     va_list argp;
     va_start(argp, format);
-    vprintf_internal(file, func, line, true, format, argp);
+    vprintf_internal(STDOUT, file, func, line, true, format, argp);
     va_end(argp);
 }
 
 void printfnoln_internal(cstring file, cstring func, int64 line, cstring format, ...) {
     va_list argp;
     va_start(argp, format);
-    vprintf_internal(file, func, line, false, format, argp);
+    vprintf_internal(STDOUT, file, func, line, false, format, argp);
+    va_end(argp);
+}
+
+void eprintf_internal(cstring file, cstring func, int64 line, cstring format, ...) {
+    va_list argp;
+    va_start(argp, format);
+    vprintf_internal(STDERR, file, func, line, true, format, argp);
     va_end(argp);
 }
 
