@@ -167,14 +167,15 @@ int vfs_ls(const char* path)
     if (vfs_resolve_mount(norm, &res) != 0)
         return -1;
 
-    int listed_anything = 0;
-
-    for (int i = 0; i < mounted_partition_count; i++) {
+    bool entries = false;
+    
+    for (int i = 1; i < mounted_partition_count; i++) { // i = 1; to ignore the root mount
         mount_entry_t* m = &mounted_partitions[i];
 
         if (vfs_is_direct_child_mount(norm, m)) {
             const char* name = vfs_basename(m->mount_point);
             printfnoln(yellow_color "%s " reset_color, name);
+            entries = true;
         }
     }
 
@@ -182,7 +183,9 @@ int vfs_ls(const char* path)
         fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
 
         if (*res.rel_path == '\0') {
-            fat16_list_root(fs);
+            if (fat16_list_root(fs) != 0)
+                entries = true;
+
         } else {
             fat16_dir_entry_t e;
             if (fat16_find_path(fs, res.rel_path, &e) != 0) {
@@ -195,10 +198,13 @@ int vfs_ls(const char* path)
                 return -4;
             }
 
-            fat16_list_dir_cluster(fs, e.first_cluster);
+            if (fat16_list_dir_cluster(fs, e.first_cluster) != 0)
+                entries = true;
         }
     }
 
+    if(entries)
+        print("\n");
     return 0;
 }
 

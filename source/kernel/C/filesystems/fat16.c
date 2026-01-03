@@ -96,8 +96,9 @@ int fat16_name_eq(const uint8_t fat_name[11], const char* input)
 
 // END =========
 
-void fat16_list_root(fat16_fs_t* fs) {
+int fat16_list_root(fat16_fs_t* fs) {
     uint8_t buf[512];
+    int entries_exist = 0;
 
     for (uint32_t s = 0; s < fs->root_dir_sectors; s++) {
         ahci_read_sector(fs->portno, fs->root_dir_start + s, buf, 1);
@@ -106,10 +107,7 @@ void fat16_list_root(fat16_fs_t* fs) {
 
         for (int i = 0; i < 16; i++) {
             /* End of directory */
-            if (e[i].name[0] == 0x00) {
-                print("\n");
-                return;
-            }
+            if (e[i].name[0] == 0x00) return;
 
             /* Deleted entry */
             if ((uint8_t)e[i].name[0] == 0xE5)
@@ -152,8 +150,12 @@ void fat16_list_root(fat16_fs_t* fs) {
             } else {
                 printfnoln(blue_color "%s " reset_color, name);
             }
+
+            entries_exist++;
         }
     }
+
+    return entries_exist;
 }
 
 
@@ -281,9 +283,10 @@ int fat16_find_in_dir(
 }
 
 
-void fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster) {
+int fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster) {
     uint8_t buf[512];
     uint16_t cluster = start_cluster;
+    int entries_exist = 0;
 
     while (cluster >= 2 && cluster < 0xFFF8) {
         uint32_t lba =
@@ -297,10 +300,7 @@ void fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster) {
 
             for (int i = 0; i < 16; i++) {
                 /* End of directory */
-                if (e[i].name[0] == 0x00) {
-                    print("\n");
-                    return;
-                }
+                if (e[i].name[0] == 0x00) return;
 
                 /* Deleted entry */
                 if ((uint8_t)e[i].name[0] == 0xE5)
@@ -343,13 +343,15 @@ void fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster) {
                 } else {
                     printfnoln(blue_color "%s " reset_color, name);
                 }
+
+                entries_exist++;
             }
         }
 
         cluster = fat16_read_fat_fs(fs, cluster);
     }
 
-    print("\n");
+    return entries_exist;
 }
 
 
@@ -725,7 +727,7 @@ int fat16_create(fat16_fs_t* fs, uint16_t parent_cluster, const char* name, uint
     // Check if file already exists
     fat16_dir_entry_t tmp;
     if (fat16_find_in_dir(fs, parent_cluster, name, &tmp) == 0) {
-        printf("create: '%s' already exists\n", name);
+        printf("create: '%s' already exists", name);
         return FAT_ERR_NOT_FOUND;
     }
 
@@ -797,12 +799,12 @@ int fat16_unlink(fat16_fs_t* fs, uint16_t parent_cluster, const char* name) {
     fat16_format_name(name, fatname);
 
     if (fat16_find_in_dir(fs, parent_cluster, name, &e) != 0) {
-        printf("unlink: '%s' not found\n", name);
+        printf("unlink: '%s' not found", name);
         return FAT_ERR_NOT_FOUND;
     }
 
     if (e.attr & 0x10) {
-        printf("unlink: '%s' is a directory\n", name);
+        printf("unlink: '%s' is a directory", name);
         return FAT_ERR_NOT_FOUND;
     }
 
@@ -1008,7 +1010,7 @@ int fat16_create_path(fat16_fs_t* fs,
 
         /* BLOCK "." and ".." */
         if (fat16_is_reserved_name(part)) {
-            printf("create: refusing to create reserved name '%s'\n", part);
+            printf("create: refusing to create reserved name \'%s\'", part);
             return FAT_ERR_NOT_FOUND;
         }
 
@@ -1176,7 +1178,7 @@ int fat16_ls(fat16_fs_t* fs, const char* path) {
                 char name[13];
                 fat16_unformat_name(&e[i], name);
 
-                printf("%s%s\n",
+                printf("%s%s",
                        name,
                        (e[i].attr & 0x10) ? "/" : "");
             }
@@ -1223,7 +1225,7 @@ int fat16_cd(fat16_fs_t* fs, const char* path, uint16_t* pwd_cluster) {
     uint16_t current = *pwd_cluster;
 
     if (fat16_resolve_path(fs, path, current, &new_cluster) != 0) {
-        printf("cd: no such directory: %s\n", path);
+        printf("cd: no such directory: %s", path);
         return FAT_ERR_NOT_FOUND;
     }
 
