@@ -34,8 +34,7 @@ void rtl8139_init(struct rtl8139* nic) {
     // Initialize MAC address
     read_mac_address();
 
-    print("Mac Address: ");
-    printf("%x:%x:%x:%x:%x:%x", nic->mac_address[0], nic->mac_address[1], nic->mac_address[2], nic->mac_address[3], nic->mac_address[4], nic->mac_address[5]);
+    printf("Mac Address : %x:%x:%x:%x:%x:%x", nic->mac_address[0], nic->mac_address[1], nic->mac_address[2], nic->mac_address[3], nic->mac_address[4], nic->mac_address[5]);
 
     // Enable receive and transmit
     outw(nic->io_base + RTL8139_REG_COMMAND, RTL8139_CMD_RX_ENABLE | RTL8139_CMD_TX_ENABLE);

@@ -81,7 +81,7 @@ void print_L1_cache_info() {
     int32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
-        print("L1 Cache not present.\n");
+        printf("L1 Cache not present.");
         return;
     }
     printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L1 INFO)", ecx & 0xff, (ecx >> 12) & 0x07, (ecx >> 16) & 0xffff);
@@ -94,7 +94,7 @@ void print_L2_cache_info() {
     int32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
-        print("L2 Cache not present.\n");
+        printf("L2 Cache not present.");
         return;
     }
     printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L2 INFO)", ecx & 0xff, (ecx >> 12) & 0x0F, (ecx >> 16) & 0xFFFF);
@@ -107,7 +107,7 @@ void print_L3_cache_info() {
     int32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
-        print("L3 Cache not present.\n");
+        printf("L3 Cache not present.");
         return;
     }
     printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L3 INFO)", edx & 0xff, (edx >> 12) & 0x0F, (edx >> 16) & 0xFFFF);
