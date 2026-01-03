@@ -35,7 +35,7 @@ static int path_matches_mount(const char* path, const char* mount) {
 
 static int vfs_resolve_mount(const char* path, vfs_mount_res_t* out) {
     if (!path || !out) {
-        printf("resolve_mount: invalid arguments");
+        eprintf("resolve_mount: invalid arguments");
         return -1;
     }
 
@@ -56,9 +56,9 @@ static int vfs_resolve_mount(const char* path, vfs_mount_res_t* out) {
 
     if (!best) {
         if(path)
-            printf("resolve_mount: no mount matches path: %s", path);
+            eprintf("resolve_mount: no mount matches path: %s", path);
         else
-            printf("resolve_mount: no mount matches the given path.");
+            eprintf("resolve_mount: no mount matches the given path.");
         return -2;
     }
 
@@ -113,39 +113,37 @@ static void vfs_normalize_path(const char* in, char* out) {
 
     if (oi == 0) out[oi++] = '/';
     out[oi] = '\0';
-
-    debug_printf("[vfs] normalized path: %s\n", out);
 }
 
 int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size) {
     if (!file || !file->mnt || !buf){
-        printf("read: invalid parameters passed");
+        eprintf("read: invalid parameters passed");
         return -1;
     }
 
     if (file->mnt->type == FS_FAT16)
         return fat16_read(&file->f, buf, size);
 
-    printf("read: unknown filesystem");
+    eprintf("read: unknown filesystem");
     return -2;
 }
 
 int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size) {
     if (!file || !file->mnt || !buf){
-        printf("write: invalid parameters passed");
+        eprintf("write: invalid parameters passed");
         return -1;
     }
 
     if (file->mnt->type == FS_FAT16)
         return fat16_write(&file->f, buf, size);
 
-    printf("write: unknown filesystem");
+    eprintf("write: unknown filesystem");
     return -2;
 }
 
 void vfs_close(vfs_file_t* file) {
     if (!file || !file->mnt) {
-        printf("close: invalid file pointer");
+        eprintf("close: invalid file pointer");
         return;
     }
 
@@ -156,7 +154,7 @@ void vfs_close(vfs_file_t* file) {
 int vfs_ls(const char* path)
 {
     if (!path) {
-        printf("ls: invalid path");
+        eprintf("ls: invalid path");
         return -1;
     }
 
@@ -210,7 +208,7 @@ int vfs_ls(const char* path)
 
 int vfs_open(const char* path, vfs_file_t* out) {
     if (!path || !out) {
-        printf("open: invalid parameters passed");
+        eprintf("open: invalid parameters passed");
         return -1;
     }
 
@@ -229,13 +227,13 @@ int vfs_open(const char* path, vfs_file_t* out) {
         return 0;
     }
 
-    printf("open: unknown filesystem");
+    eprintf("open: unknown filesystem");
     return -3;
 }
 
 int vfs_mkdir(const char* path) {
     if (!path){
-        printf("mkdir: path is null or undefined");
+        eprintf("mkdir: path is null or undefined");
         return -1;
     }
 
@@ -257,8 +255,6 @@ int vfs_mkdir(const char* path) {
 
 int vfs_rm_recursive(const char* path)
 {
-    debug_printf("[VFS] rm -r '%s'\n", path);
-
     char norm[256];
     vfs_normalize_path(path, norm);
 
@@ -315,7 +311,7 @@ int vfs_rm_recursive(const char* path)
 int vfs_cd(const char* path)
 {
     if (!path || !*path) {
-        printf("cd: path is null or undefined");
+        eprintf("cd: path is null or undefined");
         return -1;
     }
 
@@ -327,7 +323,7 @@ int vfs_cd(const char* path)
         return -1;
 
     if (res.mnt->type != FS_FAT16) {
-        printf("cd: unknown filesystem");
+        eprintf("cd: unknown filesystem");
         return -2;
     }
 
@@ -350,15 +346,13 @@ int vfs_cd(const char* path)
     vfs_cwd_cluster = new_cluster;
     strncpy(vfs_cwd, norm, sizeof(vfs_cwd));
     vfs_cwd[sizeof(vfs_cwd) - 1] = 0;
-
-    debug_printf("[vfs] cd -> %s (cluster=%u)\n", vfs_cwd, vfs_cwd_cluster);
     return 0;
 }
 
 
 int vfs_create_path(const char* path, uint8_t attr) {
     if (!path || !*path) {
-        printf("create_path: path is null or undefined");
+        eprintf("create_path: path is null or undefined");
         return -1;
     }
 
@@ -379,7 +373,7 @@ int vfs_create_path(const char* path, uint8_t attr) {
 int vfs_unlink(const char* path)
 {
     if (!path || !*path) {
-        printf("unlink:: path is null or undefined");
+        eprintf("unlink:: path is null or undefined");
         return -1;
     }
     /* Normalize */
