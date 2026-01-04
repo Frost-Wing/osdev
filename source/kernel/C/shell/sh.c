@@ -97,7 +97,7 @@ void start_window_manager(){
     if (startfunction != NULL)
     {
         int result = startfunction();
-        printf("Result function: %d\n", result);
+        printf("Result function: %d", result);
         info("Successfully loaded function from .so file", __FILE__);
     }
     fdlclose(handle);
@@ -235,6 +235,93 @@ int shell_main(int argc, char** argv){
     return 0;
 }
 
+typedef struct {
+    vfs_file_t* file;   // NULL → terminal
+} stream_impl_t;
+
+extern stream_impl_t streams[];
+
+static void apply_redirection(redir_t* r,
+                              vfs_file_t** old_out,
+                              vfs_file_t** old_err)
+{
+    if (!r || (!r->redirect_stdout && !r->redirect_stderr))
+        return;
+
+    static vfs_file_t file_handle;
+
+    int flags = VFS_O_WRONLY | VFS_O_CREAT;
+
+    if (r->append)
+        flags |= VFS_O_APPEND;
+    else
+        flags |= VFS_O_TRUNC;
+
+    int ret = vfs_open(r->filename, flags, &file_handle);
+    if (ret < 0) {
+        printf("fsh: cannot open %s", r->filename);
+        return;
+    }
+
+    /* ---------- STDOUT ---------- */
+    if (r->redirect_stdout) {
+        if (old_out)
+            *old_out = streams[STDOUT].file;
+
+        stream_set_file(STDOUT, &file_handle);
+    }
+
+    /* ---------- STDERR ---------- */
+    if (r->redirect_stderr) {
+        if (old_err)
+            *old_err = streams[STDERR].file;
+
+        stream_set_file(STDERR, &file_handle);
+    }
+}
+static void parse_redirection(int* argc, char** argv, redir_t* r)
+{
+    memset(r, 0, sizeof(redir_t));
+
+    for(int i = 0; i < *argc; i++) {
+        if(strcmp(argv[i], ">") == 0 && i+1 < *argc) {
+            r->redirect_stdout = 1;
+            r->append = 0;
+            r->filename = argv[i+1];
+        }
+        else if(strcmp(argv[i], ">>") == 0 && i+1 < *argc) {
+            r->redirect_stdout = 1;
+            r->append = 1;
+            r->filename = argv[i+1];
+        }
+        else if(strcmp(argv[i], "&>") == 0 && i+1 < *argc) {
+            r->redirect_stdout = 1;
+            r->redirect_stderr = 1;
+            r->append = 0;
+            r->filename = argv[i+1];
+        }
+        else {
+            continue;
+        }
+
+        /* remove operator + filename from argv */
+        for(int j = i; j+2 < *argc; j++)
+            argv[j] = argv[j+2];
+
+        *argc -= 2;
+        argv[*argc] = NULL;
+        i--;
+    }
+}
+
+static void restore_redirection(vfs_file_t* old_out,
+                                vfs_file_t* old_err)
+{
+    stream_set_file(STDOUT, old_out);
+    stream_set_file(STDERR, old_err);
+}
+
+
 /* parse command line into sequence of subcmd_t.
    E.g. "a && b || c" => ["a"(OP_AND), "b"(OP_OR), "c"(OP_NONE)]
    Returns number of subcommands parsed.
@@ -323,7 +410,7 @@ static int dispatch(int argc, char** argv)
         }
     }
 
-    printf("fsh: %s: not found\n", cmd);
+    printf("fsh: %s: not found", cmd);
     return 127;
 }
 
@@ -365,7 +452,17 @@ int execute_chain(const char* line)
             continue;
         }
 
+        redir_t redir;
+        parse_redirection(&argc, argv, &redir);
+
+        vfs_file_t* old_out = NULL;
+        vfs_file_t* old_err = NULL;
+
+        apply_redirection(&redir, &old_out, &old_err);
+
         last_status = dispatch(argc, argv);
+
+        restore_redirection(NULL, NULL);
 
         for(int k=0;k<argc;k++)
             kfree(argv[k]);

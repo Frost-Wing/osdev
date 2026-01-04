@@ -25,6 +25,7 @@
 #include <filesystems/fwrfs.h>
 #include <fdlfcn.h>
 #include <commands/commands.h>
+#include <stream.h>
 
 #define BUFFER_SIZE 128
 #define MAX_COMMAND_LINE 1024
@@ -45,6 +46,14 @@ typedef struct
     command_list_entry* end;
     size_t count;
 } command_list;
+
+typedef struct {
+    int redirect_stdout;
+    int redirect_stderr;
+    int append;
+    const char* filename;
+} redir_t;
+
 
 /**
  * @brief Wrapper to store properly the function commands list.

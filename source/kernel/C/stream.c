@@ -20,7 +20,7 @@ typedef struct {
     vfs_file_t* file;   // NULL → terminal
 } stream_impl_t;
 
-static stream_impl_t streams[3];
+stream_impl_t streams[3];
 
 void stream_init(void)
 {

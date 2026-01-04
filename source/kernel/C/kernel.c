@@ -249,14 +249,10 @@ void main(void) {
 
 void shutdown(){
     info("shutdown has been called", __FILE__);
-    debug_printf("hhdm offset -> 0x%x", hhdm_request.response->offset);
-
     acpi_shutdown_hack(hhdm_request.response->offset, acpi_find_sdt);
 }
 
 void reboot(){
     info("reboot has been called", __FILE__);
-    debug_printf("hhdm offset -> 0x%x", hhdm_request.response->offset);
-
     acpi_reboot(hhdm_request.response->offset);
 }
