@@ -57,9 +57,9 @@ void execute_fwde(int64* addr, kernel_data* data){
         entry_function execute_binary = (entry_function)local;
 
         info("Function is ready! executing it..", __FILE__);
-        print("=========================================================\n");
+        printf("=========================================================");
         execute_binary(data);
-        print("=========================================================\n");
+        printf("=========================================================");
     }else{
         error("Unsupported architecture!", __FILE__);
         return;
