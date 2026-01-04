@@ -475,17 +475,19 @@ int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size) {
     return read;
 }
 
-int fat16_write(fat16_file_t* f, const uint8_t* data, uint32_t size) {
+int fat16_write(fat16_file_t* f, const uint8_t* data, uint32_t size)
+{
     uint32_t written = 0;
     uint8_t sector[512];
 
     uint32_t cluster_size =
         f->fs->bs.sectors_per_cluster * 512;
 
-    /* ---------- allocate first cluster if empty ---------- */
+    /* ---------- allocate first cluster ---------- */
     if (f->entry.first_cluster == 0) {
         uint16_t c = fat16_allocate_cluster(f->fs);
-        if (!c) return FAT_OK;
+        if (!c)
+            return written;
 
         fat16_write_fat_entry(f->fs, c, FAT16_EOC);
         f->entry.first_cluster = c;
@@ -502,12 +504,16 @@ int fat16_write(fat16_file_t* f, const uint8_t* data, uint32_t size) {
         /* ---------- walk / extend FAT chain ---------- */
         for (uint32_t i = 0; i < cluster_index; i++) {
             uint16_t next = fat16_read_fat_fs(f->fs, cluster);
+
             if (next >= FAT16_EOC) {
                 next = fat16_allocate_cluster(f->fs);
-                if (!next) return written;
+                if (!next)
+                    return written;
+
                 fat16_write_fat_entry(f->fs, cluster, next);
                 fat16_write_fat_entry(f->fs, next, FAT16_EOC);
             }
+
             cluster = next;
         }
 
@@ -528,8 +534,7 @@ int fat16_write(fat16_file_t* f, const uint8_t* data, uint32_t size) {
         written += to_copy;
     }
 
-    if (f->pos > f->entry.filesize)
-        f->entry.filesize = f->pos;
+    f->entry.filesize = f->pos;
 
     /* ---------- update directory entry ---------- */
     if (f->parent_cluster == 0)
@@ -554,14 +559,16 @@ uint16_t fat16_find_free_cluster(fat16_fs_t* fs) {
         uint16_t* fat = (uint16_t*)sector;
         for (int i = 0; i < 256; i++) {
             uint16_t cluster = s * 256 + i;
-            if (cluster < 2) continue;
 
-            if (fat[i] == 0x0000) {
+            if (cluster < 2)
+                continue;
+
+            if (fat[i] == 0x0000)
                 return cluster;
-            }
         }
     }
-    return FAT_OK; // no space
+
+    return 0; // ✅ NO SPACE
 }
 
 void fat16_write_fat_entry(fat16_fs_t* fs, uint16_t cluster, uint16_t value) {
@@ -579,17 +586,16 @@ void fat16_write_fat_entry(fat16_fs_t* fs, uint16_t cluster, uint16_t value) {
 
 uint16_t fat16_allocate_cluster(fat16_fs_t* fs) {
     uint16_t cluster = fat16_find_free_cluster(fs);
-    if (!cluster)
-        return FAT_OK;
+    if (cluster == 0)
+        return 0;
 
     fat16_write_fat_entry(fs, cluster, FAT16_EOC);
 
     uint8_t zero[512] = {0};
     uint32_t lba = fat16_cluster_lba(fs, cluster);
 
-    for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
+    for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++)
         ahci_write_sector(fs->portno, lba + s, zero, 1);
-    }
 
     return cluster;
 }
@@ -835,23 +841,26 @@ int fat16_unlink(fat16_fs_t* fs, uint16_t parent_cluster, const char* name) {
     return fat16_delete_entry_in_cluster(fs, parent_cluster, fatname);
 }
 
-int fat16_truncate(fat16_file_t* f, uint32_t new_size) {
-    if (new_size >= f->entry.filesize)
-        return FAT_OK;
-
+int fat16_truncate(fat16_file_t* f, uint32_t new_size)
+{
     uint32_t cluster_size =
         f->fs->bs.sectors_per_cluster * 512;
 
-    /* ----- truncate to zero ----- */
+    /* ---------- truncate to zero ---------- */
     if (new_size == 0) {
         if (f->entry.first_cluster >= 2)
             fat16_free_chain(f->fs, f->entry.first_cluster);
 
         f->entry.first_cluster = 0;
         f->entry.filesize = 0;
-
-        goto update;
+        f->pos = 0;
+        f->cluster = 0;
+        return FAT_OK;
     }
+
+    /* ---------- no-op grow ---------- */
+    if (new_size >= f->entry.filesize)
+        return FAT_OK;
 
     uint32_t keep_clusters =
         (new_size + cluster_size - 1) / cluster_size;
@@ -871,15 +880,12 @@ int fat16_truncate(fat16_file_t* f, uint32_t new_size) {
         fat16_free_chain(f->fs, cluster);
 
     f->entry.filesize = new_size;
-    
-update:
-    if (f->parent_cluster == 0)
-        fat16_update_root_entry(f->fs, &f->entry);
-    else
-        fat16_update_dir_entry(f->fs, f->parent_cluster, &f->entry);
+    if (f->pos > new_size)
+        f->pos = new_size;
 
     return FAT_OK;
 }
+
 
 int fat16_mkdir(fat16_fs_t* fs, uint16_t parent_cluster, const char* name) {
     if (fat16_is_reserved_name(name)) {

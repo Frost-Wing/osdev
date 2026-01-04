@@ -18,12 +18,22 @@
 typedef struct {
     mount_entry_t* mnt;
     fat16_file_t f;
+    int flags;
 } vfs_file_t;
 
 typedef struct {
     mount_entry_t* mnt;
     const char*    rel_path;
 } vfs_mount_res_t;
+
+/* Open flags */
+#define VFS_O_RDONLY  0x0001
+#define VFS_O_WRONLY  0x0002
+#define VFS_O_RDWR    0x0003
+
+#define VFS_O_CREAT   0x0100
+#define VFS_O_TRUNC   0x0200
+#define VFS_O_APPEND  0x0400
 
 
 // Current working directory
@@ -35,7 +45,7 @@ extern char vfs_cwd[256];
  * @param out_file Pointer to vfs_file_t to receive file handle
  * @return 0 on success, negative on error
  */
-int vfs_open(const char* path, vfs_file_t* out_file);
+int vfs_open(const char* path, int flags, vfs_file_t* out_file);
 
 /**
  * @brief Read from an open file

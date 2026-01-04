@@ -115,31 +115,38 @@ static void vfs_normalize_path(const char* in, char* out) {
     out[oi] = '\0';
 }
 
-int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size) {
-    if (!file || !file->mnt || !buf){
-        eprintf("read: invalid parameters passed");
+int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
+{
+    if (!file || !buf)
         return -1;
+
+    if (!(file->flags & VFS_O_RDONLY) &&
+        !(file->flags & VFS_O_RDWR)) {
+        eprintf("read: file not opened for reading");
+        return -2;
     }
 
-    if (file->mnt->type == FS_FAT16)
-        return fat16_read(&file->f, buf, size);
-
-    eprintf("read: unknown filesystem");
-    return -2;
+    return fat16_read(&file->f, buf, size);
 }
 
-int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size) {
-    if (!file || !file->mnt || !buf){
-        eprintf("write: invalid parameters passed");
+
+int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size)
+{
+    if (!file || !buf)
         return -1;
+
+    if (!(file->flags & VFS_O_WRONLY) &&
+        !(file->flags & VFS_O_RDWR)) {
+        eprintf("write: file not opened for writing");
+        return -2;
     }
 
-    if (file->mnt->type == FS_FAT16)
-        return fat16_write(&file->f, buf, size);
+    // if (file->flags & VFS_O_APPEND)
+    //     file->f.pos = file->f.size;
 
-    eprintf("write: unknown filesystem");
-    return -2;
+    return fat16_write(&file->f, buf, size);
 }
+
 
 void vfs_close(vfs_file_t* file) {
     if (!file || !file->mnt) {
@@ -206,9 +213,10 @@ int vfs_ls(const char* path)
     return 0;
 }
 
-int vfs_open(const char* path, vfs_file_t* out) {
+int vfs_open(const char* path, int flags, vfs_file_t* out)
+{
     if (!path || !out) {
-        eprintf("open: invalid parameters passed");
+        eprintf("open: invalid parameters");
         return -1;
     }
 
@@ -216,19 +224,53 @@ int vfs_open(const char* path, vfs_file_t* out) {
     vfs_normalize_path(path, norm);
 
     vfs_mount_res_t res;
-    if (vfs_resolve_mount(norm, &res) != 0) return -2;
+    if (vfs_resolve_mount(norm, &res) != 0)
+        return -2;
 
-    if (res.mnt->type == FS_FAT16) {
-        if (fat16_open((fat16_fs_t*)res.mnt->fs, res.rel_path, &out->f) != 0)
-            return -4;
-
-        out->mnt = res.mnt;
-
-        return 0;
+    if (res.mnt->type != FS_FAT16) {
+        eprintf("open: unknown filesystem");
+        return -3;
     }
 
-    eprintf("open: unknown filesystem");
-    return -3;
+    fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
+    int ret;
+
+    /* ---------- CREATE ---------- */
+    if (flags & VFS_O_CREAT) {
+        /* create if missing */
+        ret = fat16_open(fs, res.rel_path, &out->f);
+        if (ret != 0) {
+            /* create new file */
+            ret = fat16_create_path(fs, res.rel_path,
+                                    FAT16_ROOT_CLUSTER,
+                                    0x20); /* archive */
+            if (ret != 0)
+                return -4;
+
+            ret = fat16_open(fs, res.rel_path, &out->f);
+            if (ret != 0)
+                return -5;
+        }
+    } else {
+        ret = fat16_open(fs, res.rel_path, &out->f);
+        if (ret != 0)
+            return -6;
+    }
+
+    /* ---------- TRUNC ---------- */
+    if (flags & VFS_O_TRUNC) {
+        fat16_truncate(&out->f, 0);
+    }
+
+    /* ---------- APPEND ---------- */
+    // if (flags & VFS_O_APPEND) {
+    //     out->f.pos = out->f.size;
+    // }
+
+    out->mnt   = res.mnt;
+    out->flags = flags;
+
+    return 0;
 }
 
 int vfs_mkdir(const char* path) {
