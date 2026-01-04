@@ -87,11 +87,18 @@ void done(cstring message, cstring  file);
 /* Normal Hybrid printing functions ahead */
 
 /**
- * @brief Prints a char, using print(&c);
+ * @brief Prints a char, using vput(char c); Replaces '\b' with "\b \b"
  * 
  * @param c char to print
  */
 void putc(char c);
+
+/**
+ * @brief Prints a char though the standard streams.
+ * 
+ * @param c The charecter to be printed.
+ */
+void vputc(char c);
 
 /**
  * @brief Prints a value in binary format
@@ -99,6 +106,15 @@ void putc(char c);
  * @param value The value that will be printed
  */
 void printbin(uint8_t value);
+
+int format_number(
+    char *out,
+    long value,
+    int base,
+    int width,
+    bool zero,
+    bool upper
+);
 
 /**
  * @brief Prints with formatting supported.
@@ -163,21 +179,19 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
  */
 int snprintf(char *buf, size_t size, const char *fmt, ...);
 
-
 /**
- * @brief Prints a char, using print(&c);
- * 
- * @param c char to print
- * @note Internally using Flanterm's putchar function
- */
-void vputc(char c);
-
-/**
- * @brief Print function for plain strings. (No Formatter)
+ * @brief RAW kernel print function for plain strings. (No Formatter & No Streams)
  * 
  * @param msg The string.
  */
-void print(cstring msg);
+void kprint(cstring msg);
+
+/**
+ * @brief Plain print function, goes through the stream.
+ * 
+ * @param s Normal string to be displayed
+ */
+void print(cstring s);
 
 /**
  * @brief 

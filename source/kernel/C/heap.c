@@ -18,7 +18,7 @@ uint64_t memory_used = 0;
 
 void mm_init(uintptr_t kernel_end, int64 heap_size)
 {
-    info("Initializing heap.", __FILE__);
+    info("Initializing heap", __FILE__);
 
     heap_begin = kernel_end;
     heap_end   = heap_begin + heap_size;
@@ -29,13 +29,13 @@ void mm_init(uintptr_t kernel_end, int64 heap_size)
     printf("heap begin -> 0x%X", heap_begin);
     printf("heap end   -> 0x%X", heap_end);
 
-    done("Heap initialized.", __FILE__);
+    done("Heap initialized", __FILE__);
 }
 
 void* kmalloc(size_t size)
 {
     if (size == 0) {
-        warn("kmalloc: Cannot allocate 0 bytes.", __FILE__);
+        warn("kmalloc: Cannot allocate 0 bytes", __FILE__);
         return NULL;
     }
 
@@ -87,7 +87,7 @@ void* kmalloc(size_t size)
 void kfree(void* ptr)
 {
     if (!ptr) {
-        warn("kfree: Cannot free null pointer.", __FILE__);
+        warn("kfree: Cannot free null pointer", __FILE__);
         return;
     }
 
