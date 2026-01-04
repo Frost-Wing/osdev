@@ -11,8 +11,7 @@
 #include <graphics.h>
 #include <opengl/glbackend.h>
 
-static const char hex_digits[] = "0123456789abcdef";
-static const char caps_hex_digits[] = "0123456789ABCDEF";
+extern struct flanterm_context* ft_ctx;
 static stream_t printf_stream;
 
 string last_filename = "unknown"; // for warn, info, err, done
@@ -106,78 +105,18 @@ void done(cstring message, cstring file) {
     last_filename = file;
 }
 
-/**
- * @brief Prints a char, using print(&c);
- * 
- * @param c char to print
- * @note Internally using Flanterm's putchar function
- */
+void putc(char c){
+    if (c == '\b')
+    {
+        vputc('\b');
+        vputc(' ');
+    }
+
+    vputc(c);
+}
+
 void vputc(char c) {
     stream_putc(printf_stream, c);
-}
-
-void printdec_fmt(int num, int width, bool zero_pad)
-{
-    char buf[21];
-    int i = 20;
-    bool negative = false;
-
-    buf[i] = '\0';
-
-    if (num == 0) {
-        buf[--i] = '0';
-    } else {
-        if (num < 0) {
-            negative = true;
-            num = -num;
-        }
-
-        while (num > 0) {
-            buf[--i] = (num % 10) + '0';
-            num /= 10;
-        }
-    }
-
-    int len = 20 - i;
-
-    if (negative)
-        len++;
-
-    while (len < width) {
-        buf[--i] = zero_pad ? '0' : ' ';
-        len++;
-    }
-
-    if (negative)
-        buf[--i] = '-';
-
-    print(&buf[i]);
-}
-
-void printdec_unsigned_fmt(unsigned int num, int width, bool zero_pad)
-{
-    char buf[21];
-    int i = 20;
-
-    buf[i] = '\0';
-
-    if (num == 0) {
-        buf[--i] = '0';
-    } else {
-        while (num > 0) {
-            buf[--i] = (num % 10) + '0';
-            num /= 10;
-        }
-    }
-
-    int len = 20 - i;
-
-    while (len < width) {
-        buf[--i] = zero_pad ? '0' : ' ';
-        len++;
-    }
-
-    print(&buf[i]);
 }
 
 /**
@@ -191,29 +130,9 @@ void printbin(uint8_t value)
     binaryRepresentation[8] = 0;
 
     for (int i = 0; i < 8; i++)
-        binaryRepresentation[i] = (value & 0x80 >> i) ? '1' : '0';
+        binaryRepresentation[i] = (value & (0x80 >> i)) ? '1' : '0';
     
     print(binaryRepresentation);
-}
-
-void printhex_fmt(size_t value, int width, bool uppercase) {
-    char buf[16];
-    int len = 0;
-
-    const char* digits = uppercase
-        ? "0123456789ABCDEF"
-        : "0123456789abcdef";
-
-    do {
-        buf[len++] = digits[value & 0xF];
-        value >>= 4;
-    } while (value && len < 16);
-
-    while (len < width)
-        buf[len++] = '0';
-
-    for (int i = len - 1; i >= 0; i--)
-        putc(buf[i]);
 }
 
 static void printstr_fmt(const char* s, int width)
@@ -230,7 +149,6 @@ static void printstr_fmt(const char* s, int width)
 
     print(s);
 }
-
 
 void vprintf_internal(stream_t stream, cstring file, cstring func, int64 line, bool newline, cstring format, va_list argp) {
     if (enable_logging) {
@@ -259,33 +177,52 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, int64 line, b
             }
 
             switch (*format) {
-                case 'd':
-                    printdec_fmt(va_arg(argp, int), width, zero_pad);
+                case 'd': {
+                    char buf[64];
+                    format_number(buf,
+                        va_arg(argp, int),
+                        10, width, zero_pad, false);
+                    print(buf);
                     break;
+                }
 
-                case 'u':
-                    printdec_unsigned_fmt(va_arg(argp, unsigned int), width, zero_pad);
+                case 'u': {
+                    char buf[64];
+                    format_number(buf,
+                        va_arg(argp, unsigned),
+                        10, width, zero_pad, false);
+                    print(buf);
                     break;
+                }
 
-                case 'x':
-                    printhex_fmt(va_arg(argp, size_t),
-                                zero_pad ? width : 0,
-                                false);
+                case 'x': {
+                    char buf[64];
+                    format_number(buf,
+                        va_arg(argp, unsigned),
+                        16, width, zero_pad, false);
+                    print(buf);
                     break;
+                }
 
-                case 'X':
-                    printhex_fmt(va_arg(argp, size_t),
-                                zero_pad ? width : 0,
-                                true);
+                case 'X': {
+                    char buf[64];
+                    format_number(buf,
+                        va_arg(argp, unsigned),
+                        16, width, zero_pad, true);
+                    print(buf);
                     break;
+                }
 
                 case 'b':
                     printbin((uint8_t)va_arg(argp, int));
                     break;
 
-                case 's':
-                    printstr_fmt(va_arg(argp, char*), width);
+                case 's': {
+                    const char *s = va_arg(argp, char*);
+                    if (!s) s = "(null)";
+                    printstr_fmt(s, width);
                     break;
+                }
 
                 case 'c':
                     putc((char)va_arg(argp, int));
@@ -299,9 +236,6 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, int64 line, b
         }
         else {
             switch (*format) {
-                case '\n': print("\n"); break;
-                case '\r': print("\r"); break;
-                case '\t': print("\t"); break;
                 default: putc(*format); break;
             }
         }
@@ -333,12 +267,18 @@ void eprintf_internal(cstring file, cstring func, int64 line, cstring format, ..
     va_end(argp);
 }
 
-static char *format_number(long value, int base, int width, bool zero, bool upper)
-{
+int format_number(
+    char *out,
+    long value,
+    int base,
+    int width,
+    bool zero,
+    bool upper
+) {
     char tmp[64];
-    const char *digits = upper ?
-        "0123456789ABCDEF" :
-        "0123456789abcdef";
+    const char *digits = upper
+        ? "0123456789ABCDEF"
+        : "0123456789abcdef";
 
     int neg = 0;
     int i = 0;
@@ -361,11 +301,9 @@ static char *format_number(long value, int base, int width, bool zero, bool uppe
 
     int len = i;
     int pad = (width > len) ? (width - len) : 0;
-
     char padc = zero ? '0' : ' ';
-    char *out = kmalloc(len + pad + 1);
-    int pos = 0;
 
+    int pos = 0;
     while (pad--)
         out[pos++] = padc;
 
@@ -373,9 +311,8 @@ static char *format_number(long value, int base, int width, bool zero, bool uppe
         out[pos++] = tmp[i];
 
     out[pos] = '\0';
-    return out;
+    return pos;
 }
-
 
 int snprintf(char *buf, size_t size, const char *fmt, ...)
 {
@@ -388,16 +325,33 @@ int snprintf(char *buf, size_t size, const char *fmt, ...)
 
 int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
 {
-    char *out = kmalloc(4096);   // fixed large scratch buffer
     size_t outpos = 0;
+
+    // helper macro: append a single char safely
+    #define APPEND(ch) \
+        do { \
+            if (outpos + 1 < size) \
+                buf[outpos] = (ch); \
+            outpos++; \
+        } while (0)
+
+    // helper macro: append string safely
+    #define APPEND_STR(s) \
+        do { \
+            const char *_p = (s); \
+            while (*_p) { \
+                APPEND(*_p); \
+                _p++; \
+            } \
+        } while (0)
 
     while (*fmt) {
         if (*fmt != '%') {
-            out[outpos++] = *fmt++;
+            APPEND(*fmt++);
             continue;
         }
 
-        fmt++;
+        fmt++; // skip '%'
 
         bool zero = false;
         int width = 0;
@@ -412,59 +366,76 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
             fmt++;
         }
 
-        char *tmp = NULL;
+        char numbuf[64];
 
         switch (*fmt) {
             case 'd':
-                tmp = format_number(va_arg(ap, int), 10, width, zero, false);
+                format_number(
+                    numbuf,
+                    va_arg(ap, int),
+                    10, width, zero, false);
+                APPEND_STR(numbuf);
                 break;
+
             case 'u':
-                tmp = format_number(va_arg(ap, unsigned), 10, width, zero, false);
+                format_number(
+                    numbuf,
+                    va_arg(ap, unsigned),
+                    10, width, zero, false);
+                APPEND_STR(numbuf);
                 break;
+
             case 'x':
-                tmp = format_number(va_arg(ap, unsigned), 16, width, zero, false);
+                format_number(
+                    numbuf,
+                    va_arg(ap, unsigned),
+                    16, width, zero, false);
+                APPEND_STR(numbuf);
                 break;
+
             case 'X':
-                tmp = format_number(va_arg(ap, unsigned), 16, width, zero, true);
+                format_number(
+                    numbuf,
+                    va_arg(ap, unsigned),
+                    16, width, zero, true);
+                APPEND_STR(numbuf);
                 break;
+
             case 'c':
-                out[outpos++] = (char)va_arg(ap, int);
+                APPEND((char)va_arg(ap, int));
                 break;
+
             case 's': {
                 const char *s = va_arg(ap, char *);
                 if (!s) s = "(null)";
-                while (*s)
-                    out[outpos++] = *s++;
+                APPEND_STR(s);
                 break;
             }
-            case '%':
-                out[outpos++] = '%';
-                break;
-        }
 
-        if (tmp) {
-            char *p = tmp;
-            while (*p)
-                out[outpos++] = *p++;
-            kfree(tmp);
+            case '%':
+                APPEND('%');
+                break;
+
+            default:
+                // unknown specifier → print literally
+                APPEND('%');
+                APPEND(*fmt);
+                break;
         }
 
         fmt++;
     }
 
-    out[outpos] = '\0';
+    // NUL terminate
+    if (size > 0) {
+        if (outpos >= size)
+            buf[size - 1] = '\0';
+        else
+            buf[outpos] = '\0';
+    }
 
-    size_t copy = (size > 0 && outpos >= size) ? size - 1 : outpos;
-    for (size_t i = 0; i < copy; i++)
-        buf[i] = out[i];
-
-    if (size)
-        buf[copy] = '\0';
-
-    kfree(out);
     return outpos;
 }
-
 
 void print_bitmap(int x, int y, int w, int h, bool* pixels, int32 color) {
     int i, j, l;
@@ -473,4 +444,23 @@ void print_bitmap(int x, int y, int w, int h, bool* pixels, int32 color) {
             if(pixels[j] == true) glWritePixel((uvec2){x + i, y + l}, color);
         }
     }
+}
+
+void print(cstring s)
+{
+    if (!s) return;
+
+    while (*s)
+    {
+        vputc(*s);
+        s++;
+    }
+}
+
+void kprint(cstring msg) {
+    if(msg == null){
+        flanterm_write(ft_ctx, "null", 4);
+        return;
+    }
+    flanterm_write(ft_ctx, msg, strlen(msg));
 }

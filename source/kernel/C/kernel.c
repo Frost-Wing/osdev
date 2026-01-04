@@ -123,6 +123,7 @@ void main(void) {
     stream_init();
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
+    memmap = memory_map_request.response;
 
     ft_ctx = flanterm_fb_simple_init(
         framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
@@ -154,6 +155,10 @@ void main(void) {
      */
     mm_init(0x1000000, 64 MiB);
 
+    // Optional method of initializing heap, TODO make an VMM & PMM
+    // void* heap_page = allocate_pages(64 MiB / PAGE_SIZE);
+    // mm_init(heap_page, 64 MiB);
+
     struct memory_context* memory = (struct memory_context*)kmalloc(sizeof(struct memory_context));
 
     acpi_init();
@@ -166,7 +171,6 @@ void main(void) {
     RTL8139 = (struct rtl8139*) kmalloc(sizeof(struct rtl8139));
 
     analyze_memory_map(memory, memory_map_request);
-    memmap = memory_map_request.response;
 
     uintptr_t page1 = allocate_page();
     uintptr_t page2 = allocate_page();
@@ -243,48 +247,16 @@ void main(void) {
     sh_exec();
 }
 
-/**
- * @brief The basic raw print function. (DO NOT HANDLE STREAMS)
- * 
- * @param msg The message to be printed
- */
-void print(cstring msg) {
-    if(!isBufferReady) return;
-    if(msg == null){
-        flanterm_write(ft_ctx, "null", 4);
-        return;
-    }
-    flanterm_write(ft_ctx, msg, strlen(msg));
-}
-
-/**
- * @brief The basic put char function.
- * 
- * @param c The char to be printed
- */
-extern void vputc(char c);
-void putc(char c){
-    if(!isBufferReady)
-        return;
-
-
-    if (c == '\b')
-    {
-        vputc('\b');
-        vputc(' ');
-    }
-
-    vputc(c);
-}
-
-/**
- * @brief ACPI Shutdown code wrapper.
- * 
- */
 void shutdown(){
+    info("shutdown has been called", __FILE__);
+    debug_printf("hhdm offset -> 0x%x", hhdm_request.response->offset);
+
     acpi_shutdown_hack(hhdm_request.response->offset, acpi_find_sdt);
 }
 
 void reboot(){
+    info("reboot has been called", __FILE__);
+    debug_printf("hhdm offset -> 0x%x", hhdm_request.response->offset);
+
     acpi_reboot(hhdm_request.response->offset);
 }

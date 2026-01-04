@@ -41,6 +41,14 @@ uintptr_t allocate_page() {
     return page;
 }
 
+uintptr_t allocate_pages(size_t count) {
+    uintptr_t base = allocate_page();
+    for (size_t i = 1; i < count; i++) {
+        allocate_page(); // advance bump_ptr
+    }
+    return base;
+}
+
 static inline uint64_t get_kernel_pml4() {
     uint64_t cr3;
     asm volatile("mov %%cr3, %0" : "=r"(cr3));
