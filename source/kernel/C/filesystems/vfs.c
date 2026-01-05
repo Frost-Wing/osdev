@@ -120,8 +120,8 @@ int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
     if (!file || !buf)
         return -1;
 
-    if (!(file->flags & VFS_O_RDONLY) &&
-        !(file->flags & VFS_O_RDWR)) {
+    if (!(file->flags & VFS_RDONLY) &&
+        !(file->flags & VFS_RDWR)) {
         eprintf("read: file not opened for reading");
         return -2;
     }
@@ -135,13 +135,13 @@ int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size)
     if (!file || !buf)
         return -1;
 
-    if (!(file->flags & VFS_O_WRONLY) &&
-        !(file->flags & VFS_O_RDWR)) {
+    if (!(file->flags & VFS_WRONLY) &&
+        !(file->flags & VFS_RDWR)) {
         eprintf("write: file not opened for writing");
         return -2;
     }
 
-    // if (file->flags & VFS_O_APPEND)
+    // if (file->flags & VFS_APPEND)
     //     file->f.pos = file->f.size;
 
     return fat16_write(&file->f, buf, size);
@@ -236,7 +236,7 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
     int ret;
 
     /* ---------- CREATE ---------- */
-    if (flags & VFS_O_CREAT) {
+    if (flags & VFS_CREATE) {
         /* create if missing */
         ret = fat16_open(fs, res.rel_path, &out->f);
         if (ret != 0) {
@@ -258,12 +258,12 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
     }
 
     /* ---------- TRUNC ---------- */
-    if (flags & VFS_O_TRUNC) {
+    if (flags & VFS_TRUNC) {
         fat16_truncate(&out->f, 0);
     }
 
     /* ---------- APPEND ---------- */
-    // if (flags & VFS_O_APPEND) {
+    // if (flags & VFS_APPEND) {
     //     out->f.pos = out->f.size;
     // }
 
@@ -392,7 +392,7 @@ int vfs_cd(const char* path)
 }
 
 
-int vfs_create_path(const char* path, uint8_t attr) {
+int VFS_CREATEe_path(const char* path, uint8_t attr) {
     if (!path || !*path) {
         eprintf("create_path: path is null or undefined");
         return -1;
