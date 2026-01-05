@@ -19,7 +19,7 @@ int cmd_touch(int argc, char** argv)
     }
 
     for (int i = 1; i < argc; i++) {
-        vfs_create_path(argv[i], 0x20);
+        VFS_CREATEe_path(argv[i], 0x20);
     }
 
     return 0;
