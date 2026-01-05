@@ -263,9 +263,9 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
     }
 
     /* ---------- APPEND ---------- */
-    // if (flags & VFS_APPEND) {
-    //     out->f.pos = out->f.size;
-    // }
+    if (flags & VFS_APPEND) {
+        out->f.pos = out->f.entry.filesize;
+    }
 
     out->mnt   = res.mnt;
     out->flags = flags;
