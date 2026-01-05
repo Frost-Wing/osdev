@@ -250,12 +250,12 @@ static void apply_redirection(redir_t* r,
 
     static vfs_file_t file_handle;
 
-    int flags = VFS_O_WRONLY | VFS_O_CREAT;
+    int flags = VFS_WRONLY | VFS_CREATE;
 
     if (r->append)
-        flags |= VFS_O_APPEND;
+        flags |= VFS_APPEND;
     else
-        flags |= VFS_O_TRUNC;
+        flags |= VFS_TRUNC;
 
     int ret = vfs_open(r->filename, flags, &file_handle);
     if (ret < 0) {
