@@ -35,6 +35,10 @@ int cmd_mount(int argc, char** argv)
             return 1;
 
         procfs_init();
+
+        if(strcmp(mount_point, "/proc") != 0)
+            printf("mount: warning mounting \'proc\' on non-standard path.");
+
         printf("mount: mounted " red_color "%s" reset_color " at \'%s\'", device, mount_point);
         return 0;
     }
