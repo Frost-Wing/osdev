@@ -18,7 +18,10 @@
 typedef struct {
     mount_entry_t* mnt;
     fat16_file_t f;
+    uint32_t pos; // for virtual files only, must not be used for real fs
     int flags;
+
+    char rel_path[64]; // for virtual files only, must not be used for real fs
 } vfs_file_t;
 
 typedef struct {
