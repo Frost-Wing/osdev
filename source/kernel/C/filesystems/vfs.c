@@ -71,14 +71,17 @@ static int vfs_resolve_mount(const char* path, vfs_mount_res_t* out) {
 }
 
 static void vfs_normalize_path(const char* in, char* out) {
+    memset(out, 0, 256);
     char tmp[256];
 
     // Start with absolute or relative
     if (in[0] != '/') {
         snprintf(tmp, sizeof(tmp), "%s/%s", vfs_cwd, in);
     } else {
-        strncpy(tmp, in, sizeof(tmp));
+        strncpy(tmp, in, sizeof(tmp) - 1);
+        tmp[sizeof(tmp) - 1] = '\0';
     }
+
 
     int oi = 0;
     const char* p = tmp;
@@ -124,6 +127,10 @@ int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
         !(file->flags & VFS_RDWR)) {
         eprintf("read: file not opened for reading");
         return -2;
+    }
+
+    if (file->mnt->type == FS_PROC) {
+        return procfs_read(file, buf, size);
     }
 
     return fat16_read(&file->f, buf, size);
@@ -208,6 +215,13 @@ int vfs_ls(const char* path)
         }
     }
 
+    if(res.mnt->type == FS_PROC) {
+        if (res.rel_path[0] == '\0') {
+            procfs_ls();
+            entries = true;
+        }
+    }
+
     if(entries)
         print("\n");
     return 0;
@@ -227,50 +241,58 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
     if (vfs_resolve_mount(norm, &res) != 0)
         return -2;
 
-    if (res.mnt->type != FS_FAT16) {
-        eprintf("open: unknown filesystem");
-        return -3;
+    
+    if (res.mnt->type == FS_PROC) {
+        strncpy(out->rel_path, res.rel_path, sizeof(out->rel_path));
+        out->mnt = res.mnt;
+        out->flags = flags;
+        return procfs_open(out);
     }
 
-    fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
-    int ret;
-
-    /* ---------- CREATE ---------- */
-    if (flags & VFS_CREATE) {
-        /* create if missing */
-        ret = fat16_open(fs, res.rel_path, &out->f);
-        if (ret != 0) {
-            /* create new file */
-            ret = fat16_create_path(fs, res.rel_path,
-                                    FAT16_ROOT_CLUSTER,
-                                    0x20); /* archive */
-            if (ret != 0)
-                return -4;
-
+    if (res.mnt->type == FS_FAT16) {
+        fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
+        int ret;
+    
+        /* ---------- CREATE ---------- */
+        if (flags & VFS_CREATE) {
+            /* create if missing */
+            ret = fat16_open(fs, res.rel_path, &out->f);
+            if (ret != 0) {
+                /* create new file */
+                ret = fat16_create_path(fs, res.rel_path,
+                                        FAT16_ROOT_CLUSTER,
+                                        0x20); /* archive */
+                if (ret != 0)
+                    return -4;
+    
+                ret = fat16_open(fs, res.rel_path, &out->f);
+                if (ret != 0)
+                    return -5;
+            }
+        } else {
             ret = fat16_open(fs, res.rel_path, &out->f);
             if (ret != 0)
-                return -5;
+                return -6;
         }
-    } else {
-        ret = fat16_open(fs, res.rel_path, &out->f);
-        if (ret != 0)
-            return -6;
+    
+        /* ---------- TRUNC ---------- */
+        if (flags & VFS_TRUNC) {
+            fat16_truncate(&out->f, 0);
+        }
+    
+        /* ---------- APPEND ---------- */
+        if (flags & VFS_APPEND) {
+            out->f.pos = out->f.entry.filesize;
+        }
+    
+        out->mnt   = res.mnt;
+        out->flags = flags;
+
+        return 0;
     }
 
-    /* ---------- TRUNC ---------- */
-    if (flags & VFS_TRUNC) {
-        fat16_truncate(&out->f, 0);
-    }
-
-    /* ---------- APPEND ---------- */
-    if (flags & VFS_APPEND) {
-        out->f.pos = out->f.entry.filesize;
-    }
-
-    out->mnt   = res.mnt;
-    out->flags = flags;
-
-    return 0;
+    eprintf("open: unknown filesystem");
+    return -3;
 }
 
 int vfs_mkdir(const char* path) {
@@ -364,13 +386,21 @@ int vfs_cd(const char* path)
     if (vfs_resolve_mount(norm, &res) != 0)
         return -1;
 
+    /* ---------- PROCFS ---------- */
+    if (res.mnt->type == FS_PROC) {
+        vfs_cwd_cluster = 0;
+        strncpy(vfs_cwd, norm, sizeof(vfs_cwd));
+        vfs_cwd[sizeof(vfs_cwd) - 1] = 0;
+        return 0;
+    }
+
+    /* ---------- FAT16 ---------- */
     if (res.mnt->type != FS_FAT16) {
         eprintf("cd: unknown filesystem");
         return -2;
     }
 
     fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
-
     uint16_t new_cluster = FAT16_ROOT_CLUSTER;
 
     if (*res.rel_path) {
@@ -384,7 +414,6 @@ int vfs_cd(const char* path)
         new_cluster = e.first_cluster;
     }
 
-    /* COMMIT CWD */
     vfs_cwd_cluster = new_cluster;
     strncpy(vfs_cwd, norm, sizeof(vfs_cwd));
     vfs_cwd[sizeof(vfs_cwd) - 1] = 0;
@@ -392,7 +421,8 @@ int vfs_cd(const char* path)
 }
 
 
-int VFS_CREATEe_path(const char* path, uint8_t attr) {
+
+int vfs_create_path(const char* path, uint8_t attr) {
     if (!path || !*path) {
         eprintf("create_path: path is null or undefined");
         return -1;

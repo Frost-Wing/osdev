@@ -31,7 +31,7 @@ int cmd_cat(int argc, char** argv)
         /* Open file */
         if (vfs_open(argv[i], VFS_RDONLY, &file) != 0) {
             printf("cat: %s: no such file or directory", argv[i]);
-            continue;
+            break;
         }
 
         /* Read loop */

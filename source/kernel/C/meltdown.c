@@ -11,7 +11,10 @@
 #include <meltdown.h>
 #include <isr.h> // For InterruptFrame
 
+#define clean_mode
+
 void meltdown_screen(cstring message, cstring file, int line, int64 error_code, int64 cr2, int64 int_no, InterruptFrame* frame){
+#ifndef clean_mode    
     print("\x1b[2J");
     print("\x1b[H");
 
@@ -53,6 +56,10 @@ void meltdown_screen(cstring message, cstring file, int line, int64 error_code, 
 
     print("\n");
     frost_compilation_information();
+#endif
+#ifdef clean_mode
+eprintf("[MELTDOWN] %s (%s:%d) (cr2:0x%X)", message, file, line, cr2);
+#endif
 }
 
 void interrupt_frame_dump(InterruptFrame* frame) {
