@@ -246,7 +246,11 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
         strncpy(out->rel_path, res.rel_path, sizeof(out->rel_path));
         out->mnt = res.mnt;
         out->flags = flags;
-        return procfs_open(out);
+        
+        if (procfs_open(out) != 0)  // if file not found
+            return -1;
+        
+        return 0;
     }
 
     if (res.mnt->type == FS_FAT16) {

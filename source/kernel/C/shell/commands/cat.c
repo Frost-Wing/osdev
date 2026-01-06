@@ -49,12 +49,12 @@ int cmd_cat(int argc, char** argv)
                 printfnoln("%c", buf[j]);
         }
 
+        if(j != 0)
+            if(buf[j-1] != '\n')
+                print("\n");
+
         vfs_close(&file);
     }
-
-    if(j != 0)
-        if(buf[j-1] != '\n')
-            print("\n");
     
     return 0;
 }

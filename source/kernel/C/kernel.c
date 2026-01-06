@@ -50,6 +50,7 @@ struct limine_module_request module_request = {
 
 struct flanterm_context *ft_ctx = null;
 struct limine_framebuffer *framebuffer = null;
+struct memory_context* limine_memory_ctx;
 
 bool isBufferReady = no;
 
@@ -159,7 +160,7 @@ void main(void) {
     // void* heap_page = allocate_pages(64 MiB / PAGE_SIZE);
     // mm_init(heap_page, 64 MiB);
 
-    struct memory_context* memory = (struct memory_context*)kmalloc(sizeof(struct memory_context));
+    limine_memory_ctx = (struct memory_context*)kmalloc(sizeof(struct memory_context));
 
     acpi_init();
     
@@ -170,7 +171,7 @@ void main(void) {
     
     RTL8139 = (struct rtl8139*) kmalloc(sizeof(struct rtl8139));
 
-    analyze_memory_map(memory, memory_map_request);
+    analyze_memory_map(limine_memory_ctx, memory_map_request);
 
     uintptr_t page1 = allocate_page();
     uintptr_t page2 = allocate_page();
@@ -196,10 +197,10 @@ void main(void) {
     printf("Display Resolution: %dx%d (%d) pixels. Pitch: %d", framebuffer->width, framebuffer->height, framebuffer->width*framebuffer->height, framebuffer->pitch);
 
     info("Memory Values begin! ===", __FILE__);
-    display_memory_formatted(memory);
+    display_memory_formatted(limine_memory_ctx);
     info(reset_color "Memory values end! =====", __FILE__);
 
-    if(memory->bad != 0){
+    if(limine_memory_ctx->bad != 0){
         warn("Bad blocks of memory found, it is recommended to replace your RAM.", __FILE__);
     }
 
