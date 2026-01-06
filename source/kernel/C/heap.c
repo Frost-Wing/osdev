@@ -12,6 +12,7 @@ typedef struct alloc_t {
 uint64_t heap_begin = 0;
 uint64_t heap_end   = 0;
 uint64_t last_alloc = 0;
+uint64_t alloc_count = 0;
 uint64_t memory_used = 0;
 
 #define ALIGN_UP(x, a) (((x) + ((a)-1)) & ~((a)-1))
@@ -81,6 +82,8 @@ void* kmalloc(size_t size)
 
     memory_used += size + sizeof(alloc_t);
 
+    alloc_count++;
+
     return user_ptr;
 }
 
@@ -100,6 +103,7 @@ void kfree(void* ptr)
 
     a->status = 0;
     memory_used -= a->size + sizeof(alloc_t);
+    alloc_count--;
 }
 
 void* krealloc(void* ptr, size_t size)

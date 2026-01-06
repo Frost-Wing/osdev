@@ -13,6 +13,12 @@
 #include <stddef.h>
 #include <basics.h>
 
+extern uint64_t heap_begin;
+extern uint64_t heap_end;
+extern uint64_t last_alloc;
+extern uint64_t alloc_count;
+extern uint64_t memory_used;
+
 /**
  * @brief Function to initlialize heap.
  * 

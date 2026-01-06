@@ -29,6 +29,16 @@ int cmd_mount(int argc, char** argv)
     const char* device = argv[1];
     const char* mount_point = argv[2];
 
+    if(strcmp(device, "proc") == 0){
+        mount_entry_t* new_mount = add_mount(mount_point, device, FS_PROC, NULL);
+        if (!new_mount)
+            return 1;
+
+        procfs_init();
+        printf("mount: mounted " red_color "%s" reset_color " at \'%s\'", device, mount_point);
+        return 0;
+    }
+
     general_partition_t* partition = search_general_partition(device);
 
     if (!partition) {
