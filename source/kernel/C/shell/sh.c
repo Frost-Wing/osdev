@@ -67,24 +67,24 @@ void push_command_to_list(command_list* lst, const char* value, size_t length)
 bool running = true;
 
 void welcome_message(){
-    print("\e[1;34m ______             _           _  _____ _          _ _ \n");
-    printf("|  ____|           | |         | |/ ____| |        | | |");
-    printf("| |__ _ __ ___  ___| |_ ___  __| | (___ | |__   ___| | |");
-    printf("|  __| '__/ _ \\/ __| __/ _ \\/ _` |\\___ \\| '_ \\ / _ \\ | |");
-    printf("| |  | | | (_) \\__ \\ ||  __/ (_| |____) | | | |  __/ | |");
-    print("|_|  |_|  \\___/|___/\\__\\___|\\__,_|_____/|_| |_|\\___|_|_|\e[0m\n\n");
+    printf(blue_color " ______             _           _  _____ _          _ _ ");
+    printf(blue_color "|  ____|           | |         | |/ ____| |        | | |");
+    printf(blue_color "| |__ _ __ ___  ___| |_ ___  __| | (___ | |__   ___| | |");
+    printf(blue_color "|  __| '__/ _ \\/ __| __/ _ \\/ _` |\\___ \\| '_ \\ / _ \\ | |");
+    printf(blue_color "| |  | | | (_) \\__ \\ ||  __/ (_| |____) | | | |  __/ | |");
+    printf(blue_color "|_|  |_|  \\___/|___/\\__\\___|\\__,_|_____/|_| |_|\\___|_|_|" reset_color "\n");
 
-    print("\033[1;32mWelcome to frosted shell!\033[0m This is an implementation of \033[0;34msh\033[0m.\n");
-    print("We as the developers try to make this shell as similar as \033[0;34msh\033[0m.\n\n");
+    printf(green_color "Welcome to frosted shell!" reset_color " This is an implementation of " blue_color "sh" reset_color ".");
+    printf("We as the developers try to make this shell as similar as " blue_color "sh" reset_color ".\n");
 
-    print("Website : \e[1;34mhttps://prad.digital\033[0m\n");
-    print("Wiki    : \e[1;34mhttps://github.com/Frost-Wing/osdev/wiki\033[0m\n");
-    print("Github  : \e[1;34mhttps://github.com/Frost-Wing\033[0m\n\n");
-    
+    printf("Wiki    : " blue_color "https://github.com/Frost-Wing/osdev/wiki" reset_color "");
+    printf("Github  : " blue_color "https://github.com/Frost-Wing" reset_color "\n");
+
     uint8_t second, minute, hour, day, month, year;
     update_system_time(&second, &minute, &hour, &day, &month, &year);
 
-    printf("Time    : %d:%d:%d %d/%d/%d", hour, minute, second, day, month, year);
+    printf("Time    : %02d:%02d:%02d %02d/%02d/%02d",
+           hour, minute, second, day, month, year);
 }
 
 extern int64* wm_addr;
@@ -393,7 +393,8 @@ static command_t commands[] = {
     { "lspci", cmd_lspci },
     { "lsblk", cmd_lsblk },
     { "mount", cmd_mount },
-    { "mv", cmd_mv }
+    { "mv", cmd_mv },
+    { "umount", cmd_umount }
     // { "fwfetch", cmd_fwfetch },
     // { "help", cmd_help },
 };

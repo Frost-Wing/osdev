@@ -62,6 +62,34 @@ int fat16_mount(int portno, uint32_t partition_lba, fat16_fs_t* fs) {
     return FAT_OK;
 }
 
+void fat16_unmount(fat16_fs_t* fs)
+{
+    if (!fs)
+        return;
+
+    /*
+     * FAT16 has no runtime state that must be flushed
+     * because:
+     *  - FAT updates are written immediately
+     *  - directory entries are written immediately
+     *  - no write-back cache exists
+     */
+
+    /* Clear sensitive fields (debug-friendly) */
+    fs->portno = 0;
+    fs->partition_lba = 0;
+    fs->fat_start = 0;
+    fs->root_dir_start = 0;
+    fs->data_start = 0;
+    fs->root_dir_sectors = 0;
+
+    memset(&fs->bs, 0, sizeof(fs->bs));
+
+    /* NOTE:
+     * fs memory is freed by umount(), not here
+     */
+}
+
 uint16_t fat16_read_fat_fs(fat16_fs_t* fs, uint16_t cluster) {
     uint8_t buf[512];
     uint32_t offset = cluster * 2;

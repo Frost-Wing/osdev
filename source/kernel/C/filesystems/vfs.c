@@ -33,7 +33,7 @@ static int path_matches_mount(const char* path, const char* mount) {
     return path[mlen] == '\0' || path[mlen] == '/';
 }
 
-static int vfs_resolve_mount(const char* path, vfs_mount_res_t* out) {
+int vfs_resolve_mount(const char* path, vfs_mount_res_t* out) {
     if (!path || !out) {
         eprintf("resolve_mount: invalid arguments");
         return -1;
@@ -191,6 +191,13 @@ int vfs_ls(const char* path)
         }
     }
 
+    if(res.mnt->type == FS_PROC) {
+        if (res.rel_path[0] == '\0') {
+            procfs_ls();
+            entries = true;
+        }
+    }
+
     if (res.mnt->type == FS_FAT16) {
         fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
 
@@ -212,13 +219,6 @@ int vfs_ls(const char* path)
 
             if (fat16_list_dir_cluster(fs, e.first_cluster) != 0)
                 entries = true;
-        }
-    }
-
-    if(res.mnt->type == FS_PROC) {
-        if (res.rel_path[0] == '\0') {
-            procfs_ls();
-            entries = true;
         }
     }
 

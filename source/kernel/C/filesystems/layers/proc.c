@@ -62,7 +62,7 @@ static int proc_heap_read(
 
     char tmp[128];
     int len = snprintf(tmp, sizeof(tmp),
-        "HeapTotal: %u bytes\nHeapUsed: %u bytes\nHeapFree: %u bytes\nAllocCount: %u",
+        "HeapTotal: %u bytes\nHeapUsed: %u bytes\nHeapFree: %u bytes\nAllocCount: %d",
         (heap_end - heap_begin),
         (memory_used),
         (heap_end - last_alloc),
