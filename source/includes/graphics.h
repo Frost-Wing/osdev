@@ -27,6 +27,14 @@
 #define green_color  "\x1b[32m"
 #define orange_color "\x1b[38;5;208m"
 
+// #define reset_color  "\x1b[38;5;248m"
+// #define red_color    "\x1b[38;5;167m"
+// #define yellow_color "\x1b[38;5;179m"
+// #define blue_color   "\x1b[38;5;75m"
+// #define green_color  "\x1b[38;5;71m"
+// #define orange_color "\x1b[38;5;172m"
+
+
 extern string last_filename;
 extern string last_filename; // for warn, info, err, done
 extern string last_print_file;

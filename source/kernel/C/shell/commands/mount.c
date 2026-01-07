@@ -29,6 +29,14 @@ int cmd_mount(int argc, char** argv)
     const char* device = argv[1];
     const char* mount_point = argv[2];
 
+    if(strcmp(mount_point, "/") != 0) {
+        vfs_mount_res_t res;
+        if (vfs_resolve_mount("/", &res) != 0){
+            eprintf("mount: cannot mount block device, root (/) is not mounted.");
+            return -2;
+        }
+    }
+
     if(strcmp(device, "proc") == 0){
         mount_entry_t* new_mount = add_mount(mount_point, device, FS_PROC, NULL);
         if (!new_mount)
