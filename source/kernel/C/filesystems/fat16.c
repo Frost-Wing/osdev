@@ -90,6 +90,24 @@ void fat16_unmount(fat16_fs_t* fs)
      */
 }
 
+static int fat16_next_cluster_safe(fat16_fs_t* fs,
+                                   uint16_t current,
+                                   uint16_t* next,
+                                   uint32_t* depth)
+{
+    if (current < 2 || current >= FAT16_EOC)
+        return FAT_ERR_NOT_FOUND;
+
+    if ((*depth)++ > FAT16_MAX_CLUSTERS) {
+        printf("fat16: FAT loop detected\n");
+        return FAT_ERR_CORRUPT;
+    }
+
+    *next = fat16_read_fat_fs(fs, current);
+    return FAT_OK;
+}
+
+
 uint16_t fat16_read_fat_fs(fat16_fs_t* fs, uint16_t cluster) {
     uint8_t buf[512];
     uint32_t offset = cluster * 2;
@@ -673,14 +691,22 @@ void fat16_update_root_entry(
     }
 }
 
-void fat16_free_chain(fat16_fs_t* fs, uint16_t start_cluster) {
+void fat16_free_chain(fat16_fs_t* fs, uint16_t start_cluster)
+{
     uint16_t cluster = start_cluster;
-    while (cluster < FAT16_EOC) {
-        uint16_t next = fat16_read_fat_fs(fs, cluster);
-        fat16_write_fat_entry(fs, cluster, 0x0000); // mark as free
+    uint32_t depth = 0;
+
+    while (cluster >= 2 && cluster < FAT16_EOC) {
+        uint16_t next;
+
+        if (fat16_next_cluster_safe(fs, cluster, &next, &depth) != FAT_OK)
+            break;
+
+        fat16_write_fat_entry(fs, cluster, 0x0000);
         cluster = next;
     }
 }
+
 
 
 int fat16_update_dir_entry(
@@ -831,6 +857,9 @@ int fat16_unlink(fat16_fs_t* fs, uint16_t parent_cluster, const char* name) {
     fat16_dir_entry_t e;
     char fatname[11];
     fat16_format_name(name, fatname);
+
+    if (fat16_is_reserved_name(name))
+        return FAT_ERR_NOT_FOUND;
 
     if (fat16_find_in_dir(fs, parent_cluster, name, &e) != 0) {
         printf("unlink: '%s' not found", name);
@@ -1134,6 +1163,9 @@ int fat16_delete_entry(fat16_fs_t* fs, uint16_t parent_cluster, const char* name
     uint8_t buf[512];
     char fatname[11];
     fat16_format_name(name, fatname);
+
+    if (fat16_is_reserved_name(name))
+        return FAT_ERR_NOT_FOUND;
 
     // Root directory
     if (parent_cluster == 0) {
