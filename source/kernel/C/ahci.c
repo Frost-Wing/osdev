@@ -189,7 +189,7 @@ mount_entry_t* add_mount(const char* mount_point, const char* part_name, partiti
         return NULL;
     }
 
-    mount_entry_t* new_mount = kmalloc(sizeof(mount_entry_t));
+    mount_entry_t* new_mount = &mounted_partitions[mounted_partition_count];
     if(!new_mount) return NULL;
 
     new_mount->mount_point = strdup(mount_point);
@@ -204,6 +204,42 @@ mount_entry_t* add_mount(const char* mount_point, const char* part_name, partiti
 
     return new_mount;
 }
+
+int remove_mount(const char* mount_point)
+{
+    if (!mount_point)
+        return -1;
+
+    for (int i = 0; i < mounted_partition_count; i++) {
+        mount_entry_t* m = &mounted_partitions[i];
+
+        if (strcmp(m->mount_point, mount_point) == 0) {
+
+            /* Free allocated strings */
+            if (m->mount_point)
+                kfree(m->mount_point);
+            if (m->part_name)
+                kfree(m->part_name);
+
+            /* Shift remaining mounts left */
+            for (int j = i; j < mounted_partition_count - 1; j++) {
+                mounted_partitions[j] = mounted_partitions[j + 1];
+            }
+
+            mounted_partition_count--;
+
+            /* Clear last slot (debug safety) */
+            memset(&mounted_partitions[mounted_partition_count], 0,
+                   sizeof(mount_entry_t));
+
+            return 0;
+        }
+    }
+
+    printf("umount: %s: not mounted", mount_point);
+    return -2;
+}
+
 
 mount_entry_t* find_mount_by_point(const char* mount_point)
 {
