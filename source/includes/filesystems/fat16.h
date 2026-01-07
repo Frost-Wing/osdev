@@ -20,6 +20,7 @@
 #define FAT16_ROOT_CLUSTER 0
 #define DIR_ENTRIES_PER_SECTOR 16
 #define BYTES_PER_DIR_ENTRY 32
+#define FAT16_MAX_CLUSTERS 65525
 
 typedef struct {
     uint8_t  jmp[3];
