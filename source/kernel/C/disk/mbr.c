@@ -85,22 +85,6 @@ void parse_mbr_partitions(int8* mbr, int portno){
             partitions[i].partition_type,
             null
         );
-
-        if(fs_type == FS_FAT16){
-            // fat16_fs_t fs;
-            // fat16_dir_entry_t file;
-
-            // fat16_mount(portno, partitions[i].lba_start, &fs);
-            // fat16_list_root(&fs);
-
-            // fat16_file_t f;
-
-            // if (fat16_open(&fs, "/HELLO.TXT", &f) == 0) {
-            //     const char* msg = "HELLO FROM FROSTWING\n";
-            //     fat16_write(&f, (const uint8_t*)msg, strlen(msg));
-            //     fat16_close(&f);
-            // }
-        }
     }
 
     mbr_disks_count++;
