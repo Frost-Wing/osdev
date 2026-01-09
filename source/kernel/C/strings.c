@@ -542,3 +542,55 @@ char* strchr(const char* s, int c) {
         return (char*)s;
     return NULL;
 }
+
+// Compare strings case-insensitively
+int strcasecmp(const char* a, const char* b) {
+    while (*a && *b) {
+        char ca = (*a >= 'A' && *a <= 'Z') ? *a + 32 : *a;
+        char cb = (*b >= 'A' && *b <= 'Z') ? *b + 32 : *b;
+        if (ca != cb)
+            return ca - cb;
+        a++;
+        b++;
+    }
+    return *a - *b;
+}
+
+// Simple strtok replacement (modifies input)
+char* strtok_r(char* str, const char* delim, char** saveptr) {
+    char* start;
+
+    if (str)
+        *saveptr = str;
+    if (!*saveptr)
+        return NULL;
+
+    // skip leading delimiters
+    start = *saveptr;
+    while (*start && strchr(delim, *start))
+        start++;
+
+    if (*start == 0) {
+        *saveptr = NULL;
+        return NULL;
+    }
+
+    char* end = start;
+    while (*end && !strchr(delim, *end))
+        end++;
+
+    if (*end) {
+        *end = 0;
+        *saveptr = end + 1;
+    } else {
+        *saveptr = NULL;
+    }
+
+    return start;
+}
+
+// strtok wrapper to match standard usage
+char* strtok(char* str, const char* delim) {
+    static char* saveptr;
+    return strtok_r(str, delim, &saveptr);
+}

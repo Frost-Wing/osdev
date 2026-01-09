@@ -12,6 +12,7 @@
 #include <commands/commands.h>
 #include <strings.h>
 #include <filesystems/fat16.h>
+#include <filesystems/fat32.h>
 #include <ahci.h>
 
 int cmd_mount(int argc, char** argv)
@@ -68,11 +69,24 @@ int cmd_mount(int argc, char** argv)
                 printf("mount: memory allocation failed.");
                 return 1;
             }
-            mount_entry_t* new_mount = add_mount(mount_point, device, partition->fs_type, fs_struct);
-            if (!new_mount)
+            mount_entry_t* mount1 = add_mount(mount_point, device, partition->fs_type, fs_struct);
+            if (!mount1)
                 return 1;
 
             ret = fat16_mount(partition->ahci_port, partition->lba_start, (fat16_fs_t*)fs_struct);
+            break;
+        
+        case FS_FAT32:
+            fs_struct = kmalloc(sizeof(fat32_fs_t));
+            if (!fs_struct) {
+                printf("mount: memory allocation failed.");
+                return 1;
+            }
+            mount_entry_t* mount2 = add_mount(mount_point, device, partition->fs_type, fs_struct);
+            if (!mount2)
+                return 1;
+
+            ret = fat32_mount(partition->ahci_port, partition->lba_start, (fat32_fs_t*)fs_struct);
             break;
 
         default:

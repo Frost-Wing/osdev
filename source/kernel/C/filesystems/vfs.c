@@ -129,11 +129,18 @@ int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
         return -2;
     }
 
-    if (file->mnt->type == FS_PROC) {
-        return procfs_read(file, buf, size);
-    }
+    switch(file->mnt->type){
+        case FS_PROC:
+            return procfs_read(file, buf, size);
+        case FS_FAT16:
+            return fat16_read(&file->f.fat16, buf, size);
+        case FS_FAT32:
+            return fat32_read(&file->f.fat32, buf, size);
 
-    return fat16_read(&file->f, buf, size);
+        default:
+            printf("not implemented");
+            break;
+    }
 }
 
 
@@ -148,10 +155,18 @@ int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size)
         return -2;
     }
 
-    // if (file->flags & VFS_APPEND)
-    //     file->f.pos = file->f.size;
+    switch(file->mnt->type){
+        case FS_PROC:
+            return -10; // not implemented
+        case FS_FAT16:
+            return fat16_write(&file->f.fat16, buf, size);
+        case FS_FAT32:
+            return fat32_write(&file->f.fat32, buf, size);
 
-    return fat16_write(&file->f, buf, size);
+        default:
+            printf("not implemented");
+            break;
+    }
 }
 
 
@@ -161,8 +176,18 @@ void vfs_close(vfs_file_t* file) {
         return;
     }
 
-    if (file->mnt->type == FS_FAT16)
-        fat16_close(&file->f);
+    switch(file->mnt->type){
+        case FS_PROC:
+            return; // not implemented
+        case FS_FAT16:
+            return fat16_close(&file->f.fat16);
+        case FS_FAT32:
+            return fat32_close(&file->f.fat32);
+
+        default:
+            printf("not implemented");
+            break;
+    }
 }
 
 int vfs_ls(const char* path)
@@ -222,6 +247,28 @@ int vfs_ls(const char* path)
         }
     }
 
+    if (res.mnt->type == FS_FAT32) {
+        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+
+        if (*res.rel_path == '\0') {
+            fat32_list_root(fs);
+        } else {
+            fat32_dir_entry_t e;
+            if (fat32_find_path(fs, res.rel_path, &e) != FAT_OK) {
+                printf("ls: path not found");
+                return -3;
+            }
+
+            if (!(e.attr & 0x10)) {
+                printf("ls: not a directory");
+                return -4;
+            }
+
+            uint32_t first_cluster = (e.first_cluster_high << 16) | e.first_cluster_low;
+            fat32_list_dir_cluster(fs, first_cluster);
+        }
+    }
+
     if(entries)
         print("\n");
     return 0;
@@ -260,7 +307,7 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
         /* ---------- CREATE ---------- */
         if (flags & VFS_CREATE) {
             /* create if missing */
-            ret = fat16_open(fs, res.rel_path, &out->f);
+            ret = fat16_open(fs, res.rel_path, &out->f.fat16);
             if (ret != 0) {
                 /* create new file */
                 ret = fat16_create_path(fs, res.rel_path,
@@ -269,29 +316,61 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
                 if (ret != 0)
                     return -4;
     
-                ret = fat16_open(fs, res.rel_path, &out->f);
+                ret = fat16_open(fs, res.rel_path, &out->f.fat16);
                 if (ret != 0)
                     return -5;
             }
         } else {
-            ret = fat16_open(fs, res.rel_path, &out->f);
+            ret = fat16_open(fs, res.rel_path, &out->f.fat16);
             if (ret != 0)
                 return -6;
         }
     
         /* ---------- TRUNC ---------- */
         if (flags & VFS_TRUNC) {
-            fat16_truncate(&out->f, 0);
+            fat16_truncate(&out->f.fat16, 0);
         }
     
         /* ---------- APPEND ---------- */
         if (flags & VFS_APPEND) {
-            out->f.pos = out->f.entry.filesize;
+            out->f.fat16.pos = out->f.fat16.entry.filesize;
         }
     
         out->mnt   = res.mnt;
         out->flags = flags;
 
+        return 0;
+    } else if (res.mnt->type == FS_FAT32) {
+        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        int ret;
+
+        /* ---------- CREATE ---------- */
+        if (flags & VFS_CREATE) {
+            ret = fat32_open(fs, res.rel_path, &out->f.fat32);
+            if (ret != 0) {
+                ret = fat32_create_path(fs, res.rel_path, 0x20); // archive
+                if (ret != 0) return -4;
+
+                ret = fat32_open(fs, res.rel_path, &out->f.fat32);
+                if (ret != 0) return -5;
+            }
+        } else {
+            ret = fat32_open(fs, res.rel_path, &out->f.fat32);
+            if (ret != 0) return -6;
+        }
+
+        /* ---------- TRUNC ---------- */
+        if (flags & VFS_TRUNC) {
+            fat32_truncate(&out->f.fat32, 0);
+        }
+
+        /* ---------- APPEND ---------- */
+        if (flags & VFS_APPEND) {
+            out->f.fat32.pos = out->f.fat32.entry.file_size;
+        }
+
+        out->mnt = res.mnt;
+        out->flags = flags;
         return 0;
     }
 
@@ -317,6 +396,11 @@ int vfs_mkdir(const char* path) {
         return fat16_create_path(fs, res.rel_path, parent_cluster, 0x10);
     }
 
+    if (res.mnt->type == FS_FAT32) {
+        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        return fat32_create_path(fs, res.rel_path, 0x10);
+    }
+
     printf("mkdir: unknown filesystem");
     return -2;
 }
@@ -329,6 +413,12 @@ int vfs_rm_recursive(const char* path)
     vfs_mount_res_t res;
     if (vfs_resolve_mount(norm, &res) != 0)
         return -1;
+
+    if (res.mnt->type == FS_FAT32) {
+        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        return fat32_rm_recursive(fs, res.rel_path);
+    }
+
 
     if (res.mnt->type != FS_FAT16)
         return -1;
@@ -398,6 +488,27 @@ int vfs_cd(const char* path)
         return 0;
     }
 
+    if (res.mnt->type == FS_FAT32) {
+        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        uint32_t new_cluster = fs->root_cluster;
+
+        if (*res.rel_path) {
+            fat32_dir_entry_t e;
+            if (fat32_find_path(fs, res.rel_path, &e) != FAT_OK)
+                return -3;
+
+            if (!(e.attr & 0x10))
+                return -4;
+
+            new_cluster = (e.first_cluster_high << 16) | e.first_cluster_low;
+        }
+
+        vfs_cwd_cluster = new_cluster;
+        strncpy(vfs_cwd, norm, sizeof(vfs_cwd));
+        return 0;
+    }
+
+
     /* ---------- FAT16 ---------- */
     if (res.mnt->type != FS_FAT16) {
         eprintf("cd: unknown filesystem");
@@ -443,6 +554,11 @@ int vfs_create_path(const char* path, uint8_t attr) {
         return fat16_create_path(fs, res.rel_path, parent_cluster, attr);
     }
 
+    if (res.mnt->type == FS_FAT32) {
+        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        return fat32_create_path(fs, res.rel_path, attr);
+    }
+
     return -2;
 }
 
@@ -460,6 +576,11 @@ int vfs_unlink(const char* path)
     vfs_mount_res_t res;
     if (vfs_resolve_mount(norm, &res) != 0)
         return -2;
+
+    if (res.mnt->type == FS_FAT32) {
+        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        return fat32_unlink_path(fs, res.rel_path);
+    }
 
     if (res.mnt->type != FS_FAT16)
         return -3;
@@ -518,6 +639,12 @@ int vfs_mv(const char* src, const char* dst)
         printf("mv: cross-device move not supported");
         return -1;
     }
+
+    if (src_res.mnt->type == FS_FAT32) {
+        fat32_fs_t* fs = (fat32_fs_t*)src_res.mnt->fs;
+        return fat32_mv(fs, src_res.rel_path, dst_res.rel_path);
+    }
+
 
     if (src_res.mnt->type != FS_FAT16)
         return -1;
