@@ -122,39 +122,6 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
         );
 
         printf("[AHCI/GPT] identified disk %s", part_name);
-        if (fs_type == FS_FAT16) {
-            // fat16_fs_t fs;
-            // fat16_dir_entry_t file;
-
-            // //
-            // fat16_mount(portno, start, &fs);
-            
-            // fat16_create(&fs, 0, "FWLOGS.TXT", 0x20);
-            // fat16_file_t f;
-            // fat16_open(&fs, "/FWLOGS.TXT", &f);
-            // const char msg[] = "HELLO FAT16\n";
-            // fat16_write(&f, (const uint8_t*)msg, sizeof(msg));
-
-            // // rewind
-            // f.pos = 0;
-            // f.cluster = f.entry.first_cluster;
-
-            // uint8_t buf[64];
-            // fat16_read(&f, buf, sizeof(buf));
-            // for(int k=0;k<64;k++)
-            //     printfnoln("%c", buf[k]);
-
-            // fat16_create_path(&fs, "/a/b/c/text.txt", 0x20); // 0x20 = archive
-            
-            // fat16_file_t fnew;
-            // if (fat16_open(&fs, "/a/b/c/text.txt", &fnew) == 0) {
-            //     const char msg1[] = "HELLO FAT16 PATH!\n";
-            //     fat16_write(&fnew, (const uint8_t*)msg1, sizeof(msg1)-1); // -1 to skip null terminator
-            //     fat16_close(&fnew);
-            // }
-
-            // print("\n");
-        }
     }
 
     gpt_disks_count++;

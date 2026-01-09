@@ -45,11 +45,11 @@ int cmd_cat(int argc, char** argv)
             if (r == 0)
                 break; /* EOF */
 
-            for (j = 0; j < r; j++)
+            for (j = 0; j < r && buf != null; j++)
                 printfnoln("%c", buf[j]);
         }
 
-        if(j != 0)
+        if(j != 0 && buf != null)
             if(buf[j-1] != '\n')
                 print("\n");
 
