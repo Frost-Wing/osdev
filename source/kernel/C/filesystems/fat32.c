@@ -86,14 +86,14 @@ static void fat32_format_name_83(const char* input, char out[11])
 
     int i = 0, j = 0;
     while (input[i] && input[i] != '.' && j < 8) {
-        out[j++] = toupper(input[i++]);
+        out[j++] = (input[i++]);
     }
 
     if (input[i] == '.') {
         i++;
         j = 8;
         while (input[i] && j < 11)
-            out[j++] = toupper(input[i++]);
+            out[j++] = (input[i++]);
     }
 }
 
