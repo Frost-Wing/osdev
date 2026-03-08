@@ -69,10 +69,6 @@ uint8_t modifiers = 0;
  */
 void process_keyboard(InterruptFrame* frame){
     if(!enable_keyboard) return;
-
-    // int data = inb(0x60);
-
-    asm("int $0x81");
     
     outb(0x20, 0x20); // End PIC Master
 }
@@ -207,4 +203,54 @@ uint8_t getc() {
     
     char c = scancode_to_char(data, modifiers & MOD_SHIFT);
     return c;
+}
+
+
+uint8_t kgetc_nonblock() {
+    if (!(inb(0x64) & 1)) {
+        return 0;
+    }
+
+    uint8_t data = inb(0x60);
+    if (data == 0xE0) {
+        return 0;
+    }
+
+    switch (data)
+    {
+    case 0x2A:
+    case 0x36:
+        modifiers |= (data == 0x2A) ? MOD_LSHIFT : MOD_RSHIFT;
+        return 0;
+    case 0xAA:
+    case 0xB6:
+        modifiers &= ~((data == 0xAA) ? MOD_LSHIFT : MOD_RSHIFT);
+        return 0;
+    case 0x38:
+        modifiers |= MOD_LALT;
+        return 0;
+    case 0xB8:
+        modifiers &= ~MOD_LALT;
+        return 0;
+    case 0x1D:
+        modifiers |= MOD_LCTRL;
+        return 0;
+    case 0x9D:
+        modifiers &= ~MOD_LCTRL;
+        return 0;
+    case 0x3A:
+    case 0x45:
+        modifiers ^= MOD_CAPSLOCK;
+        return 0;
+    case 0x1C:
+        return '\n';
+    case 0x0E:
+        return '\b';
+    }
+
+    if (data > 0x80) {
+        return 0;
+    }
+
+    return (uint8_t)scancode_to_char(data, modifiers & MOD_SHIFT);
 }
