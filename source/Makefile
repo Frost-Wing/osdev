@@ -18,10 +18,21 @@ SRC_DIRS := kernel drivers
 OBJ_DIR := obj
 
 # Flags
-CFLAGS := -std=gnu11 -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto \
-          -fPIE -O3 -pipe -w \
-          -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone \
-          -mno-sse2 -mno-sse
+CFLAGS := -std=gnu11 -ffreestanding \
+          -Wall -Wextra \
+          -Wshadow -Wpointer-arith -Wcast-align \
+          -Wstrict-prototypes -Wmissing-prototypes \
+          -Wundef -Wwrite-strings \
+          -Wformat=2 -Wformat-security \
+          -fno-common \
+          -fno-stack-protector -fno-stack-check \
+          -fno-lto -fno-builtin \
+          -fno-omit-frame-pointer \
+          -Og -g -fPIE \
+          -I includes -I src \
+          -m64 -march=x86-64 \
+          -mno-80387 -mno-mmx -mno-red-zone \
+          -mno-sse -mno-sse2
 
 CPPFLAGS := -MMD -MP
 LDFLAGS := -nostdlib -static --no-dynamic-linker -z text -z max-page-size=0x1000 -T ./linker/linker.ld -m elf_x86_64
