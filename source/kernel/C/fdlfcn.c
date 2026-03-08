@@ -19,7 +19,7 @@ void* fdl_load_section(void* filedata, Elf64_Shdr* section_header)
 
     READ_FROM_MEMORY(section_data, filedata, section_header->sh_offset, section_header->sh_size);
 
-    return NULL;
+    return section_data;
 }
 
 int fdl_apply_relocations(fdlfcn_handle* lib, int reloc_section_index)
@@ -134,12 +134,13 @@ int fdlclose(fdlfcn_handle* handle)
             entry->next->prev = entry->prev;
 
         if (entry == global_library_handles)
-            global_library_handles = NULL;
+            global_library_handles = entry->next;
+
+        if (global_library_handles != NULL)
+            global_library_handles->prev = NULL;
 
         break;
     }
-
-    return 0; /// TODO: somehow all the free calls cause a gp fault, fix that
 
     if (handle->text_section_data != NULL)
         kfree(handle->text_section_data);
@@ -288,15 +289,15 @@ fdlfcn_handle* fdlopen(void* filedata, int flags)
     handle->address = text_section_data;
     handle->text_section_data = text_section_data;
     handle->text_section_index = text_section_index;
-    handle->text_section_header = &section_headers[text_section_index];
+    handle->text_section_header = (text_section_index != -1) ? &section_headers[text_section_index] : NULL;
     handle->string_table_data = strtableAddr;
     handle->string_table_header = &section_headers[strtab_index];
     handle->data_section_data = data_section_data;
-    handle->data_section_header = &section_headers[data_section_index];
+    handle->data_section_header = (data_section_index != -1) ? &section_headers[data_section_index] : NULL;
     handle->rodata_section_data = rodata_section_data;
-    handle->rodata_section_header = &section_headers[rodata_section_index];
+    handle->rodata_section_header = (rodata_section_index != -1) ? &section_headers[rodata_section_index] : NULL;
     handle->symtab_str_section_data = symtab_str_section_data;
-    handle->symtab_str_section_header = &section_headers[symtab_str_section_index];
+    handle->symtab_str_section_header = (symtab_str_section_index != -1) ? &section_headers[symtab_str_section_index] : NULL;
     handle->string_table_data = strtableAddr;
     handle->ehdr = elf_header;
     handle->shdrs = section_headers;
