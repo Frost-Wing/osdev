@@ -125,6 +125,7 @@ void main(void) {
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
     memmap = memory_map_request.response;
+    paging_set_hhdm_offset(hhdm_request.response->offset);
 
     ft_ctx = flanterm_fb_simple_init(
         framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
@@ -179,8 +180,8 @@ void main(void) {
     printf("Page1 phys: 0x%x", page1);
     printf("Page2 phys: 0x%x", page2);
 
-    uint64_t *test1 = (uint64_t *)page1;
-    uint64_t *test2 = (uint64_t *)page2;
+    uint64_t *test1 = (uint64_t *)(page1 + hhdm_request.response->offset);
+    uint64_t *test2 = (uint64_t *)(page2 + hhdm_request.response->offset);
 
     // Write some values
     *test1 = 0xDEADBEEFCAFEBABE;
@@ -244,7 +245,7 @@ void main(void) {
     
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
     
-    // enter_userland();
+    enter_userland();
     sh_exec();
 }
 
