@@ -51,7 +51,7 @@ DEPS := $(OBJ:.o=.d)
 # Targets
 # ============================
 
-.PHONY: all clean deep-clean version_info
+.PHONY: all clean deep-clean version_info compile-commands
 
 all: version_info $(KERNEL)
 
@@ -80,6 +80,11 @@ $(OBJ_DIR)/%.asm.o: %.asm
 
 # Include dependency files
 -include $(DEPS)
+
+compile-commands:
+	@echo -e "\033[1;32m[CCDB]\033[0m Generating compile_commands.json for clangd"
+	@SRC_ROOT=$(CURDIR) CFILES='$(CFILES)' CFLAGS='$(CFLAGS)' CPPFLAGS='$(CPPFLAGS)' OUT_PATH='$(CURDIR)/compile_commands.json' \
+		python3 ./scripts/gen_compile_commands.py
 
 # Cleaning
 clean:
