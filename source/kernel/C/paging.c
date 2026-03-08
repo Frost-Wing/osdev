@@ -20,6 +20,15 @@ extern uint8_t user_code_end[];
 
 struct limine_memmap_response *memmap;
 static uintptr_t bump_ptr = 0;
+static uint64_t hhdm_offset = 0;
+
+void paging_set_hhdm_offset(uint64_t offset) {
+    hhdm_offset = offset;
+}
+
+static inline uint64_t *phys_to_virt_ptr(uint64_t phys_addr) {
+    return (uint64_t *)(phys_addr + hhdm_offset);
+}
 
 uintptr_t allocate_page() {
     if(!memmap){
@@ -56,7 +65,7 @@ static inline uint64_t get_kernel_pml4() {
 }
 
 uint64_t virtual_to_physical(uint64_t virt) {
-    uint64_t *pml4 = (uint64_t*)get_kernel_pml4();
+    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
     uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
     uint64_t pd_idx   = (virt >> 21) & 0x1FF;
@@ -64,13 +73,13 @@ uint64_t virtual_to_physical(uint64_t virt) {
     uint64_t offset   = virt & 0xFFF;
 
     if (!(pml4[pml4_idx] & PAGE_PRESENT)) return 0;
-    uint64_t *pdpt = (uint64_t*)(pml4[pml4_idx] & ~0xFFF);
+    uint64_t *pdpt = phys_to_virt_ptr(pml4[pml4_idx] & ~0xFFFULL);
 
     if (!(pdpt[pdpt_idx] & PAGE_PRESENT)) return 0;
-    uint64_t *pd = (uint64_t*)(pdpt[pdpt_idx] & ~0xFFF);
+    uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & ~0xFFFULL);
 
     if (!(pd[pd_idx] & PAGE_PRESENT)) return 0;
-    uint64_t *pt = (uint64_t*)(pd[pd_idx] & ~0xFFF);
+    uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & ~0xFFFULL);
 
     if (!(pt[pt_idx] & PAGE_PRESENT)) return 0;
 
@@ -80,8 +89,9 @@ uint64_t virtual_to_physical(uint64_t virt) {
 
 void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
     // Traverse or create PML4 -> PDPT -> PD -> PT
-    uint64_t *pml4 = (uint64_t*)get_kernel_pml4(); // kernel PML4
+    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL); // kernel PML4
     uint64_t *pdpt, *pd, *pt;
+    uint64_t pdpt_phys, pd_phys, pt_phys;
 
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
     uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
@@ -90,29 +100,35 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
 
     // Create PDPT if missing
     if (!(pml4[pml4_idx] & PAGE_PRESENT)) {
-        pdpt = (uint64_t*)allocate_page();
+        pdpt_phys = allocate_page();
+        pdpt = phys_to_virt_ptr(pdpt_phys);
         memset(pdpt, 0, 0x1000);
-        pml4[pml4_idx] = (uint64_t)pdpt | PAGE_PRESENT | PAGE_RW | PAGE_USER;
+        pml4[pml4_idx] = pdpt_phys | PAGE_PRESENT | PAGE_RW | PAGE_USER;
     } else {
-        pdpt = (uint64_t*)(pml4[pml4_idx] & ~0xFFF);
+        pdpt_phys = pml4[pml4_idx] & ~0xFFFULL;
+        pdpt = phys_to_virt_ptr(pdpt_phys);
     }
 
     // Create PD if missing
     if (!(pdpt[pdpt_idx] & PAGE_PRESENT)) {
-        pd = (uint64_t*)allocate_page();
+        pd_phys = allocate_page();
+        pd = phys_to_virt_ptr(pd_phys);
         memset(pd, 0, 0x1000);
-        pdpt[pdpt_idx] = (uint64_t)pd | PAGE_PRESENT | PAGE_RW | PAGE_USER;
+        pdpt[pdpt_idx] = pd_phys | PAGE_PRESENT | PAGE_RW | PAGE_USER;
     } else {
-        pd = (uint64_t*)(pdpt[pdpt_idx] & ~0xFFF);
+        pd_phys = pdpt[pdpt_idx] & ~0xFFFULL;
+        pd = phys_to_virt_ptr(pd_phys);
     }
 
     // Create PT if missing
     if (!(pd[pd_idx] & PAGE_PRESENT)) {
-        pt = (uint64_t*)allocate_page();
+        pt_phys = allocate_page();
+        pt = phys_to_virt_ptr(pt_phys);
         memset(pt, 0, 0x1000);
-        pd[pd_idx] = (uint64_t)pt | PAGE_PRESENT | PAGE_RW | PAGE_USER;
+        pd[pd_idx] = pt_phys | PAGE_PRESENT | PAGE_RW | PAGE_USER;
     } else {
-        pt = (uint64_t*)(pd[pd_idx] & ~0xFFF);
+        pt_phys = pd[pd_idx] & ~0xFFFULL;
+        pt = phys_to_virt_ptr(pt_phys);
     }
 
     pt[pt_idx] = phys | flags;

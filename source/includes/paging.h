@@ -37,6 +37,13 @@ extern struct limine_memmap_response *memmap;
 void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags);
 
 /**
+ * @brief Sets the HHDM offset used to access physical memory virtually.
+ *
+ * @param offset HHDM offset provided by Limine.
+ */
+void paging_set_hhdm_offset(uint64_t offset);
+
+/**
  * @brief Maps user code in paging.
  * 
  */
