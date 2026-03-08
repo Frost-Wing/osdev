@@ -118,16 +118,20 @@ int itoa(int num, string str, int len, int base)
  */
 void strrev(unsigned char *str)
 {
-	int i;
-	int j;
-	unsigned char a;
-	unsigned len = strlen((const char *)str);
-	for (i = 0, j = len - 1; i < j; i++, j--)
-	{
-		a = str[i];
-		str[i] = str[j];
-		str[j] = a;
-	}
+    int i;
+    int j;
+    unsigned char a;
+    unsigned len = strlen((const char *)str);
+
+    if (len == 0)
+        return;
+
+    for (i = 0, j = (int)len - 1; i < j; i++, j--)
+    {
+        a = str[i];
+        str[i] = str[j];
+        str[j] = a;
+    }
 }
 
 /**
@@ -223,6 +227,8 @@ string trim(cstring str) {
 }
 
 string strcat(string dest, cstring src) {
+    string start = dest;
+
     while (*dest != '\0') {
         dest++;
     }
@@ -235,7 +241,7 @@ string strcat(string dest, cstring src) {
 
     *dest = '\0';
 
-    return dest;
+    return start;
 }
 
 void remove_last_char(string str) {
@@ -428,31 +434,33 @@ extern const char caps_hex_digits[];
  * 
  * @param hex the hexadecimal number to be printed.
  */
-char* hex_to_string(signed int num, bool caps) {    
+char* hex_to_string(signed int num, bool caps) {
+    static char buf[21];
     int i;
-    char buf[21];
     signed int n = num;
 
-    if(n < 0){
+    if (n < 0) {
         n = -n;
     }
 
     if (!n) {
-        print("00");
-        return "0";
+        buf[0] = '0';
+        buf[1] = '\0';
+        return buf;
     }
 
-    buf[16] = 0;
+    buf[16] = '\0';
 
-    for (i = 15; n; i--) {
-        if(caps) buf[i] = caps_hex_digits[n % 16];
-        else buf[i] = hex_digits[n % 16];
+    for (i = 15; n && i >= 0; i--) {
+        if (caps)
+            buf[i] = caps_hex_digits[n % 16];
+        else
+            buf[i] = hex_digits[n % 16];
 
         n /= 16;
     }
 
-    i++;
-    return &buf[i];
+    return &buf[i + 1];
 }
 
 void split(const char* str, char words[][MAX_WORD_LEN], int* num_words) {

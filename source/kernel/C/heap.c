@@ -125,9 +125,22 @@ void* krealloc(void* ptr, size_t size)
     return new_ptr;
 }
 
-void* kmalloc_aligned(size_t size, size_t align) {
-    uintptr_t ptr = (uintptr_t)kmalloc(size + align);
-    uintptr_t aligned = (ptr + align - 1) & ~(align - 1);
+void* kmalloc_aligned(size_t size, size_t align)
+{
+    if (align < sizeof(void*) || (align & (align - 1)) != 0) {
+        warn("kmalloc_aligned: align must be a power of two", __FILE__);
+        return NULL;
+    }
+
+    size_t total = size + align - 1 + sizeof(uintptr_t);
+    uintptr_t raw = (uintptr_t)kmalloc(total);
+    if (!raw) {
+        return NULL;
+    }
+
+    uintptr_t aligned = ALIGN_UP(raw + sizeof(uintptr_t), align);
+    ((uintptr_t*)aligned)[-1] = raw;
+
     return (void*)aligned;
 }
 
