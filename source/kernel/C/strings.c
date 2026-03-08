@@ -10,6 +10,9 @@
  */
 #include <strings.h>
 
+const char hex_digits[] = "0123456789abcdef";
+const char caps_hex_digits[] = "0123456789ABCDEF";
+
 /**
  * @brief The same strlen function from OEM
  * 
