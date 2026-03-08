@@ -144,7 +144,7 @@ int fat32_find_path(fat32_fs_t* fs, const char* path, fat32_dir_entry_t* out);
 void fat32_list_root(fat32_fs_t* fs);
 void fat32_list_dir_cluster(fat32_fs_t* fs, uint32_t cluster);
 
-int fat32_create_path(fat32_fs_t* fs, const char* path, fat32_dir_entry_t* out);
+int fat32_create_path(fat32_fs_t* fs, const char* path, uint8_t attr);
 int fat32_truncate(fat32_file_t* file, uint32_t new_size);
 
 uint32_t fat32_alloc_cluster(fat32_fs_t* fs);
@@ -179,6 +179,6 @@ int fat32_unlink_path(fat32_fs_t* fs, const char* path);
 int fat32_rm_recursive(fat32_fs_t* fs, const char* path);
 int fat32_mv(fat32_fs_t* fs, const char* src, const char* dst);
 int fat32_delete_entry(fat32_fs_t* fs, uint32_t dir_cluster, const char* name);
-int fat32_rmdir(fat32_fs_t* fs, fat32_dir_entry_t* entry);
+int fat32_rmdir(fat32_fs_t* fs, uint32_t dir_cluster);
 
 #endif
