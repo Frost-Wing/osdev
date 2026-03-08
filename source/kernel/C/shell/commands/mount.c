@@ -15,6 +15,16 @@
 #include <filesystems/fat32.h>
 #include <ahci.h>
 
+const char* fs_type_to_string(int fs)
+{
+    switch(fs){
+        case FS_FAT16: return "FAT16";
+        case FS_FAT32: return "FAT32";
+        case FS_PROC:  return "PROCFS";
+        default:       return "UNKNOWN";
+    }
+}
+
 int cmd_mount(int argc, char** argv)
 {
     if(argc == 1){
@@ -48,7 +58,11 @@ int cmd_mount(int argc, char** argv)
         if(strcmp(mount_point, "/proc") != 0)
             printf("mount: warning mounting \'proc\' on non-standard path.");
 
-        printf("mount: mounted " red_color "%s" reset_color " at \'%s\'", device, mount_point);
+        printf("mount: mounted " red_color "%s" reset_color " (%s) at '%s'",
+            device,
+            fs_type_to_string(FS_PROC),
+            mount_point);
+
         return 0;
     }
 
@@ -99,6 +113,10 @@ int cmd_mount(int argc, char** argv)
         return 1;
     }
 
-    printf("mount: mounted %s at \'%s\'", device, mount_point);
+    printf("mount: mounted %s (%s) at '%s'",
+       device,
+       fs_type_to_string(partition->fs_type),
+       mount_point);
+    
     return 0;
 }
