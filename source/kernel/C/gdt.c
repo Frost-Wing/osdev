@@ -8,6 +8,7 @@
  * @copyright Copyright (c) Pradosh 2025
  * 
  */
+#include <graphics.h>
 #include <gdt.h>
 
 struct gdt_entry gdt[7];
@@ -22,7 +23,7 @@ static void gdt_set_entry(int i, uint32_t base, uint32_t limit, uint8_t access, 
     gdt[i].access      = access;
 }
 
-void setup_gdt() {
+void setup_gdt(void) {
     info("Setting up GDT...", __FILE__);
 
     /* Null descriptor */

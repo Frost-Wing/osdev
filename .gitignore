@@ -8,7 +8,6 @@ FrostWing.iso
 *.d
 doxygen-1.9.8
 *.log
-.vscode
 source/typescript/typescript-source.c
 source/kernel/typescript-source.c
 FrostWing.iso.*

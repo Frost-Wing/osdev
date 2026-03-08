@@ -438,7 +438,7 @@ void fat32_print_entry(const fat32_dir_entry_t* e)
     memcpy(name, e->name, 11);
     name[11] = 0;
 
-    printf("%s%s" reset_color, (e->attr & FAT_ATTR_DIRECTORY) ? yellow_color : blue_color, name);
+    printfnoln("%s%s " reset_color, (e->attr & FAT_ATTR_DIRECTORY) ? yellow_color : blue_color, name);
 }
 
 const char* fat_next_path_component(const char* path, char* out)

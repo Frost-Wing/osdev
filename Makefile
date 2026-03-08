@@ -96,6 +96,15 @@ everything-sign:
 	@make clean all -C source && make sign-kernel && make iso tarball run-x86-hdd
 
 # -----------------------------
+# Editor support (clangd / Code - OSS)
+# -----------------------------
+
+clangd:
+	@echo "[*] Generating compile_commands.json for clangd..."
+	@$(MAKE) -C source compile-commands
+	@echo "[+] Done. Open this repo in Code - OSS and install clangd extension."
+
+# -----------------------------
 # Kernel signing
 # -----------------------------
 sign-kernel:

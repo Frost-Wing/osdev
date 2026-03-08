@@ -1,0 +1,14 @@
+{
+    "doxdocgen.file.copyrightTag": [
+        "@copyright Copyright (c) Pradosh {year}"
+    ],
+    "doxdocgen.generic.authorEmail": "pradoshgame@gmail.com",
+    "doxdocgen.generic.authorName": "Pradosh",
+    "doxdocgen.generic.authorTag": "@author {author} ({email})",
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/source",
+        "--background-index",
+        "--clang-tidy",
+        "--header-insertion=iwyu"
+    ]
+}

@@ -9,6 +9,7 @@
  * 
  */
 
+#include <commands/login.h>
 #include <sh_util.h>
 
 int last_status_code = 0;
