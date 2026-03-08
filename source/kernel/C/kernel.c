@@ -9,6 +9,8 @@
  * 
  */
 
+#include <gdt.h>
+#include <idt.h>
 #include <kernel.h>
 
 int terminal_rows = 0;
