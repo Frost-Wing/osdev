@@ -111,7 +111,13 @@ static void vfs_normalize_path(const char* in, char* out) {
         if (oi == 0 || out[oi - 1] != '/') out[oi++] = '/';
 
         // Copy next component
-        while (*p && *p != '/') out[oi++] = *p++;
+        while (*p && *p != '/') {
+            if (oi >= 255) {
+                out[255] = '\0';
+                return;
+            }
+            out[oi++] = *p++;
+        }
     }
 
     if (oi == 0) out[oi++] = '/';
@@ -141,6 +147,8 @@ int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
             printf("not implemented");
             break;
     }
+
+    return -3;
 }
 
 
@@ -167,6 +175,8 @@ int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size)
             printf("not implemented");
             break;
     }
+
+    return -3;
 }
 
 
@@ -437,6 +447,7 @@ int vfs_rm_recursive(const char* path)
     if (slash) {
         *slash = 0;
         strncpy(name, slash + 1, sizeof(name));
+        name[sizeof(name) - 1] = 0;
 
         if (*tmp) {
             fat16_dir_entry_t p;
@@ -446,6 +457,7 @@ int vfs_rm_recursive(const char* path)
         }
     } else {
         strncpy(name, tmp, sizeof(name));
+        name[sizeof(name) - 1] = 0;
     }
 
     /* NEVER allow these */
@@ -663,6 +675,8 @@ int vfs_mv(const char* src, const char* dst)
     if (s) {
         *s = 0;
         strncpy(src_name, s + 1, sizeof(src_name));
+        src_name[sizeof(src_name) - 1] = 0;
+
         if (*src_tmp) {
             fat16_dir_entry_t e;
             if (fat16_find_path(fs, src_tmp, &e) != 0)
@@ -671,6 +685,7 @@ int vfs_mv(const char* src, const char* dst)
         }
     } else {
         strncpy(src_name, src_tmp, sizeof(src_name));
+        src_name[sizeof(src_name) - 1] = 0;
     }
 
     /* ---------- SPLIT DST ---------- */
@@ -685,6 +700,8 @@ int vfs_mv(const char* src, const char* dst)
     if (d) {
         *d = 0;
         strncpy(dst_name, d + 1, sizeof(dst_name));
+        dst_name[sizeof(dst_name) - 1] = 0;
+
         if (*dst_tmp) {
             fat16_dir_entry_t e;
             if (fat16_find_path(fs, dst_tmp, &e) != 0)
@@ -693,6 +710,7 @@ int vfs_mv(const char* src, const char* dst)
         }
     } else {
         strncpy(dst_name, dst_tmp, sizeof(dst_name));
+        dst_name[sizeof(dst_name) - 1] = 0;
     }
 
     /* ---------- REAL MOVE ---------- */

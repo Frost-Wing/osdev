@@ -153,7 +153,7 @@ int fat16_list_root(fat16_fs_t* fs) {
 
         for (int i = 0; i < 16; i++) {
             /* End of directory */
-            if (e[i].name[0] == 0x00) return;
+            if (e[i].name[0] == 0x00) return entries_exist;
 
             /* Deleted entry */
             if ((uint8_t)e[i].name[0] == 0xE5)
@@ -346,7 +346,7 @@ int fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster) {
 
             for (int i = 0; i < 16; i++) {
                 /* End of directory */
-                if (e[i].name[0] == 0x00) return;
+                if (e[i].name[0] == 0x00) return entries_exist;
 
                 /* Deleted entry */
                 if ((uint8_t)e[i].name[0] == 0xE5)
@@ -649,7 +649,7 @@ uint16_t fat16_allocate_cluster(fat16_fs_t* fs) {
 uint16_t fat16_append_cluster(fat16_fs_t* fs, uint16_t last_cluster) {
     uint16_t new_cluster = fat16_allocate_cluster(fs);
     if (!new_cluster)
-        return FAT_OK;
+        return 0;
 
     fat16_write_fat_entry(fs, last_cluster, new_cluster);
     fat16_write_fat_entry(fs, new_cluster, FAT16_EOC);
@@ -949,15 +949,15 @@ int fat16_mkdir(fat16_fs_t* fs, uint16_t parent_cluster, const char* name) {
         printf("refusing to create reserved name '%s'", name);
         return FAT_ERR_NOT_FOUND;
     }
-
-    uint16_t new_cluster = fat16_allocate_cluster(fs);
-    if (!new_cluster) return FAT_ERR_NOT_FOUND;
-
+    
     fat16_dir_entry_t tmp;
     if (fat16_find_in_dir(fs, parent_cluster, name, &tmp) == 0) {
         printf("mkdir: directory '%s' already exists", name);
         return FAT_ERR_NOT_FOUND;
     }
+
+    uint16_t new_cluster = fat16_allocate_cluster(fs);
+    if (!new_cluster) return FAT_ERR_NOT_FOUND;
 
     /* ---------- initialize directory cluster ---------- */
     uint32_t lba = fat16_cluster_lba(fs, new_cluster);
