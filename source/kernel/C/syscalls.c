@@ -34,11 +34,14 @@ void syscalls_handler(InterruptFrame* frame){
         case 1:
             info(syscalls_prefix "syscall id - 1 (test syscalls) has been called!", __FILE__);
             break;
-        case 2:
-            printf("From DM -> 0x%x", frame->rdi);
+        case 0x10:
+            frame->rax = getc();
             break;
-        case 3:
-            info(syscalls_prefix "syscall id - 3 (test syscalls from desktop manager) has been called!", __FILE__);
+        case 0x11:
+            frame->rax = kgetc_nonblock();
+            break;
+        case 0x12:
+            printfnoln("%c", (char)frame->rdi);
             break;
         default:
             error(syscalls_prefix "Unknown", __FILE__);

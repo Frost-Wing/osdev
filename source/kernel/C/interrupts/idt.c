@@ -91,6 +91,8 @@ void initIdt()
         setIdtEntry(&idt_entries[i], (uint64_t)irq_stub_table[i-32], 0x08, 0, 0x8E);
     }
 
+    setIdtEntry(&idt_entries[0x80], (uint64_t)irq_stub_table[0x80 - 32], 0x08, 0, 0xEE);
+
     remap_pic();
 
     outb(0x21, 0xf8); // 0xfd for keyboard only and for mouse + keyboard 0xf8 (if sb 16 support then 0x??)
