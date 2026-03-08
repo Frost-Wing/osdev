@@ -105,7 +105,6 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
         memset(pdpt, 0, 0x1000);
         pml4[pml4_idx] = pdpt_phys | PAGE_PRESENT | PAGE_RW | PAGE_USER;
     } else {
-        pml4[pml4_idx] |= PAGE_USER | PAGE_RW;
         pdpt_phys = pml4[pml4_idx] & ~0xFFFULL;
         pdpt = phys_to_virt_ptr(pdpt_phys);
     }
@@ -117,7 +116,6 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
         memset(pd, 0, 0x1000);
         pdpt[pdpt_idx] = pd_phys | PAGE_PRESENT | PAGE_RW | PAGE_USER;
     } else {
-        pdpt[pdpt_idx] |= PAGE_USER | PAGE_RW;
         pd_phys = pdpt[pdpt_idx] & ~0xFFFULL;
         pd = phys_to_virt_ptr(pd_phys);
     }
@@ -129,7 +127,6 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
         memset(pt, 0, 0x1000);
         pd[pd_idx] = pt_phys | PAGE_PRESENT | PAGE_RW | PAGE_USER;
     } else {
-        pd[pd_idx] |= PAGE_USER | PAGE_RW;
         pt_phys = pd[pd_idx] & ~0xFFFULL;
         pt = phys_to_virt_ptr(pt_phys);
     }
