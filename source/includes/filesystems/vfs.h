@@ -15,12 +15,14 @@
 #include <ahci.h>
 #include <filesystems/fat16.h>
 #include <filesystems/fat32.h>
+#include <filesystems/iso9660.h>
 
 typedef struct {
     mount_entry_t* mnt;
     union {
         fat16_file_t fat16;
         fat32_file_t fat32;
+        iso9660_file_t iso9660;
     } f;
     uint32_t pos; // for virtual files only, must not be used for real fs
     int flags;

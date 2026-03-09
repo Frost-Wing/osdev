@@ -13,6 +13,7 @@
 #include <basics.h>
 #include <graphics.h>
 #include <filesystems/fat16.h>
+#include <filesystems/iso9660.h>
 #include <heap.h>
 #include <strings.h>
 
@@ -142,6 +143,8 @@ int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
             return fat16_read(&file->f.fat16, buf, size);
         case FS_FAT32:
             return fat32_read(&file->f.fat32, buf, size);
+        case FS_ISO9660:
+            return iso9660_read(&file->f.iso9660, buf, size);
 
         default:
             printf("not implemented");
@@ -170,6 +173,8 @@ int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size)
             return fat16_write(&file->f.fat16, buf, size);
         case FS_FAT32:
             return fat32_write(&file->f.fat32, buf, size);
+        case FS_ISO9660:
+            return -10; // read-only
 
         default:
             printf("not implemented");
@@ -193,6 +198,8 @@ void vfs_close(vfs_file_t* file) {
             return fat16_close(&file->f.fat16);
         case FS_FAT32:
             return fat32_close(&file->f.fat32);
+        case FS_ISO9660:
+            return iso9660_close(&file->f.iso9660);
 
         default:
             printf("not implemented");
@@ -276,6 +283,29 @@ int vfs_ls(const char* path)
 
             uint32_t first_cluster = (e.first_cluster_high << 16) | e.first_cluster_low;
             fat32_list_dir_cluster(fs, first_cluster);
+        }
+    }
+
+    if (res.mnt->type == FS_ISO9660) {
+        iso9660_fs_t* fs = (iso9660_fs_t*)res.mnt->fs;
+
+        if (*res.rel_path == '\0') {
+            if (iso9660_list_root(fs) == 0)
+                entries = true;
+        } else {
+            iso9660_dirent_t e;
+            if (iso9660_find_path(fs, res.rel_path, &e) != 0) {
+                printf("ls: path not found");
+                return -3;
+            }
+
+            if (!(e.flags & ISO9660_FLAG_DIR)) {
+                printf("ls: not a directory");
+                return -4;
+            }
+
+            if (iso9660_list_dir(fs, &e) == 0)
+                entries = true;
         }
     }
 
@@ -378,6 +408,23 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
         if (flags & VFS_APPEND) {
             out->f.fat32.pos = out->f.fat32.entry.file_size;
         }
+
+        out->mnt = res.mnt;
+        out->flags = flags;
+        return 0;
+    }
+
+
+    if (res.mnt->type == FS_ISO9660) {
+        if (flags & (VFS_CREATE | VFS_TRUNC | VFS_APPEND | VFS_WRONLY | VFS_RDWR)) {
+            eprintf("open: iso9660 is read-only");
+            return -7;
+        }
+
+        iso9660_fs_t* fs = (iso9660_fs_t*)res.mnt->fs;
+        int ret = iso9660_open(fs, res.rel_path, &out->f.iso9660);
+        if (ret != 0)
+            return -6;
 
         out->mnt = res.mnt;
         out->flags = flags;
@@ -520,6 +567,24 @@ int vfs_cd(const char* path)
         return 0;
     }
 
+
+    if (res.mnt->type == FS_ISO9660) {
+        iso9660_fs_t* fs = (iso9660_fs_t*)res.mnt->fs;
+
+        if (*res.rel_path) {
+            iso9660_dirent_t e;
+            if (iso9660_find_path(fs, res.rel_path, &e) != 0)
+                return -3;
+
+            if (!(e.flags & ISO9660_FLAG_DIR))
+                return -4;
+        }
+
+        vfs_cwd_cluster = 0;
+        strncpy(vfs_cwd, norm, sizeof(vfs_cwd));
+        vfs_cwd[sizeof(vfs_cwd) - 1] = 0;
+        return 0;
+    }
 
     /* ---------- FAT16 ---------- */
     if (res.mnt->type != FS_FAT16) {
