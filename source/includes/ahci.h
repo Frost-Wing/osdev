@@ -223,6 +223,8 @@ extern ahci_hba_mem_t* global_ahci_ctrl;
  * @param ahci_ctrl Pointer to the AHCI controller structure.
  */
 void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl);
+void handle_sata_disk(int portno);
+void handle_satapi_disk(int portno);
 
 general_partition_t* add_general_partition(
     partition_table_type_t table_type,
