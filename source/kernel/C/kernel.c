@@ -9,6 +9,7 @@
  * 
  */
 
+#include <commands/login.h>
 #include <gdt.h>
 #include <idt.h>
 #include <kernel.h>
@@ -247,7 +248,7 @@ void main(void) {
     
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
     
-    enter_userland();
+    // enter_userland();
     sh_exec();
 }
 
