@@ -11,6 +11,7 @@
 #ifndef ELF_H
 #define ELF_H
 #include <basics.h>
+#include <filesystems/vfs.h>
 #include <graphics.h>
 
 // Basic ELF typedefs
@@ -157,4 +158,5 @@ typedef struct {
 } Elf64_Rela;
 
 void* elf_load_from_memory(void* file_base_address);
+void* elf_load_from_vfs(const char* path);
 #endif
