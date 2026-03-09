@@ -13,6 +13,7 @@
 #include <strings.h>
 #include <filesystems/fat16.h>
 #include <filesystems/fat32.h>
+#include <filesystems/iso9660.h>
 #include <ahci.h>
 
 const char* fs_type_to_string(int fs)
@@ -21,6 +22,7 @@ const char* fs_type_to_string(int fs)
         case FS_FAT16: return "FAT16";
         case FS_FAT32: return "FAT32";
         case FS_PROC:  return "PROCFS";
+        case FS_ISO9660:return "ISO9660";
         default:       return "UNKNOWN";
     }
 }
@@ -101,6 +103,19 @@ int cmd_mount(int argc, char** argv)
                 return 1;
 
             ret = fat32_mount(partition->ahci_port, partition->lba_start, (fat32_fs_t*)fs_struct);
+            break;
+
+        case FS_ISO9660:
+            fs_struct = kmalloc(sizeof(iso9660_fs_t));
+            if (!fs_struct) {
+                printf("mount: memory allocation failed.");
+                return 1;
+            }
+            mount_entry_t* mount3 = add_mount(mount_point, device, partition->fs_type, fs_struct);
+            if (!mount3)
+                return 1;
+
+            ret = iso9660_mount(partition->ahci_port, partition->lba_start, (iso9660_fs_t*)fs_struct);
             break;
 
         default:

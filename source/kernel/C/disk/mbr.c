@@ -12,6 +12,7 @@
 #include <disk/mbr.h>
 #include <ahci.h>
 #include <filesystems/fat16.h>
+#include <filesystems/iso9660.h>
 
 mbr_disk_t mbr_disks[10];
 int mbr_disks_count = 0;
@@ -69,6 +70,8 @@ void parse_mbr_partitions(int8* mbr, int portno){
         }
 
         partition_fs_type_t fs_type = detect_fat_type_enum(buf);
+        if (fs_type == FS_UNKNOWN && iso9660_detect_at_lba(portno, start))
+            fs_type = FS_ISO9660;
 
         char part_name[64];
         snprintf(part_name, sizeof(part_name), "disk%up%u", portno, i+1);
