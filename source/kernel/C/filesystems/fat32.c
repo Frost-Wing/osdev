@@ -428,17 +428,38 @@ int fat32_truncate(fat32_file_t* file, uint32_t new_size)
 
 void fat32_print_entry(const fat32_dir_entry_t* e)
 {
-    if (e->name[0] == 0x00 || e->name[0] == 0xE5)
+    if(e->name[0] == 0x00 || e->name[0] == 0xE5) {
+        printf("");
         return;
-
+    }
+    
     if (e->attr & FAT_ATTR_VOLUME_ID)
         return;
 
-    char name[12];
-    memcpy(name, e->name, 11);
-    name[11] = 0;
+    char name[9];
+    char ext[4];
 
-    printfnoln("%s%s " reset_color, (e->attr & FAT_ATTR_DIRECTORY) ? yellow_color : blue_color, name);
+    memcpy(name, e->name, 8);
+    memcpy(ext, e->name + 8, 3);
+
+    name[8] = 0;
+    ext[3] = 0;
+
+    // trim spaces
+    for(int i = 7; i >= 0 && name[i] == ' '; i--)
+        name[i] = 0;
+
+    for(int i = 2; i >= 0 && ext[i] == ' '; i--)
+        ext[i] = 0;
+
+    printfnoln("%s%s" reset_color,
+        (e->attr & FAT_ATTR_DIRECTORY) ? yellow_color : blue_color,
+        name);
+
+    if(ext[0])
+        printfnoln(".%s", ext);
+
+    printfnoln(" ");
 }
 
 const char* fat_next_path_component(const char* path, char* out)
