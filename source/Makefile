@@ -8,9 +8,9 @@ override MAKEFLAGS += -rR
 # Final kernel output
 KERNEL := wing_kernel.elf
 
-# Toolchain
-CC := fwgcc
-LD := fwld
+# Toolchain (prefer FrostWing toolchain, else fallback to system)
+CC := $(shell command -v fwgcc 2>/dev/null || echo gcc)
+LD := $(shell command -v fwld 2>/dev/null || echo ld)
 NASM := nasm
 
 # Directories
