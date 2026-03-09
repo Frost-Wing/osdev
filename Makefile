@@ -64,13 +64,14 @@ QEMU_COMMON = \
     -audiodev pa,id=speaker \
     -device rtl8139,netdev=eth0 \
     -netdev user,hostfwd=tcp::5555-:22,id=eth0 \
-    -cdrom $(ISO_FILE) \
-    -drive if=none,format=raw,file=disk.img,id=disk,index=1 \
     -device ahci,id=ahci \
+    -drive if=none,format=raw,file=disk.img,id=disk \
     -device ide-hd,drive=disk,bus=ahci.0 \
+    -drive if=none,media=cdrom,format=raw,file=$(ISO_FILE),id=cd0 \
+    -device ide-cd,drive=cd0,bus=ahci.1 \
     -rtc base=localtime,clock=host \
-	-boot order=d \
-	-enable-kvm \
+    -boot order=d \
+    -enable-kvm \
     -m 512
 
 run-x86-hdd:
