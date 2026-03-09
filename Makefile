@@ -85,6 +85,7 @@ run-x86-uefi:
 run-x86-vnc:
 	@qemu-system-x86_64 \
 	-vnc :0 \
+	-audiodev none,id=noaudio \
 	$(QEMU_COMMON)
 
 # -----------------------------
