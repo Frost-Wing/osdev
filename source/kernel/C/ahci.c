@@ -12,6 +12,7 @@
 #include <heap.h>
 #include <basics.h>
 #include <graphics.h>
+#include <filesystems/iso9660.h>
 
 ahci_hba_mem_t* global_ahci_ctrl;
 ahci_disk_info_t ahci_disks[32];
@@ -50,6 +51,7 @@ void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
                 break;
             case satapi_disk:
                 printf("[AHCI] SATAPI device detected on port %d", i);
+                handle_satapi_disk(i);
                 break;
             case semb_disk:
                 printf("[AHCI] SEMB device detected on port %d", i);
@@ -61,6 +63,34 @@ void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
                 printf("[AHCI] Unknown device (sig=0x%X) on port %d", sig, i);
                 break;
         }
+    }
+}
+
+
+void handle_satapi_disk(int portno) {
+    ahci_init_port(portno);
+
+    ahci_disks[portno].present = 1;
+    ahci_disks[portno].total_sectors = 0;
+
+    if (iso9660_detect_at_lba(portno, 0)) {
+        char part_name[64];
+        snprintf(part_name, sizeof(part_name), "disk%up1", portno);
+
+        add_general_partition(
+            PART_TABLE_MBR,
+            0,
+            0,
+            0,
+            portno,
+            false,
+            FS_ISO9660,
+            part_name,
+            0,
+            null
+        );
+
+        printf("[AHCI] ISO9660 media detected on SATAPI port %d", portno);
     }
 }
 

@@ -1,16 +1,10 @@
 /**
  * @file lsblk.c
- * @author Pradosh (pradoshgame@gmail.com)
+ * @author Pradosh
  * @brief List block devices in tree format
- * @version 0.1
- * @date 2025-10-07
- *
- * @copyright Copyright (c) Pradosh 2025
  */
 
 #include <commands/commands.h>
-#include <disk/mbr.h>
-#include <disk/gpt.h>
 #include <ahci.h>
 
 void print_size(uint64_t sectors)
@@ -28,37 +22,14 @@ void print_size(uint64_t sectors)
     }
 }
 
-static void print_part_tree(
-    int disk_id,
-    uint64_t disk_sectors,
-    void* parts,
-    int part_count,
-    int is_gpt
-) {
-    // ---- DISK ----
-    printfnoln("disk%d       ", disk_id);
-    print_size(disk_sectors);
-    printf("     disk");
-
-    for (int p = 0; p < part_count; p++) {
-        int last = (p == part_count - 1);
-
-        if (last)
-            printfnoln("└─");
-        else
-            printfnoln("├─");
-
-        printfnoln("disk%dp%d   ", disk_id, p + 1);
-
-        if (!is_gpt) {
-            mbr_part_t* part = &((mbr_part_t*)parts)[p];
-            print_size(part->sectors);
-        } else {
-            gpt_partition_t* part = &((gpt_partition_t*)parts)[p];
-            print_size(part->sectors);
-        }
-
-        printf("     part");
+static const char* fs_name(partition_fs_type_t fs)
+{
+    switch (fs) {
+        case FS_FAT16: return "fat16";
+        case FS_FAT32: return "fat32";
+        case FS_ISO9660: return "iso9660";
+        case FS_PROC: return "proc";
+        default: return "unknown";
     }
 }
 
@@ -67,47 +38,40 @@ int cmd_lsblk(int argc, char** argv)
     (void)argc;
     (void)argv;
 
-    printf("NAME        SIZE     TYPE");
+    printf("NAME        SIZE     TYPE     FSTYPE");
 
-    int disk_id = 0;
-
-    /* ---------- MBR DISKS ---------- */
-    for (int i = 0; i < mbr_disks_count; i++) {
-        mbr_disk_t* d = &mbr_disks[i];
-
-        if (d->sectors == 0)
+    for (int port = 0; port < 32; port++) {
+        if (!ahci_disks[port].present)
             continue;
 
-        // count partitions
+        uint64_t disk_sectors = ahci_disks[port].total_sectors;
+
+        printfnoln("disk%d      ", port);
+        print_size(disk_sectors);
+        printf("     disk     -");
+
         int part_count = 0;
-        for (int p = 0; p < 4; p++) {
-            if (d->partitions[p].sectors)
+        for (int i = 0; i < general_partition_count; i++) {
+            if (ahci_partitions[i].ahci_port == port)
                 part_count++;
         }
 
-        print_part_tree(
-            disk_id++,
-            d->sectors,
-            d->partitions,
-            part_count,
-            0   // MBR
-        );
-    }
+        int seen = 0;
+        for (int i = 0; i < general_partition_count; i++) {
+            general_partition_t* p = &ahci_partitions[i];
+            if (p->ahci_port != port)
+                continue;
 
-    /* ---------- GPT DISKS ---------- */
-    for (int i = 0; i < gpt_disks_count; i++) {
-        gpt_disk_t* d = &gpt_disks[i];
+            seen++;
+            int last = (seen == part_count);
 
-        if (d->sectors == 0 || d->partition_count == 0)
-            continue;
+            if (last) printfnoln("└─");
+            else      printfnoln("├─");
 
-        print_part_tree(
-            disk_id++,
-            d->sectors,
-            d->partitions,
-            d->partition_count,
-            1   // GPT
-        );
+            printfnoln("%s   ", p->name);
+            print_size((uint64_t)p->sector_count);
+            printf("     part     %s", fs_name(p->fs_type));
+        }
     }
 
     return 0;
