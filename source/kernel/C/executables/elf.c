@@ -12,6 +12,7 @@
 #include <memory.h>
 #include <stdint.h>
 #include <heap.h>
+#include <filesystems/vfs.h>
 
 void elf_load_program_header(Elf64_Phdr* program_header, void* file_base_addr)
 {
@@ -50,4 +51,53 @@ void* elf_load_from_memory(void* file_base_address)
         elf_load_program_header(prog_header, file_base_address);
 
     return (void*)header.e_entry;
+}
+
+void* elf_load_from_vfs(const char* path)
+{
+    if (!path)
+        return NULL;
+
+    vfs_file_t file;
+    if (vfs_open(path, VFS_RDONLY, &file) != 0) {
+        eprintf("elf: failed to open %s", path);
+        return NULL;
+    }
+
+    uint32_t size = 0;
+    switch (file.mnt->type) {
+        case FS_FAT16:
+            size = file.f.fat16.entry.filesize;
+            break;
+        case FS_FAT32:
+            size = file.f.fat32.entry.file_size;
+            break;
+        case FS_ISO9660:
+            size = file.f.iso9660.entry.size;
+            break;
+        default:
+            vfs_close(&file);
+            return NULL;
+    }
+
+    if (size == 0) {
+        vfs_close(&file);
+        return NULL;
+    }
+
+    void* image = kmalloc(size);
+    if (!image) {
+        vfs_close(&file);
+        return NULL;
+    }
+
+    int rd = vfs_read(&file, (uint8_t*)image, size);
+    vfs_close(&file);
+
+    if (rd < 0 || (uint32_t)rd != size) {
+        kfree(image);
+        return NULL;
+    }
+
+    return elf_load_from_memory(image);
 }
