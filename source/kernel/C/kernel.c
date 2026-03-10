@@ -248,8 +248,7 @@ void main(void) {
     
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
     
-    // enter_userland();
-    sh_exec();
+    enter_userland();
 }
 
 void shutdown(){
