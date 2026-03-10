@@ -14,7 +14,7 @@ LD := $(shell command -v fwld 2>/dev/null || echo ld)
 NASM := nasm
 
 # Directories
-SRC_DIRS := kernel drivers
+SRC_DIRS := kernel drivers userland
 OBJ_DIR := obj
 
 # Flags
