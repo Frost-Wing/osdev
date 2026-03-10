@@ -77,38 +77,12 @@ void enter_userland() {
 }
 
 __attribute__((section(".user")))
-__attribute__((naked))
-void user_entry() {
-    asm volatile (
-        "1: pause\n"   // pause CPU in an infinite loop
-        // Print a small banner once from userland through syscall 0x12 (putchar)
-        "mov $'U', %rdi\n"
-        "mov $0x12, %rax\n"
-        "int $0x80\n"
-        "mov $'S', %rdi\n"
-        "mov $0x12, %rax\n"
-        "int $0x80\n"
-        "mov $'R', %rdi\n"
-        "mov $0x12, %rax\n"
-        "int $0x80\n"
-        "mov $'>', %rdi\n"
-        "mov $0x12, %rax\n"
-        "int $0x80\n"
-        "mov $' ', %rdi\n"
-        "mov $0x12, %rax\n"
-        "int $0x80\n"
+extern void sh_exec(void);
 
-        // Poll keyboard via syscall 0x11 and echo via syscall 0x12
-        "1: \n"
-        "mov $0x11, %rax\n"
-        "int $0x80\n"
-        "test %rax, %rax\n"
-        "jz 2f\n"
-        "mov %rax, %rdi\n"
-        "mov $0x12, %rax\n"
-        "int $0x80\n"
-        "2:\n"
-        "pause\n"
-        "jmp 1b\n"
-    );
+__attribute__((section(".user")))
+void user_entry() {
+    sh_exec();
+    while (1) {
+        asm volatile ("pause");
+    }
 }
