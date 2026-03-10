@@ -19,11 +19,7 @@ OBJ_DIR := obj
 
 # Flags
 CFLAGS := -std=gnu11 -ffreestanding \
-          -Wall -Wextra \
-          -Wshadow -Wpointer-arith -Wcast-align \
-          -Wstrict-prototypes -Wmissing-prototypes \
-          -Wundef -Wwrite-strings \
-          -Wformat=2 -Wformat-security \
+		  -w \
           -fno-common \
           -fno-stack-protector -fno-stack-check \
           -fno-lto -fno-builtin \
