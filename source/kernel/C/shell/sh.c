@@ -395,7 +395,8 @@ static command_t commands[] = {
     { "lsblk", cmd_lsblk },
     { "mount", cmd_mount },
     { "mv", cmd_mv },
-    { "umount", cmd_umount }
+    { "umount", cmd_umount },
+    { "exec", cmd_exec }
     // { "fwfetch", cmd_fwfetch },
     // { "help", cmd_help },
 };
