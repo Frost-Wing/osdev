@@ -31,7 +31,7 @@ void meltdown_screen(cstring message, cstring file, int line, int64 error_code, 
     uint8_t second, minute, hour, day, month, year;
     update_system_time(&second, &minute, &hour, &day, &month, &year);
 
-    printf("Timestamp     : %d:%d:%d %d/%d/%d", hour, minute, second, day, month, year);
+    printf("Timestamp     : %02d:%02d:%02d %02d/%02d/%02d", hour, minute, second, day, month, year);
     printf("Error Message : %s", message);
 
     printf("Error Code    : 0x%X", error_code);

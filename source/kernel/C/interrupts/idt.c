@@ -102,5 +102,4 @@ void initIdt()
     set_interrupts();
 
     done("Successfully initialized!", __FILE__);
-    invoke_syscall((int64)1); // for testing
 }
