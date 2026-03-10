@@ -9,18 +9,35 @@
  * 
  */
 #include <executables/elf.h>
+#include <fdlfcn.h>
 #include <memory.h>
 #include <stdint.h>
 #include <heap.h>
 #include <filesystems/vfs.h>
 
-void elf_load_program_header(Elf64_Phdr* program_header, void* file_base_addr)
+void elf_load_program_header(Elf64_Phdr* ph, void* file_base)
 {
-    if (program_header == NULL)
+    if (ph->p_type != 1)
         return;
 
-    Elf64_Word type = program_header->p_type;
-    printf("Program Header type: %x", type);
+    void* segment = (void*)ph->p_vaddr;
+
+    memcpy(
+        segment,
+        (uint8_t*)file_base + ph->p_offset,
+        ph->p_filesz
+    );
+
+    if (ph->p_memsz > ph->p_filesz)
+    {
+        memset(
+            (uint8_t*)segment + ph->p_filesz,
+            0,
+            ph->p_memsz - ph->p_filesz
+        );
+    }
+
+    printf("Loaded segment -> vaddr=%u size=%u", segment, ph->p_memsz);
 }
 
 void* elf_load_from_memory(void* file_base_address)
@@ -49,7 +66,8 @@ void* elf_load_from_memory(void* file_base_address)
          (uint8_t*)prog_header < program_headers_end;
          prog_header = (Elf64_Phdr*)(((uint8_t*)prog_header + header.e_phentsize)))
         elf_load_program_header(prog_header, file_base_address);
-
+    
+    // enter_userland();
     return (void*)header.e_entry;
 }
 
