@@ -54,7 +54,7 @@ SECTIONS
 
     .user : ALIGN(0x1000) {
         user_code_start = .;
-        *(.user)
+        *(.user .user.*)
         user_code_end = .;
     } :user
  
