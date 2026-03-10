@@ -132,7 +132,7 @@ int show_prompt(int argc, char** argv){
     return 0;
 }
 
-void sh_exec(){
+void ksh_exec(){
     int failed_attempts = 0;
 
     while(true){
