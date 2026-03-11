@@ -8,6 +8,7 @@
  * @copyright Copyright (c) Pradosh 2024
  * 
  */
+#include <commands/login.h>
 #include <syscalls.h>
 #include <limine.h> // for framebuffer
 #include <keyboard.h>
@@ -81,6 +82,9 @@ void syscalls_handler(InterruptFrame* frame){
             break;
         case 0x12:
             printfnoln("%c", (char)frame->rdi);
+            break;
+        case 0x55:
+            frame->rax = login_request((char*)frame->rdi, frame->rsi);
             break;
         default:
             error(syscalls_prefix "Unknown", __FILE__);

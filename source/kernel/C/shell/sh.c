@@ -137,22 +137,31 @@ void ksh_exec(){
 
     while(true){
         if (failed_attempts >= 5){
-            error("You tried 5 diffrent wrong attempts. You've been locked out.", __FILE__);
+            error("You tried 5 different wrong attempts. You've been locked out.", __FILE__);
             hcf2();
         }
 
-        char* username = login_request();
-        
-        if(username != NULL){
+        char username[32];
+        int result = login_request(username, sizeof(username));
+
+        if(result == 0){
             int argc = 1;
 
             int isSudo = 0;
             if(strcmp(username, "root") == 0)
                 isSudo = 1;
-            
-            char* dummy_argv[] = {username, (char*)isSudo};
+
+            /* safer argument passing */
+            char sudo_flag = isSudo;
+
+            char* dummy_argv[] = {
+                username,
+                &sudo_flag
+            };
+
             shell_main(argc, dummy_argv);
-        } else {
+        }
+        else{
             error("Invalid credentials.", __FILE__);
             failed_attempts++;
         }
@@ -165,8 +174,6 @@ int shell_main(int argc, char** argv){
     size_t commandBufferSize = BUFFER_SIZE;
     size_t commandSize = 0;
     size_t cursor = 0;
-
-    init_fs(global_fs);
 
     current_user = argv[0];
 
