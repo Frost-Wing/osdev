@@ -37,12 +37,7 @@ void create_user(int64 name, int64 password);
  */
 void create_user_str(cstring name, cstring password);
 
-/**
- * @brief Sends a login request
- * 
- * @return char* Returns the username if the login was successful.
- */
-char* login_request();
+int login_request(char* userbuf, int max);
 
 /**
  * @brief Requests password for verification for sudo.

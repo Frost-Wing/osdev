@@ -44,78 +44,105 @@ void create_user_str(cstring name, cstring password){
     create_user(name_hash, password_hash);
 }
 
-char* login_request(){
-    static char username[21]; // +1 for null terminator
+int login_request(char* userbuf, int max){
+    static char username[21];
     static char password[21];
-    memset(username, 0, 21);
-    memset(password, 0, 21);
 
+    memset(username, 0, sizeof(username));
+    memset(password, 0, sizeof(password));
+
+    int k;
     char temp;
     int i;
 
-    for(int i = 0; i < 30; i++)
+    for(int j = 0; j < 30; j++)
         putc('=');
     putc('\n');
 
+    /* -------- USERNAME -------- */
+
     print("Username: ");
     i = 0;
-    while ((temp = getc()) != '\n' && i < 20) {
-        if (temp == 0)
+
+    while(i < 20){
+        k = kgetc_nonblock();
+
+        if(k < 0)
             continue;
-        if (temp == '\b')
-        {
-            if (i == 0) continue;
-            username[i] = 0;
+
+        temp = (char)k;
+
+        if(temp == '\n' || temp == '\r')
+            break;
+
+        if(temp == '\b'){
+            if(i == 0) continue;
+
             i--;
+            username[i] = 0;
             putc('\b');
+            continue;
         }
-        else
-        {
-            username[i] = temp;
-            i++;
-            putc(temp);
-        }
+
+        username[i++] = temp;
+        putc(temp);
     }
+
     username[i] = '\0';
+
+    /* -------- PASSWORD -------- */
 
     print("\nPassword: ");
     i = 0;
-    while ((temp = getc()) != '\n' && i < 20) {
-        if (temp == 0)
+
+    while(i < 20){
+        k = kgetc_nonblock();
+
+        if(k < 0)
             continue;
-        if (temp == '\b')
-        {
-            if (i == 0) continue;
-            password[i] = 0;
+
+        temp = (char)k;
+
+        if(temp == '\n' || temp == '\r')
+            break;
+
+        if(temp == '\b'){
+            if(i == 0) continue;
+
             i--;
+            password[i] = 0;
             putc('\b');
+            continue;
         }
-        else
-        {
-            password[i] = temp;
-            i++;
-            putc('*');
-        }
+
+        password[i++] = temp;
+        putc('*');
     }
+
     password[i] = '\0';
 
     vputc('\n');
 
-    // Start hashing
     int64 username_hash = baranium_hash(username);
     int64 password_hash = baranium_hash(password);
-    
-    for(int i=0; i<users_index; i++){
-        int64 current_username = usernames_total[i];
-        int64 current_password = passwords_total[i];
 
-        if(current_username == username_hash && current_password == password_hash){
-            return &username[0];
+    for(int i = 0; i < users_index; i++){
+        if(usernames_total[i] == username_hash &&
+           passwords_total[i] == password_hash){
+
+            int j = 0;
+            while(username[j] && j < max-1){
+                userbuf[j] = username[j];
+                j++;
+            }
+
+            userbuf[j] = '\0';
+
+            return 0;
         }
     }
 
-    // If everything fails,
-    return NULL;
+    return -1;
 }
 
 int ask_password(const char* username){
