@@ -14,35 +14,47 @@
 #include <stdint.h>
 #include <heap.h>
 #include <filesystems/vfs.h>
+#include <paging.h>
 
-void elf_load_program_header(Elf64_Phdr* ph, void* file_base)
+static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file_size)
 {
-    if (ph->p_type != 1)
-        return;
+    if (ph->p_type != PT_LOAD)
+        return 0;
+
+    if (ph->p_offset + ph->p_filesz > file_size || ph->p_memsz < ph->p_filesz) {
+        eprintf("elf: invalid PT_LOAD bounds");
+        return -1;
+    }
+
+    uint64_t seg_start = ph->p_vaddr & ~0xFFFULL;
+    uint64_t seg_end = (ph->p_vaddr + ph->p_memsz + 0xFFFULL) & ~0xFFFULL;
+
+    uint64_t page_flags = PAGE_PRESENT | PAGE_USER;
+    if (ph->p_flags & PF_W)
+        page_flags |= PAGE_RW;
+    if (!(ph->p_flags & PF_X))
+        page_flags |= PAGE_NX;
+
+    for (uint64_t page = seg_start; page < seg_end; page += PAGE_SIZE) {
+        uint64_t phys = allocate_page();
+        map_user_page(page, phys, page_flags);
+    }
 
     void* segment = (void*)ph->p_vaddr;
 
-    memcpy(
-        segment,
-        (uint8_t*)file_base + ph->p_offset,
-        ph->p_filesz
-    );
+    memcpy(segment, (uint8_t*)file_base + ph->p_offset, ph->p_filesz);
 
-    if (ph->p_memsz > ph->p_filesz)
-    {
-        memset(
-            (uint8_t*)segment + ph->p_filesz,
-            0,
-            ph->p_memsz - ph->p_filesz
-        );
+    if (ph->p_memsz > ph->p_filesz) {
+        memset((uint8_t*)segment + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
     }
 
-    printf("Loaded segment -> vaddr=%u size=%u", segment, ph->p_memsz);
+    printf("Loaded user segment -> vaddr=%x size=%u flags=%x", segment, ph->p_memsz, ph->p_flags);
+    return 0;
 }
 
-void* elf_load_from_memory(void* file_base_address)
+void* elf_load_from_memory(void* file_base_address, uint64_t file_size)
 {
-    if (file_base_address == NULL)
+    if (file_base_address == NULL || file_size < sizeof(Elf64_Ehdr))
         return NULL;
 
     uint8_t* file_ptr = file_base_address;
@@ -57,17 +69,23 @@ void* elf_load_from_memory(void* file_base_address)
         return NULL;
     }
 
+    if (header.e_phoff + ((uint64_t)header.e_phnum * header.e_phentsize) > file_size ||
+        header.e_phentsize != sizeof(Elf64_Phdr)) {
+        eprintf("elf: invalid program header table");
+        return NULL;
+    }
+
     printf("Parsing ELF64 file with %d PHDRs\n", header.e_phnum);
-    file_ptr = file_ptr + header.e_phoff;
-    size_t program_headers_size = header.e_phnum * header.e_phentsize;
-    Elf64_Phdr* program_headers_start = (Elf64_Phdr*)file_ptr;
-    Elf64_Phdr* program_headers_end = (Elf64_Phdr*)(file_ptr + program_headers_size);
-    for (Elf64_Phdr* prog_header = program_headers_start;
-         (uint8_t*)prog_header < program_headers_end;
-         prog_header = (Elf64_Phdr*)(((uint8_t*)prog_header + header.e_phentsize)))
-        elf_load_program_header(prog_header, file_base_address);
-    
-    // enter_userland();
+
+    Elf64_Phdr* program_headers_start = (Elf64_Phdr*)((uint8_t*)file_base_address + header.e_phoff);
+
+    for (uint16_t i = 0; i < header.e_phnum; i++) {
+        Elf64_Phdr* prog_header = (Elf64_Phdr*)((uint8_t*)program_headers_start + ((uint64_t)i * header.e_phentsize));
+        if (elf_map_program_header(prog_header, file_base_address, file_size) != 0) {
+            return NULL;
+        }
+    }
+
     return (void*)header.e_entry;
 }
 
@@ -117,5 +135,7 @@ void* elf_load_from_vfs(const char* path)
         return NULL;
     }
 
-    return elf_load_from_memory(image);
+    void* entry = elf_load_from_memory(image, size);
+    kfree(image);
+    return entry;
 }
