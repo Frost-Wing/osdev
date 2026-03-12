@@ -249,13 +249,14 @@ void main(void) {
     
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
     
-    void* entry = elf_load_from_vfs("/init.elf");
-    if (!entry) {
-        error("Failed to load /init.elf for userspace startup", __FILE__);
-        hcf2();
-    }
+    ksh_exec();
+    // void* entry = elf_load_from_vfs("/init.elf");
+    // if (!entry) {
+    //     error("Failed to load /init.elf for userspace startup", __FILE__);
+    //     hcf2();
+    // }
 
-    enter_userland_at((uint64_t)entry);
+    // enter_userland_at((uint64_t)entry);
 }
 
 void shutdown(){
