@@ -55,7 +55,7 @@ int login_request(char* userbuf, int max){
     char temp;
     int i;
 
-    for(int j = 0; j < 30; j++)
+    for(int j = 0; j < 32; j++)
         putc('=');
     putc('\n');
 

@@ -11,6 +11,8 @@
 #include <basics.h>
 #include <isr.h>
 
+#define PRAD_MAGIC 0xBADF00D
+
 /**
  * @brief Prefix for the syscalls
  * 
