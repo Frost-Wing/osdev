@@ -109,6 +109,12 @@ typedef struct {
     uint64_t p_align;  // Alignment of segment
 } Elf64_Phdr;
 
+#define PT_LOAD 1
+
+#define PF_X 0x1
+#define PF_W 0x2
+#define PF_R 0x4
+
 typedef struct {
     unsigned char e_ident[16]; // Magic number and other info
     uint16_t      e_type;      // Object file type
@@ -157,6 +163,6 @@ typedef struct {
     int64_t  r_addend; // Addend
 } Elf64_Rela;
 
-void* elf_load_from_memory(void* file_base_address);
+void* elf_load_from_memory(void* file_base_address, uint64_t file_size);
 void* elf_load_from_vfs(const char* path);
 #endif
