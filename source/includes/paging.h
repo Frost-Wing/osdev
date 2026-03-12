@@ -43,10 +43,8 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags);
  */
 void paging_set_hhdm_offset(uint64_t offset);
 
-/**
- * @brief Maps user code in paging.
- * 
- */
-void map_user_code(uint64_t code_entry);
+uintptr_t allocate_page(void);
+uintptr_t allocate_pages(size_t count);
+uint64_t virtual_to_physical(uint64_t virt);
 
 #endif

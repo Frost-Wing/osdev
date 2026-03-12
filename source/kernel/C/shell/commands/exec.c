@@ -11,6 +11,7 @@
 
 #include <commands/commands.h>
 #include <executables/elf.h>
+#include <userland.h>
 
 int cmd_exec(int argc, char** argv)
 {
@@ -30,6 +31,6 @@ int cmd_exec(int argc, char** argv)
         return -1;
     }
     
-    void (*program)() = entry;
-    program();
+    enter_userland_at((uint64_t)entry);
+    return 0;
 }
