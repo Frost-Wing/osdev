@@ -21,10 +21,7 @@
 #define USER_HEAP_VADDR  0x0000400010000000ULL // user heap right above code region
 #define USER_STACK_TOP   0x00007FFFFFFFF000ULL // near top of canonical lower half
 
-
-void map_user_code_physical(uint64_t code_phys, uint64_t code_size);
-void enter_userland(void);
-void user_entry(void);
+void enter_userland_at(uint64_t entry_point);
 void sh_exec(void);
 
 #endif
