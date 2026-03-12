@@ -77,11 +77,16 @@ void enter_userland() {
 }
 
 __attribute__((section(".user")))
-extern void sh_exec(void);
-
-__attribute__((section(".user")))
 void user_entry() {
-    sh_exec();
+    asm volatile (
+        "movq %0, %%rax\n\t"
+        "int $0x80\n\t"
+        :
+        : "g" ((int64)PRAD_MAGIC)
+        : "rax"
+    ); // tell to kernel that userland is alive
+
+
     while (1) {
         asm volatile ("pause");
     }

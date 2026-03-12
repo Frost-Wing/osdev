@@ -86,6 +86,9 @@ void syscalls_handler(InterruptFrame* frame){
         case 0x55:
             frame->rax = login_request((char*)frame->rdi, frame->rsi);
             break;
+        case PRAD_MAGIC:
+            info("Alive from userland", __FILE__);
+            break;
         default:
             error(syscalls_prefix "Unknown", __FILE__);
             printf("RAX value -> 0x%x", frame->rax);
