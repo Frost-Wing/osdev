@@ -67,7 +67,7 @@ int login_request(char* userbuf, int max){
     while(i < 20){
         k = kgetc_nonblock();
 
-        if(k < 0)
+        if(k <= 0)
             continue;
 
         temp = (char)k;
@@ -98,7 +98,7 @@ int login_request(char* userbuf, int max){
     while(i < 20){
         k = kgetc_nonblock();
 
-        if(k < 0)
+        if(k <= 0)
             continue;
 
         temp = (char)k;
