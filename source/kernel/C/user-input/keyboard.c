@@ -209,24 +209,24 @@ uint8_t getc() {
 int kgetc_nonblock() {
 
     if (!(inb(0x64) & 1))
-        return -1;
+        return 0;   // no key
 
     uint8_t data = inb(0x60);
 
     if (data == 0xE0)
-        return -1;
+        return 0;
 
     switch (data)
     {
     case 0x2A:
     case 0x36:
         modifiers |= (data == 0x2A) ? MOD_LSHIFT : MOD_RSHIFT;
-        return -1;
+        return 0;
 
     case 0xAA:
     case 0xB6:
         modifiers &= ~((data == 0xAA) ? MOD_LSHIFT : MOD_RSHIFT);
-        return -1;
+        return 0;
 
     case 0x1C:
         return '\n';
@@ -236,12 +236,12 @@ int kgetc_nonblock() {
     }
 
     if (data > 0x80)
-        return -1;
+        return 0;
 
     char c = scancode_to_char(data, modifiers & MOD_SHIFT);
 
-    if (c == 0)
-        return -1;
+    if (c < 32 && c != '\n' && c != '\b')
+        return 0;
 
     return c;
 }

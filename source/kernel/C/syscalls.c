@@ -59,6 +59,9 @@ void invoke_syscall(int64 num) {
     );
 }
 
+
+extern bool running; // from sh.c
+
 void syscalls_handler(InterruptFrame* frame){
     switch (frame->rax)
     {
@@ -72,7 +75,12 @@ void syscalls_handler(InterruptFrame* frame){
             frame->rax = execute_chain((const char*)frame->rdi);
             break;
         case 60:
-            frame->rax = 0;
+            int code = frame->rdi; // exit status
+
+            printf(blue_color "\n[process exited with code %d]" reset_color, code);
+
+            running = false;
+            break;
             break;
         case 0x10:
             frame->rax = getc();
