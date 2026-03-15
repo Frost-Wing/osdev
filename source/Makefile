@@ -49,7 +49,7 @@ DEPS := $(OBJ:.o=.d)
 
 .PHONY: all clean deep-clean version_info compile-commands
 
-all: version_info $(KERNEL)
+all: version_info compile-commands $(KERNEL)
 
 # Final kernel link
 $(KERNEL): $(OBJ) linker/linker.ld
