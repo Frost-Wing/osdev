@@ -16,12 +16,17 @@
 
 #define USER_STACK_SIZE  (16 * 1024)
 #define USER_HEAP_SIZE   (1 * 1024 * 1024)
+#define USER_MMAP_SIZE   (4 * 1024 * 1024)
 
 #define USER_CODE_VADDR  0x0000400000000000ULL // canonical user space, isolated PML4 slot
 #define USER_HEAP_VADDR  0x0000400010000000ULL // user heap right above code region
+#define USER_MMAP_VADDR  (USER_HEAP_VADDR + USER_HEAP_SIZE)
 #define USER_STACK_TOP   0x00007FFFFFFFF000ULL // near top of canonical lower half
 
 void enter_userland_at(uint64_t entry_point);
+void userland_heap_init(void);
+uint64_t userland_brk(uint64_t requested_break);
+uint64_t userland_mmap_anon(uint64_t length);
 void sh_exec(void);
 
 #endif
