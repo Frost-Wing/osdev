@@ -214,14 +214,13 @@ static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
 
     if (buf == NULL || count == 0)
         return 0;
-    }
 
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
     if ((int)fd == FD_STDIN) {
         for (uint64_t i = 0; i < count; ++i) {
-            char c = getc();
+            char c = kgetc_nonblock();
             buf[i] = c;
             if (c == '\n' || c == '\r')
                 return (int64)(i + 1);
@@ -244,7 +243,6 @@ static int64 sys_write(uint64_t fd, const char* buf, uint64_t count) {
 
     if (buf == NULL || count == 0)
         return 0;
-    }
 
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
@@ -427,64 +425,6 @@ static int64 sys_execve(const char* target, char* const* argv, char* const* envp
     }
 
     return execute_chain(target);
-}
-
-static int64 sys_writev(uint64_t fd, const linux_iovec_t* iov, uint64_t iovcnt) {
-    if (iov == NULL) {
-        return -LINUX_EINVAL;
-    }
-
-    int64 total = 0;
-    for (uint64_t i = 0; i < iovcnt; ++i) {
-        int64 written = sys_write(fd, (const char*)iov[i].iov_base, iov[i].iov_len);
-        if (written < 0) {
-            return written;
-        }
-        total += written;
-    }
-
-    return total;
-}
-
-static int64 sys_uname(linux_utsname_t* uts) {
-    if (uts == NULL) {
-        return -LINUX_EINVAL;
-    }
-
-    memset(uts, 0, sizeof(*uts));
-    memcpy(uts->sysname, "FwOS", 5);
-    memcpy(uts->nodename, "fwos", 5);
-    memcpy(uts->release, "0.1", 4);
-    memcpy(uts->version, "fw-kernel", 10);
-    memcpy(uts->machine, "x86_64", 7);
-    memcpy(uts->domainname, "localdomain", 12);
-
-    return 0;
-}
-
-static int64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, uint64_t fd, uint64_t off) {
-    (void)addr;
-    (void)prot;
-    (void)flags;
-    (void)fd;
-    (void)off;
-
-    uint64_t mapped = userland_mmap_anon(length);
-    if (mapped == 0) {
-        return -LINUX_EINVAL;
-    }
-
-    return (int64)mapped;
-}
-
-static int64 sys_brk(uint64_t requested_break) {
-    return (int64)userland_brk(requested_break);
-}
-
-static int64 sys_munmap(uint64_t addr, uint64_t length) {
-    (void)addr;
-    (void)length;
-    return 0;
 }
 
 void invoke_syscall(int64 num) {
