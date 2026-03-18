@@ -27,7 +27,7 @@ jobs:
       run: cd source && ./versions.sh && make -j4 clean && cd ../ && make -j4 -C source && make -j4
 
     - name: Run the QEMU Emulator
-      run: make run-x86-vnc
+      run: make run-x86-vnc &
     
     - name: Waiting for the QEMU to start
       run: sleep 5s
