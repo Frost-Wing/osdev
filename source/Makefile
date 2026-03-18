@@ -13,8 +13,15 @@ CC := $(shell command -v fwgcc 2>/dev/null || echo gcc)
 LD := $(shell command -v fwld 2>/dev/null || echo ld)
 NASM := nasm
 
+ifeq ($(CC),gcc)
+$(warning =====================================)
+$(warning FrostWing toolchain NOT found)
+$(warning Using system GCC — this may break OS!)
+$(warning =====================================)
+endif
+
 # Directories
-SRC_DIRS := kernel drivers userland
+SRC_DIRS := kernel drivers
 OBJ_DIR := obj
 
 # Flags
