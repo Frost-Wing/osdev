@@ -94,7 +94,7 @@ run-x86-uefi:
 
 run-x86-vnc:
 	@qemu-system-x86_64 \
-	-nographic \
+	-vnc :0 \
 	-no-reboot -no-shutdown \
 	$(QEMU_COMMON)
 
