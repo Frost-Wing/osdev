@@ -84,7 +84,7 @@ void enter_userland_at(uint64_t code_entry) {
     map_user_stack();
     userland_heap_init();
 
-    printf("Switching to userland at 0x%x with stack 0x%x", code_entry, stack_top);
+    // printf("Switching to userland at 0x%x with stack 0x%x", code_entry, stack_top);
 
     asm volatile (
         "cli\n"

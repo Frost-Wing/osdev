@@ -48,7 +48,7 @@ static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file
         memset((uint8_t*)segment + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
     }
 
-    printf("Loaded user segment -> vaddr=%x size=%u flags=%x", segment, ph->p_memsz, ph->p_flags);
+    // printf("Loaded user segment -> vaddr=%x size=%u flags=%x", segment, ph->p_memsz, ph->p_flags);
     return 0;
 }
 
@@ -75,7 +75,7 @@ void* elf_load_from_memory(void* file_base_address, uint64_t file_size)
         return NULL;
     }
 
-    printf("Parsing ELF64 file with %d PHDRs\n", header.e_phnum);
+    // printf("Parsing ELF64 file with %d PHDRs\n", header.e_phnum);
 
     Elf64_Phdr* program_headers_start = (Elf64_Phdr*)((uint8_t*)file_base_address + header.e_phoff);
 

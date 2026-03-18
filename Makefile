@@ -57,11 +57,21 @@ tarball:
 # -----------------------------
 # QEMU targets
 # -----------------------------
+ifdef CI
+AUDIO = -audiodev none,id=speaker
+else
+AUDIO = -audiodev pa,id=speaker
+endif
+
+ifndef CI
+KVM = -enable-kvm
+endif
+
 QEMU_COMMON = \
     -vga std \
     -debugcon stdio \
     -serial file:serial.log \
-    -audiodev pa,id=speaker \
+	$(AUDIO) \
     -device rtl8139,netdev=eth0 \
     -netdev user,hostfwd=tcp::5555-:22,id=eth0 \
     -device ahci,id=ahci \
@@ -71,7 +81,7 @@ QEMU_COMMON = \
     -device ide-cd,drive=cd0,bus=ahci.1 \
     -rtc base=localtime,clock=host \
     -boot order=d \
-    -enable-kvm \
+    $(KVM) \
     -m 512
 
 run-x86-hdd:
@@ -84,8 +94,8 @@ run-x86-uefi:
 
 run-x86-vnc:
 	@qemu-system-x86_64 \
-	-vnc :0 \
-	-audiodev none,id=noaudio \
+	-nographic \
+	-no-reboot -no-shutdown \
 	$(QEMU_COMMON)
 
 # -----------------------------
