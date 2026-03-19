@@ -32,25 +32,27 @@ int check_gpt(int portno) {
         return -1;
     }
 
-    ahci_read_sector(portno, 0, buf, 1);
+    if (block_read_sector(portno, 0, buf, 1) != 0)
+        return -2;
 
     if (buf[510] != 0x55 || buf[511] != 0xAA) {
         info("[GPT] Invalid PMBR signature", __FILE__);
-        return -2;
+        return -3;
     }
 
     mbr_partition_t* pmbr = (mbr_partition_t*)&buf[446];
     if (pmbr[0].partition_type != 0xEE) {
         info("[GPT] Not a GPT disk (no 0xEE PMBR)", __FILE__);
-        return -3;
+        return -4;
     }
 
-    ahci_read_sector(portno, 1, buf, 1);
+    if (block_read_sector(portno, 1, buf, 1) != 0)
+        return -5;
     struct GPT_PartTableHeader* hdr = (struct GPT_PartTableHeader*)buf;
 
     if (memcmp(hdr->Signature, "EFI PART", 8) != 0) {
         error("[GPT] Invalid GPT signature", __FILE__);
-        return -4;
+        return -6;
     }
 
     info("[GPT] Valid GPT detected", __FILE__);
@@ -65,13 +67,19 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
 
     uint32_t total_bytes = entry_size * count;
     uint32_t sectors = (total_bytes + 511) / 512;
+    block_device_info_t* dev = block_get_device(portno);
+    const char* dev_name = block_get_device_name(portno);
 
     uint8_t* buf = kmalloc_aligned(sectors * 512, 512);
-    ahci_read_sector(portno, lba, buf, sectors);
+    if (!buf)
+        return;
+
+    if (block_read_sector(portno, lba, buf, sectors) != 0)
+        return;
 
     gpt_disk_t* disk = &gpt_disks[gpt_disks_count];
     disk->port = portno;
-    disk->sectors = ahci_disks[portno].total_sectors;
+    disk->sectors = dev ? dev->total_sectors : 0;
     disk->partition_count = 0;
 
     for (uint32_t i = 0; i < count; i++) {
@@ -100,7 +108,8 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
         memcpy(out->type_guid, p->PartitionTypeGUID, 16);
 
         uint8_t bs[512];
-        ahci_read_sector(portno, start, bs, 1);
+        if (block_read_sector(portno, start, bs, 1) != 0)
+            continue;
 
         bool bootable = gpt_is_uefi_bootable(p);
 
@@ -110,7 +119,7 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
             fs_type = FS_ISO9660;
 
         char part_name[64];
-        snprintf(part_name, sizeof(part_name), "disk%up%u", portno, i+1);
+        snprintf(part_name, sizeof(part_name), "%sp%u", dev_name ? dev_name : "disk", disk->partition_count);
 
         add_general_partition(
             PART_TABLE_GPT,
