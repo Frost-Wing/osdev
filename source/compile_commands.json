@@ -1,372 +1,377 @@
 [
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/fb.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/fb.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/cc-asm.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/cc-asm.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/opengl/glmat.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/opengl/glmat.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/hal.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/hal.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/opengl/glcontext.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/opengl/glcontext.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/pci_id.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/pci_id.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/opengl/glbackend.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/opengl/glbackend.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/stream.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/stream.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/executables/fwde.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/executables/fwde.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/filesystems/fat32.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/filesystems/fat32.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/executables/elf.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/executables/elf.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/filesystems/fwrfs.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/filesystems/fwrfs.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/syscalls.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/syscalls.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/filesystems/layers/proc.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/filesystems/layers/proc.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/hal.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/hal.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/filesystems/iso9660.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/filesystems/iso9660.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/fdlfcn.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/fdlfcn.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/filesystems/vfs.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/filesystems/vfs.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/userland.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/userland.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/filesystems/fat16.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/filesystems/fat16.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/archive/tarball.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/archive/tarball.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/rtc.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/rtc.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/user-input/keyboard.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/user-input/keyboard.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/pci.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/pci.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/user-input/ps2-mouse.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/user-input/ps2-mouse.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/image/targa.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/image/targa.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/logger.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/logger.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/pit.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/pit.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/rtc.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/rtc.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/logger.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/logger.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/gdt.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/gdt.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/strings.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/strings.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/acpi-shutdown.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/acpi-shutdown.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/heap.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/heap.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/strings.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/strings.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/acpi.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/acpi.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/heap.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/heap.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/sse.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/sse.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/meltdown.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/meltdown.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/disk/mbr.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/disk/mbr.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/cpuid.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/cpuid.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/disk/gpt.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/disk/gpt.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/paging.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/paging.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/opengl/glcontext.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/opengl/glcontext.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/interrupts/isr.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/interrupts/isr.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/opengl/glmat.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/opengl/glmat.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/interrupts/idt.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/interrupts/idt.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/opengl/glbackend.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/opengl/glbackend.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/acpi.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/acpi.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/acpi-shutdown.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/acpi-shutdown.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/ahci.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/ahci.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/archive/tarball.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/archive/tarball.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/memory.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/memory.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/gdt.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/gdt.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/image/targa.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/image/targa.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/nvme.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/nvme.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/kernel.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/kernel.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/userland.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/userland.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/cc-asm.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/cc-asm.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/fb.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/fb.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/linkedlist.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/linkedlist.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/secure-boot.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/secure-boot.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/filesystems/vfs.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/filesystems/vfs.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/tss.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/tss.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/filesystems/layers/proc.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/filesystems/layers/proc.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/meltdown.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/meltdown.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/filesystems/fwrfs.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/filesystems/fwrfs.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/algorithms/hashing.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/algorithms/hashing.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/filesystems/iso9660.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/filesystems/iso9660.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/executables/elf.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/executables/elf.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/filesystems/fat16.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/filesystems/fat16.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/executables/fwde.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/executables/fwde.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/filesystems/fat32.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/filesystems/fat32.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/fdlfcn.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/fdlfcn.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/login.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/login.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/math/fpu.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/math/fpu.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/sh.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/sh.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/memory.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/memory.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/ls.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/ls.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/misc/versions.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/misc/versions.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/fwfetch.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/fwfetch.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/cpuid.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/cpuid.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/umount.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/umount.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/user-input/ps2-mouse.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/user-input/ps2-mouse.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/echo.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/echo.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/user-input/keyboard.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/user-input/keyboard.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/mkdir.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/mkdir.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/debugger.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/debugger.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/cd.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/cd.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/syscalls.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/syscalls.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/touch.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/touch.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/linkedlist.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/linkedlist.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/clear.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/clear.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/kernel.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/kernel.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/rm.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/rm.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/interrupts/idt.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/interrupts/idt.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/mv.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/mv.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/interrupts/isr.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/interrupts/isr.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/cat.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/cat.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/cd.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/cd.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/exec.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/exec.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/umount.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/umount.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/lspci.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/lspci.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/pwd.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/pwd.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/shutdown.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/shutdown.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/cat.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/cat.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/lsblk.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/lsblk.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/ls.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/ls.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/mount.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/mount.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/fwfetch.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/fwfetch.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/whoami.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/whoami.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/mv.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/mv.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/shell/commands/pwd.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/shell/commands/pwd.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/shutdown.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/shutdown.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/disk/gpt.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/disk/gpt.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/lspci.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/lspci.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/disk/mbr.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/disk/mbr.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/touch.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/touch.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/flanterm/flanterm.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/flanterm/flanterm.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/mkdir.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/mkdir.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/sse.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/sse.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/whoami.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/whoami.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/secure-boot.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/secure-boot.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/rm.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/rm.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/pci.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/pci.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/clear.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/clear.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/stream.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/stream.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/echo.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/echo.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/algorithms/hashing.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/algorithms/hashing.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/mount.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/mount.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/debugger.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/debugger.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/exec.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/exec.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/tss.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/tss.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/commands/lsblk.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/commands/lsblk.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/pci_id.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/pci_id.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/sh.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/sh.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/math/fpu.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/math/fpu.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/shell/login.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/shell/login.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/misc/versions.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/misc/versions.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/ahci.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/ahci.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/kernel/C/pit.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/pit.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/paging.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/paging.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/drivers/serial.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/drivers/serial.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/kernel/C/flanterm/flanterm.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/kernel/C/flanterm/flanterm.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/drivers/networking/ethernet/RTL/8139.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/drivers/networking/ethernet/RTL/8139.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/drivers/audio/pc-speaker.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/drivers/audio/pc-speaker.c -o /dev/null"
   },
   {
-    "directory": "/home/pradosh/osdev/source",
-    "file": "/home/pradosh/osdev/source/drivers/audio/pc-speaker.c",
-    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/drivers/audio/pc-speaker.c -o /dev/null"
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/drivers/networking/ethernet/RTL/8139.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/drivers/networking/ethernet/RTL/8139.c -o /dev/null"
+  },
+  {
+    "directory": "/workspace/osdev/source",
+    "file": "/workspace/osdev/source/drivers/serial.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /workspace/osdev/source/drivers/serial.c -o /dev/null"
   }
 ]

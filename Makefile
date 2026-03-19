@@ -87,6 +87,24 @@ QEMU_COMMON = \
 run-x86-hdd:
 	@qemu-system-x86_64 $(QEMU_COMMON)
 
+run-x86-nvme:
+	@qemu-system-x86_64 \
+	-vga std \
+	-debugcon stdio \
+	-serial file:serial.log \
+	$(AUDIO) \
+	-device rtl8139,netdev=eth0 \
+	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
+	-drive if=none,format=raw,file=disk.img,id=nvmedisk \
+	-device nvme,drive=nvmedisk,serial=FROSTNVME0 \
+	-drive if=none,media=cdrom,format=raw,file=$(ISO_FILE),id=cd0 \
+	-device ahci,id=ahci \
+	-device ide-cd,drive=cd0,bus=ahci.0 \
+	-rtc base=localtime,clock=host \
+	-boot order=d \
+	$(KVM) \
+	-m 512
+
 run-x86-uefi:
 	@qemu-system-x86_64 \
 	-bios ./firmware/uefi/tianocore-64.uefi \

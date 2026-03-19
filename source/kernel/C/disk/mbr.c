@@ -26,9 +26,9 @@ int check_mbr(int portno){
     }
     memset(buf, 0, 512);
     
-    if (ahci_read_sector(portno, 0, buf, 1) != 0) {
+    if (block_read_sector(portno, 0, buf, 1) != 0) {
         error("[AHCI/MBR] Read LBA failed", __FILE__);
-        printf("[AHCI/MBR] Read LBA failed on port %d", portno);
+        printf("[BLOCK/MBR] Read LBA failed on device %d", portno);
         return -2;
     }
 
@@ -44,9 +44,11 @@ int check_mbr(int portno){
 
 void parse_mbr_partitions(int8* mbr, int portno){
     mbr_partition_t* partitions = (mbr_partition_t*)&mbr[446];
+    block_device_info_t* dev = block_get_device(portno);
+    const char* dev_name = block_get_device_name(portno);
 
     mbr_disks[mbr_disks_count].port = portno;
-    mbr_disks[mbr_disks_count].sectors = ahci_disks[portno].total_sectors;
+    mbr_disks[mbr_disks_count].sectors = dev ? dev->total_sectors : 0;
 
     for (int i = 0; i < 4; i++) {
         if (partitions[i].partition_type == 0)
@@ -64,7 +66,7 @@ void parse_mbr_partitions(int8* mbr, int portno){
         mbr_disks[mbr_disks_count].partitions[i].type = partitions[i].partition_type;
 
         uint8_t buf[512]; // FAT boot sector is one sector (usually 512 bytes)
-        if (ahci_read_sector(portno, start, buf, 1) != 0) {
+        if (block_read_sector(portno, start, buf, 1) != 0) {
             error("Failed to read boot sector", __FILE__);
             return;
         }
@@ -74,7 +76,7 @@ void parse_mbr_partitions(int8* mbr, int portno){
             fs_type = FS_ISO9660;
 
         char part_name[64];
-        snprintf(part_name, sizeof(part_name), "disk%up%u", portno, i+1);
+        snprintf(part_name, sizeof(part_name), "%sp%u", dev_name ? dev_name : "disk", i + 1);
 
         add_general_partition(
             PART_TABLE_MBR,
