@@ -13,13 +13,101 @@
 #include <basics.h>
 #include <graphics.h>
 #include <filesystems/iso9660.h>
+#include <nvme.h>
 
 ahci_hba_mem_t* global_ahci_ctrl;
 ahci_disk_info_t ahci_disks[32];
 general_partition_t ahci_partitions[MAX_PARTITIONS];
 mount_entry_t mounted_partitions[MAX_PARTITIONS];
+block_device_info_t block_devices[MAX_BLOCK_DEVICES];
 int general_partition_count = 0;
 int mounted_partition_count = 0;
+int block_device_count = 0;
+
+static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count);
+static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count);
+
+int block_register_device(
+    block_device_type_t type,
+    int backend_index,
+    uint64_t total_sectors,
+    uint32_t sector_size,
+    const char* name
+) {
+    if (block_device_count >= MAX_BLOCK_DEVICES)
+        return -1;
+
+    int id = block_device_count++;
+    block_device_info_t* dev = &block_devices[id];
+    memset(dev, 0, sizeof(*dev));
+
+    dev->type = type;
+    dev->present = 1;
+    dev->backend_index = backend_index;
+    dev->sector_size = sector_size;
+    dev->total_sectors = total_sectors;
+
+    if (name && *name) {
+        strncpy(dev->name, name, sizeof(dev->name) - 1);
+        dev->name[sizeof(dev->name) - 1] = '\0';
+    } else {
+        snprintf(dev->name, sizeof(dev->name), "disk%d", id);
+    }
+
+    return id;
+}
+
+block_device_info_t* block_get_device(int device_id)
+{
+    if (device_id < 0 || device_id >= block_device_count)
+        return NULL;
+
+    if (!block_devices[device_id].present)
+        return NULL;
+
+    return &block_devices[device_id];
+}
+
+const char* block_get_device_name(int device_id)
+{
+    block_device_info_t* dev = block_get_device(device_id);
+    if (!dev)
+        return NULL;
+
+    return dev->name;
+}
+
+int block_read_sector(int device_id, uint64_t lba, void* buffer, uint32_t count)
+{
+    block_device_info_t* dev = block_get_device(device_id);
+    if (!dev || !buffer || count == 0)
+        return -1;
+
+    switch (dev->type) {
+        case BLOCK_DEVICE_AHCI:
+            return ahci_read_sector_raw(dev->backend_index, lba, buffer, count);
+        case BLOCK_DEVICE_NVME:
+            return nvme_read_sector(dev->backend_index, lba, buffer, count);
+        default:
+            return -2;
+    }
+}
+
+int block_write_sector(int device_id, uint64_t lba, void* buffer, uint32_t count)
+{
+    block_device_info_t* dev = block_get_device(device_id);
+    if (!dev || !buffer || count == 0)
+        return -1;
+
+    switch (dev->type) {
+        case BLOCK_DEVICE_AHCI:
+            return ahci_write_sector_raw(dev->backend_index, lba, buffer, count);
+        case BLOCK_DEVICE_NVME:
+            return nvme_write_sector(dev->backend_index, lba, buffer, count);
+        default:
+            return -2;
+    }
+}
 
 void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
     global_ahci_ctrl = ahci_ctrl;
@@ -72,17 +160,25 @@ void handle_satapi_disk(int portno) {
 
     ahci_disks[portno].present = 1;
     ahci_disks[portno].total_sectors = 0;
+    ahci_disks[portno].logical_device = block_register_device(
+        BLOCK_DEVICE_AHCI,
+        portno,
+        0,
+        SECTOR_SIZE,
+        NULL
+    );
 
     if (iso9660_detect_at_lba(portno, 0)) {
         char part_name[64];
-        snprintf(part_name, sizeof(part_name), "disk%up1", portno);
+        const char* dev_name = block_get_device_name(ahci_disks[portno].logical_device);
+        snprintf(part_name, sizeof(part_name), "%sp1", dev_name ? dev_name : "disk");
 
         add_general_partition(
             PART_TABLE_MBR,
             0,
             0,
             0,
-            portno,
+            ahci_disks[portno].logical_device,
             false,
             FS_ISO9660,
             part_name,
@@ -113,9 +209,21 @@ void handle_sata_disk(int portno) {
 
     ahci_disks[portno].total_sectors = sectors;
     ahci_disks[portno].present = 1;
+    ahci_disks[portno].logical_device = block_register_device(
+        BLOCK_DEVICE_AHCI,
+        portno,
+        sectors,
+        SECTOR_SIZE,
+        NULL
+    );
 
-    if(check_gpt(portno) == 0) return;
-    check_mbr(portno);
+    if (ahci_disks[portno].logical_device < 0) {
+        error("[AHCI] Failed to register block device", __FILE__);
+        return;
+    }
+
+    if(check_gpt(ahci_disks[portno].logical_device) == 0) return;
+    check_mbr(ahci_disks[portno].logical_device);
 
     // char* msg = "FROSTWING WAS HERE";
     // memset(buf, 0, 512);
@@ -336,7 +444,7 @@ static int ahci_find_slot(ahci_port_t* port) {
     return -1;
 }
 
-int ahci_read_sector(int portno, uint64_t lba, void* buffer, uint32_t count) {
+static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count) {
     ahci_port_t* port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t* mem = &port_mem[portno];
 
@@ -388,7 +496,7 @@ int ahci_read_sector(int portno, uint64_t lba, void* buffer, uint32_t count) {
     return 0;
 }
 
-int ahci_write_sector(int portno, uint64_t lba, void* buffer, uint32_t count) {
+static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count) {
     ahci_port_t* port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t* mem = &port_mem[portno];
 
@@ -493,4 +601,14 @@ int ahci_identify(int portno, void* buffer) {
 
     port->is = 0xFFFFFFFF;
     return 0;
+}
+
+int ahci_read_sector(int portno, uint64_t lba, void* buffer, uint32_t count)
+{
+    return block_read_sector(portno, lba, buffer, count);
+}
+
+int ahci_write_sector(int portno, uint64_t lba, void* buffer, uint32_t count)
+{
+    return block_write_sector(portno, lba, buffer, count);
 }

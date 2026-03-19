@@ -44,6 +44,9 @@ static pci_id_entry_t pci_ids[] = {
     {0x1022, 0x7901, 0xFF, "AMD Promontory SATA Controller", 0, NULL},
     {0x1022, 0x790B, 0xFF, "AMD Promontory SMBus Controller", 0, NULL},
     {0x1022, 0x790E, 0xFF, "AMD PCI Express Bridge", 0, NULL},
+    {0x8086, 0x5845, 0xFF, "Intel NVMe Controller", 0, NULL},
+    {0x144D, 0xA808, 0xFF, "Samsung NVMe Controller", 0, NULL},
+    {0x1D0F, 0x8061, 0xFF, "Amazon NVMe EBS Controller", 0, NULL},
 
     // --- Network ---
     {0x10EC, 0x8139, 0xFF, "RTL8139 Networking Card", 0, probe_rtl8139},

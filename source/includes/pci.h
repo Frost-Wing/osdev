@@ -18,6 +18,7 @@
 #include <drivers/rtl8139.h>
 #include <debugger.h>
 #include <ahci.h>
+#include <nvme.h>
 #include <hal.h>
 #include <isr.h>
 #include <pci_id.h>
@@ -93,6 +94,7 @@ int16 getClassId(int16 bus, int16 device, int16 function);
  * @return int16 Sub-class ID
  */
 int16 getSubClassId(int16 bus, int16 device, int16 function);
+int8 getProgIF(int16 bus, int16 device, int16 function);
 
 /**
  * @brief Scans (Probes) PCI Devices
