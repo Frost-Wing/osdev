@@ -34,6 +34,12 @@ int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset) {
     return inl(PCI_CONFIG_DATA);
 }
 
+void pci_config_write_dword(int8 bus, int8 slot, int8 func, int8 offset, uint32_t value) {
+    int32 address = (1 << 31) | (bus << 16) | (slot << 11) | (func << 8) | (offset & 0xFC);
+    outl(PCI_CONFIG_ADDRESS, address);
+    outl(PCI_CONFIG_DATA, value);
+}
+
 /**
  * @brief Gets the AHCI bar address
  * 

@@ -112,6 +112,7 @@ void probe_pci();
  * @return int32 
  */
 int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset);
+void pci_config_write_dword(int8 bus, int8 slot, int8 func, int8 offset, uint32_t value);
 
 /**
  * @brief Gets the AHCI bar address

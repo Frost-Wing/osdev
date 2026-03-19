@@ -16,8 +16,10 @@
 #define NVME_ADMIN_OP_CREATE_IO_SQ 0x01
 #define NVME_ADMIN_OP_CREATE_IO_CQ 0x05
 #define NVME_ADMIN_OP_IDENTIFY     0x06
+#define NVME_ADMIN_OP_SET_FEATURES 0x09
 #define NVME_NVM_OP_WRITE          0x01
 #define NVME_NVM_OP_READ           0x02
+#define NVME_FEAT_NUM_QUEUES       0x07
 
 nvme_controller_t nvme_controllers[NVME_MAX_CONTROLLERS];
 nvme_namespace_t nvme_namespaces[NVME_MAX_NAMESPACES];
@@ -37,7 +39,7 @@ static inline volatile uint32_t* nvme_cq_doorbell(nvme_controller_t* ctrl, uint1
 
 static int nvme_wait_ready(nvme_controller_t* ctrl, int ready)
 {
-    for (int i = 0; i < 1000000; i++) {
+    for (int i = 0; i < 10000000; i++) {
         int is_ready = (ctrl->regs->csts & NVME_CSTS_RDY) ? 1 : 0;
         if (is_ready == ready)
             return 0;
@@ -94,12 +96,19 @@ static int nvme_create_io_queues(nvme_controller_t* ctrl)
     nvme_command_t cmd;
 
     memset(&cmd, 0, sizeof(cmd));
+    cmd.opcode = NVME_ADMIN_OP_SET_FEATURES;
+    cmd.cdw10 = NVME_FEAT_NUM_QUEUES;
+    cmd.cdw11 = 0;
+    if (nvme_submit_and_wait(ctrl, &ctrl->adminq, &cmd) != 0)
+        return -2;
+
+    memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = NVME_ADMIN_OP_CREATE_IO_CQ;
     cmd.prp1 = (uint64_t)(uintptr_t)ctrl->ioq.cq;
     cmd.cdw10 = ((ctrl->ioq.depth - 1) << 16) | ctrl->ioq.qid;
     cmd.cdw11 = 0x1;
     if (nvme_submit_and_wait(ctrl, &ctrl->adminq, &cmd) != 0)
-        return -1;
+        return -3;
 
     memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = NVME_ADMIN_OP_CREATE_IO_SQ;
@@ -107,13 +116,14 @@ static int nvme_create_io_queues(nvme_controller_t* ctrl)
     cmd.cdw10 = ((ctrl->ioq.depth - 1) << 16) | ctrl->ioq.qid;
     cmd.cdw11 = (ctrl->ioq.qid << 16) | 0x1;
     if (nvme_submit_and_wait(ctrl, &ctrl->adminq, &cmd) != 0)
-        return -1;
+        return -4;
 
     return 0;
 }
 
 static int nvme_init_controller(nvme_controller_t* ctrl)
 {
+    uint16_t max_entries = (uint16_t)((ctrl->regs->cap & 0xFFFF) + 1);
     ctrl->doorbell_stride = 4U << ((ctrl->regs->cap >> 32) & 0xF);
 
     ctrl->regs->cc &= ~NVME_CC_EN;
@@ -122,6 +132,8 @@ static int nvme_init_controller(nvme_controller_t* ctrl)
 
     ctrl->adminq.qid = 0;
     ctrl->adminq.depth = NVME_ADMIN_QUEUE_DEPTH;
+    if (ctrl->adminq.depth > max_entries)
+        ctrl->adminq.depth = max_entries;
     ctrl->adminq.sq = kmalloc_aligned(sizeof(nvme_command_t) * ctrl->adminq.depth, 4096);
     ctrl->adminq.cq = kmalloc_aligned(sizeof(nvme_completion_t) * ctrl->adminq.depth, 4096);
     if (!ctrl->adminq.sq || !ctrl->adminq.cq)
@@ -143,6 +155,8 @@ static int nvme_init_controller(nvme_controller_t* ctrl)
 
     ctrl->ioq.qid = 1;
     ctrl->ioq.depth = NVME_IO_QUEUE_DEPTH;
+    if (ctrl->ioq.depth > max_entries)
+        ctrl->ioq.depth = max_entries;
     ctrl->ioq.sq = kmalloc_aligned(sizeof(nvme_command_t) * ctrl->ioq.depth, 4096);
     ctrl->ioq.cq = kmalloc_aligned(sizeof(nvme_completion_t) * ctrl->ioq.depth, 4096);
     if (!ctrl->ioq.sq || !ctrl->ioq.cq)
@@ -265,6 +279,10 @@ void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function)
         if (ctrl->present)
             continue;
 
+        uint32_t command = pci_config_read_dword(bus, slot, function, 0x04);
+        command |= 0x00000006U; /* bus master + memory space */
+        pci_config_write_dword(bus, slot, function, 0x04, command);
+
         uint64_t bar = (uint32_t)(pci_config_read_dword(bus, slot, function, 0x10) & ~0xF);
         uint32_t upper = pci_config_read_dword(bus, slot, function, 0x14);
         if (upper && upper != 0xFFFFFFFFU)
@@ -280,6 +298,11 @@ void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function)
         ctrl->controller_id = i;
 
         if (nvme_init_controller(ctrl) != 0) {
+            printf("[NVMe] init failure: CAP=0x%X:%X CC=0x%X CSTS=0x%X",
+                (uint32_t)(ctrl->regs->cap >> 32),
+                (uint32_t)(ctrl->regs->cap & 0xFFFFFFFFU),
+                ctrl->regs->cc,
+                ctrl->regs->csts);
             warn("[NVMe] Controller init failed", __FILE__);
             return;
         }
