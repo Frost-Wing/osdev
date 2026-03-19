@@ -27,6 +27,7 @@
 #define ATA_CMD_IDENTIFY 0xEC
 
 #define MAX_PARTITIONS 128
+#define MAX_BLOCK_DEVICES 64
 
 
 /**
@@ -137,7 +138,22 @@ typedef volatile struct {
 typedef struct {
     uint64_t total_sectors;
     int present;
+    int logical_device;
 } ahci_disk_info_t;
+
+typedef enum {
+    BLOCK_DEVICE_AHCI = 0,
+    BLOCK_DEVICE_NVME
+} block_device_type_t;
+
+typedef struct {
+    block_device_type_t type;
+    int present;
+    int backend_index;
+    uint32_t sector_size;
+    uint64_t total_sectors;
+    char name[32];
+} block_device_info_t;
 
 /// GENERAL PARITION LAYOUT BEGIN
 
@@ -209,8 +225,10 @@ extern ahci_disk_info_t ahci_disks[32];
 
 extern general_partition_t ahci_partitions[MAX_PARTITIONS];
 extern mount_entry_t mounted_partitions[MAX_PARTITIONS];
+extern block_device_info_t block_devices[MAX_BLOCK_DEVICES];
 extern int general_partition_count;
 extern int mounted_partition_count;
+extern int block_device_count;
 
 /**
  * @brief Global AHCI controller pointer.
@@ -225,6 +243,22 @@ extern ahci_hba_mem_t* global_ahci_ctrl;
 void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl);
 void handle_sata_disk(int portno);
 void handle_satapi_disk(int portno);
+void ahci_init_port(int portno);
+int ahci_read_sector(int portno, uint64_t lba, void* buffer, uint32_t count);
+int ahci_write_sector(int portno, uint64_t lba, void* buffer, uint32_t count);
+int ahci_identify(int portno, void* buffer);
+
+int block_register_device(
+    block_device_type_t type,
+    int backend_index,
+    uint64_t total_sectors,
+    uint32_t sector_size,
+    const char* name
+);
+block_device_info_t* block_get_device(int device_id);
+const char* block_get_device_name(int device_id);
+int block_read_sector(int device_id, uint64_t lba, void* buffer, uint32_t count);
+int block_write_sector(int device_id, uint64_t lba, void* buffer, uint32_t count);
 
 general_partition_t* add_general_partition(
     partition_table_type_t table_type,
