@@ -34,6 +34,12 @@ int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset) {
     return inl(PCI_CONFIG_DATA);
 }
 
+void pci_config_write_dword(int8 bus, int8 slot, int8 func, int8 offset, uint32_t value) {
+    int32 address = (1 << 31) | (bus << 16) | (slot << 11) | (func << 8) | (offset & 0xFC);
+    outl(PCI_CONFIG_ADDRESS, address);
+    outl(PCI_CONFIG_DATA, value);
+}
+
 /**
  * @brief Gets the AHCI bar address
  * 
@@ -107,6 +113,10 @@ int8 getRevision(int16 bus, int16 slot, int16 func) {
     return pci_read_word(bus, slot, func, 0x08) & 0xFF;
 }
 
+int8 getProgIF(int16 bus, int16 slot, int16 func) {
+    return pci_config_read_dword(bus, slot, func, 0x08) >> 8;
+}
+
 /**
  * @brief Gets the Class ID from PCI
  * 
@@ -166,6 +176,7 @@ void probe_pci(){
                     int16 classid = getClassId(bus, slot, function);
                     int16 subclassid = getSubClassId(bus, slot, function);
                     int16 revision = getRevision(bus, slot, function);
+                    int8 prog_if = getProgIF(bus, slot, function);
 
                     string vendorName  = parse_vendor(vendor);
                     string className   = parse_class(classid);
@@ -196,9 +207,12 @@ void probe_pci(){
 
                     deviceName[sizeof(deviceName) - 1] = 0;
 
-                    if (classid == 0x01) { // If it is an mass-storage controller, intitialize using AHCI.
+                    if (classid == 0x01 && subclassid == 0x06 && prog_if == 0x01) {
                         done("AHCI controller detected (generic)", __FILE__);
                         probe_ahci(bus, slot, function);
+                    } else if (classid == 0x01 && subclassid == 0x08 && prog_if == 0x02) {
+                        done("NVMe controller detected (generic)", __FILE__);
+                        probe_nvme(bus, slot, function);
                     }
                     
                     print(green_color);
