@@ -33,6 +33,15 @@ static const char* fs_name(partition_fs_type_t fs)
     }
 }
 
+static const char* device_type_name(block_device_type_t type)
+{
+    switch (type) {
+        case BLOCK_DEVICE_AHCI: return "disk";
+        case BLOCK_DEVICE_NVME: return "nvme";
+        default: return "block";
+    }
+}
+
 int cmd_lsblk(int argc, char** argv)
 {
     (void)argc;
@@ -40,26 +49,29 @@ int cmd_lsblk(int argc, char** argv)
 
     printf("Name        Size     Type     Filesystem");
 
-    for (int port = 0; port < 32; port++) {
-        if (!ahci_disks[port].present)
+    for (int dev_id = 0; dev_id < block_device_count; dev_id++) {
+        block_device_info_t* dev = &block_devices[dev_id];
+        if (!dev->present)
             continue;
 
-        uint64_t disk_sectors = ahci_disks[port].total_sectors;
+        uint64_t disk_sectors = dev->total_sectors;
 
-        printfnoln("disk%d       ", port);
+        printfnoln("%s", dev->name);
+        for (int pad = (int)strlen(dev->name); pad < 12; pad++)
+            printfnoln(" ");
         print_size(disk_sectors);
-        printf("      disk      -");
+        printf("      %s      -", device_type_name(dev->type));
 
         int part_count = 0;
         for (int i = 0; i < general_partition_count; i++) {
-            if (ahci_partitions[i].ahci_port == (int64)port)
+            if (ahci_partitions[i].ahci_port == (int64)dev_id)
                 part_count++;
         }
 
         int seen = 0;
         for (int i = 0; i < general_partition_count; i++) {
             general_partition_t* p = &ahci_partitions[i];
-            if (p->ahci_port != (int64)port)
+            if (p->ahci_port != (int64)dev_id)
                 continue;
 
             seen++;

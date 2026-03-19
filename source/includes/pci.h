@@ -18,6 +18,7 @@
 #include <drivers/rtl8139.h>
 #include <debugger.h>
 #include <ahci.h>
+#include <nvme.h>
 #include <hal.h>
 #include <isr.h>
 #include <pci_id.h>
@@ -93,6 +94,7 @@ int16 getClassId(int16 bus, int16 device, int16 function);
  * @return int16 Sub-class ID
  */
 int16 getSubClassId(int16 bus, int16 device, int16 function);
+int8 getProgIF(int16 bus, int16 device, int16 function);
 
 /**
  * @brief Scans (Probes) PCI Devices
@@ -110,6 +112,7 @@ void probe_pci();
  * @return int32 
  */
 int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset);
+void pci_config_write_dword(int8 bus, int8 slot, int8 func, int8 offset, uint32_t value);
 
 /**
  * @brief Gets the AHCI bar address
