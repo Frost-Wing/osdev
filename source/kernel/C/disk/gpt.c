@@ -32,31 +32,39 @@ int check_gpt(int portno) {
         return -1;
     }
 
-    if (block_read_sector(portno, 0, buf, 1) != 0)
+    if (block_read_sector(portno, 0, buf, 1) != 0) {
+        kfree(buf);
         return -2;
+    }
 
     if (buf[510] != 0x55 || buf[511] != 0xAA) {
         info("[GPT] Invalid PMBR signature", __FILE__);
+        kfree(buf);
         return -3;
     }
 
     mbr_partition_t* pmbr = (mbr_partition_t*)&buf[446];
     if (pmbr[0].partition_type != 0xEE) {
         info("[GPT] Not a GPT disk (no 0xEE PMBR)", __FILE__);
+        kfree(buf);
         return -4;
     }
 
-    if (block_read_sector(portno, 1, buf, 1) != 0)
+    if (block_read_sector(portno, 1, buf, 1) != 0) {
+        kfree(buf);
         return -5;
+    }
     struct GPT_PartTableHeader* hdr = (struct GPT_PartTableHeader*)buf;
 
     if (memcmp(hdr->Signature, "EFI PART", 8) != 0) {
         error("[GPT] Invalid GPT signature", __FILE__);
+        kfree(buf);
         return -6;
     }
 
     info("[GPT] Valid GPT detected", __FILE__);
     parse_gpt_partitions(portno, hdr);
+    kfree(buf);
     return 0;
 }
 
@@ -74,8 +82,10 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
     if (!buf)
         return;
 
-    if (block_read_sector(portno, lba, buf, sectors) != 0)
+    if (block_read_sector(portno, lba, buf, sectors) != 0) {
+        kfree(buf);
         return;
+    }
 
     gpt_disk_t* disk = &gpt_disks[gpt_disks_count];
     disk->port = portno;
@@ -138,6 +148,7 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
     }
 
     gpt_disks_count++;
+    kfree(buf);
 }
 
 bool gpt_is_uefi_bootable(const struct GPT_PartitionEntry* p) {

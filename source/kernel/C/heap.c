@@ -10,6 +10,11 @@ typedef struct alloc_t {
     uint8_t status; // 0 = free, 1 = allocated
 } __attribute__((packed)) alloc_t;
 
+typedef struct {
+    uint64_t magic;
+    uintptr_t raw;
+} aligned_alloc_header_t;
+
 uint64_t heap_begin = 0;
 uint64_t heap_end   = 0;
 uint64_t last_alloc = 0;
@@ -17,6 +22,28 @@ uint64_t alloc_count = 0;
 uint64_t memory_used = 0;
 
 #define ALIGN_UP(x, a) (((x) + ((a)-1)) & ~((a)-1))
+#define ALIGNED_ALLOC_MAGIC 0x46574B414C49474EULL /* "FWKALIGN" */
+
+static alloc_t* heap_alloc_from_user_ptr(void* ptr)
+{
+    if (!ptr)
+        return NULL;
+
+    aligned_alloc_header_t* aligned_hdr =
+        (aligned_alloc_header_t*)((uint8_t*)ptr - sizeof(aligned_alloc_header_t));
+
+    if ((uintptr_t)aligned_hdr >= heap_begin &&
+        (uintptr_t)aligned_hdr + sizeof(*aligned_hdr) <= heap_end &&
+        aligned_hdr->magic == ALIGNED_ALLOC_MAGIC) {
+        alloc_t* raw_alloc = (alloc_t*)((uint8_t*)aligned_hdr->raw - sizeof(alloc_t));
+        if ((uintptr_t)raw_alloc >= heap_begin &&
+            (uintptr_t)raw_alloc + sizeof(*raw_alloc) <= heap_end) {
+            return raw_alloc;
+        }
+    }
+
+    return (alloc_t*)((uint8_t*)ptr - sizeof(alloc_t));
+}
 
 void mm_init(uintptr_t kernel_end, int64 heap_size)
 {
@@ -95,7 +122,11 @@ void kfree(void* ptr)
         return;
     }
 
-    alloc_t* a = (alloc_t*)((uint8_t*)ptr - sizeof(alloc_t));
+    alloc_t* a = heap_alloc_from_user_ptr(ptr);
+    if ((uintptr_t)a < heap_begin || (uintptr_t)a + sizeof(*a) > heap_end) {
+        warn("kfree: Pointer is outside heap.", __FILE__);
+        return;
+    }
 
     if (a->status == 0) {
         warn("kfree: Double free detected.", __FILE__);
@@ -115,7 +146,7 @@ void* krealloc(void* ptr, size_t size)
         return NULL;
     }
 
-    alloc_t* old = (alloc_t*)((uint8_t*)ptr - sizeof(alloc_t));
+    alloc_t* old = heap_alloc_from_user_ptr(ptr);
     if (old->size >= size) return ptr;
 
     void* new_ptr = kmalloc(size);
@@ -133,14 +164,17 @@ void* kmalloc_aligned(size_t size, size_t align)
         return NULL;
     }
 
-    size_t total = size + align - 1 + sizeof(uintptr_t);
+    size_t total = size + align - 1 + sizeof(aligned_alloc_header_t);
     uintptr_t raw = (uintptr_t)kmalloc(total);
     if (!raw) {
         return NULL;
     }
 
-    uintptr_t aligned = ALIGN_UP(raw + sizeof(uintptr_t), align);
-    ((uintptr_t*)aligned)[-1] = raw;
+    uintptr_t aligned = ALIGN_UP(raw + sizeof(aligned_alloc_header_t), align);
+    aligned_alloc_header_t* hdr =
+        (aligned_alloc_header_t*)(aligned - sizeof(aligned_alloc_header_t));
+    hdr->magic = ALIGNED_ALLOC_MAGIC;
+    hdr->raw = raw;
 
     return (void*)aligned;
 }
