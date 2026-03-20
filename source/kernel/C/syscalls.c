@@ -220,7 +220,7 @@ static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
 
     if ((int)fd == FD_STDIN) {
         for (uint64_t i = 0; i < count; ++i) {
-            char c = getc();
+            char c = getc_nonblock();
             buf[i] = c;
             if (c == '\n' || c == '\r')
                 return (int64)(i + 1);
@@ -377,9 +377,9 @@ static int64 sys_uname(linux_utsname_t* uts) {
         return -LINUX_EINVAL;
 
     memset(uts, 0, sizeof(*uts));
-    memcpy(uts->sysname, "FwOS", 5);
+    memcpy(uts->sysname, "FrostWing OS", 5);
     memcpy(uts->nodename, "fwos", 5);
-    memcpy(uts->release, "0.1", 4);
+    memcpy(uts->release, "pre.release-0.1", 4);
     memcpy(uts->version, "fw-kernel", 10);
     memcpy(uts->machine, "x86_64", 7);
     memcpy(uts->domainname, "localdomain", 12);
