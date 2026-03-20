@@ -1,3 +1,16 @@
+/**
+ * @file keyboard.h
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief The PS/2 Keyboard interface code.
+ * @version 0.1
+ * @date 2026-03-20
+ * 
+ * @copyright Copyright (c) Pradosh 2026
+ * 
+ */
+#ifndef KEYBOARD_H
+#define KEYBOARD_H
+
 #include <basics.h>
 #include <stdbool.h>
 #include <hal.h>
@@ -20,7 +33,7 @@
 #define CUR_LEFT        -3
 #define CUR_RIGHT       -4
 
-extern char scancode_to_char_mapping[];
+#define KB_BUFFER_SIZE  256
 
 /**
  * @brief Converts the scancode to character
@@ -29,6 +42,12 @@ extern char scancode_to_char_mapping[];
  * @return [char] Appropriate character to be displayed
  */
 char scancode_to_char(int scancode, bool uppercase);
+
+/**
+ * @brief Initalizes the RingBuffer to store the characters.
+ * 
+ */
+void keyboard_init();
 
 /**
  * @brief This is a function that is ran even when the sleep() function is called
@@ -47,3 +66,12 @@ uint8_t getmodifiers();
  * @return [uint8_t] Last scancode
  */
 uint8_t getc();
+
+/**
+ * @brief Non-blocking getc from keyboard buffer
+ * 
+ * @return int Character if available, 0 if no input
+ */
+int getc_nonblock();
+
+#endif

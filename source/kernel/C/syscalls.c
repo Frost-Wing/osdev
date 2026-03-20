@@ -220,7 +220,7 @@ static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
 
     if ((int)fd == FD_STDIN) {
         for (uint64_t i = 0; i < count; ++i) {
-            char c = kgetc_nonblock();
+            char c = getc();
             buf[i] = c;
             if (c == '\n' || c == '\r')
                 return (int64)(i + 1);
@@ -511,9 +511,6 @@ void syscalls_handler(InterruptFrame* frame){
             break;
         case FW_SYS_GETC:
             frame->rax = getc();
-            break;
-        case FW_SYS_GETC_NB:
-            frame->rax = kgetc_nonblock();
             break;
         case FW_SYS_PUTC:
             printfnoln("%c", (char)frame->rdi);

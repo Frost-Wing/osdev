@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <memory.h>
 #include <graphics.h>
+#include <debugger.h>
 #include <heap.h>
 
 typedef struct alloc_t {

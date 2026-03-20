@@ -142,3 +142,25 @@ void outl(int16 portNumber, int32 data) {
     #endif
 }
 
+/**
+ * @brief Wait approximately the given number of microseconds using io_wait()
+ * 
+ * @param usec Number of microseconds to wait
+ */
+void io_wait_us(uint32_t usec)
+{
+    // io_wait() is roughly ~1µs per call on modern CPUs
+    for (uint32_t i = 0; i < usec; i++)
+        io_wait();
+}
+
+/**
+ * @brief Wait approximately the given number of milliseconds using io_wait()
+ * 
+ * @param msec Number of milliseconds to wait
+ */
+void io_wait_ms(uint32_t msec)
+{
+    for (uint32_t i = 0; i < msec; i++)
+        io_wait_us(1000);
+}
