@@ -241,7 +241,7 @@ static int nvme_read_write_one(nvme_namespace_t* ns, uint64_t lba, void* buffer,
     memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = is_write ? NVME_NVM_OP_WRITE : NVME_NVM_OP_READ;
     cmd.nsid = ns->nsid;
-    cmd.prp1 = (uint64_t)(uintptr_t)io_buffer;
+    cmd.prp1 = (uint64_t)(uintptr_t)bounce;
     cmd.cdw10 = (uint32_t)lba;
     cmd.cdw11 = (uint32_t)(lba >> 32);
     cmd.cdw12 = 0;
