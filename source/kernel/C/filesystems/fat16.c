@@ -19,6 +19,20 @@ static int fat16_is_reserved_name(cstring name) {
 
 partition_fs_type_t detect_fat_type_enum(const int8* buf) {
     fat16_boot_sector_t* bs = (fat16_boot_sector_t*)buf;
+    const uint8_t* fat16_sig = (const uint8_t*)buf + 54;
+    const uint8_t* fat32_sig = (const uint8_t*)buf + 82;
+
+    if (memcmp(fat16_sig, "FAT12   ", 8) == 0)
+        return FS_FAT12;
+
+    if (memcmp(fat16_sig, "FAT16   ", 8) == 0)
+        return FS_FAT16;
+
+    if (memcmp(fat32_sig, "FAT32   ", 8) == 0)
+        return FS_FAT32;
+
+    if (bs->bytes_per_sector == 0 || bs->sectors_per_cluster == 0)
+        return FS_UNKNOWN;
 
     if (bs->sectors_per_fat != 0 && bs->max_root_dir_entries != 0) {
         uint32_t total_sectors = (bs->total_sectors_short != 0) ? bs->total_sectors_short : bs->total_sectors_long;
