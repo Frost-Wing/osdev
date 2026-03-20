@@ -74,4 +74,12 @@ uint8_t getc();
  */
 int getc_nonblock();
 
+/**
+ * @brief Non-blocking read directly from the PS/2 controller.
+ * 
+ * @return int Character if available, 0 if no input or only a modifier event
+ */
+int kgetc_nonblock();
+
+
 #endif

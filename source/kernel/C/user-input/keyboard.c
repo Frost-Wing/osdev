@@ -16,8 +16,8 @@
 #include <ringbuffer.h>
 
 bool enable_keyboard = yes;
-ring_buffer_t* kb_rb;
-uint8_t kb_storage[KB_BUFFER_SIZE];
+static ring_buffer_t kb_rb;
+static uint8_t kb_storage[KB_BUFFER_SIZE];
 
 /**
  * @brief All the chars for specific scan codes
@@ -67,13 +67,7 @@ char scancode_to_char(int scancode, bool uppercase) {
 }
 
 void keyboard_init() {
-    kb_rb = kmalloc(sizeof(ring_buffer_t));
-    if(!kb_rb){
-        error("Malloc for ring-buffer failed", __FILE__);
-        hcf2();
-    }
-    
-    rb_init(kb_rb, kb_storage, KB_BUFFER_SIZE, sizeof(uint8_t));
+    rb_init(&kb_rb, kb_storage, KB_BUFFER_SIZE, sizeof(uint8_t));
 }
 
 bool shift = no;
@@ -83,10 +77,12 @@ void process_keyboard(InterruptFrame* frame){
         outb(0x20, 0x20);
         return;
     }
+
     int c = kgetc_nonblock();
 
     if (c > 0) {
-        rb_push(kb_rb, &c);
+        uint8_t key = (uint8_t)c;
+        rb_push(&kb_rb, &key);
     }
 
     // EOI
@@ -101,16 +97,18 @@ uint8_t getmodifiers()
 uint8_t getc() {
     uint8_t c;
 
-    while (rb_pop(kb_rb, &c) != 0)
-        asm("hlt"); // sleep until interrupt
+    for (;;) {
+        if (rb_pop(&kb_rb, &c) == 0)
+            return c;
 
-    return c;
+        asm volatile ("hlt");
+    }
 }
 
 int getc_nonblock() {
     uint8_t c;
 
-    if (rb_pop(kb_rb, &c) == 0)
+    if (rb_pop(&kb_rb, &c) == 0)
         return c;
 
     return 0; // no key available
