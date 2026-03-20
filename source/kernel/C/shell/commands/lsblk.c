@@ -104,7 +104,7 @@ int cmd_lsblk(int argc, char** argv)
 
             printfnoln("%s    ", p->name);
             print_size((uint64_t)p->sector_count);
-            printf("      part     %s    %s  %s",
+            printf("      part     %10s  %s  %s",
                 fs_name(p->fs_type),
                 ro_flag_for_filesystem(p->fs_type),
                 mount_point_for_partition(p->name));
