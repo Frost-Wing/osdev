@@ -193,7 +193,8 @@ static int nvme_init_controller(nvme_controller_t* ctrl)
 
     ctrl->ioq.sq = kmalloc_aligned(sizeof(nvme_command_t) * ctrl->ioq.depth, 4096);
     ctrl->ioq.cq = kmalloc_aligned(sizeof(nvme_completion_t) * ctrl->ioq.depth, 4096);
-    if (!ctrl->ioq.sq || !ctrl->ioq.cq)
+    ctrl->bounce_buffer = kmalloc_aligned(4096, 4096);
+    if (!ctrl->ioq.sq || !ctrl->ioq.cq || !ctrl->bounce_buffer)
         return -4;
 
     memset(ctrl->ioq.sq, 0, sizeof(nvme_command_t) * ctrl->ioq.depth);
@@ -205,21 +206,36 @@ static int nvme_init_controller(nvme_controller_t* ctrl)
     return nvme_create_io_queues(ctrl);
 }
 
+static int nvme_buffer_needs_bounce(void* buffer, uint32_t lba_size)
+{
+    uintptr_t start = (uintptr_t)buffer;
+    uintptr_t end = start + lba_size;
+
+    if (start < heap_begin || start >= heap_end)
+        return 1;
+
+    return ((start & 0xFFF) + lba_size) > 4096 || end > heap_end;
+}
+
 static int nvme_read_write_one(nvme_namespace_t* ns, uint64_t lba, void* buffer, int is_write)
 {
     nvme_controller_t* ctrl = &nvme_controllers[ns->controller_index];
     nvme_command_t cmd;
-    uint8_t* bounce = NULL;
-    void* io_buffer = buffer;
+    uint8_t* io_buffer = (uint8_t*)buffer;
+    int use_bounce = nvme_buffer_needs_bounce(buffer, ns->lba_size);
 
-    if ((((uintptr_t)buffer & 0xFFF) + ns->lba_size) > 4096) {
-        bounce = kmalloc_aligned(4096, 4096);
-        if (!bounce)
+    if (use_bounce) {
+        /*
+         * Filesystem probing commonly reads into stack buffers, while early
+         * partition probing often uses aligned heap buffers. Bounce only when
+         * the caller buffer is not DMA-safe for the controller.
+         */
+        if (!ctrl->bounce_buffer)
             return -1;
 
+        io_buffer = (uint8_t*)ctrl->bounce_buffer;
         if (is_write)
-            memcpy(bounce, buffer, ns->lba_size);
-        io_buffer = bounce;
+            memcpy(io_buffer, buffer, ns->lba_size);
     }
 
     memset(&cmd, 0, sizeof(cmd));
@@ -231,11 +247,8 @@ static int nvme_read_write_one(nvme_namespace_t* ns, uint64_t lba, void* buffer,
     cmd.cdw12 = 0;
 
     int rc = nvme_submit_and_wait(ctrl, &ctrl->ioq, &cmd);
-    if (rc == 0 && bounce && !is_write)
-        memcpy(buffer, bounce, ns->lba_size);
-
-    if (bounce)
-        kfree(bounce);
+    if (rc == 0 && use_bounce && !is_write)
+        memcpy(buffer, io_buffer, ns->lba_size);
 
     return rc;
 }
