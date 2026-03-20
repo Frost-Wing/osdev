@@ -67,7 +67,6 @@ ifndef CI
 KVM = -enable-kvm
 endif
 
-#
 # Note:
 # - Serial is outputed to 'serial.log' file.
 # - E9 Debug port messages would be displayed inside the terminal
@@ -77,7 +76,9 @@ endif
 # To use disk.img as an AHCI device:
 #   -drive if=none,format=raw,file=disk.img,id=disk
 #   -device ide-hd,drive=disk,bus=ahci.0
-#
+# To use disk.img as an NVMe device:
+#   -drive if=none,format=raw,file=disk.img,id=nvmedisk
+#   -device nvme,drive=nvmedisk,serial=FROSTNVME0
 
 QEMU_COMMON = \
     -vga std \
@@ -87,8 +88,8 @@ QEMU_COMMON = \
     -device rtl8139,netdev=eth0 \
     -netdev user,hostfwd=tcp::5555-:22,id=eth0 \
     -device ahci,id=ahci \
-	-drive if=none,format=raw,file=disk.img,id=nvmedisk \
-	-device nvme,drive=nvmedisk,serial=FROSTNVME0 \
+	-drive if=none,format=raw,file=disk.img,id=disk \
+	-device ide-hd,drive=disk,bus=ahci.0 \
     -drive if=none,media=cdrom,format=raw,file=$(ISO_FILE),id=cd0 \
     -device ide-cd,drive=cd0,bus=ahci.1 \
     -rtc base=localtime,clock=host \
@@ -96,26 +97,8 @@ QEMU_COMMON = \
     $(KVM) \
     -m 512
 
-run-x86-hdd:
+run-x86-bios:
 	@qemu-system-x86_64 $(QEMU_COMMON)
-
-run-x86-nvme:
-	@qemu-system-x86_64 \
-	-vga std \
-	-debugcon stdio \
-	-serial file:serial.log \
-	$(AUDIO) \
-	-device rtl8139,netdev=eth0 \
-	-netdev user,hostfwd=tcp::5555-:22,id=eth0 \
-	-drive if=none,format=raw,file=disk.img,id=nvmedisk \
-	-device nvme,drive=nvmedisk,serial=FROSTNVME0 \
-	-drive if=none,media=cdrom,format=raw,file=$(ISO_FILE),id=cd0 \
-	-device ahci,id=ahci \
-	-device ide-cd,drive=cd0,bus=ahci.0 \
-	-rtc base=localtime,clock=host \
-	-boot order=d \
-	$(KVM) \
-	-m 512
 
 run-x86-uefi:
 	@qemu-system-x86_64 \
@@ -132,10 +115,10 @@ run-x86-vnc:
 # Everything targets
 # -----------------------------
 everything:
-	@make clean all -C source && make iso tarball run-x86-hdd
+	@make clean all -C source && make iso tarball run-x86-bios
 
 everything-sign:
-	@make clean all -C source && make sign-kernel && make iso tarball run-x86-hdd
+	@make clean all -C source && make sign-kernel && make iso tarball run-x86-bios
 
 # -----------------------------
 # Editor support (clangd / Code - OSS)

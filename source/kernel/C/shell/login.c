@@ -10,6 +10,7 @@
  */
 
 #include <commands/login.h>
+#include <keyboard.h>
 
 int64 usernames_total[MAX_USERS_ALLOWED];
 int64 passwords_total[MAX_USERS_ALLOWED];
@@ -65,10 +66,7 @@ int login_request(char* userbuf, int max){
     i = 0;
 
     while(i < 20){
-        k = kgetc_nonblock();
-
-        if(k <= 0)
-            continue;
+        k = getc();
 
         temp = (char)k;
 
@@ -96,11 +94,8 @@ int login_request(char* userbuf, int max){
     i = 0;
 
     while(i < 20){
-        k = kgetc_nonblock();
-
-        if(k <= 0)
-            continue;
-
+        k = getc();
+        
         temp = (char)k;
 
         if(temp == '\n' || temp == '\r')
