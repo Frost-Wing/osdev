@@ -209,34 +209,31 @@ static int nvme_read_write_one(nvme_namespace_t* ns, uint64_t lba, void* buffer,
 {
     nvme_controller_t* ctrl = &nvme_controllers[ns->controller_index];
     nvme_command_t cmd;
-    uint8_t* bounce = NULL;
-    void* io_buffer = buffer;
+    /*
+     * Always use a DMA-safe bounce page for data transfers.
+     * Partition probing uses aligned heap buffers, but filesystem code often
+     * reads into stack buffers, and those were the reads that were failing.
+     */
+    uint8_t* bounce = kmalloc_aligned(4096, 4096);
+    if (!bounce)
+        return -1;
 
-    if ((((uintptr_t)buffer & 0xFFF) + ns->lba_size) > 4096) {
-        bounce = kmalloc_aligned(4096, 4096);
-        if (!bounce)
-            return -1;
-
-        if (is_write)
-            memcpy(bounce, buffer, ns->lba_size);
-        io_buffer = bounce;
-    }
+    if (is_write)
+        memcpy(bounce, buffer, ns->lba_size);
 
     memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = is_write ? NVME_NVM_OP_WRITE : NVME_NVM_OP_READ;
     cmd.nsid = ns->nsid;
-    cmd.prp1 = (uint64_t)(uintptr_t)io_buffer;
+    cmd.prp1 = (uint64_t)(uintptr_t)bounce;
     cmd.cdw10 = (uint32_t)lba;
     cmd.cdw11 = (uint32_t)(lba >> 32);
     cmd.cdw12 = 0;
 
     int rc = nvme_submit_and_wait(ctrl, &ctrl->ioq, &cmd);
-    if (rc == 0 && bounce && !is_write)
+    if (rc == 0 && !is_write)
         memcpy(buffer, bounce, ns->lba_size);
 
-    if (bounce)
-        kfree(bounce);
-
+    kfree(bounce);
     return rc;
 }
 
