@@ -47,7 +47,7 @@ int cmd_lsblk(int argc, char** argv)
     (void)argc;
     (void)argv;
 
-    printf("Name        Size     Type     Filesystem");
+    printf("Name           Size     Type     Filesystem");
 
     for (int dev_id = 0; dev_id < block_device_count; dev_id++) {
         block_device_info_t* dev = &block_devices[dev_id];
@@ -57,7 +57,7 @@ int cmd_lsblk(int argc, char** argv)
         uint64_t disk_sectors = dev->total_sectors;
 
         printfnoln("%s", dev->name);
-        for (int pad = (int)strlen(dev->name); pad < 12; pad++)
+        for (int pad = (int)strlen(dev->name); pad < 15; pad++)
             printfnoln(" ");
         print_size(disk_sectors);
         printf("      %s      -", device_type_name(dev->type));
@@ -80,7 +80,7 @@ int cmd_lsblk(int argc, char** argv)
             if (last) printfnoln("└─");
             else      printfnoln("├─");
 
-            printfnoln("%s   ", p->name);
+            printfnoln("%s    ", p->name);
             print_size((uint64_t)p->sector_count);
             printf("      part     %s", fs_name(p->fs_type));
         }
