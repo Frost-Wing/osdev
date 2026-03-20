@@ -75,7 +75,6 @@ void initIdt()
 
     // interrupt number of keyboard is 0x21, for pit it's 0x20 and for mouse it's 0x2C
     init_pit();
-    keyboard_init();
     registerInterruptHandler(0x20, process_pit);
     registerInterruptHandler(0x2C, process_mouse);
     registerInterruptHandler(0x21, process_keyboard);

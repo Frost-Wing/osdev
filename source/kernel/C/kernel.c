@@ -126,6 +126,7 @@ void main(void) {
     }
 
     stream_init();
+    keyboard_init();
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
     memmap = memory_map_request.response;
