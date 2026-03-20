@@ -12,6 +12,11 @@
 #include <graphics.h>
 
 #define NVME_CC_EN            (1U << 0)
+#define NVME_CC_CSS_NVM       (0U << 4)
+#define NVME_CC_MPS_SHIFT     7
+#define NVME_CC_AMS_RR        (0U << 11)
+#define NVME_CC_IOSQES_SHIFT  16
+#define NVME_CC_IOCQES_SHIFT  20
 #define NVME_CSTS_RDY         (1U << 0)
 #define NVME_ADMIN_OP_CREATE_IO_SQ 0x01
 #define NVME_ADMIN_OP_CREATE_IO_CQ 0x05
@@ -129,19 +134,25 @@ static int nvme_create_io_queues(nvme_controller_t* ctrl)
 static int nvme_init_controller(nvme_controller_t* ctrl)
 {
     uint16_t max_entries = (uint16_t)((ctrl->regs->cap & 0xFFFF) + 1);
-
-    // Doorbell stride from CAP.DSTRD
     uint8_t dstrd = (ctrl->regs->cap >> 32) & 0xF;
-    ctrl->doorbell_stride = 4U << dstrd;
+    uint8_t mpsmin = (ctrl->regs->cap >> 48) & 0xF;
+    uint8_t mpsmax = (ctrl->regs->cap >> 52) & 0xF;
+    uint8_t page_shift = 12;
+    uint8_t mps = page_shift - 12;
 
-    // Step 1: Disable controller
-    ctrl->regs->cc &= ~NVME_CC_EN;
-    if (nvme_wait_ready(ctrl, 0, 500) != 0) {
-        warn("[NVMe] Controller did not disable", __FILE__);
+    if (mps < mpsmin || mps > mpsmax) {
+        warn("[NVMe] Controller page size is unsupported", __FILE__);
         return -1;
     }
 
-    // Step 2: Setup admin queue
+    ctrl->doorbell_stride = 4U << dstrd;
+
+    ctrl->regs->cc &= ~NVME_CC_EN;
+    if (nvme_wait_ready(ctrl, 0, 500) != 0) {
+        warn("[NVMe] Controller did not disable", __FILE__);
+        return -2;
+    }
+
     ctrl->adminq.qid = 0;
     ctrl->adminq.depth = NVME_ADMIN_QUEUE_DEPTH;
     if (ctrl->adminq.depth > max_entries)
@@ -162,19 +173,19 @@ static int nvme_init_controller(nvme_controller_t* ctrl)
     ctrl->regs->asq = (uint64_t)(uintptr_t)ctrl->adminq.sq;
     ctrl->regs->acq = (uint64_t)(uintptr_t)ctrl->adminq.cq;
 
-    // Step 3: Enable controller with CSS=NVM, proper MPS, AMS
-    uint8_t mpsmin = (ctrl->regs->cap >> 48) & 0xF;
-    ctrl->regs->cc = (1 << 4) |        // CSS = 1 (NVM)
-                     (mpsmin << 16) | // MPS
-                     (6 << 20) |      // AMS = 6 (round-robin)
-                     NVME_CC_EN;      // EN=1
+    ctrl->regs->cc =
+        NVME_CC_EN |
+        NVME_CC_CSS_NVM |
+        ((uint32_t)mps << NVME_CC_MPS_SHIFT) |
+        NVME_CC_AMS_RR |
+        (6U << NVME_CC_IOSQES_SHIFT) |
+        (4U << NVME_CC_IOCQES_SHIFT);
 
     if (nvme_wait_ready(ctrl, 1, 500) != 0) {
         warn("[NVMe] Controller did not become ready", __FILE__);
         return -3;
     }
 
-    // Step 4: Setup IO queue
     ctrl->ioq.qid = 1;
     ctrl->ioq.depth = NVME_IO_QUEUE_DEPTH;
     if (ctrl->ioq.depth > max_entries)
