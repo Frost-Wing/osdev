@@ -29,16 +29,19 @@ int check_mbr(int portno){
     if (block_read_sector(portno, 0, buf, 1) != 0) {
         error("[AHCI/MBR] Read LBA failed", __FILE__);
         printf("[BLOCK/MBR] Read LBA failed on device %d", portno);
+        kfree(buf);
         return -2;
     }
 
     if (buf[510] != 0x55 || buf[511] != 0xAA) {
         info("Invalid MBR signature", __FILE__);
+        kfree(buf);
         return -3;
     }
 
     info("Valid MBR signature", __FILE__);
     parse_mbr_partitions(buf, portno);
+    kfree(buf);
     return 0;
 }
 
