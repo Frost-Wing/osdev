@@ -42,12 +42,34 @@ static const char* device_type_name(block_device_type_t type)
     }
 }
 
+static const char* mount_point_for_partition(const char* part_name)
+{
+    for (int i = 0; i < mounted_partition_count; i++) {
+        mount_entry_t* mount = &mounted_partitions[i];
+        if (strcmp(mount->part_name, part_name) == 0)
+            return mount->mount_point;
+    }
+
+    return "-";
+}
+
+static const char* ro_flag_for_filesystem(partition_fs_type_t fs)
+{
+    switch (fs) {
+        case FS_ISO9660:
+        case FS_PROC:
+            return "1";
+        default:
+            return "0";
+    }
+}
+
 int cmd_lsblk(int argc, char** argv)
 {
     (void)argc;
     (void)argv;
 
-    printf("Name           Size     Type     Filesystem");
+    printf("Name           Size     Type     Filesystem RO Mountpoint");
 
     for (int dev_id = 0; dev_id < block_device_count; dev_id++) {
         block_device_info_t* dev = &block_devices[dev_id];
@@ -60,7 +82,7 @@ int cmd_lsblk(int argc, char** argv)
         for (int pad = (int)strlen(dev->name); pad < 15; pad++)
             printfnoln(" ");
         print_size(disk_sectors);
-        printf("      %s      -", device_type_name(dev->type));
+        printf("      %s      -          -  -", device_type_name(dev->type));
 
         int part_count = 0;
         for (int i = 0; i < general_partition_count; i++) {
@@ -82,7 +104,10 @@ int cmd_lsblk(int argc, char** argv)
 
             printfnoln("%s    ", p->name);
             print_size((uint64_t)p->sector_count);
-            printf("      part     %s", fs_name(p->fs_type));
+            printf("      part     %s    %s  %s",
+                fs_name(p->fs_type),
+                ro_flag_for_filesystem(p->fs_type),
+                mount_point_for_partition(p->name));
         }
     }
 
