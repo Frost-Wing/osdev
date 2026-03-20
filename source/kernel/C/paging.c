@@ -87,6 +87,10 @@ uint64_t virtual_to_physical(uint64_t virt) {
     return phys;
 }
 
+uint64_t fast_virt_to_phys(void* v) {
+    return (uint64_t)v - hhdm_offset;
+}
+
 void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
     // Traverse or create PML4 -> PDPT -> PD -> PT
     uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL); // kernel PML4
