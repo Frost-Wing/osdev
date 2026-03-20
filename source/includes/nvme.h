@@ -65,6 +65,7 @@ typedef struct {
     uint32_t nn;
     nvme_queue_t adminq;
     nvme_queue_t ioq;
+    void* bounce_buffer;
     int present;
 } nvme_controller_t;
 
