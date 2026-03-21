@@ -15,7 +15,7 @@
 #include <filesystems/fat32.h>
 #include <filesystems/iso9660.h>
 
-typedef struct {
+typedef struct vfs_file {
     mount_entry_t* mnt;
     union {
         fat16_file_t fat16;
