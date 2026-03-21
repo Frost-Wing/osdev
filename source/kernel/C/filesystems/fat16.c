@@ -493,23 +493,27 @@ int fat16_open(fat16_fs_t* fs, const char* path, fat16_file_t* f) {
 int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size) {
     uint32_t read = 0;
     uint8_t sector[512];
+    uint32_t depth = 0;
+    uint32_t cluster_size =
+        f->fs->bs.sectors_per_cluster * 512;
+    uint16_t cluster = f->entry.first_cluster;
+
+    if (cluster_size == 0 || cluster < 2)
+        return 0;
+
+    uint32_t start_cluster_index = f->pos / cluster_size;
+    for (uint32_t i = 0; i < start_cluster_index; ++i) {
+        uint16_t next = 0;
+        if (fat16_next_cluster_safe(f->fs, cluster, &next, &depth) != FAT_OK) {
+            eprintf("fat16: seek walk failed pos=%x idx=%u cluster=%u", f->pos, start_cluster_index, cluster);
+            return 0;
+        }
+        cluster = next;
+    }
 
     while (read < size && f->pos < f->entry.filesize) {
-        uint32_t cluster_size =
-            f->fs->bs.sectors_per_cluster * 512;
-
-        uint32_t cluster_index = f->pos / cluster_size;
         uint32_t sector_in_cluster =
             (f->pos / 512) % f->fs->bs.sectors_per_cluster;
-
-        uint16_t cluster = f->entry.first_cluster;
-        uint32_t idx = f->pos / cluster_size;
-
-        for (uint32_t i = 0; i < idx; i++) {
-            cluster = fat16_read_fat_fs(f->fs, cluster);
-            if (cluster >= FAT16_EOC)
-                return read;
-        }
 
         uint32_t lba =
             fat16_cluster_lba(f->fs, cluster) + sector_in_cluster;
@@ -526,9 +530,22 @@ int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size) {
 
         memcpy(out + read, sector + off, to_copy);
 
+        uint32_t cluster_index_before = f->pos / cluster_size;
         f->pos += to_copy;
         read += to_copy;
         f->cluster = cluster;
+
+        if (read < size && f->pos < f->entry.filesize) {
+            uint32_t cluster_index_after = f->pos / cluster_size;
+            if (cluster_index_after != cluster_index_before) {
+                uint16_t next = 0;
+                if (fat16_next_cluster_safe(f->fs, cluster, &next, &depth) != FAT_OK) {
+                    eprintf("fat16: short read pos=%x read=%u want=%u cluster=%u", f->pos, read, size, cluster);
+                    return read;
+                }
+                cluster = next;
+            }
+        }
     }
 
     return read;
