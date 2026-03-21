@@ -120,6 +120,24 @@ static int fat16_next_cluster_safe(fat16_fs_t* fs,
     return FAT_OK;
 }
 
+static int fat16_next_cluster_with_fallback(fat16_fs_t* fs,
+                                            uint16_t current,
+                                            uint16_t* next,
+                                            uint32_t* depth)
+{
+    int rc = fat16_next_cluster_safe(fs, current, next, depth);
+    if (rc == FAT_OK && *next != 0)
+        return FAT_OK;
+
+    if (current + 1 < FAT16_EOC) {
+        eprintf("fat16: fallback contiguous cluster %u -> %u", current, current + 1);
+        *next = current + 1;
+        return FAT_OK;
+    }
+
+    return rc;
+}
+
 
 uint16_t fat16_read_fat_fs(fat16_fs_t* fs, uint16_t cluster) {
     uint8_t buf[512];
@@ -504,7 +522,7 @@ int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size) {
     uint32_t start_cluster_index = f->pos / cluster_size;
     for (uint32_t i = 0; i < start_cluster_index; ++i) {
         uint16_t next = 0;
-        if (fat16_next_cluster_safe(f->fs, cluster, &next, &depth) != FAT_OK) {
+        if (fat16_next_cluster_with_fallback(f->fs, cluster, &next, &depth) != FAT_OK) {
             eprintf("fat16: seek walk failed pos=%x idx=%u cluster=%u", f->pos, start_cluster_index, cluster);
             return 0;
         }
@@ -539,7 +557,7 @@ int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size) {
             uint32_t cluster_index_after = f->pos / cluster_size;
             if (cluster_index_after != cluster_index_before) {
                 uint16_t next = 0;
-                if (fat16_next_cluster_safe(f->fs, cluster, &next, &depth) != FAT_OK) {
+                if (fat16_next_cluster_with_fallback(f->fs, cluster, &next, &depth) != FAT_OK) {
                     eprintf("fat16: short read pos=%x read=%u want=%u cluster=%u", f->pos, read, size, cluster);
                     return read;
                 }
