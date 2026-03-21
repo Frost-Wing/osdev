@@ -14,6 +14,7 @@
 #include <keyboard.h>
 #include <graphics.h>
 #include <memory.h>
+#include <stream.h>
 #include <userland.h>
 #include <filesystems/vfs.h>
 #include <executables/elf.h>
@@ -49,11 +50,6 @@ extern bool running; // from sh.c
 #define FW_SYS_PUTC      0x1002
 #define FW_SYS_LOGIN     0x1055
 
-#define PROC_MAX_FDS     32
-#define FD_STDIN         0
-#define FD_STDOUT        1
-#define FD_STDERR        2
-
 typedef struct {
     uint64_t iov_base;
     uint64_t iov_len;
@@ -67,47 +63,6 @@ typedef struct {
     char machine[65];
     char domainname[65];
 } linux_utsname_t;
-
-typedef struct {
-    bool used;
-    bool is_stdio;
-    vfs_file_t file;
-} fd_entry_t;
-
-static fd_entry_t fd_table[PROC_MAX_FDS];
-static bool fd_table_initialized = false;
-
-static void fd_table_init(void) {
-    if (fd_table_initialized)
-        return;
-
-    memset(fd_table, 0, sizeof(fd_table));
-    fd_table[FD_STDIN].used = true;
-    fd_table[FD_STDIN].is_stdio = true;
-    fd_table[FD_STDOUT].used = true;
-    fd_table[FD_STDOUT].is_stdio = true;
-    fd_table[FD_STDERR].used = true;
-    fd_table[FD_STDERR].is_stdio = true;
-
-    fd_table_initialized = true;
-}
-
-static int fd_alloc(void) {
-    for (int fd = 3; fd < PROC_MAX_FDS; ++fd) {
-        if (!fd_table[fd].used) {
-            fd_table[fd].used = true;
-            fd_table[fd].is_stdio = false;
-            memset(&fd_table[fd].file, 0, sizeof(vfs_file_t));
-            return fd;
-        }
-    }
-
-    return -1;
-}
-
-static bool fd_valid(int fd) {
-    return fd >= 0 && fd < PROC_MAX_FDS && fd_table[fd].used;
-}
 
 static int linux_flags_to_vfs(int linux_flags) {
     int vfs_flags = 0;
@@ -136,41 +91,6 @@ static int linux_flags_to_vfs(int linux_flags) {
     return vfs_flags;
 }
 
-static uint32_t fd_file_size(vfs_file_t* file) {
-    if (!file || !file->mnt)
-        return 0;
-
-    switch (file->mnt->type) {
-        case FS_FAT16:
-            return file->f.fat16.entry.filesize;
-        case FS_FAT32:
-            return file->f.fat32.entry.file_size;
-        case FS_ISO9660:
-            return file->f.iso9660.entry.size;
-        case FS_PROC:
-        default:
-            return 0;
-    }
-}
-
-static uint32_t* fd_pos_ptr(vfs_file_t* file) {
-    if (!file || !file->mnt)
-        return NULL;
-
-    switch (file->mnt->type) {
-        case FS_FAT16:
-            return &file->f.fat16.pos;
-        case FS_FAT32:
-            return &file->f.fat32.pos;
-        case FS_ISO9660:
-            return &file->f.iso9660.pos;
-        case FS_PROC:
-            return &file->pos;
-        default:
-            return NULL;
-    }
-}
-
 static int64 sys_open_common(int dirfd, const char* path, int flags, int mode) {
     (void)mode;
     fd_table_init();
@@ -181,13 +101,11 @@ static int64 sys_open_common(int dirfd, const char* path, int flags, int mode) {
     if (dirfd != LINUX_AT_FDCWD && dirfd != 0)
         return -LINUX_EINVAL;
 
-    int fd = fd_alloc();
-    if (fd < 0)
+    int fd = fd_open(path, linux_flags_to_vfs(flags));
+    if (fd == -1)
         return -LINUX_ENFILE;
 
-    int ret = vfs_open(path, linux_flags_to_vfs(flags), &fd_table[fd].file);
-    if (ret != 0) {
-        fd_table[fd].used = false;
+    if (fd == -2) {
         return -LINUX_ENOENT;
     }
 
@@ -200,13 +118,7 @@ static int64 sys_close(uint64_t fd) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
-    if ((int)fd >= 3)
-        vfs_close(&fd_table[fd].file);
-
-    if ((int)fd >= 3)
-        memset(&fd_table[fd], 0, sizeof(fd_entry_t));
-
-    return 0;
+    return fd_close((int)fd) == 0 ? 0 : -LINUX_EBADF;
 }
 
 static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
@@ -218,7 +130,12 @@ static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
-    if ((int)fd == FD_STDIN) {
+    int flags = fd_flags((int)fd);
+    if (!(flags & VFS_RDONLY) && !(flags & VFS_RDWR))
+        return -LINUX_EBADF;
+
+    vfs_file_t* file = fd_get_file((int)fd);
+    if (file == NULL) {
         for (uint64_t i = 0; i < count; ++i) {
             char c = getc_nonblock();
             buf[i] = c;
@@ -228,10 +145,7 @@ static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
         return (int64)count;
     }
 
-    if ((int)fd == FD_STDOUT || (int)fd == FD_STDERR)
-        return -LINUX_EBADF;
-
-    int rd = vfs_read(&fd_table[fd].file, (uint8_t*)buf, (uint32_t)count);
+    int rd = vfs_read(file, (uint8_t*)buf, (uint32_t)count);
     if (rd < 0)
         return -LINUX_EBADF;
 
@@ -247,16 +161,18 @@ static int64 sys_write(uint64_t fd, const char* buf, uint64_t count) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
-    if ((int)fd == FD_STDOUT || (int)fd == FD_STDERR) {
+    int flags = fd_flags((int)fd);
+    if (!(flags & VFS_WRONLY) && !(flags & VFS_RDWR))
+        return -LINUX_EBADF;
+
+    vfs_file_t* file = fd_get_file((int)fd);
+    if (file == NULL) {
         for (uint64_t i = 0; i < count; ++i)
             putc(buf[i]);
         return (int64)count;
     }
 
-    if ((int)fd == FD_STDIN)
-        return -LINUX_EBADF;
-
-    int wr = vfs_write(&fd_table[fd].file, (const uint8_t*)buf, (uint32_t)count);
+    int wr = vfs_write(file, (const uint8_t*)buf, (uint32_t)count);
     if (wr < 0)
         return -LINUX_EBADF;
 
@@ -281,10 +197,10 @@ static int64 sys_writev(uint64_t fd, const linux_iovec_t* iov, uint64_t iovcnt) 
 static int64 sys_lseek(uint64_t fd, int64_t offset, uint64_t whence) {
     fd_table_init();
 
-    if (!fd_valid((int)fd) || (int)fd < 3)
+    if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
-    uint32_t* pos = fd_pos_ptr(&fd_table[fd].file);
+    uint32_t* pos = fd_pos_ptr((int)fd);
     if (!pos)
         return -LINUX_EINVAL;
 
@@ -297,7 +213,7 @@ static int64 sys_lseek(uint64_t fd, int64_t offset, uint64_t whence) {
             base = *pos;
             break;
         case LINUX_SEEK_END:
-            base = fd_file_size(&fd_table[fd].file);
+            base = fd_file_size((int)fd);
             break;
         default:
             return -LINUX_EINVAL;
@@ -317,19 +233,11 @@ static int64 sys_dup2(uint64_t oldfd, uint64_t newfd) {
     if (!fd_valid((int)oldfd))
         return -LINUX_EBADF;
 
-    if (newfd >= PROC_MAX_FDS)
+    if (newfd >= STREAM_MAX_FDS)
         return -LINUX_EBADF;
 
-    if (oldfd == newfd)
-        return (int64)newfd;
-
-    if (fd_valid((int)newfd))
-        sys_close(newfd);
-
-    fd_table[newfd] = fd_table[oldfd];
-    fd_table[newfd].used = true;
-
-    return (int64)newfd;
+    int rc = fd_dup2((int)oldfd, (int)newfd);
+    return rc < 0 ? -LINUX_EBADF : (int64)rc;
 }
 
 static int64 sys_dup(uint64_t oldfd) {
@@ -338,14 +246,8 @@ static int64 sys_dup(uint64_t oldfd) {
     if (!fd_valid((int)oldfd))
         return -LINUX_EBADF;
 
-    int newfd = fd_alloc();
-    if (newfd < 0)
-        return -LINUX_ENFILE;
-
-    fd_table[newfd] = fd_table[oldfd];
-    fd_table[newfd].used = true;
-
-    return newfd;
+    int newfd = fd_dup((int)oldfd);
+    return newfd < 0 ? -LINUX_ENFILE : newfd;
 }
 
 static int64 sys_getcwd(char* buf, uint64_t size) {
