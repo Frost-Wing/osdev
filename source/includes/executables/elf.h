@@ -163,6 +163,15 @@ typedef struct {
     int64_t  r_addend; // Addend
 } Elf64_Rela;
 
+typedef struct {
+    uint64_t entry;
+    uint64_t phdr_addr;
+    uint16_t phentsize;
+    uint16_t phnum;
+} elf_image_info_t;
+
 void* elf_load_from_memory(void* file_base_address, uint64_t file_size);
 void* elf_load_from_vfs(const char* path);
+void* elf_load_from_memory_ex(void* file_base_address, uint64_t file_size, elf_image_info_t* info);
+void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info);
 #endif

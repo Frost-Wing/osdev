@@ -16,6 +16,22 @@
 #include <filesystems/vfs.h>
 #include <paging.h>
 
+static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum, uint64_t file_offset)
+{
+    for (uint16_t i = 0; i < phnum; ++i) {
+        Elf64_Phdr* ph = &headers[i];
+        if (ph->p_type != PT_LOAD || ph->p_filesz == 0)
+            continue;
+
+        uint64_t seg_start = ph->p_offset;
+        uint64_t seg_end = ph->p_offset + ph->p_filesz;
+        if (file_offset >= seg_start && file_offset < seg_end)
+            return ph->p_vaddr + (file_offset - ph->p_offset);
+    }
+
+    return 0;
+}
+
 static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file_size)
 {
     if (ph->p_type != PT_LOAD)
@@ -52,7 +68,7 @@ static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file
     return 0;
 }
 
-void* elf_load_from_memory(void* file_base_address, uint64_t file_size)
+void* elf_load_from_memory_ex(void* file_base_address, uint64_t file_size, elf_image_info_t* info)
 {
     if (file_base_address == NULL || file_size < sizeof(Elf64_Ehdr))
         return NULL;
@@ -86,10 +102,22 @@ void* elf_load_from_memory(void* file_base_address, uint64_t file_size)
         }
     }
 
+    if (info) {
+        info->entry = header.e_entry;
+        info->phdr_addr = elf_runtime_addr_for_offset(program_headers_start, header.e_phnum, header.e_phoff);
+        info->phentsize = header.e_phentsize;
+        info->phnum = header.e_phnum;
+    }
+
     return (void*)header.e_entry;
 }
 
-void* elf_load_from_vfs(const char* path)
+void* elf_load_from_memory(void* file_base_address, uint64_t file_size)
+{
+    return elf_load_from_memory_ex(file_base_address, file_size, NULL);
+}
+
+void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
 {
     if (!path)
         return NULL;
@@ -135,7 +163,12 @@ void* elf_load_from_vfs(const char* path)
         return NULL;
     }
 
-    void* entry = elf_load_from_memory(image, size);
+    void* entry = elf_load_from_memory_ex(image, size, info);
     kfree(image);
     return entry;
+}
+
+void* elf_load_from_vfs(const char* path)
+{
+    return elf_load_from_vfs_ex(path, NULL);
 }
