@@ -140,6 +140,7 @@ typedef struct {
     uint8_t is_dir;
 } fat32_file_t;
 
+uint32_t fat32_read_fat(fat32_fs_t* fs, uint32_t cluster);
 int fat32_find_path(fat32_fs_t* fs, const char* path, fat32_dir_entry_t* out);
 void fat32_list_root(fat32_fs_t* fs);
 void fat32_list_dir_cluster(fat32_fs_t* fs, uint32_t cluster);

@@ -39,6 +39,20 @@ static int elf_vfs_seek(vfs_file_t* file, uint32_t offset)
     if (!pos)
         return -1;
 
+    if (file->mnt->type == FS_FAT32) {
+        fat32_file_t* fat32 = &file->f.fat32;
+        uint32_t cluster_size = fat32->fs->sectors_per_cluster * FAT32_SECTOR_SIZE;
+        uint32_t cluster = fat32->start_cluster;
+        uint32_t steps = cluster_size ? (offset / cluster_size) : 0;
+
+        while (steps > 0 && cluster < FAT32_CLUSTER_EOC) {
+            cluster = fat32_read_fat(fat32->fs, cluster);
+            steps--;
+        }
+
+        fat32->current_cluster = cluster;
+    }
+
     *pos = offset;
     return 0;
 }
@@ -50,6 +64,17 @@ static int elf_vfs_read_exact(vfs_file_t* file, uint32_t offset, void* buf, uint
 
     int rd = vfs_read(file, (uint8_t*)buf, size);
     return (rd >= 0 && (uint32_t)rd == size) ? 0 : -1;
+}
+
+static int elf_vfs_read_exact_path(const char* path, uint32_t offset, void* buf, uint32_t size)
+{
+    vfs_file_t file;
+    if (vfs_open(path, VFS_RDONLY, &file) != 0)
+        return -1;
+
+    int rc = elf_vfs_read_exact(&file, offset, buf, size);
+    vfs_close(&file);
+    return rc;
 }
 
 static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum, uint64_t file_offset)
@@ -123,7 +148,7 @@ static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file
     return 0;
 }
 
-static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, vfs_file_t* file, uint64_t file_size)
+static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uint64_t file_size)
 {
     if (ph->p_type != PT_LOAD)
         return 0;
@@ -148,7 +173,7 @@ static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, vfs_file_t* file, uin
     }
 
     if (ph->p_filesz != 0) {
-        if (elf_vfs_read_exact(file, (uint32_t)ph->p_offset, (void*)ph->p_vaddr, (uint32_t)ph->p_filesz) != 0) {
+        if (elf_vfs_read_exact_path(path, (uint32_t)ph->p_offset, (void*)ph->p_vaddr, (uint32_t)ph->p_filesz) != 0) {
             eprintf("elf: failed to read segment");
             return -1;
         }
@@ -250,17 +275,18 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
         return NULL;
     }
 
-    if (elf_vfs_read_exact(&file, (uint32_t)header.e_phoff, program_headers, (uint32_t)phdr_bytes) != 0) {
+    if (elf_vfs_read_exact_path(path, (uint32_t)header.e_phoff, program_headers, (uint32_t)phdr_bytes) != 0) {
         eprintf("elf: failed to read program headers");
         kfree(program_headers);
         vfs_close(&file);
         return NULL;
     }
 
+    vfs_close(&file);
+
     for (uint16_t i = 0; i < header.e_phnum; ++i) {
-        if (elf_map_program_header_from_vfs(&program_headers[i], &file, size) != 0) {
+        if (elf_map_program_header_from_vfs(&program_headers[i], path, size) != 0) {
             kfree(program_headers);
-            vfs_close(&file);
             return NULL;
         }
     }
@@ -273,7 +299,6 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
     }
 
     kfree(program_headers);
-    vfs_close(&file);
     void* entry = (void*)header.e_entry;
     return entry;
 }
