@@ -243,12 +243,6 @@ int shell_main(int argc, char** argv){
     return 0;
 }
 
-typedef struct {
-    vfs_file_t* file;   // NULL → terminal
-} stream_impl_t;
-
-extern stream_impl_t streams[];
-
 static void apply_redirection(redir_t* r,
                               vfs_file_t** old_out,
                               vfs_file_t** old_err)
@@ -274,7 +268,7 @@ static void apply_redirection(redir_t* r,
     /* ---------- STDOUT ---------- */
     if (r->redirect_stdout) {
         if (old_out)
-            *old_out = streams[STDOUT].file;
+            *old_out = stream_get_file(STDOUT);
 
         stream_set_file(STDOUT, &file_handle);
     }
@@ -282,7 +276,7 @@ static void apply_redirection(redir_t* r,
     /* ---------- STDERR ---------- */
     if (r->redirect_stderr) {
         if (old_err)
-            *old_err = streams[STDERR].file;
+            *old_err = stream_get_file(STDERR);
 
         stream_set_file(STDERR, &file_handle);
     }
