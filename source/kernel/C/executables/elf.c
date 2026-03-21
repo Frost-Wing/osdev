@@ -148,7 +148,7 @@ static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file
     return 0;
 }
 
-static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uint64_t file_size)
+static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uint64_t file_size, uint16_t seg_index)
 {
     if (ph->p_type != PT_LOAD)
         return 0;
@@ -172,9 +172,54 @@ static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uin
         map_user_page(page, phys, page_flags);
     }
 
+    printf("elf: seg %u off=%x vaddr=%x filesz=%u memsz=%u",
+           seg_index,
+           ph->p_offset,
+           ph->p_vaddr,
+           ph->p_filesz,
+           ph->p_memsz);
+
     if (ph->p_filesz != 0) {
-        if (elf_vfs_read_exact_path(path, (uint32_t)ph->p_offset, (void*)ph->p_vaddr, (uint32_t)ph->p_filesz) != 0) {
-            eprintf("elf: failed to read segment");
+        vfs_file_t file;
+        if (vfs_open(path, VFS_RDONLY, &file) != 0) {
+            eprintf("elf: seg %u reopen failed", seg_index);
+            return -1;
+        }
+
+        if (elf_vfs_seek(&file, (uint32_t)ph->p_offset) != 0) {
+            vfs_close(&file);
+            eprintf("elf: seg %u seek failed", seg_index);
+            return -1;
+        }
+
+        uint8_t chunk[4096];
+        uint64_t copied = 0;
+        while (copied < ph->p_filesz) {
+            uint32_t remaining = (uint32_t)(ph->p_filesz - copied);
+            uint32_t want = remaining > sizeof(chunk) ? sizeof(chunk) : remaining;
+            int rd = vfs_read(&file, chunk, want);
+            if (rd < 0 || (uint32_t)rd != want) {
+                vfs_close(&file);
+                eprintf("elf: seg %u short read off=%x want=%u got=%d copied=%u/%u",
+                        seg_index,
+                        ph->p_offset + copied,
+                        want,
+                        rd,
+                        copied,
+                        ph->p_filesz);
+                return -1;
+            }
+
+            memcpy((void*)(ph->p_vaddr + copied), chunk, want);
+            copied += want;
+        }
+
+        vfs_close(&file);
+        if (copied != ph->p_filesz) {
+            eprintf("elf: seg %u copy mismatch copied=%u expected=%u",
+                    seg_index,
+                    copied,
+                    ph->p_filesz);
             return -1;
         }
     }
@@ -285,7 +330,7 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
     vfs_close(&file);
 
     for (uint16_t i = 0; i < header.e_phnum; ++i) {
-        if (elf_map_program_header_from_vfs(&program_headers[i], path, size) != 0) {
+        if (elf_map_program_header_from_vfs(&program_headers[i], path, size, i) != 0) {
             kfree(program_headers);
             return NULL;
         }
