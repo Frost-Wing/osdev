@@ -24,6 +24,7 @@
 #define USER_STACK_TOP   0x00007FFFFFFFF000ULL // near top of canonical lower half
 
 void enter_userland_at(uint64_t entry_point);
+int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp);
 void userland_heap_init(void);
 uint64_t userland_brk(uint64_t requested_break);
 uint64_t userland_mmap_anon(uint64_t length);
