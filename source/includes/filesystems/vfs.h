@@ -12,7 +12,7 @@
 #define VFS_H
 
 #include <graphics.h>
-#include <ahci.h>
+#include <filesystems/fat.h>
 #include <filesystems/fat16.h>
 #include <filesystems/fat32.h>
 #include <filesystems/iso9660.h>

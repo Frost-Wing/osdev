@@ -11,7 +11,6 @@
 
 #include <filesystems/fat16.h>
 #include <strings.h>
-#include <ahci.h>
 
 static int fat16_is_reserved_name(cstring name) {
     return strcmp(name, ".") == 0 || strcmp(name, "..") == 0;
