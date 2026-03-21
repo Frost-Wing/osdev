@@ -16,7 +16,6 @@
 #include <graphics.h>
 #include <ahci.h>
 #include <filesystems/fat.h>
-#include <filesystems/vfs.h>
 
 #define FAT16_EOC 0xFFF8
 #define FAT16_ROOT_CLUSTER 0
