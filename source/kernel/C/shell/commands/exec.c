@@ -22,15 +22,23 @@ int cmd_exec(int argc, char** argv)
     }
 
     const char* path = argv[1];
+    const char* user_argv[34];
+    int user_argc = 0;
 
-    void* entry = elf_load_from_vfs(path);
+    for (int i = 1; i < argc && user_argc < 33; ++i)
+        user_argv[user_argc++] = argv[i];
 
-    if(!entry)
-    {
+    const char* basename = vfs_basename(path);
+    if (user_argc == 1 &&
+        (strcmp(basename, "busybox") == 0 || strcmp(basename, "BUSYBOX") == 0))
+        user_argv[user_argc++] = "ash";
+
+    user_argv[user_argc] = NULL;
+
+    if (userland_exec(path, user_argc, user_argv, NULL) != 0) {
         printf("exec: failed to load ELF");
         return -1;
     }
-    
-    enter_userland_at((uint64_t)entry);
+
     return 0;
 }
