@@ -26,8 +26,10 @@ void stream_init(void);
  * 
  * @param s the stream type.
  * @param file If file is 'null' then output will be in terminal.
+ * 
+ * @returns File descriptor of the given file.
  */
-// void stream_set_file(stream_t s, vfs_file_t* file);
+// int stream_set_file(stream_t s, vfs_file_t* file);
 
 
 void stream_write(stream_t s, const char* buf, size_t len);

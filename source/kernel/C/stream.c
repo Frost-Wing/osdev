@@ -17,21 +17,36 @@
 extern struct flanterm_context* ft_ctx;
 
 typedef struct {
+    int index;
     vfs_file_t* file;   // NULL → terminal
 } stream_impl_t;
 
-stream_impl_t streams[3];
+stream_impl_t streams[256];
+int next_fd_index = 0;
 
 void stream_init(void)
 {
     streams[STDIN].file  = NULL;
+    streams[STDIN].index = STDIN;
+    next_fd_index++;
+
     streams[STDOUT].file = NULL;
+    streams[STDOUT].index = STDOUT;
+    next_fd_index++;
+
     streams[STDERR].file = NULL;
+    streams[STDERR].index = STDERR;
+    next_fd_index++;
 }
 
-void stream_set_file(stream_t s, vfs_file_t* file)
+int stream_set_file(stream_t s, vfs_file_t* file)
 {
     streams[s].file = file;
+    streams[s].index = next_fd_index;
+    int last_fd = next_fd_index;
+    next_fd_index++;
+
+    return last_fd;
 }
 
 void stream_write(stream_t s, const char* buf, size_t len)
