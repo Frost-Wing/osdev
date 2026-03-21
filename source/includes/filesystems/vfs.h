@@ -11,8 +11,6 @@
 #ifndef VFS_H
 #define VFS_H
 
-#include <graphics.h>
-#include <filesystems/fat.h>
 #include <filesystems/fat16.h>
 #include <filesystems/fat32.h>
 #include <filesystems/iso9660.h>
