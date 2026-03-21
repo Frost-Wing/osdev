@@ -24,6 +24,7 @@
 #include <executables/elf.h>
 #include <ahci.h>
 #include <rtc.h>
+#include <heap.h>
 
 extern struct limine_framebuffer *framebuffer;
 extern int64* font_address;
@@ -72,6 +73,11 @@ extern bool running; // from sh.c
 
 #define LINUX_TIOCGWINSZ 0x5413
 #define LINUX_TCGETS     0x5401
+#define LINUX_TCSETS     0x5402
+#define LINUX_TCSETSW    0x5403
+#define LINUX_TCSETSF    0x5404
+#define LINUX_TIOCGPGRP  0x540F
+#define LINUX_TIOCSPGRP  0x5410
 
 #define LINUX_ARCH_SET_FS 0x1002
 #define LINUX_ARCH_GET_FS 0x1003
@@ -188,6 +194,50 @@ typedef struct {
 
 static char current_exec_path[256] = "/";
 static uint64_t current_fs_base = 0;
+
+static void free_copied_string_array(char** arr, int count) {
+    if (!arr)
+        return;
+
+    for (int i = 0; i < count; ++i)
+        kfree(arr[i]);
+
+    kfree(arr);
+}
+
+static int copy_user_string_array(char* const* user_arr, char*** out_arr) {
+    if (!user_arr) {
+        *out_arr = NULL;
+        return 0;
+    }
+
+    char** copied = kmalloc(sizeof(char*) * 33);
+    if (!copied)
+        return -LINUX_ENOMEM;
+
+    int count = 0;
+    for (; count < 32; ++count) {
+        const char* src = user_arr[count];
+        if (!src) {
+            copied[count] = NULL;
+            *out_arr = copied;
+            return count;
+        }
+
+        size_t len = strlen(src);
+        copied[count] = kmalloc(len + 1);
+        if (!copied[count]) {
+            free_copied_string_array(copied, count);
+            return -LINUX_ENOMEM;
+        }
+
+        memcpy(copied[count], src, len + 1);
+    }
+
+    copied[32] = NULL;
+    *out_arr = copied;
+    return 32;
+}
 
 static inline uint64_t syscall_arg4(InterruptFrame* frame) {
     return frame->r10 ? frame->r10 : frame->rcx;
@@ -824,6 +874,17 @@ static int64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
             memset(tio, 0, sizeof(*tio));
             return 0;
         }
+        case LINUX_TCSETS:
+        case LINUX_TCSETSW:
+        case LINUX_TCSETSF:
+            return arg ? 0 : -LINUX_EINVAL;
+        case LINUX_TIOCGPGRP:
+            if (!arg)
+                return -LINUX_EINVAL;
+            *(int*)arg = 1;
+            return 0;
+        case LINUX_TIOCSPGRP:
+            return arg ? 0 : -LINUX_EINVAL;
         default:
             return -LINUX_ENOTTY;
     }
@@ -1073,19 +1134,28 @@ static int64 sys_getrandom(void* buf, uint64_t buflen, uint64_t flags) {
 }
 
 static int64 sys_execve(const char* target, char* const* argv, char* const* envp) {
-    (void)argv;
-    (void)envp;
-
     if (!target)
         return -LINUX_EINVAL;
 
     snprintf(current_exec_path, sizeof(current_exec_path), "%s", target);
 
-    void* entry = elf_load_from_vfs(target);
-    if (entry) {
-        enter_userland_at((uint64_t)entry);
-        return 0;
+    char** copied_argv = NULL;
+    char** copied_envp = NULL;
+    int argc = copy_user_string_array(argv, &copied_argv);
+    if (argc < 0)
+        return argc;
+
+    int envc = copy_user_string_array(envp, &copied_envp);
+    if (envc < 0) {
+        free_copied_string_array(copied_argv, argc);
+        return envc;
     }
+
+    if (userland_exec(target, argc, (const char* const*)copied_argv, (const char* const*)copied_envp) == 0)
+        return 0;
+
+    free_copied_string_array(copied_argv, argc);
+    free_copied_string_array(copied_envp, envc);
 
     int rc = execute_chain(target);
     return rc >= 0 ? rc : -LINUX_ENOEXEC;
