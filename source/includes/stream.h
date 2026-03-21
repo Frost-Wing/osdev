@@ -15,14 +15,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef struct vfs_file vfs_file_t;
+
 typedef enum {
     STDIN  = 0,
     STDOUT = 1,
     STDERR = 2
 } stream_t;
-
-// #include <ahci.h>
-// #include <filesystems/vfs.h>
 
 #define STREAM_MAX_FDS 256
 
@@ -47,7 +46,7 @@ void stream_putc(stream_t s, char c);
 
 void fd_table_init(void);
 bool fd_valid(int fd);
-// vfs_file_t* fd_get_file(int fd);
+vfs_file_t* fd_get_file(int fd);
 int fd_open(const char* path, int flags);
 int fd_close(int fd);
 int fd_dup(int oldfd);
