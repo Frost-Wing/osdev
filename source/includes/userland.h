@@ -21,6 +21,7 @@
 #define USER_CODE_VADDR  0x0000400000000000ULL // canonical user space, isolated PML4 slot
 #define USER_HEAP_VADDR  0x0000400010000000ULL // user heap right above code region
 #define USER_MMAP_VADDR  (USER_HEAP_VADDR + USER_HEAP_SIZE)
+#define USER_TLS_VADDR   (USER_MMAP_VADDR + USER_MMAP_SIZE)
 #define USER_STACK_TOP   0x00007FFFFFFFF000ULL // near top of canonical lower half
 
 void enter_userland_at(uint64_t entry_point);
