@@ -390,54 +390,7 @@ void enter_userland_at(uint64_t code_entry) {
         : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
     );
 
-    return 0;
-}
-
-int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp) {
-    elf_image_info_t image_info = {0};
-    void* entry = elf_load_from_vfs_ex(path, &image_info);
-    if (!entry)
-        return -1;
-
-    map_user_stack();
-    userland_heap_init();
-    init_user_tls();
-
-    uint64_t stack_top = build_initial_user_stack(path, argc, argv, envp, &image_info);
-
-    debug_printf("userland: exec path=%s entry=%x phdr=%x phentsz=%u phnum=%u stack=%x\n",
-                 path,
-                 entry,
-                 image_info.phdr_addr,
-                 image_info.phentsize,
-                 image_info.phnum,
-                 stack_top);
-    debug_dump_initial_stack(stack_top);
-
-    asm volatile (
-        "cli\n"
-        "mov %0, %%r11\n"
-        "mov %1, %%r10\n"
-        "xor %%rax, %%rax\n"
-        "xor %%rbx, %%rbx\n"
-        "xor %%rcx, %%rcx\n"
-        "xor %%rdx, %%rdx\n"
-        "xor %%rsi, %%rsi\n"
-        "xor %%rdi, %%rdi\n"
-        "xor %%r8, %%r8\n"
-        "xor %%r9, %%r9\n"
-        "pushq $0x23\n"
-        "pushq %%r11\n"
-        "pushq $0x202\n"
-        "pushq $0x1B\n"
-        "pushq %%r10\n"
-        "iretq\n"
-        :
-        : "r"(stack_top), "r"((uint64_t)entry)
-        : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
-    );
-
-    return 0;
+    return;
 }
 
 int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp) {
