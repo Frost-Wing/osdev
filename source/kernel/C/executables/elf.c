@@ -78,22 +78,6 @@ static int elf_vfs_read_exact_path(const char* path, uint32_t offset, void* buf,
     return rc;
 }
 
-static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum, uint64_t file_offset)
-{
-    for (uint16_t i = 0; i < phnum; ++i) {
-        Elf64_Phdr* ph = &headers[i];
-        if (ph->p_type != PT_LOAD || ph->p_filesz == 0)
-            continue;
-
-        uint64_t seg_start = ph->p_offset;
-        uint64_t seg_end = ph->p_offset + ph->p_filesz;
-        if (file_offset >= seg_start && file_offset < seg_end)
-            return ph->p_vaddr + (file_offset - ph->p_offset);
-    }
-
-    return 0;
-}
-
 static uint64_t elf_stage_phdrs_for_user(Elf64_Phdr* headers, uint64_t phdr_bytes)
 {
     if (!headers || phdr_bytes == 0)
@@ -110,86 +94,6 @@ static uint64_t elf_stage_phdrs_for_user(Elf64_Phdr* headers, uint64_t phdr_byte
     memset((void*)base, 0, aligned);
     memcpy((void*)base, headers, phdr_bytes);
     return base;
-}
-
-static int elf_validate_header(const Elf64_Ehdr* header, uint64_t file_size)
-{
-    if (memcmp(&header->e_ident[EI_MAG0], ELFMAG, SELFMAG) != 0 || header->e_ident[EI_CLASS] != ELFCLASS64 ||
-        header->e_ident[EI_DATA] != ELFDATA2LSB || header->e_type != ET_EXEC ||
-        header->e_machine != EM_X86_64 || header->e_version != EV_CURRENT)
-    {
-        error("Not a valid ELF file to load!", __FILE__);
-        return -1;
-    }
-
-    if (header->e_phoff + ((uint64_t)header->e_phnum * header->e_phentsize) > file_size ||
-        header->e_phentsize != sizeof(Elf64_Phdr)) {
-        eprintf("elf: invalid program header table");
-        return -1;
-    }
-
-    return 0;
-}
-
-static uint32_t* elf_vfs_pos_ptr(vfs_file_t* file)
-{
-    if (!file || !file->mnt)
-        return NULL;
-
-    switch (file->mnt->type) {
-        case FS_FAT16:
-            return &file->f.fat16.pos;
-        case FS_FAT32:
-            return &file->f.fat32.pos;
-        case FS_ISO9660:
-            return &file->f.iso9660.pos;
-        default:
-            return NULL;
-    }
-}
-
-static int elf_vfs_seek(vfs_file_t* file, uint32_t offset)
-{
-    uint32_t* pos = elf_vfs_pos_ptr(file);
-    if (!pos)
-        return -1;
-
-    if (file->mnt->type == FS_FAT32) {
-        fat32_file_t* fat32 = &file->f.fat32;
-        uint32_t cluster_size = fat32->fs->sectors_per_cluster * FAT32_SECTOR_SIZE;
-        uint32_t cluster = fat32->start_cluster;
-        uint32_t steps = cluster_size ? (offset / cluster_size) : 0;
-
-        while (steps > 0 && cluster < FAT32_CLUSTER_EOC) {
-            cluster = fat32_read_fat(fat32->fs, cluster);
-            steps--;
-        }
-
-        fat32->current_cluster = cluster;
-    }
-
-    *pos = offset;
-    return 0;
-}
-
-static int elf_vfs_read_exact(vfs_file_t* file, uint32_t offset, void* buf, uint32_t size)
-{
-    if (elf_vfs_seek(file, offset) != 0)
-        return -1;
-
-    int rd = vfs_read(file, (uint8_t*)buf, size);
-    return (rd >= 0 && (uint32_t)rd == size) ? 0 : -1;
-}
-
-static int elf_vfs_read_exact_path(const char* path, uint32_t offset, void* buf, uint32_t size)
-{
-    vfs_file_t file;
-    if (vfs_open(path, VFS_RDONLY, &file) != 0)
-        return -1;
-
-    int rc = elf_vfs_read_exact(&file, offset, buf, size);
-    vfs_close(&file);
-    return rc;
 }
 
 static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum, uint64_t file_offset)
