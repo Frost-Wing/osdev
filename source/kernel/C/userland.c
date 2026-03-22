@@ -24,6 +24,18 @@
 #define LINUX_AT_SECURE  23
 #define LINUX_AT_RANDOM  25
 #define LINUX_AT_EXECFN  31
+#define IA32_FS_BASE_MSR 0xC0000100
+
+typedef struct {
+    uint64_t tcb;
+    uint64_t dtv;
+    uint64_t self;
+    uint32_t multiple_threads;
+    uint32_t gscope_flag;
+    uint64_t sysinfo;
+    uint64_t stack_guard;
+    uint64_t pointer_guard;
+} glibc_tcb_stub_t;
 
 typedef struct {
     uint64_t key;
@@ -41,6 +53,12 @@ static uint64_t rdtsc64_local(void) {
     uint32_t hi = 0;
     asm volatile ("rdtsc" : "=a"(lo), "=d"(hi));
     return ((uint64_t)hi << 32) | lo;
+}
+
+static inline void wrmsr64_local(uint32_t msr, uint64_t value) {
+    uint32_t low = (uint32_t)value;
+    uint32_t high = (uint32_t)(value >> 32);
+    asm volatile("wrmsr" : : "c"(msr), "a"(low), "d"(high));
 }
 
 static uint64_t push_bytes_to_stack(uint64_t* stack_ptr, const void* src, uint64_t len) {
@@ -160,6 +178,26 @@ static uint64_t build_initial_user_stack(const char* exec_path,
     return frame_ptr;
 }
 
+static void init_user_tls(void) {
+    uint64_t phys = allocate_page();
+    map_user_page(USER_TLS_VADDR, phys, USER_DATA_FLAGS);
+    memset((void*)USER_TLS_VADDR, 0, PAGE_SIZE);
+
+    glibc_tcb_stub_t* tcb = (glibc_tcb_stub_t*)USER_TLS_VADDR;
+    uint64_t guard = rdtsc64_local() ^ 0x9e3779b97f4a7c15ULL;
+
+    tcb->tcb = USER_TLS_VADDR;
+    tcb->dtv = USER_TLS_VADDR + 0x80;
+    tcb->self = USER_TLS_VADDR;
+    tcb->multiple_threads = 0;
+    tcb->gscope_flag = 0;
+    tcb->sysinfo = 0;
+    tcb->stack_guard = guard;
+    tcb->pointer_guard = guard ^ 0xfeedfacecafebeefULL;
+
+    wrmsr64_local(IA32_FS_BASE_MSR, USER_TLS_VADDR);
+}
+
 static void map_user_stack(void) {
     uint64_t stack_top = USER_STACK_TOP;
 
@@ -233,21 +271,70 @@ void enter_userland_at(uint64_t code_entry) {
 
     map_user_stack();
     userland_heap_init();
+    init_user_tls();
 
     // printf("Switching to userland at 0x%x with stack 0x%x", code_entry, stack_top);
 
     asm volatile (
         "cli\n"
-        "pushq $0x23\n"        // User SS
-        "pushq %0\n"           // User RSP
-        "pushq $0x202\n"       // RFLAGS (IF = 1)
-        "pushq $0x1B\n"        // User CS
-        "pushq %1\n"           // User RIP
+        "mov %0, %%r11\n"
+        "mov %1, %%r10\n"
+        "xor %%rax, %%rax\n"
+        "xor %%rbx, %%rbx\n"
+        "xor %%rcx, %%rcx\n"
+        "xor %%rdx, %%rdx\n"
+        "xor %%rsi, %%rsi\n"
+        "xor %%rdi, %%rdi\n"
+        "xor %%r8, %%r8\n"
+        "xor %%r9, %%r9\n"
+        "pushq $0x23\n"
+        "pushq %%r11\n"
+        "pushq $0x202\n"
+        "pushq $0x1B\n"
+        "pushq %%r10\n"
         "iretq\n"
         :
         : "r"(stack_top), "r"(code_entry)
-        : "memory"
+        : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
     );
+}
+
+int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp) {
+    elf_image_info_t image_info = {0};
+    void* entry = elf_load_from_vfs_ex(path, &image_info);
+    if (!entry)
+        return -1;
+
+    map_user_stack();
+    userland_heap_init();
+    init_user_tls();
+
+    uint64_t stack_top = build_initial_user_stack(path, argc, argv, envp, &image_info);
+
+    asm volatile (
+        "cli\n"
+        "mov %0, %%r11\n"
+        "mov %1, %%r10\n"
+        "xor %%rax, %%rax\n"
+        "xor %%rbx, %%rbx\n"
+        "xor %%rcx, %%rcx\n"
+        "xor %%rdx, %%rdx\n"
+        "xor %%rsi, %%rsi\n"
+        "xor %%rdi, %%rdi\n"
+        "xor %%r8, %%r8\n"
+        "xor %%r9, %%r9\n"
+        "pushq $0x23\n"
+        "pushq %%r11\n"
+        "pushq $0x202\n"
+        "pushq $0x1B\n"
+        "pushq %%r10\n"
+        "iretq\n"
+        :
+        : "r"(stack_top), "r"((uint64_t)entry)
+        : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
+    );
+
+    return 0;
 }
 
 int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp) {
