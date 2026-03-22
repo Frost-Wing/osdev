@@ -334,6 +334,8 @@ void enter_userland_at(uint64_t code_entry) {
         : "r"(stack_top), "r"(code_entry)
         : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
     );
+
+    return 0;
 }
 
 int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp) {
