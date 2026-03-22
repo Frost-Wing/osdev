@@ -46,7 +46,7 @@ void paging_set_hhdm_offset(uint64_t offset);
 uintptr_t allocate_page(void);
 uintptr_t allocate_pages(size_t count);
 uint64_t virtual_to_physical(uint64_t virt);
-
+uint64_t fast_virt_to_phys(void* v);
 uint64_t virt_to_phys(void* v);
 
 #endif
