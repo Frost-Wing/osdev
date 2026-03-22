@@ -110,6 +110,7 @@ typedef struct {
 } Elf64_Phdr;
 
 #define PT_LOAD 1
+#define PT_TLS  7
 
 #define PF_X 0x1
 #define PF_W 0x2
@@ -168,6 +169,11 @@ typedef struct {
     uint64_t phdr_addr;
     uint16_t phentsize;
     uint16_t phnum;
+    uint64_t tls_offset;
+    uint64_t tls_filesz;
+    uint64_t tls_memsz;
+    uint64_t tls_align;
+    void* tls_template;
 } elf_image_info_t;
 
 void* elf_load_from_memory(void* file_base_address, uint64_t file_size);
