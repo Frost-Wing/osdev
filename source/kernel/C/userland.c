@@ -78,6 +78,18 @@ static uint64_t user_heap_mapped_end = USER_HEAP_VADDR;
 static uint64_t user_mmap_cursor = USER_MMAP_VADDR;
 static uint64_t user_mmap_end = USER_MMAP_VADDR;
 
+static void debug_dump_initial_stack(uint64_t stack_top) {
+    uint64_t* words = (uint64_t*)stack_top;
+    debug_printf("userland: initial rsp=%x argc=%u argv0=%x argv1=%x env0=%x aux0=%x aux1=%x\n",
+                 stack_top,
+                 (uint32_t)words[0],
+                 words[1],
+                 words[2],
+                 words[(uint32_t)words[0] + 2],
+                 words[(uint32_t)words[0] + 4],
+                 words[(uint32_t)words[0] + 5]);
+}
+
 static uint64_t rdtsc64_local(void) {
     uint32_t lo = 0;
     uint32_t hi = 0;
@@ -232,6 +244,12 @@ static void init_user_tls(void) {
     tcb->feature_1 = 0;
     tcb->ssp_base = 0;
 
+    debug_printf("userland: tls base=%x dtv=%x stack_guard=%x pointer_guard=%x\n",
+                 USER_TLS_VADDR,
+                 tcb->dtv,
+                 tcb->stack_guard,
+                 tcb->pointer_guard);
+
     wrmsr64_local(IA32_FS_BASE_MSR, USER_TLS_VADDR);
 }
 
@@ -349,6 +367,53 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
     init_user_tls();
 
     uint64_t stack_top = build_initial_user_stack(path, argc, argv, envp, &image_info);
+
+    asm volatile (
+        "cli\n"
+        "mov %0, %%r11\n"
+        "mov %1, %%r10\n"
+        "xor %%rax, %%rax\n"
+        "xor %%rbx, %%rbx\n"
+        "xor %%rcx, %%rcx\n"
+        "xor %%rdx, %%rdx\n"
+        "xor %%rsi, %%rsi\n"
+        "xor %%rdi, %%rdi\n"
+        "xor %%r8, %%r8\n"
+        "xor %%r9, %%r9\n"
+        "pushq $0x23\n"
+        "pushq %%r11\n"
+        "pushq $0x202\n"
+        "pushq $0x1B\n"
+        "pushq %%r10\n"
+        "iretq\n"
+        :
+        : "r"(stack_top), "r"((uint64_t)entry)
+        : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
+    );
+
+    return 0;
+}
+
+int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp) {
+    elf_image_info_t image_info = {0};
+    void* entry = elf_load_from_vfs_ex(path, &image_info);
+    if (!entry)
+        return -1;
+
+    map_user_stack();
+    userland_heap_init();
+    init_user_tls();
+
+    uint64_t stack_top = build_initial_user_stack(path, argc, argv, envp, &image_info);
+
+    debug_printf("userland: exec path=%s entry=%x phdr=%x phentsz=%u phnum=%u stack=%x\n",
+                 path,
+                 entry,
+                 image_info.phdr_addr,
+                 image_info.phentsize,
+                 image_info.phnum,
+                 stack_top);
+    debug_dump_initial_stack(stack_top);
 
     asm volatile (
         "cli\n"
