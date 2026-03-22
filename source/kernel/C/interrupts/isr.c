@@ -16,8 +16,25 @@
 
 irq_handler interrupt_handlers[256];
 
+static void log_page_fault_details(InterruptFrame* frame) {
+    if (!frame || frame->int_no != 14)
+        return;
+
+    uint64_t err = frame->err_code;
+    eprintf("pagefault: rip=0x%X addr=0x%X err=0x%X present=%d write=%d user=%d reserved=%d fetch=%d",
+            frame->rip,
+            getCR2(),
+            err,
+            (int)(err & 0x1),
+            (int)((err >> 1) & 0x1),
+            (int)((err >> 2) & 0x1),
+            (int)((err >> 3) & 0x1),
+            (int)((err >> 4) & 0x1));
+}
+
 void exceptionHandler(InterruptFrame* frame) {
     enable_logging = false; // disables logger as fast as it can to get the last instance of panic.
+    log_page_fault_details(frame);
     
 	switch (frame->int_no) {
         case 0:
