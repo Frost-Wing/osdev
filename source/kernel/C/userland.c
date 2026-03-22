@@ -336,30 +336,3 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
 
     return 0;
 }
-
-int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp) {
-    elf_image_info_t image_info = {0};
-    void* entry = elf_load_from_vfs_ex(path, &image_info);
-    if (!entry)
-        return -1;
-
-    map_user_stack();
-    userland_heap_init();
-
-    uint64_t stack_top = build_initial_user_stack(path, argc, argv, envp, &image_info);
-
-    asm volatile (
-        "cli\n"
-        "pushq $0x23\n"
-        "pushq %0\n"
-        "pushq $0x202\n"
-        "pushq $0x1B\n"
-        "pushq %1\n"
-        "iretq\n"
-        :
-        : "r"(stack_top), "r"((uint64_t)entry)
-        : "memory"
-    );
-
-    return 0;
-}
