@@ -103,6 +103,16 @@ static inline void wrmsr64_local(uint32_t msr, uint64_t value) {
     asm volatile("wrmsr" : : "c"(msr), "a"(low), "d"(high));
 }
 
+static uint64_t align_up_u64(uint64_t value, uint64_t align) {
+    if (align <= 1)
+        return value;
+    return (value + align - 1) & ~(align - 1);
+}
+
+static uint64_t max_u64(uint64_t a, uint64_t b) {
+    return a > b ? a : b;
+}
+
 static uint64_t push_bytes_to_stack(uint64_t* stack_ptr, const void* src, uint64_t len) {
     *stack_ptr -= len;
     memcpy((void*)*stack_ptr, src, len);
@@ -220,22 +230,43 @@ static uint64_t build_initial_user_stack(const char* exec_path,
     return frame_ptr;
 }
 
-static void init_user_tls(void) {
-    uint64_t phys = allocate_page();
-    map_user_page(USER_TLS_VADDR, phys, USER_DATA_FLAGS);
-    memset((void*)USER_TLS_VADDR, 0, PAGE_SIZE);
-
-    glibc_tls_block_t* tls = (glibc_tls_block_t*)USER_TLS_VADDR;
-    glibc_tcb_head_t* tcb = &tls->head;
+static int init_user_tls(const elf_image_info_t* image_info) {
+    uint64_t tls_memsz = image_info ? image_info->tls_memsz : 0;
+    uint64_t tls_filesz = image_info ? image_info->tls_filesz : 0;
+    uint64_t tls_align = max_u64(image_info && image_info->tls_align ? image_info->tls_align : 1, 16);
+    uint64_t tls_block_size = tls_memsz ? align_up_u64(tls_memsz, tls_align) : 0;
+    uint64_t tcb_addr = align_up_u64(USER_TLS_VADDR + tls_block_size, 16);
+    uint64_t tls_block_addr = tls_block_size ? (tcb_addr - tls_block_size) : tcb_addr;
+    uint64_t tls_end = align_up_u64(tcb_addr + sizeof(glibc_tls_block_t), PAGE_SIZE);
     uint64_t guard = rdtsc64_local() ^ 0x9e3779b97f4a7c15ULL;
 
+    if (tls_end > USER_TLS_VADDR + USER_TLS_REGION_SIZE) {
+        eprintf("userland: TLS region too small end=%x limit=%x", tls_end, USER_TLS_VADDR + USER_TLS_REGION_SIZE);
+        return -1;
+    }
+
+    for (uint64_t vaddr = USER_TLS_VADDR; vaddr < tls_end; vaddr += PAGE_SIZE) {
+        uint64_t phys = allocate_page();
+        map_user_page(vaddr, phys, USER_DATA_FLAGS);
+    }
+
+    memset((void*)USER_TLS_VADDR, 0, tls_end - USER_TLS_VADDR);
+
+    if (tls_filesz && image_info && image_info->tls_template)
+        memcpy((void*)tls_block_addr, image_info->tls_template, tls_filesz);
+    if (tls_memsz > tls_filesz)
+        memset((void*)(tls_block_addr + tls_filesz), 0, tls_memsz - tls_filesz);
+
+    glibc_tls_block_t* tls = (glibc_tls_block_t*)tcb_addr;
+    glibc_tcb_head_t* tcb = &tls->head;
+
     tls->dtv[0].counter = 1;
-    tls->dtv[1].pointer.val = NULL;
+    tls->dtv[1].pointer.val = (void*)tls_block_addr;
     tls->dtv[1].pointer.to_free = NULL;
 
-    tcb->tcb = USER_TLS_VADDR;
+    tcb->tcb = tcb_addr;
     tcb->dtv = &tls->dtv[1];
-    tcb->self = USER_TLS_VADDR;
+    tcb->self = tcb_addr;
     tcb->multiple_threads = 0;
     tcb->gscope_flag = 0;
     tcb->sysinfo = 0;
@@ -244,13 +275,18 @@ static void init_user_tls(void) {
     tcb->feature_1 = 0;
     tcb->ssp_base = 0;
 
-    debug_printf("userland: tls base=%x dtv=%x stack_guard=%x pointer_guard=%x\n",
-                 USER_TLS_VADDR,
+    debug_printf("userland: tls base=%x block=%x filesz=%u memsz=%u align=%u dtv=%x stack_guard=%x pointer_guard=%x\n",
+                 tcb_addr,
+                 tls_block_addr,
+                 tls_filesz,
+                 tls_memsz,
+                 tls_align,
                  tcb->dtv,
                  tcb->stack_guard,
                  tcb->pointer_guard);
 
-    wrmsr64_local(IA32_FS_BASE_MSR, USER_TLS_VADDR);
+    wrmsr64_local(IA32_FS_BASE_MSR, tcb_addr);
+    return 0;
 }
 
 static void map_user_stack(void) {
@@ -326,7 +362,8 @@ void enter_userland_at(uint64_t code_entry) {
 
     map_user_stack();
     userland_heap_init();
-    init_user_tls();
+    if (init_user_tls(NULL) != 0)
+        return;
 
     // printf("Switching to userland at 0x%x with stack 0x%x", code_entry, stack_top);
 
@@ -374,6 +411,56 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
                  image_info.phdr_addr,
                  image_info.phentsize,
                  image_info.phnum,
+                 stack_top);
+    debug_dump_initial_stack(stack_top);
+
+    asm volatile (
+        "cli\n"
+        "mov %0, %%r11\n"
+        "mov %1, %%r10\n"
+        "xor %%rax, %%rax\n"
+        "xor %%rbx, %%rbx\n"
+        "xor %%rcx, %%rcx\n"
+        "xor %%rdx, %%rdx\n"
+        "xor %%rsi, %%rsi\n"
+        "xor %%rdi, %%rdi\n"
+        "xor %%r8, %%r8\n"
+        "xor %%r9, %%r9\n"
+        "pushq $0x23\n"
+        "pushq %%r11\n"
+        "pushq $0x202\n"
+        "pushq $0x1B\n"
+        "pushq %%r10\n"
+        "iretq\n"
+        :
+        : "r"(stack_top), "r"((uint64_t)entry)
+        : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
+    );
+
+    return 0;
+}
+
+int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp) {
+    elf_image_info_t image_info = {0};
+    void* entry = elf_load_from_vfs_ex(path, &image_info);
+    if (!entry)
+        return -1;
+
+    map_user_stack();
+    userland_heap_init();
+    if (init_user_tls(&image_info) != 0)
+        return -1;
+
+    uint64_t stack_top = build_initial_user_stack(path, argc, argv, envp, &image_info);
+
+    debug_printf("userland: exec path=%s entry=%x phdr=%x phentsz=%u phnum=%u tls_mem=%u tls_file=%u stack=%x\n",
+                 path,
+                 entry,
+                 image_info.phdr_addr,
+                 image_info.phentsize,
+                 image_info.phnum,
+                 image_info.tls_memsz,
+                 image_info.tls_filesz,
                  stack_top);
     debug_dump_initial_stack(stack_top);
 

@@ -78,22 +78,56 @@ static int elf_vfs_read_exact_path(const char* path, uint32_t offset, void* buf,
     return rc;
 }
 
-static uint64_t elf_stage_phdrs_for_user(Elf64_Phdr* headers, uint64_t phdr_bytes)
+static void elf_record_tls_segment(const Elf64_Phdr* ph, elf_image_info_t* info)
 {
-    if (!headers || phdr_bytes == 0)
+    if (!info || !ph || ph->p_type != PT_TLS)
+        return;
+
+    info->tls_offset = ph->p_offset;
+    info->tls_filesz = ph->p_filesz;
+    info->tls_memsz = ph->p_memsz;
+    info->tls_align = ph->p_align;
+}
+
+static int elf_load_tls_template_from_memory(void* file_base_address, uint64_t file_size, elf_image_info_t* info)
+{
+    if (!info || info->tls_filesz == 0)
         return 0;
 
-    uint64_t base = USER_PHDR_VADDR;
-    uint64_t aligned = (phdr_bytes + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-
-    for (uint64_t off = 0; off < aligned; off += PAGE_SIZE) {
-        uint64_t phys = allocate_page();
-        map_user_page(base + off, phys, USER_DATA_FLAGS);
+    if (info->tls_offset + info->tls_filesz > file_size) {
+        eprintf("elf: invalid PT_TLS bounds");
+        return -1;
     }
 
-    memset((void*)base, 0, aligned);
-    memcpy((void*)base, headers, phdr_bytes);
-    return base;
+    info->tls_template = kmalloc(info->tls_filesz);
+    if (!info->tls_template) {
+        eprintf("elf: failed to allocate TLS template");
+        return -1;
+    }
+
+    memcpy(info->tls_template, (uint8_t*)file_base_address + info->tls_offset, info->tls_filesz);
+    return 0;
+}
+
+static int elf_load_tls_template_from_vfs(const char* path, elf_image_info_t* info)
+{
+    if (!info || info->tls_filesz == 0)
+        return 0;
+
+    info->tls_template = kmalloc(info->tls_filesz);
+    if (!info->tls_template) {
+        eprintf("elf: failed to allocate TLS template");
+        return -1;
+    }
+
+    if (elf_vfs_read_exact_path(path, (uint32_t)info->tls_offset, info->tls_template, (uint32_t)info->tls_filesz) != 0) {
+        eprintf("elf: failed to read TLS template");
+        kfree(info->tls_template);
+        info->tls_template = NULL;
+        return -1;
+    }
+
+    return 0;
 }
 
 static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum, uint64_t file_offset)
@@ -110,6 +144,24 @@ static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum,
     }
 
     return 0;
+}
+
+static uint64_t elf_stage_phdrs_for_user(Elf64_Phdr* headers, uint64_t phdr_bytes)
+{
+    if (!headers || phdr_bytes == 0)
+        return 0;
+
+    uint64_t base = USER_PHDR_VADDR;
+    uint64_t aligned = (phdr_bytes + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+
+    for (uint64_t off = 0; off < aligned; off += PAGE_SIZE) {
+        uint64_t phys = allocate_page();
+        map_user_page(base + off, phys, USER_DATA_FLAGS);
+    }
+
+    memset((void*)base, 0, aligned);
+    memcpy((void*)base, headers, phdr_bytes);
+    return base;
 }
 
 static int elf_validate_header(const Elf64_Ehdr* header, uint64_t file_size)
@@ -265,8 +317,13 @@ void* elf_load_from_memory_ex(void* file_base_address, uint64_t file_size, elf_i
 
     Elf64_Phdr* program_headers_start = (Elf64_Phdr*)((uint8_t*)file_base_address + header.e_phoff);
 
+    if (info)
+        memset(info, 0, sizeof(*info));
+
     for (uint16_t i = 0; i < header.e_phnum; i++) {
         Elf64_Phdr* prog_header = (Elf64_Phdr*)((uint8_t*)program_headers_start + ((uint64_t)i * header.e_phentsize));
+        if (info)
+            elf_record_tls_segment(prog_header, info);
         if (elf_map_program_header(prog_header, file_base_address, file_size) != 0) {
             return NULL;
         }
@@ -280,6 +337,8 @@ void* elf_load_from_memory_ex(void* file_base_address, uint64_t file_size, elf_i
             info->phdr_addr = elf_runtime_addr_for_offset(program_headers_start, header.e_phnum, header.e_phoff);
         info->phentsize = header.e_phentsize;
         info->phnum = header.e_phnum;
+        if (elf_load_tls_template_from_memory(file_base_address, file_size, info) != 0)
+            return NULL;
     }
 
     return (void*)header.e_entry;
@@ -351,7 +410,12 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
 
     vfs_close(&file);
 
+    if (info)
+        memset(info, 0, sizeof(*info));
+
     for (uint16_t i = 0; i < header.e_phnum; ++i) {
+        if (info)
+            elf_record_tls_segment(&program_headers[i], info);
         if (elf_map_program_header_from_vfs(&program_headers[i], path, size, i) != 0) {
             kfree(program_headers);
             return NULL;
@@ -365,6 +429,17 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
             info->phdr_addr = elf_runtime_addr_for_offset(program_headers, header.e_phnum, header.e_phoff);
         info->phentsize = header.e_phentsize;
         info->phnum = header.e_phnum;
+        if (elf_load_tls_template_from_vfs(path, info) != 0) {
+            kfree(program_headers);
+            return NULL;
+        }
+        if (info->tls_memsz) {
+            printf("elf: tls off=%x filesz=%u memsz=%u align=%u",
+                   info->tls_offset,
+                   info->tls_filesz,
+                   info->tls_memsz,
+                   info->tls_align);
+        }
     }
 
     kfree(program_headers);
