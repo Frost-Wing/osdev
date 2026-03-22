@@ -20,11 +20,13 @@
 #define LINUX_AT_EGID    14
 #define LINUX_AT_PLATFORM 15
 #define LINUX_AT_HWCAP   16
+#define LINUX_AT_HWCAP2  26
 #define LINUX_AT_CLKTCK  17
 #define LINUX_AT_SECURE  23
 #define LINUX_AT_RANDOM  25
 #define LINUX_AT_EXECFN  31
 #define IA32_FS_BASE_MSR 0xC0000100
+#define USER_AUXV_MAX    18
 
 typedef struct {
     int i[4];
@@ -159,7 +161,7 @@ static uint64_t build_initial_user_stack(const char* exec_path,
     uint64_t env_addrs[32];
     char random_bytes[16];
     char exec_name_buf[256];
-    auxv_pair_t auxv[16];
+    auxv_pair_t auxv[USER_AUXV_MAX];
     uint64_t frame_words = 0;
     uint64_t frame_top = 0;
     uint64_t frame_ptr = 0;
@@ -202,8 +204,9 @@ static uint64_t build_initial_user_stack(const char* exec_path,
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_CLKTCK, 100 };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_SECURE, 0 };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_RANDOM, random_addr };
+    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_HWCAP2, 0 };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PLATFORM, platform_addr };
-    if (execfn_addr)
+    if (execfn_addr && auxc < USER_AUXV_MAX)
         auxv[auxc++] = (auxv_pair_t){ LINUX_AT_EXECFN, execfn_addr };
 
     frame_words = 1 + (uint64_t)argc + 1 + (uint64_t)envc + 1 + ((uint64_t)(auxc + 1) * 2);
