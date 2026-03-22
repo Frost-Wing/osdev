@@ -27,15 +27,45 @@
 #define IA32_FS_BASE_MSR 0xC0000100
 
 typedef struct {
+    int i[4];
+} glibc_128bits_t;
+
+typedef union {
+    uint64_t counter;
+    struct {
+        void* val;
+        void* to_free;
+    } pointer;
+} glibc_dtv_t;
+
+typedef struct {
     uint64_t tcb;
-    uint64_t dtv;
+    glibc_dtv_t* dtv;
     uint64_t self;
     uint32_t multiple_threads;
     uint32_t gscope_flag;
     uint64_t sysinfo;
     uint64_t stack_guard;
     uint64_t pointer_guard;
-} glibc_tcb_stub_t;
+    uint64_t unused_vgetcpu_cache[2];
+    uint32_t feature_1;
+    int32_t __glibc_unused1;
+    void* __private_tm[4];
+    void* __private_ss;
+    uint64_t ssp_base;
+    glibc_128bits_t __glibc_unused2[8][4] __attribute__((aligned(32)));
+    void* __padding[8];
+} glibc_tcb_head_t;
+
+typedef struct {
+    glibc_tcb_head_t head;
+    glibc_dtv_t dtv[2];
+} glibc_tls_block_t;
+
+_Static_assert(__builtin_offsetof(glibc_tcb_head_t, stack_guard) == 0x28, "glibc stack_guard offset mismatch");
+_Static_assert(__builtin_offsetof(glibc_tcb_head_t, pointer_guard) == 0x30, "glibc pointer_guard offset mismatch");
+_Static_assert(__builtin_offsetof(glibc_tcb_head_t, __private_ss) == 0x70, "glibc __private_ss offset mismatch");
+_Static_assert(__builtin_offsetof(glibc_tcb_head_t, __glibc_unused2) == 0x80, "glibc __glibc_unused2 offset mismatch");
 
 typedef struct {
     uint64_t key;
@@ -183,17 +213,24 @@ static void init_user_tls(void) {
     map_user_page(USER_TLS_VADDR, phys, USER_DATA_FLAGS);
     memset((void*)USER_TLS_VADDR, 0, PAGE_SIZE);
 
-    glibc_tcb_stub_t* tcb = (glibc_tcb_stub_t*)USER_TLS_VADDR;
+    glibc_tls_block_t* tls = (glibc_tls_block_t*)USER_TLS_VADDR;
+    glibc_tcb_head_t* tcb = &tls->head;
     uint64_t guard = rdtsc64_local() ^ 0x9e3779b97f4a7c15ULL;
 
+    tls->dtv[0].counter = 1;
+    tls->dtv[1].pointer.val = NULL;
+    tls->dtv[1].pointer.to_free = NULL;
+
     tcb->tcb = USER_TLS_VADDR;
-    tcb->dtv = USER_TLS_VADDR + 0x80;
+    tcb->dtv = &tls->dtv[1];
     tcb->self = USER_TLS_VADDR;
     tcb->multiple_threads = 0;
     tcb->gscope_flag = 0;
     tcb->sysinfo = 0;
     tcb->stack_guard = guard;
     tcb->pointer_guard = guard ^ 0xfeedfacecafebeefULL;
+    tcb->feature_1 = 0;
+    tcb->ssp_base = 0;
 
     wrmsr64_local(IA32_FS_BASE_MSR, USER_TLS_VADDR);
 }
@@ -297,6 +334,8 @@ void enter_userland_at(uint64_t code_entry) {
         : "r"(stack_top), "r"(code_entry)
         : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
     );
+
+    return 0;
 }
 
 int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp) {
