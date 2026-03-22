@@ -58,7 +58,30 @@ void meltdown_screen(cstring message, cstring file, int line, int64 error_code, 
     frost_compilation_information();
 #endif
 #ifdef clean_mode
-eprintf("[MELTDOWN] %s (%s:%d) (cr2:0x%X)", message, file, line, cr2);
+eprintf("[MELTDOWN] %s (%s:%d) (int=%d err=0x%X cr2=0x%X rip=0x%X cs=0x%X rsp=0x%X rflags=0x%X)",
+        message,
+        file,
+        line,
+        int_no,
+        error_code,
+        cr2,
+        frame ? frame->rip : 0,
+        frame ? frame->cs : 0,
+        frame ? frame->rsp : 0,
+        frame ? frame->rflags : 0);
+
+if (frame) {
+    eprintf("[MELTDOWN] regs rax=0x%X rcx=0x%X rdx=0x%X rsi=0x%X rdi=0x%X r8=0x%X r9=0x%X r10=0x%X r11=0x%X",
+            frame->rax,
+            frame->rcx,
+            frame->rdx,
+            frame->rsi,
+            frame->rdi,
+            frame->r8,
+            frame->r9,
+            frame->r10,
+            frame->r11);
+}
 #endif
 }
 
