@@ -98,6 +98,7 @@ void interrupt_frame_dump(InterruptFrame* frame) {
     printf("\tCS     = 0x%X", frame->cs);
     printf("\tRFLAGS = 0x%X", frame->rflags);
     printf("\tRSP    = 0x%X", frame->rsp);
+    printf("\tSS     = 0x%X", frame->ss);
 
     printf("===============================");
 }
