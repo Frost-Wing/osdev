@@ -13,6 +13,7 @@
 #include <keyboard.h>
 #include <memory.h>
 #include <drivers/rtl8139.h>
+#include <syscalls.h>
 
 irq_handler interrupt_handlers[256];
 
