@@ -132,7 +132,18 @@ static int elf_load_tls_template_from_vfs(const char* path, elf_image_info_t* in
 
 typedef uint64_t (*elf_ifunc_resolver_t)(void);
 
-static int elf_apply_relocation_entries(const Elf64_Rela* relocs, uint64_t reloc_count)
+static uint64_t elf_symbol_runtime_value(const Elf64_Sym* symtab, uint64_t sym_count, uint32_t sym_index)
+{
+    if (!symtab || sym_index >= sym_count)
+        return 0;
+    return symtab[sym_index].st_value;
+}
+
+static int elf_apply_relocation_entries(const Elf64_Rela* relocs,
+                                        uint64_t reloc_count,
+                                        const Elf64_Sym* symtab,
+                                        uint64_t sym_count,
+                                        uint64_t load_bias)
 {
     if (!relocs || reloc_count == 0)
         return 0;
@@ -140,7 +151,9 @@ static int elf_apply_relocation_entries(const Elf64_Rela* relocs, uint64_t reloc
     for (uint64_t i = 0; i < reloc_count; ++i) {
         const Elf64_Rela* reloc = &relocs[i];
         uint32_t reloc_type = ELF64_R_TYPE(reloc->r_info);
+        uint32_t sym_index = ELF64_R_SYM(reloc->r_info);
         uint64_t* target = (uint64_t*)reloc->r_offset;
+        uint64_t sym_value = elf_symbol_runtime_value(symtab, sym_count, sym_index);
 
         if (!target) {
             eprintf("elf: invalid relocation target");
@@ -149,17 +162,31 @@ static int elf_apply_relocation_entries(const Elf64_Rela* relocs, uint64_t reloc
 
         switch (reloc_type) {
             case R_X86_64_RELATIVE:
-                *target = (uint64_t)reloc->r_addend;
+                *target = load_bias + (uint64_t)reloc->r_addend;
                 break;
 
             case R_X86_64_IRELATIVE: {
-                elf_ifunc_resolver_t resolver = (elf_ifunc_resolver_t)(uint64_t)reloc->r_addend;
+                elf_ifunc_resolver_t resolver = (elf_ifunc_resolver_t)(load_bias + (uint64_t)reloc->r_addend);
                 *target = resolver ? resolver() : 0;
                 break;
             }
 
-            default:
+            case R_X86_64_64:
+                *target = sym_value + (uint64_t)reloc->r_addend;
                 break;
+
+            case R_X86_64_GLOB_DAT:
+            case R_X86_64_JUMP_SLOT:
+                *target = sym_value + (uint64_t)reloc->r_addend;
+                break;
+
+            default:
+                eprintf("elf: unsupported reloc type=%u sym=%u off=%x add=%x",
+                        reloc_type,
+                        sym_index,
+                        reloc->r_offset,
+                        reloc->r_addend);
+                return -1;
         }
     }
 
@@ -188,8 +215,23 @@ static int elf_apply_relocations_from_memory(void* file_base_address, uint64_t f
             return -1;
         }
 
+        const Elf64_Sym* symtab = NULL;
+        uint64_t sym_count = 0;
+        if (sh->sh_link < header->e_shnum) {
+            Elf64_Shdr* sym_sh = &shdrs[sh->sh_link];
+            if (sym_sh->sh_type == SHT_SYMTAB && sym_sh->sh_entsize == sizeof(Elf64_Sym) &&
+                sym_sh->sh_offset + sym_sh->sh_size <= file_size)
+            {
+                symtab = (const Elf64_Sym*)((uint8_t*)file_base_address + sym_sh->sh_offset);
+                sym_count = sym_sh->sh_size / sizeof(Elf64_Sym);
+            }
+        }
+
         if (elf_apply_relocation_entries((Elf64_Rela*)((uint8_t*)file_base_address + sh->sh_offset),
-                                         sh->sh_size / sizeof(Elf64_Rela)) != 0)
+                                         sh->sh_size / sizeof(Elf64_Rela),
+                                         symtab,
+                                         sym_count,
+                                         0) != 0)
             return -1;
     }
 
@@ -244,7 +286,38 @@ static int elf_apply_relocations_from_vfs(const char* path, uint32_t file_size, 
             return -1;
         }
 
-        int rc = elf_apply_relocation_entries(relocs, sh->sh_size / sizeof(Elf64_Rela));
+        Elf64_Sym* symtab = NULL;
+        uint64_t sym_count = 0;
+        if (sh->sh_link < header->e_shnum) {
+            Elf64_Shdr* sym_sh = &shdrs[sh->sh_link];
+            if (sym_sh->sh_type == SHT_SYMTAB && sym_sh->sh_entsize == sizeof(Elf64_Sym) &&
+                sym_sh->sh_offset + sym_sh->sh_size <= file_size)
+            {
+                symtab = kmalloc(sym_sh->sh_size);
+                if (!symtab) {
+                    eprintf("elf: failed to allocate symbol table");
+                    kfree(relocs);
+                    kfree(shdrs);
+                    return -1;
+                }
+                if (elf_vfs_read_exact_path(path, (uint32_t)sym_sh->sh_offset, symtab, (uint32_t)sym_sh->sh_size) != 0) {
+                    eprintf("elf: failed to read symbol table");
+                    kfree(symtab);
+                    kfree(relocs);
+                    kfree(shdrs);
+                    return -1;
+                }
+                sym_count = sym_sh->sh_size / sizeof(Elf64_Sym);
+            }
+        }
+
+        int rc = elf_apply_relocation_entries(relocs,
+                                              sh->sh_size / sizeof(Elf64_Rela),
+                                              symtab,
+                                              sym_count,
+                                              0);
+        if (symtab)
+            kfree(symtab);
         kfree(relocs);
         if (rc != 0) {
             kfree(shdrs);
