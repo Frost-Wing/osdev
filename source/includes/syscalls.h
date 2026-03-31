@@ -65,6 +65,25 @@
 #define LINUX_SYS_EXIT_GROUP  231
 #define LINUX_SYS_TGKILL      234
 
+#define LINUX_EAGAIN 11
+#define LINUX_SYS_FUTEX 202  // confirm your syscall number
+
+typedef struct syscall_frame {
+    uint64_t r9;
+    uint64_t r8;
+    uint64_t r10;
+    uint64_t rdx;
+    uint64_t rsi;
+    uint64_t rdi;
+    uint64_t rax;
+
+    uint64_t rip;     // rcx
+    uint64_t cs;      // 0x1B
+    uint64_t rflags;  // r11
+    uint64_t rsp;     // user rsp (rbx)
+    uint64_t ss;      // 0x23
+} syscall_frame_t;
+
 /**
  * @brief Prefix for the syscalls
  */
@@ -77,5 +96,16 @@
 
 void invoke_syscall(int64 num);
 void syscalls_handler(InterruptFrame* frame);
+void syscall_handler_syscall(syscall_frame_t* f);
+
+uint64_t syscall_dispatch (
+    uint64_t nr,
+    uint64_t arg1,
+    uint64_t arg2,
+    uint64_t arg3,
+    uint64_t arg4,
+    uint64_t arg5,
+    uint64_t arg6
+);
 
 #endif

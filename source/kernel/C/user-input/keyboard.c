@@ -78,9 +78,9 @@ void process_keyboard(InterruptFrame* frame){
         return;
     }
 
-    int c = kgetc_nonblock();
+    int c = handle_char();
 
-    if (c > 0) {
+    if (c != 0) {
         uint8_t key = (uint8_t)c;
         rb_push(&kb_rb, &key);
     }
@@ -101,7 +101,7 @@ uint8_t getc() {
         if (rb_pop(&kb_rb, &c) == 0)
             return c;
 
-        asm volatile ("hlt");
+        asm volatile ("pause");
     }
 }
 
@@ -114,11 +114,13 @@ int getc_nonblock() {
     return 0; // no key available
 }
 
-int kgetc_nonblock() {
+int kgetc_nonblock(){
+    if (!(inb(0x64) & 1)) return 0;
 
-    if (!(inb(0x64) & 1))
-        return 0;
+    return handle_char();
+}
 
+int handle_char() {
     uint8_t data = inb(0x60);
 
     // Extended prefix

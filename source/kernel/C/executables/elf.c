@@ -390,7 +390,7 @@ static uint64_t elf_stage_phdrs_for_user(Elf64_Phdr* headers, uint64_t phdr_byte
 static int elf_validate_header(const Elf64_Ehdr* header, uint64_t file_size)
 {
     if (memcmp(&header->e_ident[EI_MAG0], ELFMAG, SELFMAG) != 0 || header->e_ident[EI_CLASS] != ELFCLASS64 ||
-        header->e_ident[EI_DATA] != ELFDATA2LSB || header->e_type != ET_EXEC ||
+        header->e_ident[EI_DATA] != ELFDATA2LSB || (header->e_type != ET_EXEC) ||
         header->e_machine != EM_X86_64 || header->e_version != EV_CURRENT)
     {
         error("Not a valid ELF file to load!", __FILE__);

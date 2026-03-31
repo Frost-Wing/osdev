@@ -69,6 +69,28 @@ void remap_pic() {
     outb(0xa1, read_slave);
 }
 
+#define IA32_EFER   0xC0000080
+#define IA32_STAR   0xC0000081
+#define IA32_LSTAR  0xC0000082
+#define IA32_FMASK  0xC0000084
+
+#define EFER_SCE (1 << 0)
+
+extern void syscall_entry(void);
+void init_syscall()
+{
+    wrmsr64(IA32_EFER, rdmsr64(IA32_EFER) | EFER_SCE);
+
+    // kernel CS = 0x08
+    // user CS   = 0x1B (must match GDT!)
+    uint64_t star = ((uint64_t)0x08 << 32) | ((uint64_t)(0x1B) << 48);
+    wrmsr64(IA32_STAR, star);
+
+    debug_printf("syscall_entry addr = %u\n", syscall_entry);
+    wrmsr64(IA32_LSTAR, (uint64_t)syscall_entry);
+    wrmsr64(IA32_FMASK, 0);
+}
+
 void initIdt() 
 {
     info("Started initialization!", __FILE__);
@@ -100,6 +122,7 @@ void initIdt()
 
     __asm__ volatile("lidt %0" : : "m"(idt_ptr));
     set_interrupts();
+    init_syscall();
 
     done("Successfully initialized!", __FILE__);
 }
