@@ -131,132 +131,6 @@ static int elf_load_tls_template_from_vfs(const char* path, elf_image_info_t* in
     return 0;
 }
 
-typedef uint64_t (*elf_ifunc_resolver_t)(void);
-
-static int elf_apply_relocation_entries(const Elf64_Rela* relocs, uint64_t reloc_count)
-{
-    if (!relocs || reloc_count == 0)
-        return 0;
-
-    for (uint64_t i = 0; i < reloc_count; ++i) {
-        const Elf64_Rela* reloc = &relocs[i];
-        uint32_t reloc_type = ELF64_R_TYPE(reloc->r_info);
-        uint64_t* target = (uint64_t*)reloc->r_offset;
-
-        if (!target) {
-            eprintf("elf: invalid relocation target");
-            return -1;
-        }
-
-        switch (reloc_type) {
-            case R_X86_64_RELATIVE:
-                *target = (uint64_t)reloc->r_addend;
-                break;
-
-            case R_X86_64_IRELATIVE: {
-                elf_ifunc_resolver_t resolver = (elf_ifunc_resolver_t)(uint64_t)reloc->r_addend;
-                *target = resolver ? resolver() : 0;
-                break;
-            }
-
-            default:
-                break;
-        }
-    }
-
-    return 0;
-}
-
-static int elf_apply_relocations_from_memory(void* file_base_address, uint64_t file_size, const Elf64_Ehdr* header)
-{
-    if (!file_base_address || !header || header->e_shoff == 0 || header->e_shnum == 0)
-        return 0;
-
-    uint64_t shdr_bytes = (uint64_t)header->e_shnum * header->e_shentsize;
-    if (header->e_shentsize != sizeof(Elf64_Shdr) || header->e_shoff + shdr_bytes > file_size) {
-        eprintf("elf: invalid section header table");
-        return -1;
-    }
-
-    Elf64_Shdr* shdrs = (Elf64_Shdr*)((uint8_t*)file_base_address + header->e_shoff);
-    for (uint16_t i = 0; i < header->e_shnum; ++i) {
-        Elf64_Shdr* sh = &shdrs[i];
-        if (sh->sh_type != SHT_RELA || sh->sh_size == 0)
-            continue;
-
-        if (sh->sh_offset + sh->sh_size > file_size || (sh->sh_size % sizeof(Elf64_Rela)) != 0) {
-            eprintf("elf: invalid SHT_RELA bounds");
-            return -1;
-        }
-
-        if (elf_apply_relocation_entries((Elf64_Rela*)((uint8_t*)file_base_address + sh->sh_offset),
-                                         sh->sh_size / sizeof(Elf64_Rela)) != 0)
-            return -1;
-    }
-
-    return 0;
-}
-
-static int elf_apply_relocations_from_vfs(const char* path, uint32_t file_size, const Elf64_Ehdr* header)
-{
-    if (!path || !header || header->e_shoff == 0 || header->e_shnum == 0)
-        return 0;
-
-    uint64_t shdr_bytes = (uint64_t)header->e_shnum * header->e_shentsize;
-    if (header->e_shentsize != sizeof(Elf64_Shdr) || header->e_shoff + shdr_bytes > file_size) {
-        eprintf("elf: invalid section header table");
-        return -1;
-    }
-
-    Elf64_Shdr* shdrs = kmalloc(shdr_bytes);
-    if (!shdrs) {
-        eprintf("elf: failed to allocate section headers");
-        return -1;
-    }
-
-    if (elf_vfs_read_exact_path(path, (uint32_t)header->e_shoff, shdrs, (uint32_t)shdr_bytes) != 0) {
-        eprintf("elf: failed to read section headers");
-        kfree(shdrs);
-        return -1;
-    }
-
-    for (uint16_t i = 0; i < header->e_shnum; ++i) {
-        Elf64_Shdr* sh = &shdrs[i];
-        if (sh->sh_type != SHT_RELA || sh->sh_size == 0)
-            continue;
-
-        if (sh->sh_offset + sh->sh_size > file_size || (sh->sh_size % sizeof(Elf64_Rela)) != 0) {
-            eprintf("elf: invalid SHT_RELA bounds");
-            kfree(shdrs);
-            return -1;
-        }
-
-        Elf64_Rela* relocs = kmalloc(sh->sh_size);
-        if (!relocs) {
-            eprintf("elf: failed to allocate relocations");
-            kfree(shdrs);
-            return -1;
-        }
-
-        if (elf_vfs_read_exact_path(path, (uint32_t)sh->sh_offset, relocs, (uint32_t)sh->sh_size) != 0) {
-            eprintf("elf: failed to read relocations");
-            kfree(relocs);
-            kfree(shdrs);
-            return -1;
-        }
-
-        int rc = elf_apply_relocation_entries(relocs, sh->sh_size / sizeof(Elf64_Rela));
-        kfree(relocs);
-        if (rc != 0) {
-            kfree(shdrs);
-            return -1;
-        }
-    }
-
-    kfree(shdrs);
-    return 0;
-}
-
 static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum, uint64_t file_offset)
 {
     for (uint16_t i = 0; i < phnum; ++i) {
@@ -491,9 +365,6 @@ void* elf_load_from_memory_ex(void* file_base_address, uint64_t file_size, elf_i
             return NULL;
     }
 
-    if (elf_apply_relocations_from_memory(file_base_address, file_size, &header) != 0)
-        return NULL;
-
     return (void*)header.e_entry;
 }
 
@@ -594,11 +465,6 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
                    info->tls_memsz,
                    info->tls_align);
         }
-    }
-
-    if (elf_apply_relocations_from_vfs(path, size, &header) != 0) {
-        kfree(program_headers);
-        return NULL;
     }
 
     kfree(program_headers);
