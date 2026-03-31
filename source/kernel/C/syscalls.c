@@ -1274,6 +1274,12 @@ void syscalls_handler(InterruptFrame* frame){
         case LINUX_SYS_ARCH_PRCTL:
             frame->rax = sys_arch_prctl(frame->rdi, frame->rsi);
             break;
+        case LINUX_SYS_GETTID:
+            frame->rax = 1;
+            break;
+        case LINUX_SYS_TGKILL:
+            frame->rax = 0;
+            break;
         case LINUX_SYS_GETDENTS64:
             frame->rax = sys_getdents64(frame->rdi, (char*)frame->rsi, frame->rdx);
             break;

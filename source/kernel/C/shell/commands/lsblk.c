@@ -102,7 +102,7 @@ int cmd_lsblk(int argc, char** argv)
             if (last) printfnoln("└─");
             else      printfnoln("├─");
 
-            printfnoln("%s    ", p->name);
+            printfnoln("%s      ", p->name);
             print_size((uint64_t)p->sector_count);
             printf("      part     %10s  %s  %s",
                 fs_name(p->fs_type),
