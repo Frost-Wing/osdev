@@ -1320,6 +1320,7 @@ void syscalls_handler(InterruptFrame* frame){
             break;
         default:
             warn(linux_syscalls_prefix "Unknown, returning -ENOSYS", __FILE__);
+            debug_printf(linux_syscalls_prefix "Unknown : requested %u\n", frame->rax);
             frame->rax = -LINUX_ENOSYS;
             break;
     }
