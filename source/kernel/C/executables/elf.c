@@ -272,6 +272,29 @@ static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum,
     return 0;
 }
 
+static void elf_log_load_progress(uint16_t current, uint16_t total, Elf64_Phdr* ph)
+{
+    if (!total)
+        return;
+
+    uint32_t pct = ((uint32_t)(current + 1) * 100U) / total;
+    uint32_t filled = (pct * 20U) / 100U;
+    char bar[21];
+
+    for (uint32_t i = 0; i < 20; ++i)
+        bar[i] = (i < filled) ? '#' : '-';
+    bar[20] = '\0';
+
+    printf("elf: [%s] %u%% (%u/%u) type=%u vaddr=%x off=%x",
+           bar,
+           pct,
+           (uint32_t)(current + 1),
+           (uint32_t)total,
+           ph ? ph->p_type : 0,
+           ph ? ph->p_vaddr : 0,
+           ph ? ph->p_offset : 0);
+}
+
 static uint64_t elf_stage_phdrs_for_user(Elf64_Phdr* headers, uint64_t phdr_bytes)
 {
     if (!headers || phdr_bytes == 0)
@@ -543,6 +566,7 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
         memset(info, 0, sizeof(*info));
 
     for (uint16_t i = 0; i < header.e_phnum; ++i) {
+        elf_log_load_progress(i, header.e_phnum, &program_headers[i]);
         if (info)
             elf_record_tls_segment(&program_headers[i], info);
         if (elf_map_program_header_from_vfs(&program_headers[i], path, size, i) != 0) {
