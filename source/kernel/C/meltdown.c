@@ -8,6 +8,7 @@
  * @copyright Copyright (c) Pradosh 2023
  * 
  */
+#include <graphics.h>
 #include <meltdown.h>
 #include <isr.h> // For InterruptFrame
 
@@ -81,6 +82,7 @@ if (frame) {
             frame->r9,
             frame->r10,
             frame->r11);
+    eprintf("[MELTDOWN] regs SS = 0x%X", frame->ss);
 }
 #endif
 }
