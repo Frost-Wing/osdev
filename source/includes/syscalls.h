@@ -50,6 +50,7 @@
 #define LINUX_SYS_GETPPID     110
 #define LINUX_SYS_SIGALTSTACK 131
 #define LINUX_SYS_ARCH_PRCTL  158
+#define LINUX_SYS_GETTID      186
 #define LINUX_SYS_GETDENTS64  217
 #define LINUX_SYS_SET_TID_ADDRESS 218
 #define LINUX_SYS_CLOCK_GETTIME 228
@@ -62,6 +63,7 @@
 #define LINUX_SYS_GETRANDOM   318
 #define LINUX_SYS_STATX       332
 #define LINUX_SYS_EXIT_GROUP  231
+#define LINUX_SYS_TGKILL      234
 
 /**
  * @brief Prefix for the syscalls
