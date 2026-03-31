@@ -13,8 +13,50 @@
 #include <keyboard.h>
 #include <memory.h>
 #include <drivers/rtl8139.h>
+#include <syscalls.h>
 
 irq_handler interrupt_handlers[256];
+
+static int skip_endbr64_if_present(InterruptFrame* frame) {
+    if (!frame)
+        return 0;
+
+    if ((frame->cs & 0x3) != 0x3)
+        return 0;
+
+    uint8_t* ip = (uint8_t*)frame->rip;
+    if (!ip)
+        return 0;
+
+    if (ip[0] == 0xF3 && ip[1] == 0x0F && ip[2] == 0x1E && ip[3] == 0xFA) {
+        debug_printf("isr: skipping ENDBR64 at rip=0x%X\n", frame->rip);
+        frame->rip += 4;
+        return 1;
+    }
+
+    return 0;
+}
+
+static int emulate_syscall_instruction_if_present(InterruptFrame* frame) {
+    if (!frame)
+        return 0;
+
+    if ((frame->cs & 0x3) != 0x3)
+        return 0;
+
+    uint8_t* ip = (uint8_t*)frame->rip;
+    if (!ip)
+        return 0;
+
+    if (ip[0] == 0x0F && ip[1] == 0x05) {
+        debug_printf("isr: emulating SYSCALL as int 0x80 at rip=0x%X nr=%u\n", frame->rip, frame->rax);
+        syscalls_handler(frame);
+        frame->rip += 2;
+        return 1;
+    }
+
+    return 0;
+}
 
 static void log_page_fault_details(InterruptFrame* frame) {
     if (!frame || frame->int_no != 14)
@@ -44,6 +86,10 @@ void exceptionHandler(InterruptFrame* frame) {
             meltdown_screen("Bound Range exceeded!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         case 6:
+            if (skip_endbr64_if_present(frame))
+                return;
+            if (emulate_syscall_instruction_if_present(frame))
+                return;
             meltdown_screen("Invalid opcode detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         case 8:
