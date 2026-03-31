@@ -92,6 +92,7 @@ typedef int64_t  Elf64_Sxword;
 #define R_X86_64_JUMP_SLOT  7
 #define R_X86_64_RELATIVE   8
 #define R_X86_64_GOTPCREL   9
+#define R_X86_64_IRELATIVE  37
 
 // Extract symbol and type from r_info
 #define ELF64_R_SYM(info)  ((info) >> 32)
