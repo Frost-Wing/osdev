@@ -87,11 +87,6 @@ void exceptionHandler(InterruptFrame* frame) {
             meltdown_screen("Bound Range exceeded!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         case 6:
-            if (skip_endbr64_if_present(frame))
-                return;
-            if(emulate_syscall_instruction_if_present(frame))
-                return;
-
             meltdown_screen("Invalid opcode detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         case 8:

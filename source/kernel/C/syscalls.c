@@ -240,16 +240,21 @@ static int copy_user_string_array(char* const* user_arr, char*** out_arr) {
 }
 
 static inline uint64_t syscall_arg4(InterruptFrame* frame) {
-    return frame->r10 ? frame->r10 : frame->rcx;
+    if (!frame)
+        return 0;
+
+    // x86_64 Linux syscall ABI (SYSCALL instruction) passes arg4 in r10.
+    // Legacy int 0x80 path keeps arg4 in rcx.
+    return (frame->int_no == 0x80) ? frame->rcx : frame->r10;
 }
 
-static inline void wrmsr64(uint32_t msr, uint64_t value) {
+void wrmsr64(uint32_t msr, uint64_t value) {
     uint32_t low = (uint32_t)value;
     uint32_t high = (uint32_t)(value >> 32);
     asm volatile("wrmsr" : : "c"(msr), "a"(low), "d"(high));
 }
 
-static inline uint64_t rdmsr64(uint32_t msr) {
+uint64_t rdmsr64(uint32_t msr) {
     uint32_t low = 0;
     uint32_t high = 0;
     asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(msr));
@@ -793,14 +798,26 @@ static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
         return -LINUX_EBADF;
 
     vfs_file_t* file = fd_get_file((int)fd);
-    if (file == NULL) {
-        for (uint64_t i = 0; i < count; ++i) {
-            char c = getc_nonblock();
-            buf[i] = c;
-            if (c == '\n' || c == '\r')
-                return (int64)(i + 1);
+    if (fd == 0) {
+        uint64_t i = 0;
+
+        // wait for first char (blocking)
+        char c = getc();
+        buf[i++] = c;
+
+        // read remaining WITHOUT forcing full count
+        while (i < count) {
+            int next = getc_nonblock();
+            if (next == 0)
+                break;
+
+            buf[i++] = (char)next;
+
+            if (next == '\n')
+                break;
         }
-        return (int64)count;
+
+        return (int64)i;
     }
 
     int rd = vfs_read(file, (uint8_t*)buf, (uint32_t)count);
@@ -1161,6 +1178,39 @@ static int64 sys_execve(const char* target, char* const* argv, char* const* envp
     return rc >= 0 ? rc : -LINUX_ENOEXEC;
 }
 
+#define FUTEX_WAIT 0
+#define FUTEX_WAKE 1
+
+static int64 sys_futex(uint32_t* uaddr, int op, uint32_t val,
+                       const linux_timespec_t* timeout,
+                       uint32_t* uaddr2, uint32_t val3)
+{
+    (void)timeout;
+    (void)uaddr2;
+    (void)val3;
+
+    if (!uaddr)
+        return -LINUX_EINVAL;
+
+    switch (op & 0xF)
+    {
+        case FUTEX_WAIT:
+            // If value doesn't match, return immediately
+            if (*uaddr != val)
+                return -LINUX_EAGAIN;
+
+            // NO real blocking → just pretend we waited
+            return 0;
+
+        case FUTEX_WAKE:
+            // pretend we woke threads
+            return 1;
+
+        default:
+            return -LINUX_ENOSYS;
+    }
+}
+
 void invoke_syscall(int64 num) {
     asm volatile (
         "movq %0, %%rax\n\t"
@@ -1171,166 +1221,231 @@ void invoke_syscall(int64 num) {
     );
 }
 
-void syscalls_handler(InterruptFrame* frame){
-    switch (frame->rax)
+// THIS IS FOR INTERRUPT 0X80
+void syscalls_handler(InterruptFrame* frame)
+{
+    uint64_t ret = syscall_dispatch(
+        frame->rax,
+        frame->rdi,
+        frame->rsi,
+        frame->rdx,
+        frame->rcx,   // arg4 (int 0x80 uses rcx)
+        frame->r8,
+        frame->r9
+    );
+
+    frame->rax = ret;
+}
+
+// THIS IS FOR SYSCALL INSTRUCTION
+void syscall_handler_syscall(syscall_frame_t* f)
+{
+    uint64_t ret = syscall_dispatch(
+        f->rax,
+        f->rdi,
+        f->rsi,
+        f->rdx,
+        f->r10,   // ⚠️ DIFFERENT HERE
+        f->r8,
+        f->r9
+    );
+
+    f->rax = ret;
+}
+
+uint64_t syscall_dispatch (
+    uint64_t nr,
+    uint64_t arg1,
+    uint64_t arg2,
+    uint64_t arg3,
+    uint64_t arg4,
+    uint64_t arg5,
+    uint64_t arg6
+) {
+    debug_printf("syscall: %u\n", nr);
+
+    switch (nr)
     {
         case LINUX_SYS_READ:
-            frame->rax = sys_read(frame->rdi, (char*)frame->rsi, frame->rdx);
-            break;
+            return sys_read(arg1, (char*)arg2, arg3);
+
         case LINUX_SYS_WRITE:
-            frame->rax = sys_write(frame->rdi, (const char*)frame->rsi, frame->rdx);
-            break;
+            return sys_write(arg1, (const char*)arg2, arg3);
+
         case LINUX_SYS_OPEN:
-            frame->rax = sys_open_common(LINUX_AT_FDCWD, (const char*)frame->rdi, frame->rsi, frame->rdx);
-            break;
+            return sys_open_common(LINUX_AT_FDCWD, (const char*)arg1, arg2, arg3);
+
         case LINUX_SYS_FSTAT:
-            frame->rax = sys_fstat(frame->rdi, (linux_stat_t*)frame->rsi);
-            break;
+            return sys_fstat(arg1, (linux_stat_t*)arg2);
+
         case LINUX_SYS_MPROTECT:
-            frame->rax = sys_mprotect(frame->rdi, frame->rsi, frame->rdx);
-            break;
+            return sys_mprotect(arg1, arg2, arg3);
+
         case LINUX_SYS_RT_SIGACTION:
         case LINUX_SYS_RT_SIGPROCMASK:
         case LINUX_SYS_SIGALTSTACK:
-            frame->rax = 0;
-            break;
+            return 0;
+
         case LINUX_SYS_ACCESS:
-            frame->rax = sys_access_common(LINUX_AT_FDCWD, (const char*)frame->rdi, frame->rsi);
-            break;
+            return sys_access_common(LINUX_AT_FDCWD, (const char*)arg1, arg2);
+
         case LINUX_SYS_OPENAT:
-            frame->rax = sys_open_common((int)frame->rdi, (const char*)frame->rsi, frame->rdx, syscall_arg4(frame));
-            break;
+            return sys_open_common((int)arg1, (const char*)arg2, arg3, arg4);
+
         case LINUX_SYS_CLOSE:
-            frame->rax = sys_close(frame->rdi);
-            break;
+            return sys_close(arg1);
+
         case LINUX_SYS_LSEEK:
-            frame->rax = sys_lseek(frame->rdi, (int64_t)frame->rsi, frame->rdx);
-            break;
+            return sys_lseek(arg1, (int64_t)arg2, arg3);
+
         case LINUX_SYS_MMAP:
-            frame->rax = sys_mmap(frame->rdi, frame->rsi, frame->rdx, syscall_arg4(frame), frame->r8, frame->r9);
-            break;
+            return sys_mmap(arg1, arg2, arg3, arg4, arg5, arg6);
+
         case LINUX_SYS_MUNMAP:
-            frame->rax = sys_munmap(frame->rdi, frame->rsi);
-            break;
+            return sys_munmap(arg1, arg2);
+
         case LINUX_SYS_BRK:
-            frame->rax = sys_brk(frame->rdi);
-            break;
+            return sys_brk(arg1);
+
         case LINUX_SYS_IOCTL:
-            frame->rax = sys_ioctl(frame->rdi, frame->rsi, frame->rdx);
-            break;
+            return sys_ioctl(arg1, arg2, arg3);
+
         case LINUX_SYS_WRITEV:
-            frame->rax = sys_writev(frame->rdi, (linux_iovec_t*)frame->rsi, frame->rdx);
-            break;
+            return sys_writev(arg1, (linux_iovec_t*)arg2, arg3);
+
         case LINUX_SYS_DUP:
-            frame->rax = sys_dup(frame->rdi);
-            break;
+            return sys_dup(arg1);
+
         case LINUX_SYS_DUP2:
-            frame->rax = sys_dup2(frame->rdi, frame->rsi);
-            break;
+            return sys_dup2(arg1, arg2);
+
         case LINUX_SYS_NANOSLEEP:
-            frame->rax = sys_nanosleep((const linux_timespec_t*)frame->rdi, (linux_timespec_t*)frame->rsi);
-            break;
+            return sys_nanosleep((const linux_timespec_t*)arg1, (linux_timespec_t*)arg2);
+
         case LINUX_SYS_GETPID:
-            frame->rax = 1;
-            break;
+            return 1;
+
         case LINUX_SYS_EXECVE:
-            frame->rax = sys_execve((const char*)frame->rdi, (char* const*)frame->rsi, (char* const*)frame->rdx);
-            break;
+            return sys_execve((const char*)arg1, (char* const*)arg2, (char* const*)arg3);
+
         case LINUX_SYS_EXIT:
-        case LINUX_SYS_EXIT_GROUP: {
-            int code = frame->rdi;
-            printf(blue_color "\n[process exited with code %d]" reset_color, code);
+        case LINUX_SYS_EXIT_GROUP:
+            printf(blue_color "\n[process exited with code %d]" reset_color, (int)arg1);
             running = false;
-            frame->rax = 0;
-            break;
-        }
+            return 0;
+
         case LINUX_SYS_GETCWD:
-            frame->rax = sys_getcwd((char*)frame->rdi, frame->rsi);
-            break;
+            return sys_getcwd((char*)arg1, arg2);
+
         case LINUX_SYS_FCNTL:
-            frame->rax = sys_fcntl(frame->rdi, frame->rsi, frame->rdx);
-            break;
+            return sys_fcntl(arg1, arg2, arg3);
+
         case LINUX_SYS_CHDIR:
-            frame->rax = sys_chdir((const char*)frame->rdi);
-            break;
+            return sys_chdir((const char*)arg1);
+
         case LINUX_SYS_UNAME:
-            frame->rax = sys_uname((linux_utsname_t*)frame->rdi);
-            break;
+            return sys_uname((linux_utsname_t*)arg1);
+
         case LINUX_SYS_READLINK:
-            frame->rax = sys_readlinkat(LINUX_AT_FDCWD, (const char*)frame->rdi, (char*)frame->rsi, frame->rdx);
-            break;
+            return sys_readlinkat(LINUX_AT_FDCWD, (const char*)arg1, (char*)arg2, arg3);
+
         case LINUX_SYS_UMASK:
-            frame->rax = 022;
-            break;
+            return 022;
+
         case LINUX_SYS_GETUID:
         case LINUX_SYS_GETEUID:
         case LINUX_SYS_GETGID:
         case LINUX_SYS_GETEGID:
-            frame->rax = 0;
-            break;
+            return 0;
+
         case LINUX_SYS_GETPPID:
-            frame->rax = 1;
-            break;
+            return 1;
+
         case LINUX_SYS_ARCH_PRCTL:
-            frame->rax = sys_arch_prctl(frame->rdi, frame->rsi);
-            break;
+            return sys_arch_prctl(arg1, arg2);
+
         case LINUX_SYS_GETTID:
-            frame->rax = 1;
-            break;
+            return 1;
+
         case LINUX_SYS_TGKILL:
-            frame->rax = 0;
-            break;
+            return 0;
+
         case LINUX_SYS_GETDENTS64:
-            frame->rax = sys_getdents64(frame->rdi, (char*)frame->rsi, frame->rdx);
-            break;
+            return sys_getdents64(arg1, (char*)arg2, arg3);
+
         case LINUX_SYS_SET_TID_ADDRESS:
-            frame->rax = 1;
-            break;
+            return 1;
+
         case LINUX_SYS_CLOCK_GETTIME:
-            frame->rax = sys_clock_gettime(frame->rdi, (linux_timespec_t*)frame->rsi);
-            break;
+            return sys_clock_gettime(arg1, (linux_timespec_t*)arg2);
+
         case LINUX_SYS_NEWFSTATAT:
-            frame->rax = sys_newfstatat((int)frame->rdi, (const char*)frame->rsi, (linux_stat_t*)frame->rdx, (int)syscall_arg4(frame));
-            break;
+            return sys_newfstatat((int)arg1, (const char*)arg2, (linux_stat_t*)arg3, (int)arg4);
+
         case LINUX_SYS_READLINKAT:
-            frame->rax = sys_readlinkat((int)frame->rdi, (const char*)frame->rsi, (char*)frame->rdx, syscall_arg4(frame));
-            break;
+            return sys_readlinkat((int)arg1, (const char*)arg2, (char*)arg3, arg4);
+
         case LINUX_SYS_FACCESSAT:
-            frame->rax = sys_access_common((int)frame->rdi, (const char*)frame->rsi, (int)frame->rdx);
-            break;
+            return sys_access_common((int)arg1, (const char*)arg2, (int)arg3);
+
         case LINUX_SYS_SET_ROBUST_LIST:
-            frame->rax = 0;
-            break;
+            return 0;
+
         case LINUX_SYS_PRLIMIT64:
-            frame->rax = sys_prlimit64(frame->rdi, frame->rsi, (const linux_rlimit64_t*)frame->rdx, (linux_rlimit64_t*)syscall_arg4(frame));
-            break;
+            return sys_prlimit64(arg1, arg2, (const linux_rlimit64_t*)arg3, (linux_rlimit64_t*)arg4);
+
         case LINUX_SYS_GETRANDOM:
-            frame->rax = sys_getrandom((void*)frame->rdi, frame->rsi, frame->rdx);
-            break;
+            return sys_getrandom((void*)arg1, arg2, arg3);
+
         case LINUX_SYS_STATX:
-            frame->rax = sys_statx((int)frame->rdi, (const char*)frame->rsi, (int)frame->rdx, (unsigned int)syscall_arg4(frame), (linux_statx_t*)frame->r8);
-            break;
+            return sys_statx((int)arg1, (const char*)arg2, (int)arg3, (unsigned int)arg4, (linux_statx_t*)arg5);
+
         case FW_SYS_GETC:
-            frame->rax = getc();
-            break;
+            return getc();
+
         case FW_SYS_PUTC:
-            printfnoln("%c", (char)frame->rdi);
-            frame->rax = 0;
-            break;
+            printfnoln("%c", (char)arg1);
+            return 0;
+
         case FW_SYS_LOGIN:
-            frame->rax = login_request((char*)frame->rdi, frame->rsi);
-            break;
+            return login_request((char*)arg1, arg2);
+
         case PRAD_MAGIC:
             info("Alive from userland", __FILE__);
-            frame->rax = 0;
-            break;
-        default:
-            warn(linux_syscalls_prefix "Unknown, returning -ENOSYS", __FILE__);
-            debug_printf(linux_syscalls_prefix "Unknown : requested %u\n", frame->rax);
-            frame->rax = -LINUX_ENOSYS;
-            break;
-    }
+            return 0;
+        case LINUX_SYS_FUTEX:
+            return sys_futex((uint32_t*)arg1, arg2, arg3,
+                            (const linux_timespec_t*)arg4,
+                            (uint32_t*)arg5, arg6);
+                            
+        case 19:
+            {
+                linux_iovec_t* iov = (linux_iovec_t*)arg2;
+                if (arg3 > 0)
+                    return sys_read(arg1, iov[0].iov_base, iov[0].iov_len);
+                return 0;
+            }
 
-    outb(0x20, 0x20); // End PIC Master
-    outb(0xA0, 0x20); // End PIC Slave
+        case 7:
+            {
+                struct pollfd {
+                    int fd;
+                    short events;
+                    short revents;
+                };
+
+                struct pollfd* fds = (struct pollfd*)arg1;
+
+                for (int i = 0; i < arg2; i++)
+                {
+                    fds[i].revents = fds[i].events; // pretend ready
+                }
+
+                return arg2;
+            }
+        default:
+            printf(linux_syscalls_prefix "Unknown, returning -ENOSYS for (%u)", nr);
+            debug_printf(linux_syscalls_prefix "Unknown : requested %u\n", nr);
+            return -LINUX_ENOSYS;
+    }
 }
