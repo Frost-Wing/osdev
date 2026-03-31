@@ -14,6 +14,7 @@
 #include <memory.h>
 #include <drivers/rtl8139.h>
 #include <syscalls.h>
+#include <debugger.h>
 
 irq_handler interrupt_handlers[256];
 
@@ -53,6 +54,27 @@ static void log_page_fault_details(InterruptFrame* frame) {
             (int)((err >> 4) & 0x1));
 }
 
+static int emulate_syscall_instruction_if_present(InterruptFrame* frame) {
+    if (!frame)
+        return 0;
+
+    if ((frame->cs & 0x3) != 0x3)
+        return 0;
+
+    uint8_t* ip = (uint8_t*)frame->rip;
+    if (!ip)
+        return 0;
+
+    if (ip[0] == 0x0F && ip[1] == 0x05) {
+        debug_printf("isr: emulating SYSCALL as int 0x80 at rip=%u nr=%u\n", frame->rip, frame->rax);
+        syscalls_handler(frame);
+        frame->rip += 2;
+        return 1;
+    }
+
+    return 0;
+}
+
 void exceptionHandler(InterruptFrame* frame) {
     enable_logging = false; // disables logger as fast as it can to get the last instance of panic.
     log_page_fault_details(frame);
@@ -67,6 +89,9 @@ void exceptionHandler(InterruptFrame* frame) {
         case 6:
             if (skip_endbr64_if_present(frame))
                 return;
+            if(emulate_syscall_instruction_if_present(frame))
+                return;
+
             meltdown_screen("Invalid opcode detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
 			break;
         case 8:
