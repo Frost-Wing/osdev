@@ -801,19 +801,15 @@ static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
     if (fd == 0) {
         uint64_t i = 0;
 
-        // wait for first char (blocking)
-        char c = getc();
-        buf[i++] = c;
-
-        // read remaining WITHOUT forcing full count
         while (i < count) {
-            int next = getc_nonblock();
-            if (next == 0)
-                break;
+            char c = getc();  // BLOCKING read
 
-            buf[i++] = (char)next;
+            if (c == '\0')
+                continue;
 
-            if (next == '\n')
+            buf[i++] = c;
+
+            if (c == '\n')
                 break;
         }
 
@@ -1241,6 +1237,7 @@ void syscalls_handler(InterruptFrame* frame)
 void syscall_handler_syscall(syscall_frame_t* f)
 {
     if (f && (f->rax == LINUX_SYS_EXIT || f->rax == LINUX_SYS_EXIT_GROUP)) {
+        hcf2();
         if (userland_prepare_exit(f, f->rdi))
             return;
     }
