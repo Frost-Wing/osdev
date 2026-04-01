@@ -72,20 +72,18 @@ void keyboard_init() {
 
 bool shift = no;
 uint8_t modifiers = 0;
-void process_keyboard(InterruptFrame* frame){
-    if(!enable_keyboard) {
+
+void process_keyboard(InterruptFrame* frame)
+{
+    if (!enable_keyboard) {
         outb(0x20, 0x20);
         return;
     }
 
-    int c = handle_char();
+    uint8_t scancode = inb(0x60);
 
-    if (c != 0) {
-        uint8_t key = (uint8_t)c;
-        rb_push(&kb_rb, &key);
-    }
+    rb_push(&kb_rb, &scancode);
 
-    // EOI
     outb(0x20, 0x20);
 }
 
@@ -94,22 +92,24 @@ uint8_t getmodifiers()
     return modifiers;
 }
 
-uint8_t getc() {
-    uint8_t c;
+uint8_t getc()
+{
+    uint8_t sc;
 
     for (;;) {
-        if (rb_pop(&kb_rb, &c) == 0)
-            return c;
-
-        asm volatile ("pause");
+        if (rb_pop(&kb_rb, &sc) == 0) {
+            return handle_char_from_scancode(sc);
+        }
+        asm volatile("pause");
     }
 }
 
 int getc_nonblock() {
-    uint8_t c;
+    uint8_t sc;
 
-    if (rb_pop(&kb_rb, &c) == 0)
-        return c;
+    if (rb_pop(&kb_rb, &sc) == 0) {
+        return handle_char_from_scancode(sc);
+    }
 
     return 0; // no key available
 }
@@ -117,99 +117,107 @@ int getc_nonblock() {
 int kgetc_nonblock(){
     if (!(inb(0x64) & 1)) return 0;
 
-    return handle_char();
+    return handle_char_from_scancode(inb(0x60));
 }
 
-int handle_char() {
-    uint8_t data = inb(0x60);
-
-    // Extended prefix
+static bool extended = false;
+int handle_char_from_scancode(uint8_t data)
+{
+    // -------- Extended scancode handling --------
     if (data == 0xE0) {
-        uint8_t ext = inb(0x60);
+        extended = true;
+        return 0;
+    }
 
-        switch (ext)
-        {
-        case 0x38: // RALT press
-            modifiers |= MOD_RALT;
-            return 0;
-        case 0xB8: // RALT release
-            modifiers &= ~MOD_RALT;
-            return 0;
+    // -------- Key release handling --------
+    if (data & 0x80) {
+        uint8_t key = data & 0x7F;
 
-        case 0x1D: // RCTRL press
-            modifiers |= MOD_RCTRL;
-            return 0;
-        case 0x9D: // RCTRL release
-            modifiers &= ~MOD_RCTRL;
-            return 0;
+        switch (key) {
+            case 0x2A: // LSHIFT release
+                modifiers &= ~MOD_LSHIFT;
+                return 0;
+            case 0x36: // RSHIFT release
+                modifiers &= ~MOD_RSHIFT;
+                return 0;
+
+            case 0x1D: // CTRL release
+                modifiers &= ~MOD_LCTRL;
+                return 0;
+
+            case 0x38: // ALT release
+                modifiers &= ~MOD_LALT;
+                return 0;
         }
 
         return 0;
     }
 
-    switch (data)
-    {
-        // -------- SHIFT --------
+    // -------- Extended keys (only press matters here) --------
+    if (extended) {
+        extended = false;
+
+        switch (data) {
+            case 0x1D: // Right CTRL press
+                modifiers |= MOD_RCTRL;
+                return 0;
+
+            case 0x38: // Right ALT press
+                modifiers |= MOD_RALT;
+                return 0;
+
+            // You can extend more extended keys here (arrows, etc.)
+        }
+
+        return 0;
+    }
+
+    // -------- Modifier key presses --------
+    switch (data) {
         case 0x2A: // LSHIFT press
             modifiers |= MOD_LSHIFT;
             return 0;
+
         case 0x36: // RSHIFT press
             modifiers |= MOD_RSHIFT;
             return 0;
 
-        case 0xAA: // LSHIFT release
-            modifiers &= ~MOD_LSHIFT;
-            return 0;
-        case 0xB6: // RSHIFT release
-            modifiers &= ~MOD_RSHIFT;
-            return 0;
-
-        // -------- CTRL --------
         case 0x1D: // LCTRL press
             modifiers |= MOD_LCTRL;
             return 0;
-        case 0x9D: // LCTRL release
-            modifiers &= ~MOD_LCTRL;
-            return 0;
 
-        // -------- ALT --------
         case 0x38: // LALT press
             modifiers |= MOD_LALT;
             return 0;
-        case 0xB8: // LALT release
-            modifiers &= ~MOD_LALT;
-            return 0;
 
-        // -------- CAPS LOCK --------
-        case 0x3A:
+        case 0x3A: // CAPSLOCK toggle
             modifiers ^= MOD_CAPSLOCK;
             return 0;
 
-        // -------- NUM LOCK --------
-        case 0x45:
+        case 0x45: // NUMLOCK toggle
             modifiers ^= MOD_NUMLOCK;
             return 0;
 
-        // -------- SPECIAL KEYS --------
-        case 0x1C:
+        case 0x1C: // Enter
             return '\n';
 
-        case 0x0E:
+        case 0x0E: // Backspace
             return '\b';
     }
 
-    // Ignore key releases
-    if (data > 0x80)
+    // -------- Ignore non-character keys --------
+    if (data > 0x58)
         return 0;
 
-    // -------- CHARACTER OUTPUT --------
+    // -------- Character conversion --------
+    bool use_shift = (modifiers & (MOD_LSHIFT | MOD_RSHIFT));
 
-    int use_upper = (modifiers & MOD_SHIFT) || (modifiers & MOD_CAPSLOCK);
+    // Caps lock XOR shift logic
+    bool uppercase = use_shift ^ (modifiers & MOD_CAPSLOCK);
 
-    char c = scancode_to_char(data, use_upper);
+    char c = scancode_to_char(data, uppercase);
 
-    // Filter non-printable
-    if (c < 32 && c != '\n' && c != '\b')
+    if (c == 0)
         return 0;
 
     return c;

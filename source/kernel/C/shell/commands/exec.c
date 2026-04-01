@@ -16,27 +16,32 @@
 int cmd_exec(int argc, char** argv)
 {
     if (argc < 2) {
-        printf("exec: missing program");
-        printf("usage: exec <program> [args]");
+        eprintf("exec: missing program");
+        eprintf("usage: exec <program> [args]");
         return 1;
     }
 
     const char* path = argv[1];
+
     const char* user_argv[34];
     int user_argc = 0;
 
-    for (int i = 1; i < argc && user_argc < 33; ++i)
-        user_argv[user_argc++] = argv[i];
-
+    // argv[0] should be the program name (basename)
     const char* basename = vfs_basename(path);
-    if (user_argc == 1 &&
-        (strcmp(basename, "busybox") == 0 || strcmp(basename, "BUSYBOX") == 0))
-        user_argv[user_argc++] = "ash";
+    // user_argv[user_argc++] = basename;
+
+    // copy actual arguments AFTER the program path
+    for (int i = 2; i < argc && user_argc < 33; ++i)
+        user_argv[user_argc++] = argv[i];
 
     user_argv[user_argc] = NULL;
 
+    for(int i = 0; i < user_argc; i++){
+        printf("arg[%d] = %s", i, user_argv[i]);
+    }
+
     if (userland_exec(path, user_argc, user_argv, NULL) != 0) {
-        printf("exec: failed to load ELF");
+        eprintf("exec: failed to load ELF");
         return -1;
     }
 
