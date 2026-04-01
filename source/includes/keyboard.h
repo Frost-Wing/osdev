@@ -81,5 +81,6 @@ int getc_nonblock();
  */
 int kgetc_nonblock();
 
+int handle_char_from_scancode(uint8_t data);
 
 #endif

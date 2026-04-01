@@ -68,6 +68,9 @@ int login_request(char* userbuf, int max){
     while(i < 20){
         k = getc();
 
+        if (k == 0)
+            continue;
+
         temp = (char)k;
 
         if(temp == '\n' || temp == '\r')
@@ -95,6 +98,9 @@ int login_request(char* userbuf, int max){
 
     while(i < 20){
         k = getc();
+
+        if (k == 0)
+            continue;
         
         temp = (char)k;
 
