@@ -249,15 +249,26 @@ static uint64_t build_initial_user_stack(const char* exec_path,
 static int init_user_tls(const elf_image_info_t* image_info) {
     uint64_t tls_memsz = image_info ? image_info->tls_memsz : 0;
     uint64_t tls_filesz = image_info ? image_info->tls_filesz : 0;
-    uint64_t tls_align = max_u64(image_info && image_info->tls_align ? image_info->tls_align : 1, 16);
+    uint64_t tls_align = (image_info && image_info->tls_align) ? image_info->tls_align : 1;
+
+    // ELF TLS alignment should be a power-of-two; be defensive.
+    if ((tls_align & (tls_align - 1)) != 0)
+        tls_align = 1;
+
+    // IMPORTANT:
+    // - static TLS block uses ELF alignment (do NOT force 16 here)
+    // - TCB remains 16-byte aligned
     uint64_t tls_block_size = tls_memsz ? align_up_u64(tls_memsz, tls_align) : 0;
     uint64_t tcb_addr = align_up_u64(USER_TLS_VADDR + tls_block_size, 16);
     uint64_t tls_block_addr = tls_block_size ? (tcb_addr - tls_block_size) : tcb_addr;
     uint64_t tls_end = align_up_u64(tcb_addr + sizeof(glibc_tls_block_t), PAGE_SIZE);
+
     uint64_t guard = rdtsc64_local() ^ 0x9e3779b97f4a7c15ULL;
+    guard &= ~0xFFULL; // canonical stack canary convention: low byte = 0
 
     if (tls_end > USER_TLS_VADDR + USER_TLS_REGION_SIZE) {
-        eprintf("userland: TLS region too small end=%x limit=%x", tls_end, USER_TLS_VADDR + USER_TLS_REGION_SIZE);
+        eprintf("userland: TLS region too small end=%x limit=%x",
+                tls_end, USER_TLS_VADDR + USER_TLS_REGION_SIZE);
         return -1;
     }
 
@@ -292,14 +303,8 @@ static int init_user_tls(const elf_image_info_t* image_info) {
     tcb->ssp_base = 0;
 
     debug_printf("userland: tls base=%x block=%x filesz=%u memsz=%u align=%u dtv=%x stack_guard=%x pointer_guard=%x\n",
-                 tcb_addr,
-                 tls_block_addr,
-                 tls_filesz,
-                 tls_memsz,
-                 tls_align,
-                 tcb->dtv,
-                 tcb->stack_guard,
-                 tcb->pointer_guard);
+                 tcb_addr, tls_block_addr, tls_filesz, tls_memsz, tls_align,
+                 tcb->dtv, tcb->stack_guard, tcb->pointer_guard);
 
     wrmsr64_local(IA32_FS_BASE_MSR, tcb_addr);
     return 0;

@@ -1263,8 +1263,6 @@ uint64_t syscall_dispatch (
     uint64_t arg5,
     uint64_t arg6
 ) {
-    printf("syscall: %u", nr);
-
     switch (nr)
     {
         case LINUX_SYS_READ:
