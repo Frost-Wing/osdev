@@ -153,49 +153,45 @@ static uint64_t build_initial_user_stack(const char* exec_path,
 {
     const char* const* final_envp = envp ? envp : default_envp;
     int envc = string_array_count(final_envp);
-
+    int argvc = argc;
     uint64_t stack_ptr = USER_STACK_TOP;
-
     uint64_t random_addr = 0;
     uint64_t execfn_addr = 0;
     uint64_t platform_addr = 0;
-
     uint64_t argv_addrs[32];
     uint64_t env_addrs[32];
-
-    char random_bytes[16];
+    uint8_t random_bytes[16];
     char exec_name_buf[256];
-
     auxv_pair_t auxv[USER_AUXV_MAX];
     int auxc = 0;
 
-    if (argc < 0) argc = 0;
-    if (argc > 32) argc = 32;
-    if (envc > 32) envc = 32;
+    if (argvc < 0)
+        argvc = 0;
+    if (argvc > 32)
+        argvc = 32;
+    if (envc > 32)
+        envc = 32;
 
-    // --- random bytes (AT_RANDOM) ---
-    for (int i = 0; i < 16; ++i)
-        random_bytes[i] = (char)(rdtsc64_local() >> ((i & 7) * 8));
-
+    // --- blob area (strings + random) ---
+    for (int i = 0; i < (int)sizeof(random_bytes); ++i)
+        random_bytes[i] = (uint8_t)(rdtsc64_local() >> ((i & 7) * 8));
     random_addr = push_bytes_to_stack(&stack_ptr, random_bytes, sizeof(random_bytes));
 
-    // --- platform string ---
     platform_addr = push_cstr_to_stack(&stack_ptr, "x86_64");
 
-    // --- exec name ---
     snprintf(exec_name_buf, sizeof(exec_name_buf), "%s", exec_path ? exec_path : "");
     execfn_addr = push_cstr_to_stack(&stack_ptr, exec_name_buf);
 
-    // --- env strings ---
     for (int i = envc - 1; i >= 0; --i)
-        env_addrs[i] = push_cstr_to_stack(&stack_ptr, final_envp[i]);
+        env_addrs[i] = push_cstr_to_stack(&stack_ptr, final_envp[i] ? final_envp[i] : "");
 
-    // --- argv strings ---
-    for (int i = argc - 1; i >= 0; --i)
-        argv_addrs[i] = push_cstr_to_stack(&stack_ptr, argv[i]);
+    for (int i = argvc - 1; i >= 0; --i) {
+        const char* s = (argv && argv[i]) ? argv[i] : "";
+        argv_addrs[i] = push_cstr_to_stack(&stack_ptr, s);
+    }
 
     // --- auxiliary vector ---
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PHDR,  image_info ? image_info->phdr_addr : 0 };
+    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PHDR, image_info ? image_info->phdr_addr : 0 };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PHENT, image_info ? image_info->phentsize : 0 };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PHNUM, image_info ? image_info->phnum : 0 };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PAGESZ, PAGE_SIZE };
@@ -212,53 +208,41 @@ static uint64_t build_initial_user_stack(const char* exec_path,
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_RANDOM, random_addr };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_HWCAP2, 0 };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PLATFORM, platform_addr };
-
     if (execfn_addr && auxc < USER_AUXV_MAX)
         auxv[auxc++] = (auxv_pair_t){ LINUX_AT_EXECFN, execfn_addr };
 
-    // --- total frame size ---
+    // --- pointer frame: argc, argv[], NULL, envp[], NULL, auxv[], AT_NULL ---
     uint64_t frame_words =
-        1 +                     // argc
-        (uint64_t)argc + 1 +    // argv + NULL
-        (uint64_t)envc + 1 +    // envp + NULL
-        ((uint64_t)(auxc + 1) * 2); // auxv + NULL
-
+        1 +
+        (uint64_t)argvc + 1 +
+        (uint64_t)envc + 1 +
+        ((uint64_t)(auxc + 1) * 2);
     uint64_t frame_size = frame_words * sizeof(uint64_t);
-
-    // --- compute final stack pointer ---
     uint64_t frame_ptr = stack_ptr - frame_size;
 
-    // --- ABI alignment: RSP % 16 == 8 at entry ---
-    frame_ptr &= ~0xFULL;
-    if ((frame_ptr % 16) != 8)
+    // Linux/x86_64 entry ABI expects %rsp % 16 == 8.
+    frame_ptr &= ~0x7ULL;
+    if ((frame_ptr & 0xFULL) != 8)
         frame_ptr -= 8;
 
-    // --- write frame ---
     uint64_t* out = (uint64_t*)frame_ptr;
+    *out++ = (uint64_t)argvc;
 
-    // argc
-    *out++ = (uint64_t)argc;
-
-    // argv
-    for (int i = 0; i < argc; ++i)
+    for (int i = 0; i < argvc; ++i)
         *out++ = argv_addrs[i];
     *out++ = 0;
 
-    // envp
     for (int i = 0; i < envc; ++i)
         *out++ = env_addrs[i];
     *out++ = 0;
 
-    // auxv
     for (int i = 0; i < auxc; ++i) {
         *out++ = auxv[i].key;
         *out++ = auxv[i].value;
     }
 
-    // AT_NULL
     *out++ = LINUX_AT_NULL;
     *out++ = 0;
-
     return frame_ptr;
 }
 
