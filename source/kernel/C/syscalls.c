@@ -1262,7 +1262,7 @@ uint64_t syscall_dispatch (
     uint64_t arg5,
     uint64_t arg6
 ) {
-    debug_printf("syscall: %u\n", nr);
+    printf("syscall: %u", nr);
 
     switch (nr)
     {
@@ -1332,6 +1332,8 @@ uint64_t syscall_dispatch (
         case LINUX_SYS_EXIT_GROUP:
             printf(blue_color "\n[process exited with code %d]" reset_color, (int)arg1);
             running = false;
+            hcf2();
+            
             return 0;
 
         case LINUX_SYS_GETCWD:
@@ -1445,7 +1447,6 @@ uint64_t syscall_dispatch (
             }
         default:
             printf(linux_syscalls_prefix "Unknown, returning -ENOSYS for (%u)", nr);
-            debug_printf(linux_syscalls_prefix "Unknown : requested %u\n", nr);
             return -LINUX_ENOSYS;
     }
 }
