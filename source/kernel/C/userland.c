@@ -153,43 +153,49 @@ static uint64_t build_initial_user_stack(const char* exec_path,
 {
     const char* const* final_envp = envp ? envp : default_envp;
     int envc = string_array_count(final_envp);
+
     uint64_t stack_ptr = USER_STACK_TOP;
+
     uint64_t random_addr = 0;
     uint64_t execfn_addr = 0;
     uint64_t platform_addr = 0;
+
     uint64_t argv_addrs[32];
     uint64_t env_addrs[32];
+
     char random_bytes[16];
     char exec_name_buf[256];
+
     auxv_pair_t auxv[USER_AUXV_MAX];
-    uint64_t frame_words = 0;
-    uint64_t frame_top = 0;
-    uint64_t frame_ptr = 0;
     int auxc = 0;
 
-    if (argc < 0)
-        argc = 0;
-    if (argc > 32)
-        argc = 32;
-    if (envc > 32)
-        envc = 32;
+    if (argc < 0) argc = 0;
+    if (argc > 32) argc = 32;
+    if (envc > 32) envc = 32;
 
+    // --- random bytes (AT_RANDOM) ---
     for (int i = 0; i < 16; ++i)
         random_bytes[i] = (char)(rdtsc64_local() >> ((i & 7) * 8));
 
     random_addr = push_bytes_to_stack(&stack_ptr, random_bytes, sizeof(random_bytes));
+
+    // --- platform string ---
     platform_addr = push_cstr_to_stack(&stack_ptr, "x86_64");
 
+    // --- exec name ---
     snprintf(exec_name_buf, sizeof(exec_name_buf), "%s", exec_path ? exec_path : "");
     execfn_addr = push_cstr_to_stack(&stack_ptr, exec_name_buf);
 
+    // --- env strings ---
     for (int i = envc - 1; i >= 0; --i)
         env_addrs[i] = push_cstr_to_stack(&stack_ptr, final_envp[i]);
 
+    // --- argv strings ---
     for (int i = argc - 1; i >= 0; --i)
         argv_addrs[i] = push_cstr_to_stack(&stack_ptr, argv[i]);
 
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PHDR, image_info ? image_info->phdr_addr : 0 };
+    // --- auxiliary vector ---
+    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PHDR,  image_info ? image_info->phdr_addr : 0 };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PHENT, image_info ? image_info->phentsize : 0 };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PHNUM, image_info ? image_info->phnum : 0 };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PAGESZ, PAGE_SIZE };
@@ -206,27 +212,50 @@ static uint64_t build_initial_user_stack(const char* exec_path,
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_RANDOM, random_addr };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_HWCAP2, 0 };
     auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PLATFORM, platform_addr };
+
     if (execfn_addr && auxc < USER_AUXV_MAX)
         auxv[auxc++] = (auxv_pair_t){ LINUX_AT_EXECFN, execfn_addr };
 
-    frame_words = 1 + (uint64_t)argc + 1 + (uint64_t)envc + 1 + ((uint64_t)(auxc + 1) * 2);
-    frame_top = stack_ptr & ~0xFULL;
-    while (((frame_top - (frame_words * sizeof(uint64_t))) & 0xFULL) != 8)
-        frame_top -= sizeof(uint64_t);
+    // --- total frame size ---
+    uint64_t frame_words =
+        1 +                     // argc
+        (uint64_t)argc + 1 +    // argv + NULL
+        (uint64_t)envc + 1 +    // envp + NULL
+        ((uint64_t)(auxc + 1) * 2); // auxv + NULL
 
-    frame_ptr = frame_top - (frame_words * sizeof(uint64_t));
+    uint64_t frame_size = frame_words * sizeof(uint64_t);
+
+    // --- compute final stack pointer ---
+    uint64_t frame_ptr = stack_ptr - frame_size;
+
+    // --- ABI alignment: RSP % 16 == 8 at entry ---
+    frame_ptr &= ~0xFULL;
+    if ((frame_ptr % 16) != 8)
+        frame_ptr -= 8;
+
+    // --- write frame ---
     uint64_t* out = (uint64_t*)frame_ptr;
+
+    // argc
     *out++ = (uint64_t)argc;
+
+    // argv
     for (int i = 0; i < argc; ++i)
         *out++ = argv_addrs[i];
     *out++ = 0;
+
+    // envp
     for (int i = 0; i < envc; ++i)
         *out++ = env_addrs[i];
     *out++ = 0;
+
+    // auxv
     for (int i = 0; i < auxc; ++i) {
         *out++ = auxv[i].key;
         *out++ = auxv[i].value;
     }
+
+    // AT_NULL
     *out++ = LINUX_AT_NULL;
     *out++ = 0;
 
@@ -361,7 +390,7 @@ uint64_t userland_mmap_anon(uint64_t length) {
  * @brief Enter userland (ring 3) at a specific userspace RIP.
  */
 void enter_userland_at(uint64_t code_entry) {
-    uint64_t stack_top = USER_STACK_TOP;
+    uint64_t stack_top = USER_STACK_TOP; // 8-bit alignment
 
     map_user_stack();
     userland_heap_init();

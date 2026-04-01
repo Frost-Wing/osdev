@@ -111,7 +111,18 @@ typedef struct {
 } Elf64_Phdr;
 
 #define PT_LOAD 1
+#define PT_DYNAMIC 2
 #define PT_TLS  7
+
+// Dynamic table tags
+#define DT_NULL    0
+#define DT_HASH    4
+#define DT_STRTAB  5
+#define DT_SYMTAB  6
+#define DT_RELA    7
+#define DT_RELASZ  8
+#define DT_RELAENT 9
+#define DT_SYMENT  11
 
 #define PF_X 0x1
 #define PF_W 0x2
@@ -164,6 +175,14 @@ typedef struct {
     uint64_t r_info;   // Relocation type and symbol index
     int64_t  r_addend; // Addend
 } Elf64_Rela;
+
+typedef struct {
+    int64_t d_tag;
+    union {
+        uint64_t d_val;
+        uint64_t d_ptr;
+    } d_un;
+} Elf64_Dyn;
 
 typedef struct {
     uint64_t entry;
