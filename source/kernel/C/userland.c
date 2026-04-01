@@ -5,6 +5,7 @@
 #include <userland.h>
 #include <executables/elf.h>
 #include <filesystems/vfs.h>
+#include <heap.h>
 
 #define LINUX_AT_NULL    0
 #define LINUX_AT_PHDR    3
@@ -79,6 +80,10 @@ static uint64_t user_heap_mapped_end = USER_HEAP_VADDR;
 
 static uint64_t user_mmap_cursor = USER_MMAP_VADDR;
 static uint64_t user_mmap_end = USER_MMAP_VADDR;
+static volatile bool userland_running = false;
+static volatile uint64_t userland_resume_rip = 0;
+static volatile uint64_t userland_resume_rsp = 0;
+static volatile int userland_last_exit_code = 0;
 
 static void debug_dump_initial_stack(uint64_t stack_top) {
     uint64_t* words = (uint64_t*)stack_top;
@@ -330,6 +335,22 @@ static void map_user_range(uint64_t start, uint64_t end, uint64_t flags) {
     }
 }
 
+static void unmap_user_range(uint64_t start, uint64_t end) {
+    uint64_t aligned_start = start & ~(PAGE_SIZE - 1);
+    uint64_t aligned_end = (end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+
+    for (uint64_t vaddr = aligned_start; vaddr < aligned_end; vaddr += PAGE_SIZE)
+        unmap_user_page(vaddr);
+}
+
+static void userland_unmap_all(void) {
+    unmap_user_range(USER_CODE_VADDR, USER_HEAP_VADDR);
+    unmap_user_range(USER_HEAP_VADDR, USER_HEAP_VADDR + USER_HEAP_SIZE);
+    unmap_user_range(USER_MMAP_VADDR, USER_MMAP_VADDR + USER_MMAP_SIZE);
+    unmap_user_range(USER_TLS_VADDR, USER_TLS_VADDR + USER_TLS_REGION_SIZE);
+    unmap_user_range(USER_STACK_TOP - USER_STACK_SIZE, USER_STACK_TOP);
+}
+
 void userland_heap_init(void) {
     user_heap_break = USER_HEAP_VADDR;
     user_heap_mapped_end = USER_HEAP_VADDR;
@@ -373,6 +394,21 @@ uint64_t userland_mmap_anon(uint64_t length) {
     user_mmap_cursor += aligned_len;
 
     return mapping_base;
+}
+
+bool userland_prepare_exit(syscall_frame_t* frame, uint64_t exit_code) {
+    if (!frame || !userland_running || !userland_resume_rip || !userland_resume_rsp)
+        return false;
+
+    userland_last_exit_code = (int)exit_code;
+
+    frame->rip = userland_resume_rip;
+    frame->cs = 0x08;
+    frame->rflags = 0x202;
+    frame->rsp = userland_resume_rsp;
+    frame->ss = 0x10;
+    frame->rax = exit_code;
+    return true;
 }
 
 /**
@@ -422,8 +458,13 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
 
     map_user_stack();
     userland_heap_init();
-    if (init_user_tls(&image_info) != 0)
+    if (init_user_tls(&image_info) != 0) {
+        if (image_info.tls_template)
+            kfree(image_info.tls_template);
         return -1;
+    }
+    if (image_info.tls_template)
+        kfree(image_info.tls_template);
 
     uint64_t stack_top = build_initial_user_stack(path, argc, argv, envp, &image_info);
 
@@ -437,6 +478,13 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
                  image_info.tls_filesz,
                  stack_top);
     debug_dump_initial_stack(stack_top);
+
+    uint64_t kernel_rsp = 0;
+    asm volatile("mov %%rsp, %0" : "=r"(kernel_rsp));
+    userland_resume_rsp = kernel_rsp;
+    userland_resume_rip = (uint64_t)&&userland_return_label;
+    userland_last_exit_code = 0;
+    userland_running = true;
 
     asm volatile (
         "cli\n"
@@ -461,5 +509,13 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
         : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
     );
 
+userland_return_label:
+    userland_running = false;
+    userland_resume_rip = 0;
+    userland_resume_rsp = 0;
+    wrmsr64_local(IA32_FS_BASE_MSR, 0);
+    userland_unmap_all();
+    userland_heap_init();
+    printf(blue_color "\n[process exited with code %d]" reset_color, userland_last_exit_code);
     return 0;
 }

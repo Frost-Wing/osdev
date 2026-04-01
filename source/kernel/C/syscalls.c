@@ -31,7 +31,6 @@ extern struct limine_framebuffer *framebuffer;
 extern int64* font_address;
 
 extern int execute_chain(const char* line);
-extern bool running; // from sh.c
 
 #define LINUX_AT_FDCWD   (-100)
 
@@ -1241,6 +1240,11 @@ void syscalls_handler(InterruptFrame* frame)
 // THIS IS FOR SYSCALL INSTRUCTION
 void syscall_handler_syscall(syscall_frame_t* f)
 {
+    if (f && (f->rax == LINUX_SYS_EXIT || f->rax == LINUX_SYS_EXIT_GROUP)) {
+        if (userland_prepare_exit(f, f->rdi))
+            return;
+    }
+
     uint64_t ret = syscall_dispatch(
         f->rax,
         f->rdi,
@@ -1329,10 +1333,6 @@ uint64_t syscall_dispatch (
 
         case LINUX_SYS_EXIT:
         case LINUX_SYS_EXIT_GROUP:
-            printf(blue_color "\n[process exited with code %d]" reset_color, (int)arg1);
-            running = false;
-            hcf2();
-
             return 0;
 
         case LINUX_SYS_GETCWD:
