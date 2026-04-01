@@ -2,19 +2,28 @@ global syscall_entry
 extern syscall_handler_syscall
 extern kernel_stack_top
 
+section .bss
+align 8
+saved_user_rsp: resq 1
+saved_user_rbx: resq 1
+
 section .text
 
 syscall_entry:
     swapgs
 
-    ; Save user RSP
-    mov rbx, rsp
+    ; Preserve userland RBX and RSP across SYSCALL.
+    ; NOTE: single-slot scratch is fine for current single-core/single-threaded userspace,
+    ; but this should eventually be per-CPU/per-thread storage.
+    mov [rel saved_user_rbx], rbx
+    mov [rel saved_user_rsp], rsp
 
     ; Switch to kernel stack
     mov rsp, kernel_stack_top
 
     ; Build FULL iret frame manually
     push 0x23        ; SS (user data)
+    mov rbx, [rel saved_user_rsp]
     push rbx         ; RSP (user stack)
     push r11         ; RFLAGS
     push 0x1B        ; CS (user code)
@@ -41,6 +50,9 @@ syscall_entry:
     pop rsi
     pop rdi
     pop rax
+
+    ; Restore userland RBX prior to iretq.
+    mov rbx, [rel saved_user_rbx]
 
     ; Return to user
     swapgs
