@@ -20,6 +20,7 @@
 #define LINUX_SYS_WRITE       1
 #define LINUX_SYS_OPEN        2
 #define LINUX_SYS_CLOSE       3
+#define LINUX_SYS_STAT        4
 #define LINUX_SYS_FSTAT       5
 #define LINUX_SYS_LSEEK       8
 #define LINUX_SYS_MPROTECT    10
