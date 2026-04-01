@@ -13,6 +13,7 @@
 #include <gdt.h>
 #include <idt.h>
 #include <kernel.h>
+#include <tty.h>
 #include <executables/elf.h>
 
 int terminal_rows = 0;
@@ -126,6 +127,7 @@ void main(void) {
     }
 
     stream_init();
+    tty_init();
     keyboard_init();
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];

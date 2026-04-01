@@ -26,6 +26,7 @@
 #include <ahci.h>
 #include <rtc.h>
 #include <heap.h>
+#include <tty.h>
 
 extern struct limine_framebuffer *framebuffer;
 extern int64* font_address;
@@ -741,6 +742,18 @@ static int64 sys_fstat(uint64_t fd, linux_stat_t* st) {
     return 0;
 }
 
+static int64 sys_stat(const char* path, linux_stat_t* st) {
+    if (!path || !st)
+        return -LINUX_EINVAL;
+
+    vfs_stat_info_t info;
+    if (!fill_vfs_stat_for_path(path, &info))
+        return -LINUX_ENOENT;
+
+    fill_stat_from_info(st, &info);
+    return 0;
+}
+
 static int64 sys_newfstatat(int dirfd, const char* path, linux_stat_t* st, int flags) {
     (void)flags;
     if (!st)
@@ -798,23 +811,8 @@ static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
         return -LINUX_EBADF;
 
     vfs_file_t* file = fd_get_file((int)fd);
-    if (fd == 0) {
-        uint64_t i = 0;
-
-        while (i < count) {
-            char c = getc();  // BLOCKING read
-
-            if (c == '\0')
-                continue;
-
-            buf[i++] = c;
-
-            if (c == '\n')
-                break;
-        }
-
-        return (int64)i;
-    }
+    if (fd == 0)
+        return tty_read(buf, count);
 
     int rd = vfs_read(file, (uint8_t*)buf, (uint32_t)count);
     if (rd < 0)
@@ -1277,6 +1275,9 @@ uint64_t syscall_dispatch (
 
         case LINUX_SYS_FSTAT:
             return sys_fstat(arg1, (linux_stat_t*)arg2);
+
+        case LINUX_SYS_STAT:
+            return sys_stat((const char*)arg1, (linux_stat_t*)arg2);
 
         case LINUX_SYS_MPROTECT:
             return sys_mprotect(arg1, arg2, arg3);
