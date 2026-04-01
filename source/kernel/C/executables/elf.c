@@ -132,11 +132,16 @@ static int elf_load_tls_template_from_vfs(const char* path, elf_image_info_t* in
 
 typedef uint64_t (*elf_ifunc_resolver_t)(void);
 
-static uint64_t elf_symbol_runtime_value(const Elf64_Sym* symtab, uint64_t sym_count, uint32_t sym_index)
+static uint64_t elf_symbol_runtime_value(const Elf64_Sym* symtab, uint64_t sym_count, uint32_t sym_index, uint64_t load_bias)
 {
-    if (!symtab || sym_index >= sym_count)
+    if (!symtab || sym_count == 0 || sym_index >= sym_count)
         return 0;
-    return symtab[sym_index].st_value;
+
+    const Elf64_Sym* sym = &symtab[sym_index];
+    if (sym->st_shndx == SHN_UNDEF)
+        return 0;
+
+    return load_bias + sym->st_value;
 }
 
 static int elf_apply_relocation_entries(const Elf64_Rela* relocs,
@@ -151,9 +156,25 @@ static int elf_apply_relocation_entries(const Elf64_Rela* relocs,
     for (uint64_t i = 0; i < reloc_count; ++i) {
         const Elf64_Rela* reloc = &relocs[i];
         uint32_t reloc_type = ELF64_R_TYPE(reloc->r_info);
+
+        if (reloc_type != R_X86_64_RELATIVE)
+            continue;
+
+        uint64_t* target = (uint64_t*)(load_bias + reloc->r_offset);
+        if (!target) {
+            eprintf("elf: invalid relocation target");
+            return -1;
+        }
+
+        *target = load_bias + (uint64_t)reloc->r_addend;
+    }
+
+    for (uint64_t i = 0; i < reloc_count; ++i) {
+        const Elf64_Rela* reloc = &relocs[i];
+        uint32_t reloc_type = ELF64_R_TYPE(reloc->r_info);
         uint32_t sym_index = ELF64_R_SYM(reloc->r_info);
-        uint64_t* target = (uint64_t*)reloc->r_offset;
-        uint64_t sym_value = elf_symbol_runtime_value(symtab, sym_count, sym_index);
+        uint64_t* target = (uint64_t*)(load_bias + reloc->r_offset);
+        uint64_t sym_value = elf_symbol_runtime_value(symtab, sym_count, sym_index, load_bias);
 
         if (!target) {
             eprintf("elf: invalid relocation target");
@@ -162,7 +183,6 @@ static int elf_apply_relocation_entries(const Elf64_Rela* relocs,
 
         switch (reloc_type) {
             case R_X86_64_RELATIVE:
-                *target = load_bias + (uint64_t)reloc->r_addend;
                 break;
 
             case R_X86_64_IRELATIVE: {
@@ -193,143 +213,128 @@ static int elf_apply_relocation_entries(const Elf64_Rela* relocs,
     return 0;
 }
 
-static int elf_apply_relocations_from_memory(void* file_base_address, uint64_t file_size, const Elf64_Ehdr* header)
+static uint64_t elf_compute_load_bias(const Elf64_Ehdr* header, const Elf64_Phdr* headers)
 {
-    if (!file_base_address || !header || header->e_shoff == 0 || header->e_shnum == 0)
+    if (!header || !headers)
         return 0;
 
-    uint64_t shdr_bytes = (uint64_t)header->e_shnum * header->e_shentsize;
-    if (header->e_shentsize != sizeof(Elf64_Shdr) || header->e_shoff + shdr_bytes > file_size) {
-        eprintf("elf: invalid section header table");
-        return -1;
+    uint64_t lowest_vaddr = UINT64_MAX;
+    for (uint16_t i = 0; i < header->e_phnum; ++i) {
+        const Elf64_Phdr* ph = &headers[i];
+        if (ph->p_type != PT_LOAD)
+            continue;
+        if (ph->p_vaddr < lowest_vaddr)
+            lowest_vaddr = ph->p_vaddr;
     }
 
-    Elf64_Shdr* shdrs = (Elf64_Shdr*)((uint8_t*)file_base_address + header->e_shoff);
-    for (uint16_t i = 0; i < header->e_shnum; ++i) {
-        Elf64_Shdr* sh = &shdrs[i];
-        if (sh->sh_type != SHT_RELA || sh->sh_size == 0)
-            continue;
+    if (lowest_vaddr == UINT64_MAX)
+        return 0;
 
-        if (sh->sh_offset + sh->sh_size > file_size || (sh->sh_size % sizeof(Elf64_Rela)) != 0) {
-            eprintf("elf: invalid SHT_RELA bounds");
-            return -1;
-        }
-
-        const Elf64_Sym* symtab = NULL;
-        uint64_t sym_count = 0;
-        if (sh->sh_link < header->e_shnum) {
-            Elf64_Shdr* sym_sh = &shdrs[sh->sh_link];
-            if (sym_sh->sh_type == SHT_SYMTAB && sym_sh->sh_entsize == sizeof(Elf64_Sym) &&
-                sym_sh->sh_offset + sym_sh->sh_size <= file_size)
-            {
-                symtab = (const Elf64_Sym*)((uint8_t*)file_base_address + sym_sh->sh_offset);
-                sym_count = sym_sh->sh_size / sizeof(Elf64_Sym);
-            }
-        }
-
-        if (elf_apply_relocation_entries((Elf64_Rela*)((uint8_t*)file_base_address + sh->sh_offset),
-                                         sh->sh_size / sizeof(Elf64_Rela),
-                                         symtab,
-                                         sym_count,
-                                         0) != 0)
-            return -1;
+    if (header->e_type == ET_DYN) {
+        uint64_t mapped_base = USER_CODE_VADDR;
+        return mapped_base - lowest_vaddr;
     }
 
     return 0;
 }
 
-static int elf_apply_relocations_from_vfs(const char* path, uint32_t file_size, const Elf64_Ehdr* header)
+static int elf_parse_dynamic_relocations(uint64_t load_bias,
+                                         const Elf64_Phdr* headers,
+                                         uint16_t phnum,
+                                         const Elf64_Rela** relocs,
+                                         uint64_t* reloc_count,
+                                         const Elf64_Sym** symtab,
+                                         uint64_t* sym_count)
 {
-    if (!path || !header || header->e_shoff == 0 || header->e_shnum == 0)
+    if (!headers || !relocs || !reloc_count || !symtab || !sym_count)
+        return -1;
+
+    const Elf64_Dyn* dynamic = NULL;
+    uint64_t dynamic_count = 0;
+    for (uint16_t i = 0; i < phnum; ++i) {
+        if (headers[i].p_type != PT_DYNAMIC)
+            continue;
+        dynamic = (const Elf64_Dyn*)(load_bias + headers[i].p_vaddr);
+        dynamic_count = headers[i].p_memsz / sizeof(Elf64_Dyn);
+        break;
+    }
+
+    if (!dynamic || dynamic_count == 0)
         return 0;
 
-    uint64_t shdr_bytes = (uint64_t)header->e_shnum * header->e_shentsize;
-    if (header->e_shentsize != sizeof(Elf64_Shdr) || header->e_shoff + shdr_bytes > file_size) {
-        eprintf("elf: invalid section header table");
+    uint64_t rela_ptr = 0;
+    uint64_t rela_sz = 0;
+    uint64_t rela_ent = sizeof(Elf64_Rela);
+    uint64_t sym_ptr = 0;
+    uint64_t sym_ent = sizeof(Elf64_Sym);
+    uint64_t hash_ptr = 0;
+
+    for (uint64_t i = 0; i < dynamic_count; ++i) {
+        const Elf64_Dyn* dyn = &dynamic[i];
+        if (dyn->d_tag == DT_NULL)
+            break;
+        switch (dyn->d_tag) {
+            case DT_RELA:
+                rela_ptr = dyn->d_un.d_ptr;
+                break;
+            case DT_RELASZ:
+                rela_sz = dyn->d_un.d_val;
+                break;
+            case DT_RELAENT:
+                rela_ent = dyn->d_un.d_val;
+                break;
+            case DT_SYMTAB:
+                sym_ptr = dyn->d_un.d_ptr;
+                break;
+            case DT_SYMENT:
+                sym_ent = dyn->d_un.d_val;
+                break;
+            case DT_HASH:
+                hash_ptr = dyn->d_un.d_ptr;
+                break;
+            default:
+                break;
+        }
+    }
+
+    if (rela_ptr == 0 || rela_sz == 0)
+        return 0;
+    if (rela_ent != sizeof(Elf64_Rela) || (rela_sz % rela_ent) != 0) {
+        eprintf("elf: invalid DT_RELA table");
+        return -1;
+    }
+    if (sym_ent != sizeof(Elf64_Sym)) {
+        eprintf("elf: invalid DT_SYMENT");
         return -1;
     }
 
-    Elf64_Shdr* shdrs = kmalloc(shdr_bytes);
-    if (!shdrs) {
-        eprintf("elf: failed to allocate section headers");
-        return -1;
+    *relocs = (const Elf64_Rela*)(load_bias + rela_ptr);
+    *reloc_count = rela_sz / rela_ent;
+    *symtab = (const Elf64_Sym*)(sym_ptr ? (load_bias + sym_ptr) : 0);
+    *sym_count = 0;
+
+    if (hash_ptr) {
+        const uint32_t* hash = (const uint32_t*)(load_bias + hash_ptr);
+        *sym_count = hash[1];
     }
 
-    if (elf_vfs_read_exact_path(path, (uint32_t)header->e_shoff, shdrs, (uint32_t)shdr_bytes) != 0) {
-        eprintf("elf: failed to read section headers");
-        kfree(shdrs);
-        return -1;
-    }
-
-    for (uint16_t i = 0; i < header->e_shnum; ++i) {
-        Elf64_Shdr* sh = &shdrs[i];
-        if (sh->sh_type != SHT_RELA || sh->sh_size == 0)
-            continue;
-
-        if (sh->sh_offset + sh->sh_size > file_size || (sh->sh_size % sizeof(Elf64_Rela)) != 0) {
-            eprintf("elf: invalid SHT_RELA bounds");
-            kfree(shdrs);
-            return -1;
-        }
-
-        Elf64_Rela* relocs = kmalloc(sh->sh_size);
-        if (!relocs) {
-            eprintf("elf: failed to allocate relocations");
-            kfree(shdrs);
-            return -1;
-        }
-
-        if (elf_vfs_read_exact_path(path, (uint32_t)sh->sh_offset, relocs, (uint32_t)sh->sh_size) != 0) {
-            eprintf("elf: failed to read relocations");
-            kfree(relocs);
-            kfree(shdrs);
-            return -1;
-        }
-
-        Elf64_Sym* symtab = NULL;
-        uint64_t sym_count = 0;
-        if (sh->sh_link < header->e_shnum) {
-            Elf64_Shdr* sym_sh = &shdrs[sh->sh_link];
-            if (sym_sh->sh_type == SHT_SYMTAB && sym_sh->sh_entsize == sizeof(Elf64_Sym) &&
-                sym_sh->sh_offset + sym_sh->sh_size <= file_size)
-            {
-                symtab = kmalloc(sym_sh->sh_size);
-                if (!symtab) {
-                    eprintf("elf: failed to allocate symbol table");
-                    kfree(relocs);
-                    kfree(shdrs);
-                    return -1;
-                }
-                if (elf_vfs_read_exact_path(path, (uint32_t)sym_sh->sh_offset, symtab, (uint32_t)sym_sh->sh_size) != 0) {
-                    eprintf("elf: failed to read symbol table");
-                    kfree(symtab);
-                    kfree(relocs);
-                    kfree(shdrs);
-                    return -1;
-                }
-                sym_count = sym_sh->sh_size / sizeof(Elf64_Sym);
-            }
-        }
-
-        int rc = elf_apply_relocation_entries(relocs,
-                                              sh->sh_size / sizeof(Elf64_Rela),
-                                              symtab,
-                                              sym_count,
-                                              0);
-        if (symtab)
-            kfree(symtab);
-        kfree(relocs);
-        if (rc != 0) {
-            kfree(shdrs);
-            return -1;
-        }
-    }
-
-    kfree(shdrs);
     return 0;
 }
 
-static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum, uint64_t file_offset)
+static int elf_apply_runtime_relocations(uint64_t load_bias, const Elf64_Phdr* headers, uint16_t phnum)
+{
+    const Elf64_Rela* relocs = NULL;
+    uint64_t reloc_count = 0;
+    const Elf64_Sym* symtab = NULL;
+    uint64_t sym_count = 0;
+
+    if (elf_parse_dynamic_relocations(load_bias, headers, phnum, &relocs, &reloc_count, &symtab, &sym_count) != 0)
+        return -1;
+
+    return elf_apply_relocation_entries(relocs, reloc_count, symtab, sym_count, load_bias);
+}
+
+static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum, uint64_t file_offset, uint64_t load_bias)
 {
     for (uint16_t i = 0; i < phnum; ++i) {
         Elf64_Phdr* ph = &headers[i];
@@ -339,7 +344,7 @@ static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum,
         uint64_t seg_start = ph->p_offset;
         uint64_t seg_end = ph->p_offset + ph->p_filesz;
         if (file_offset >= seg_start && file_offset < seg_end)
-            return ph->p_vaddr + (file_offset - ph->p_offset);
+            return load_bias + ph->p_vaddr + (file_offset - ph->p_offset);
     }
 
     return 0;
@@ -390,7 +395,7 @@ static uint64_t elf_stage_phdrs_for_user(Elf64_Phdr* headers, uint64_t phdr_byte
 static int elf_validate_header(const Elf64_Ehdr* header, uint64_t file_size)
 {
     if (memcmp(&header->e_ident[EI_MAG0], ELFMAG, SELFMAG) != 0 || header->e_ident[EI_CLASS] != ELFCLASS64 ||
-        header->e_ident[EI_DATA] != ELFDATA2LSB || (header->e_type != ET_EXEC) ||
+        header->e_ident[EI_DATA] != ELFDATA2LSB || (header->e_type != ET_EXEC && header->e_type != ET_DYN) ||
         header->e_machine != EM_X86_64 || header->e_version != EV_CURRENT)
     {
         error("Not a valid ELF file to load!", __FILE__);
@@ -406,7 +411,7 @@ static int elf_validate_header(const Elf64_Ehdr* header, uint64_t file_size)
     return 0;
 }
 
-static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file_size)
+static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file_size, uint64_t load_bias)
 {
     if (ph->p_type != PT_LOAD)
         return 0;
@@ -416,8 +421,8 @@ static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file
         return -1;
     }
 
-    uint64_t seg_start = ph->p_vaddr & ~0xFFFULL;
-    uint64_t seg_end = (ph->p_vaddr + ph->p_memsz + 0xFFFULL) & ~0xFFFULL;
+    uint64_t seg_start = (load_bias + ph->p_vaddr) & ~0xFFFULL;
+    uint64_t seg_end = (load_bias + ph->p_vaddr + ph->p_memsz + 0xFFFULL) & ~0xFFFULL;
 
     uint64_t page_flags = PAGE_PRESENT | PAGE_USER;
     if (ph->p_flags & PF_W)
@@ -430,7 +435,7 @@ static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file
         map_user_page(page, phys, page_flags);
     }
 
-    void* segment = (void*)ph->p_vaddr;
+    void* segment = (void*)(load_bias + ph->p_vaddr);
 
     memcpy(segment, (uint8_t*)file_base + ph->p_offset, ph->p_filesz);
 
@@ -442,7 +447,7 @@ static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file
     return 0;
 }
 
-static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uint64_t file_size, uint16_t seg_index)
+static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uint64_t file_size, uint16_t seg_index, uint64_t load_bias)
 {
     if (ph->p_type != PT_LOAD)
         return 0;
@@ -452,8 +457,8 @@ static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uin
         return -1;
     }
 
-    uint64_t seg_start = ph->p_vaddr & ~0xFFFULL;
-    uint64_t seg_end = (ph->p_vaddr + ph->p_memsz + 0xFFFULL) & ~0xFFFULL;
+    uint64_t seg_start = (load_bias + ph->p_vaddr) & ~0xFFFULL;
+    uint64_t seg_end = (load_bias + ph->p_vaddr + ph->p_memsz + 0xFFFULL) & ~0xFFFULL;
 
     uint64_t page_flags = PAGE_PRESENT | PAGE_USER;
     if (ph->p_flags & PF_W)
@@ -469,7 +474,7 @@ static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uin
     printf("elf: seg %u off=%x vaddr=%x filesz=%u memsz=%u",
            seg_index,
            ph->p_offset,
-           ph->p_vaddr,
+           load_bias + ph->p_vaddr,
            ph->p_filesz,
            ph->p_memsz);
 
@@ -504,7 +509,7 @@ static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uin
                 return -1;
             }
 
-            memcpy((void*)(ph->p_vaddr + copied), chunk, want);
+            memcpy((void*)(load_bias + ph->p_vaddr + copied), chunk, want);
             copied += want;
         }
 
@@ -519,7 +524,7 @@ static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uin
     }
 
     if (ph->p_memsz > ph->p_filesz)
-        memset((uint8_t*)ph->p_vaddr + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
+        memset((uint8_t*)(load_bias + ph->p_vaddr) + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
 
     return 0;
 }
@@ -539,6 +544,7 @@ void* elf_load_from_memory_ex(void* file_base_address, uint64_t file_size, elf_i
     // printf("Parsing ELF64 file with %d PHDRs\n", header.e_phnum);
 
     Elf64_Phdr* program_headers_start = (Elf64_Phdr*)((uint8_t*)file_base_address + header.e_phoff);
+    uint64_t load_bias = elf_compute_load_bias(&header, program_headers_start);
 
     if (info)
         memset(info, 0, sizeof(*info));
@@ -547,27 +553,27 @@ void* elf_load_from_memory_ex(void* file_base_address, uint64_t file_size, elf_i
         Elf64_Phdr* prog_header = (Elf64_Phdr*)((uint8_t*)program_headers_start + ((uint64_t)i * header.e_phentsize));
         if (info)
             elf_record_tls_segment(prog_header, info);
-        if (elf_map_program_header(prog_header, file_base_address, file_size) != 0) {
+        if (elf_map_program_header(prog_header, file_base_address, file_size, load_bias) != 0) {
             return NULL;
         }
     }
 
     if (info) {
-        info->entry = header.e_entry;
+        info->entry = load_bias + header.e_entry;
         info->phdr_addr = elf_stage_phdrs_for_user(program_headers_start,
                                                    (uint64_t)header.e_phnum * header.e_phentsize);
         if (info->phdr_addr == 0)
-            info->phdr_addr = elf_runtime_addr_for_offset(program_headers_start, header.e_phnum, header.e_phoff);
+            info->phdr_addr = elf_runtime_addr_for_offset(program_headers_start, header.e_phnum, header.e_phoff, load_bias);
         info->phentsize = header.e_phentsize;
         info->phnum = header.e_phnum;
         if (elf_load_tls_template_from_memory(file_base_address, file_size, info) != 0)
             return NULL;
     }
 
-    if (elf_apply_relocations_from_memory(file_base_address, file_size, &header) != 0)
+    if (elf_apply_runtime_relocations(load_bias, program_headers_start, header.e_phnum) != 0)
         return NULL;
 
-    return (void*)header.e_entry;
+    return (void*)(load_bias + header.e_entry);
 }
 
 void* elf_load_from_memory(void* file_base_address, uint64_t file_size)
@@ -636,6 +642,8 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
 
     vfs_close(&file);
 
+    uint64_t load_bias = elf_compute_load_bias(&header, program_headers);
+
     if (info)
         memset(info, 0, sizeof(*info));
 
@@ -643,17 +651,17 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
         elf_log_load_progress(i, header.e_phnum, &program_headers[i]);
         if (info)
             elf_record_tls_segment(&program_headers[i], info);
-        if (elf_map_program_header_from_vfs(&program_headers[i], path, size, i) != 0) {
+        if (elf_map_program_header_from_vfs(&program_headers[i], path, size, i, load_bias) != 0) {
             kfree(program_headers);
             return NULL;
         }
     }
 
     if (info) {
-        info->entry = header.e_entry;
+        info->entry = load_bias + header.e_entry;
         info->phdr_addr = elf_stage_phdrs_for_user(program_headers, phdr_bytes);
         if (info->phdr_addr == 0)
-            info->phdr_addr = elf_runtime_addr_for_offset(program_headers, header.e_phnum, header.e_phoff);
+            info->phdr_addr = elf_runtime_addr_for_offset(program_headers, header.e_phnum, header.e_phoff, load_bias);
         info->phentsize = header.e_phentsize;
         info->phnum = header.e_phnum;
         if (elf_load_tls_template_from_vfs(path, info) != 0) {
@@ -669,13 +677,13 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
         }
     }
 
-    if (elf_apply_relocations_from_vfs(path, size, &header) != 0) {
+    if (elf_apply_runtime_relocations(load_bias, program_headers, header.e_phnum) != 0) {
         kfree(program_headers);
         return NULL;
     }
 
     kfree(program_headers);
-    void* entry = (void*)header.e_entry;
+    void* entry = (void*)(load_bias + header.e_entry);
     return entry;
 }
 
