@@ -14,6 +14,7 @@
 #include <keyboard.h>
 #include <stdint.h>
 #include <ringbuffer.h>
+#include <tty.h>
 
 bool enable_keyboard = yes;
 static ring_buffer_t kb_rb;
@@ -84,6 +85,10 @@ void process_keyboard(InterruptFrame* frame)
 
     rb_push(&kb_rb, &scancode);
 
+    int c = handle_char_from_scancode(scancode);
+    if (c != 0)
+        tty_input_char((char)c);
+
     outb(0x20, 0x20);
 }
 
@@ -115,9 +120,7 @@ int getc_nonblock() {
 }
 
 int kgetc_nonblock(){
-    if (!(inb(0x64) & 1)) return 0;
-
-    return handle_char_from_scancode(inb(0x60));
+    return getc_nonblock();
 }
 
 static bool extended = false;
