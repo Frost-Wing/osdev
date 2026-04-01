@@ -31,6 +31,7 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
 void userland_heap_init(void);
 uint64_t userland_brk(uint64_t requested_break);
 uint64_t userland_mmap_anon(uint64_t length);
+bool userland_prepare_exit(syscall_frame_t* frame, uint64_t exit_code);
 void sh_exec(void);
 
 #endif
