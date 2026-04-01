@@ -9,6 +9,7 @@
  *
  */
 #include <commands/login.h>
+#include <stdint.h>
 #include <syscalls.h>
 #include <limine.h>
 #include <keyboard.h>
@@ -114,10 +115,10 @@ typedef struct {
 } linux_timespec_t;
 
 typedef struct {
-    uint32_t ws_row;
-    uint32_t ws_col;
-    uint32_t ws_xpixel;
-    uint32_t ws_ypixel;
+    uint16_t ws_row;
+    uint16_t ws_col;
+    uint16_t ws_xpixel;
+    uint16_t ws_ypixel;
 } linux_winsize_t;
 
 typedef struct {
@@ -1333,7 +1334,7 @@ uint64_t syscall_dispatch (
             printf(blue_color "\n[process exited with code %d]" reset_color, (int)arg1);
             running = false;
             hcf2();
-            
+
             return 0;
 
         case LINUX_SYS_GETCWD:
