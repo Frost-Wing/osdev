@@ -10,5 +10,6 @@
 void tty_init(void);
 void tty_input_char(char c);
 int tty_read(char* buf, uint64_t count);
+void tty_flush_input(void);
 
 #endif
