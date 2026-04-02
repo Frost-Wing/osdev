@@ -66,7 +66,6 @@ syscall_entry:
     cmp byte [rel userland_should_return_kernel], 0
     je .return_to_user
 
-    swapgs
     mov rbx, [rel userland_resume_rbx]
     mov rbp, [rel userland_resume_rbp]
     mov r12, [rel userland_resume_r12]
