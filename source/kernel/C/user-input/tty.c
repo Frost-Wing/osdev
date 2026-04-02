@@ -86,3 +86,8 @@ int tty_read(char* buf, uint64_t count) {
 
     return (int)read;
 }
+
+void tty_flush_input(void) {
+    rb_clear(&cooked_rb);
+    line_len = 0;
+}
