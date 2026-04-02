@@ -6,6 +6,7 @@
 #include <executables/elf.h>
 #include <filesystems/vfs.h>
 #include <heap.h>
+#include <tss.h>
 
 static uint64_t user_heap_break = USER_HEAP_VADDR;
 static uint64_t user_heap_mapped_end = USER_HEAP_VADDR;
@@ -13,6 +14,10 @@ static uint64_t user_heap_mapped_end = USER_HEAP_VADDR;
 static uint64_t user_mmap_cursor = USER_MMAP_VADDR;
 static uint64_t user_mmap_end = USER_MMAP_VADDR;
 static volatile bool userland_running = false;
+static uint64_t userland_saved_kernel_stack_top = 0;
+static uint64_t userland_saved_tss_rsp0 = 0;
+__attribute__((aligned(16)))
+static uint8_t userland_syscall_stack[0x4000];
 volatile bool userland_should_return_kernel = false;
 volatile uint64_t userland_resume_rip = 0;
 volatile uint64_t userland_resume_rsp = 0;
@@ -427,6 +432,10 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
     userland_should_return_kernel = false;
     userland_last_exit_code = 0;
     userland_running = true;
+    userland_saved_kernel_stack_top = kernel_stack_top;
+    userland_saved_tss_rsp0 = tss.rsp0;
+    kernel_stack_top = (uint64_t)&userland_syscall_stack[sizeof(userland_syscall_stack)];
+    tss.rsp0 = kernel_stack_top;
 
     asm volatile (
         "cli\n"
@@ -462,6 +471,10 @@ userland_return_label:
     userland_resume_r13 = 0;
     userland_resume_r14 = 0;
     userland_resume_r15 = 0;
+    kernel_stack_top = userland_saved_kernel_stack_top;
+    tss.rsp0 = userland_saved_tss_rsp0;
+    userland_saved_kernel_stack_top = 0;
+    userland_saved_tss_rsp0 = 0;
     wrmsr64_local(IA32_FS_BASE_MSR, 0);
     userland_unmap_all();
     userland_heap_init();
