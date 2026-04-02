@@ -16,6 +16,12 @@ static volatile bool userland_running = false;
 volatile bool userland_should_return_kernel = false;
 volatile uint64_t userland_resume_rip = 0;
 volatile uint64_t userland_resume_rsp = 0;
+volatile uint64_t userland_resume_rbx = 0;
+volatile uint64_t userland_resume_rbp = 0;
+volatile uint64_t userland_resume_r12 = 0;
+volatile uint64_t userland_resume_r13 = 0;
+volatile uint64_t userland_resume_r14 = 0;
+volatile uint64_t userland_resume_r15 = 0;
 static volatile int userland_last_exit_code = 0;
 
 static void debug_dump_initial_stack(uint64_t stack_top) {
@@ -410,6 +416,12 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
 
     uint64_t kernel_rsp = 0;
     asm volatile("mov %%rsp, %0" : "=r"(kernel_rsp));
+    asm volatile("mov %%rbx, %0" : "=r"(userland_resume_rbx));
+    asm volatile("mov %%rbp, %0" : "=r"(userland_resume_rbp));
+    asm volatile("mov %%r12, %0" : "=r"(userland_resume_r12));
+    asm volatile("mov %%r13, %0" : "=r"(userland_resume_r13));
+    asm volatile("mov %%r14, %0" : "=r"(userland_resume_r14));
+    asm volatile("mov %%r15, %0" : "=r"(userland_resume_r15));
     userland_resume_rsp = kernel_rsp;
     userland_resume_rip = (uint64_t)&&userland_return_label;
     userland_should_return_kernel = false;
@@ -444,6 +456,12 @@ userland_return_label:
     userland_should_return_kernel = false;
     userland_resume_rip = 0;
     userland_resume_rsp = 0;
+    userland_resume_rbx = 0;
+    userland_resume_rbp = 0;
+    userland_resume_r12 = 0;
+    userland_resume_r13 = 0;
+    userland_resume_r14 = 0;
+    userland_resume_r15 = 0;
     wrmsr64_local(IA32_FS_BASE_MSR, 0);
     userland_unmap_all();
     userland_heap_init();
