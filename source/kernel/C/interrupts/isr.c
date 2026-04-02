@@ -15,28 +15,9 @@
 #include <drivers/rtl8139.h>
 #include <syscalls.h>
 #include <debugger.h>
+#include <meltdown.h>
 
 irq_handler interrupt_handlers[256];
-
-static int skip_endbr64_if_present(InterruptFrame* frame) {
-    if (!frame)
-        return 0;
-
-    if ((frame->cs & 0x3) != 0x3)
-        return 0;
-
-    uint8_t* ip = (uint8_t*)frame->rip;
-    if (!ip)
-        return 0;
-
-    if (ip[0] == 0xF3 && ip[1] == 0x0F && ip[2] == 0x1E && ip[3] == 0xFA) {
-        debug_printf("isr: skipping ENDBR64 at rip=0x%X\n", frame->rip);
-        frame->rip += 4;
-        return 1;
-    }
-
-    return 0;
-}
 
 static void log_page_fault_details(InterruptFrame* frame) {
     if (!frame || frame->int_no != 14)
@@ -52,27 +33,6 @@ static void log_page_fault_details(InterruptFrame* frame) {
             (int)((err >> 2) & 0x1),
             (int)((err >> 3) & 0x1),
             (int)((err >> 4) & 0x1));
-}
-
-static int emulate_syscall_instruction_if_present(InterruptFrame* frame) {
-    if (!frame)
-        return 0;
-
-    if ((frame->cs & 0x3) != 0x3)
-        return 0;
-
-    uint8_t* ip = (uint8_t*)frame->rip;
-    if (!ip)
-        return 0;
-
-    if (ip[0] == 0x0F && ip[1] == 0x05) {
-        debug_printf("isr: emulating SYSCALL as int 0x80 at rip=%u nr=%u\n", frame->rip, frame->rax);
-        syscalls_handler(frame);
-        frame->rip += 2;
-        return 1;
-    }
-
-    return 0;
 }
 
 void exceptionHandler(InterruptFrame* frame) {

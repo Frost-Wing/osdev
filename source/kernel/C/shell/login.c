@@ -86,7 +86,6 @@ int login_request(char* userbuf, int max){
         }
 
         username[i++] = temp;
-        putc(temp);
     }
 
     username[i] = '\0';
@@ -117,7 +116,6 @@ int login_request(char* userbuf, int max){
         }
 
         password[i++] = temp;
-        putc('*');
     }
 
     password[i] = '\0';

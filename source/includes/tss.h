@@ -56,6 +56,12 @@ extern struct tss_entry tss;
 extern uint8_t kernel_stack[0x4000];
 
 /**
+ * @brief The starting address of kernel's stack.
+ * 
+ */
+extern uint64_t kernel_stack_top;
+
+/**
  * @brief Initialize TSS.
  * 
  */

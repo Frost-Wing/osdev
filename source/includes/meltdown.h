@@ -12,12 +12,10 @@
 #ifndef MELTDOWN_H
 #define MELTDOWN_H
 
-#include <stddef.h>
-#include <stdint.h>
 #include <basics.h>
-#include <kernel.h>
-#include <opengl/glbackend.h>
 #include <graphics.h>
+
+extern struct InterruptFrame;
 
 /**
  * @brief The Meltdown (Panic) Screen
@@ -29,6 +27,6 @@
  * @param cr2
  * @param int_no
  */
-void meltdown_screen(cstring message, cstring file, int line, int64 error_code, int64 cr2, int64 int_no, InterruptFrame* frame);
+void meltdown_screen(cstring message, cstring file, int line, int64 error_code, int64 cr2, int64 int_no, struct InterruptFrame* frame);
 
 #endif

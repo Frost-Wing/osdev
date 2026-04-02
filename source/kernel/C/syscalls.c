@@ -240,34 +240,6 @@ static int copy_user_string_array(char* const* user_arr, char*** out_arr) {
     return 32;
 }
 
-static inline uint64_t syscall_arg4(InterruptFrame* frame) {
-    if (!frame)
-        return 0;
-
-    // x86_64 Linux syscall ABI (SYSCALL instruction) passes arg4 in r10.
-    // Legacy int 0x80 path keeps arg4 in rcx.
-    return (frame->int_no == 0x80) ? frame->rcx : frame->r10;
-}
-
-void wrmsr64(uint32_t msr, uint64_t value) {
-    uint32_t low = (uint32_t)value;
-    uint32_t high = (uint32_t)(value >> 32);
-    asm volatile("wrmsr" : : "c"(msr), "a"(low), "d"(high));
-}
-
-uint64_t rdmsr64(uint32_t msr) {
-    uint32_t low = 0;
-    uint32_t high = 0;
-    asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(msr));
-    return ((uint64_t)high << 32) | low;
-}
-
-static uint64_t rdtsc64(void) {
-    uint32_t low = 0;
-    uint32_t high = 0;
-    asm volatile("rdtsc" : "=a"(low), "=d"(high));
-    return ((uint64_t)high << 32) | low;
-}
 
 static uint32_t path_inode_hash(const char* path) {
     uint32_t hash = 2166136261u;
@@ -1205,18 +1177,9 @@ static int64 sys_futex(uint32_t* uaddr, int op, uint32_t val,
     }
 }
 
-void invoke_syscall(int64 num) {
-    asm volatile (
-        "movq %0, %%rax\n\t"
-        "int $0x80\n\t"
-        :
-        : "g" ((int64)num)
-        : "rax"
-    );
-}
 
 // THIS IS FOR INTERRUPT 0X80
-void syscalls_handler(InterruptFrame* frame)
+void int80_handler(InterruptFrame* frame)
 {
     uint64_t ret = syscall_dispatch(
         frame->rax,
@@ -1232,10 +1195,9 @@ void syscalls_handler(InterruptFrame* frame)
 }
 
 // THIS IS FOR SYSCALL INSTRUCTION
-void syscall_handler_syscall(syscall_frame_t* f)
+void syscall_handler(syscall_frame_t* f)
 {
     if (f && (f->rax == LINUX_SYS_EXIT || f->rax == LINUX_SYS_EXIT_GROUP)) {
-        hcf2();
         if (userland_prepare_exit(f, f->rdi))
             return;
     }
@@ -1399,19 +1361,10 @@ uint64_t syscall_dispatch (
         case LINUX_SYS_STATX:
             return sys_statx((int)arg1, (const char*)arg2, (int)arg3, (unsigned int)arg4, (linux_statx_t*)arg5);
 
-        case FW_SYS_GETC:
-            return getc();
-
-        case FW_SYS_PUTC:
-            printfnoln("%c", (char)arg1);
-            return 0;
-
-        case FW_SYS_LOGIN:
-            return login_request((char*)arg1, arg2);
-
         case PRAD_MAGIC:
             info("Alive from userland", __FILE__);
             return 0;
+        
         case LINUX_SYS_FUTEX:
             return sys_futex((uint32_t*)arg1, arg2, arg3,
                             (const linux_timespec_t*)arg4,
