@@ -15,6 +15,7 @@
 #include <kernel.h>
 #include <tty.h>
 #include <executables/elf.h>
+#include <multitasking.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
@@ -245,6 +246,8 @@ void main(void) {
     init_hashing();
     
     mm_print_out();
+    multitasking_init();
+    multitasking_start_cursor_blink_task();
     create_user_str("root", "prad");
     
     wm_addr = module_request.response->modules[0]->address;
