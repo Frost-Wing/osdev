@@ -16,6 +16,7 @@
 #include <syscalls.h>
 #include <debugger.h>
 #include <meltdown.h>
+#include <userland.h>
 
 irq_handler interrupt_handlers[256];
 
@@ -38,6 +39,11 @@ static void log_page_fault_details(InterruptFrame* frame) {
 void exceptionHandler(InterruptFrame* frame) {
     enable_logging = false; // disables logger as fast as it can to get the last instance of panic.
     log_page_fault_details(frame);
+
+    if (frame && ((frame->cs & 0x3) == 0x3) && userland_is_running()) {
+        printf("Userland process trapped and will be terminated (frame -> err:%02u,cr2:%02u,int:%02u)", frame->err_code, getCR2(), frame->int_no);
+        userland_abort_from_exception(frame->int_no, frame->err_code, frame->rip);
+    }
     
 	switch (frame->int_no) {
         case 0:

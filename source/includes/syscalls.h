@@ -36,6 +36,7 @@
 #define LINUX_SYS_DUP2              33
 #define LINUX_SYS_NANOSLEEP         35
 #define LINUX_SYS_GETPID            39
+#define LINUX_SYS_FORK              57
 #define LINUX_SYS_EXECVE            59
 #define LINUX_SYS_EXIT              60
 #define LINUX_SYS_CHDIR             80
