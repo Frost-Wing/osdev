@@ -28,6 +28,30 @@ volatile uint64_t userland_resume_r13 = 0;
 volatile uint64_t userland_resume_r14 = 0;
 volatile uint64_t userland_resume_r15 = 0;
 static volatile int userland_last_exit_code = 0;
+static inline void wrmsr64_local(uint32_t msr, uint64_t value);
+static void userland_unmap_all(void);
+void userland_heap_init(void);
+
+__attribute__((noinline)) static void userland_finish_exit(void) {
+    userland_running = false;
+    userland_should_return_kernel = false;
+    userland_resume_rip = 0;
+    userland_resume_rsp = 0;
+    userland_resume_rbx = 0;
+    userland_resume_rbp = 0;
+    userland_resume_r12 = 0;
+    userland_resume_r13 = 0;
+    userland_resume_r14 = 0;
+    userland_resume_r15 = 0;
+    kernel_stack_top = userland_saved_kernel_stack_top;
+    tss.rsp0 = userland_saved_tss_rsp0;
+    userland_saved_kernel_stack_top = 0;
+    userland_saved_tss_rsp0 = 0;
+    wrmsr64_local(IA32_FS_BASE_MSR, 0);
+    userland_unmap_all();
+    userland_heap_init();
+    printf(blue_color "\n[process exited with code %d]" reset_color, userland_last_exit_code);
+}
 
 static void debug_dump_initial_stack(uint64_t stack_top) {
     uint64_t* words = (uint64_t*)stack_top;
@@ -428,7 +452,7 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
     asm volatile("mov %%r14, %0" : "=r"(userland_resume_r14));
     asm volatile("mov %%r15, %0" : "=r"(userland_resume_r15));
     userland_resume_rsp = kernel_rsp;
-    userland_resume_rip = (uint64_t)&&userland_return_label;
+    userland_resume_rip = (uint64_t)userland_finish_exit;
     userland_should_return_kernel = false;
     userland_last_exit_code = 0;
     userland_running = true;
@@ -460,24 +484,6 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
         : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
     );
 
-userland_return_label:
-    userland_running = false;
-    userland_should_return_kernel = false;
-    userland_resume_rip = 0;
-    userland_resume_rsp = 0;
-    userland_resume_rbx = 0;
-    userland_resume_rbp = 0;
-    userland_resume_r12 = 0;
-    userland_resume_r13 = 0;
-    userland_resume_r14 = 0;
-    userland_resume_r15 = 0;
-    kernel_stack_top = userland_saved_kernel_stack_top;
-    tss.rsp0 = userland_saved_tss_rsp0;
-    userland_saved_kernel_stack_top = 0;
-    userland_saved_tss_rsp0 = 0;
-    wrmsr64_local(IA32_FS_BASE_MSR, 0);
-    userland_unmap_all();
-    userland_heap_init();
-    printf(blue_color "\n[process exited with code %d]" reset_color, userland_last_exit_code);
+    userland_finish_exit();
     return 0;
 }
