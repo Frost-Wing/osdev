@@ -59,7 +59,8 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     userland_heap_init();
     tty_flush_input();
     printf(blue_color "\n[process exited with code %d]" reset_color, userland_last_exit_code);
-
+    asm volatile("sti");
+    
     asm volatile(
         "xor %%rax, %%rax\n"
         "mov %0, %%rsp\n"
