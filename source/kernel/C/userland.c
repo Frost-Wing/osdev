@@ -392,6 +392,60 @@ bool userland_prepare_exit(syscall_frame_t* frame, uint64_t exit_code) {
     return true;
 }
 
+bool userland_is_running(void) {
+    return userland_running;
+}
+
+static int userland_exception_exit_code(uint64_t int_no) {
+    switch (int_no) {
+        case 0:  // divide by zero
+            return 136;
+        case 6:  // invalid opcode
+            return 132;
+        case 13: // general protection fault
+        case 14: // page fault
+            return 139;
+        default:
+            return 128 + (int)(int_no & 0x7F);
+    }
+}
+
+void userland_abort_from_exception(uint64_t int_no, uint64_t err_code, uint64_t fault_rip) {
+    if (!userland_running || !userland_resume_rip || !userland_resume_rsp)
+        hcf2();
+
+    userland_last_exit_code = userland_exception_exit_code(int_no);
+    eprintf("[userland] fatal exception: int=%02u err=0x%02X rip=0x%X -> exit=%02d",
+            int_no,
+            err_code,
+            fault_rip,
+            userland_last_exit_code);
+
+    asm volatile(
+        "cli\n"
+        "mov %0, %%rbx\n"
+        "mov %1, %%rbp\n"
+        "mov %2, %%r12\n"
+        "mov %3, %%r13\n"
+        "mov %4, %%r14\n"
+        "mov %5, %%r15\n"
+        "mov %6, %%rsp\n"
+        "jmp *%7\n"
+        :
+        : "r"(userland_resume_rbx),
+          "r"(userland_resume_rbp),
+          "r"(userland_resume_r12),
+          "r"(userland_resume_r13),
+          "r"(userland_resume_r14),
+          "r"(userland_resume_r15),
+          "r"(userland_resume_rsp),
+          "r"(userland_resume_rip)
+        : "memory");
+
+    __builtin_unreachable();
+}
+
+
 /**
  * @brief Enter userland (ring 3) at a specific userspace RIP.
  */
