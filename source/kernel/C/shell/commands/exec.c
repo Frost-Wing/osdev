@@ -13,6 +13,7 @@
 #include <executables/elf.h>
 #include <userland.h>
 #include <graphics.h>
+#include <tty.h>
 
 int cmd_exec(int argc, char** argv)
 {
@@ -36,6 +37,8 @@ int cmd_exec(int argc, char** argv)
         user_argv[user_argc++] = argv[i];
 
     user_argv[user_argc] = NULL;
+
+    tty_flush_input();
 
     if (userland_exec(path, user_argc, user_argv, NULL) != 0) {
         eprintf("exec: failed to load ELF");
