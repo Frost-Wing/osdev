@@ -119,6 +119,9 @@ int getc_nonblock() {
     return 0; // no key available
 }
 
+void keyboard_flush_buffer(void) {
+    rb_clear(&kb_rb);
+}
 
 static bool extended = false;
 int handle_char_from_scancode(uint8_t data)
