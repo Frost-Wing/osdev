@@ -14,6 +14,7 @@
 #include <userland.h>
 #include <graphics.h>
 #include <tty.h>
+#include <keyboard.h>
 
 int cmd_exec(int argc, char** argv)
 {
@@ -39,11 +40,14 @@ int cmd_exec(int argc, char** argv)
     user_argv[user_argc] = NULL;
 
     tty_flush_input();
+    keyboard_flush_buffer();
 
     if (userland_exec(path, user_argc, user_argv, NULL) != 0) {
+        keyboard_flush_buffer();
         eprintf("exec: failed to load ELF");
         return -1;
     }
 
+    keyboard_flush_buffer();
     return 0;
 }
