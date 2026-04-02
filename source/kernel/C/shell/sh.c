@@ -11,6 +11,7 @@
 
 #include <commands/login.h>
 #include <sh_util.h>
+#include <multitasking.h>
 
 int last_status_code = 0;
 
@@ -193,6 +194,7 @@ int shell_main(int argc, char** argv){
     char c;
     while (running)
     {
+        multitasking_pump();
         c = getc();
 
         if (c == 0)
@@ -394,7 +396,8 @@ static command_t commands[] = {
     { "mount", cmd_mount },
     { "mv", cmd_mv },
     { "umount", cmd_umount },
-    { "exec", cmd_exec }
+    { "exec", cmd_exec },
+    { "tasks", cmd_tasks }
     // { "fwfetch", cmd_fwfetch },
     // { "help", cmd_help },
 };
@@ -462,6 +465,7 @@ int execute_chain(const char* line)
         apply_redirection(&redir, &old_out, &old_err);
 
         last_status = dispatch(argc, argv);
+        multitasking_pump();
 
         restore_redirection(NULL, NULL);
 
