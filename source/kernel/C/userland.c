@@ -6,6 +6,7 @@
 #include <executables/elf.h>
 #include <filesystems/vfs.h>
 #include <heap.h>
+#include <tss.h>
 
 static uint64_t user_heap_break = USER_HEAP_VADDR;
 static uint64_t user_heap_mapped_end = USER_HEAP_VADDR;
@@ -13,8 +14,19 @@ static uint64_t user_heap_mapped_end = USER_HEAP_VADDR;
 static uint64_t user_mmap_cursor = USER_MMAP_VADDR;
 static uint64_t user_mmap_end = USER_MMAP_VADDR;
 static volatile bool userland_running = false;
-static volatile uint64_t userland_resume_rip = 0;
-static volatile uint64_t userland_resume_rsp = 0;
+static uint64_t userland_saved_kernel_stack_top = 0;
+static uint64_t userland_saved_tss_rsp0 = 0;
+__attribute__((aligned(16)))
+static uint8_t userland_syscall_stack[0x4000];
+volatile bool userland_should_return_kernel = false;
+volatile uint64_t userland_resume_rip = 0;
+volatile uint64_t userland_resume_rsp = 0;
+volatile uint64_t userland_resume_rbx = 0;
+volatile uint64_t userland_resume_rbp = 0;
+volatile uint64_t userland_resume_r12 = 0;
+volatile uint64_t userland_resume_r13 = 0;
+volatile uint64_t userland_resume_r14 = 0;
+volatile uint64_t userland_resume_r15 = 0;
 static volatile int userland_last_exit_code = 0;
 
 static void debug_dump_initial_stack(uint64_t stack_top) {
@@ -329,17 +341,13 @@ uint64_t userland_mmap_anon(uint64_t length) {
 }
 
 bool userland_prepare_exit(syscall_frame_t* frame, uint64_t exit_code) {
-    if (!frame || !userland_running || !userland_resume_rip || !userland_resume_rsp)
+    (void)frame;
+
+    if (!userland_running || !userland_resume_rip || !userland_resume_rsp)
         return false;
 
     userland_last_exit_code = (int)exit_code;
-
-    frame->rip = userland_resume_rip;
-    frame->cs = 0x08;
-    frame->rflags = 0x202;
-    frame->rsp = userland_resume_rsp;
-    frame->ss = 0x10;
-    frame->rax = exit_code;
+    userland_should_return_kernel = true;
     return true;
 }
 
@@ -413,10 +421,21 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
 
     uint64_t kernel_rsp = 0;
     asm volatile("mov %%rsp, %0" : "=r"(kernel_rsp));
+    asm volatile("mov %%rbx, %0" : "=r"(userland_resume_rbx));
+    asm volatile("mov %%rbp, %0" : "=r"(userland_resume_rbp));
+    asm volatile("mov %%r12, %0" : "=r"(userland_resume_r12));
+    asm volatile("mov %%r13, %0" : "=r"(userland_resume_r13));
+    asm volatile("mov %%r14, %0" : "=r"(userland_resume_r14));
+    asm volatile("mov %%r15, %0" : "=r"(userland_resume_r15));
     userland_resume_rsp = kernel_rsp;
     userland_resume_rip = (uint64_t)&&userland_return_label;
+    userland_should_return_kernel = false;
     userland_last_exit_code = 0;
     userland_running = true;
+    userland_saved_kernel_stack_top = kernel_stack_top;
+    userland_saved_tss_rsp0 = tss.rsp0;
+    kernel_stack_top = (uint64_t)&userland_syscall_stack[sizeof(userland_syscall_stack)];
+    tss.rsp0 = kernel_stack_top;
 
     asm volatile (
         "cli\n"
@@ -443,12 +462,22 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
 
 userland_return_label:
     userland_running = false;
+    userland_should_return_kernel = false;
     userland_resume_rip = 0;
     userland_resume_rsp = 0;
+    userland_resume_rbx = 0;
+    userland_resume_rbp = 0;
+    userland_resume_r12 = 0;
+    userland_resume_r13 = 0;
+    userland_resume_r14 = 0;
+    userland_resume_r15 = 0;
+    kernel_stack_top = userland_saved_kernel_stack_top;
+    tss.rsp0 = userland_saved_tss_rsp0;
+    userland_saved_kernel_stack_top = 0;
+    userland_saved_tss_rsp0 = 0;
     wrmsr64_local(IA32_FS_BASE_MSR, 0);
     userland_unmap_all();
     userland_heap_init();
     printf(blue_color "\n[process exited with code %d]" reset_color, userland_last_exit_code);
-    hcf2();
     return 0;
 }
