@@ -471,12 +471,7 @@ static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uin
         map_user_page(page, phys, page_flags);
     }
 
-    printf("elf: seg %u off=%x vaddr=%x filesz=%u memsz=%u",
-           seg_index,
-           ph->p_offset,
-           load_bias + ph->p_vaddr,
-           ph->p_filesz,
-           ph->p_memsz);
+    // printf("elf: seg %u off=%x vaddr=%x filesz=%u memsz=%u", seg_index, ph->p_offset, load_bias + ph->p_vaddr, ph->p_filesz, ph->p_memsz);
 
     if (ph->p_filesz != 0) {
         vfs_file_t file;
