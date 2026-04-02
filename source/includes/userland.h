@@ -100,6 +100,8 @@ void userland_heap_init(void);
 uint64_t userland_brk(uint64_t requested_break);
 uint64_t userland_mmap_anon(uint64_t length);
 bool userland_prepare_exit(syscall_frame_t* frame, uint64_t exit_code);
+bool userland_is_running(void);
+void userland_abort_from_exception(uint64_t int_no, uint64_t err_code, uint64_t fault_rip) __attribute__((noreturn));
 void sh_exec(void);
 
 #endif
