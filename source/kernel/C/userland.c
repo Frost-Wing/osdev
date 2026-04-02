@@ -27,12 +27,17 @@ volatile uint64_t userland_resume_r12 = 0;
 volatile uint64_t userland_resume_r13 = 0;
 volatile uint64_t userland_resume_r14 = 0;
 volatile uint64_t userland_resume_r15 = 0;
+volatile uint64_t userland_resume_ret_rip = 0;
+volatile uint64_t userland_resume_ret_rsp = 0;
 static volatile int userland_last_exit_code = 0;
 static inline void wrmsr64_local(uint32_t msr, uint64_t value);
 static void userland_unmap_all(void);
 void userland_heap_init(void);
 
-__attribute__((noinline)) static void userland_finish_exit(void) {
+__attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
+    uint64_t return_rip = userland_resume_ret_rip;
+    uint64_t return_rsp = userland_resume_ret_rsp;
+
     userland_running = false;
     userland_should_return_kernel = false;
     userland_resume_rip = 0;
@@ -43,6 +48,8 @@ __attribute__((noinline)) static void userland_finish_exit(void) {
     userland_resume_r13 = 0;
     userland_resume_r14 = 0;
     userland_resume_r15 = 0;
+    userland_resume_ret_rip = 0;
+    userland_resume_ret_rsp = 0;
     kernel_stack_top = userland_saved_kernel_stack_top;
     tss.rsp0 = userland_saved_tss_rsp0;
     userland_saved_kernel_stack_top = 0;
@@ -50,7 +57,17 @@ __attribute__((noinline)) static void userland_finish_exit(void) {
     wrmsr64_local(IA32_FS_BASE_MSR, 0);
     userland_unmap_all();
     userland_heap_init();
+    tty_flush_input();
     printf(blue_color "\n[process exited with code %d]" reset_color, userland_last_exit_code);
+
+    asm volatile(
+        "xor %%rax, %%rax\n"
+        "mov %0, %%rsp\n"
+        "jmp *%1\n"
+        :
+        : "r"(return_rsp), "r"(return_rip)
+        : "memory", "rax");
+    __builtin_unreachable();
 }
 
 static void debug_dump_initial_stack(uint64_t stack_top) {
@@ -451,6 +468,9 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
     asm volatile("mov %%r13, %0" : "=r"(userland_resume_r13));
     asm volatile("mov %%r14, %0" : "=r"(userland_resume_r14));
     asm volatile("mov %%r15, %0" : "=r"(userland_resume_r15));
+    void* frame = __builtin_frame_address(0);
+    userland_resume_ret_rip = (uint64_t)__builtin_return_address(0);
+    userland_resume_ret_rsp = (uint64_t)frame + 16;
     userland_resume_rsp = kernel_rsp;
     userland_resume_rip = (uint64_t)userland_finish_exit;
     userland_should_return_kernel = false;
@@ -484,6 +504,5 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
         : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
     );
 
-    userland_finish_exit();
-    return 0;
+    __builtin_unreachable();
 }
