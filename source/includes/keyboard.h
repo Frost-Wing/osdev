@@ -75,6 +75,11 @@ uint8_t getc();
 int getc_nonblock();
 
 /**
+ * @brief Clears pending keyboard input so stale keypresses are discarded.
+ */
+void keyboard_flush_buffer(void);
+
+/**
  * @brief Converts the scancode passed to it to ASCII characters.
  * 
  * @param data Scancode
