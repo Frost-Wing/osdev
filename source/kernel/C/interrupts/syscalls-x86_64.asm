@@ -1,6 +1,9 @@
 global syscall_entry
 extern syscall_handler
 extern kernel_stack_top
+extern userland_should_return_kernel
+extern userland_resume_rsp
+extern userland_resume_rip
 
 section .bss
 align 8
@@ -53,6 +56,16 @@ syscall_entry:
 
     ; Restore userland RBX prior to iretq.
     mov rbx, [rel saved_user_rbx]
+
+    cmp byte [rel userland_should_return_kernel], 0
+    je .return_to_user
+
+    swapgs
+    mov rsp, [rel userland_resume_rsp]
+    mov rax, [rel userland_resume_rip]
+    jmp rax
+
+.return_to_user:
 
     ; Return to user
     swapgs
