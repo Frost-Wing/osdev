@@ -38,5 +38,6 @@ int cmd_mount(int argc, char** argv);
 int cmd_mv(int argc, char** argv);
 int cmd_umount(int argc, char** argv);
 int cmd_exec(int argc, char** argv);
+int cmd_tasks(int argc, char** argv);
 
 #endif

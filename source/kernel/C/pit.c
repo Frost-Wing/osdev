@@ -9,13 +9,16 @@
  * 
  */
 #include <pit.h>
+#include <multitasking.h>
 
 volatile int pit_ticks = 0;
 
 #define pit_freq 100 // Hz
 
 void process_pit(InterruptFrame* frame) {
+    (void)frame;
     pit_ticks++;
+    multitasking_on_pit_tick((uint64_t)pit_ticks);
     outb(0x20, 0x20);  // Notify the PIC that we've handled the interrupt
 }
 
