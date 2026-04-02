@@ -10,6 +10,7 @@
  */
 #include <executables/elf.h>
 #include <fdlfcn.h>
+#include <graphics.h>
 #include <memory.h>
 #include <stdint.h>
 #include <heap.h>
@@ -363,7 +364,7 @@ static void elf_log_load_progress(uint16_t current, uint16_t total, Elf64_Phdr* 
         bar[i] = (i < filled) ? '#' : '-';
     bar[20] = '\0';
 
-    printf(blue_color "elf: [%s] %u% (%02u/%02u) type=%u vaddr=%x off=%x" reset_color,
+    printfnoln( "\r" blue_color "elf: [%s] %u% (%02u/%02u) type=%u vaddr=%x off=%x" reset_color,
            bar,
            pct,
            (uint32_t)(current + 1),
@@ -651,6 +652,8 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
             return NULL;
         }
     }
+
+    print("\r\033[K");
 
     if (info) {
         info->entry = load_bias + header.e_entry;
