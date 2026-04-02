@@ -28,7 +28,7 @@ syscall_entry:
     mov [rel saved_user_rsp], rsp
 
     ; Switch to kernel stack
-    mov rsp, kernel_stack_top
+    mov rsp, [rel kernel_stack_top]
 
     ; Build FULL iret frame manually
     push 0x23        ; SS (user data)
