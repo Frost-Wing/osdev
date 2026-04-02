@@ -1,5 +1,5 @@
 global syscall_entry
-extern syscall_handler_syscall
+extern syscall_handler
 extern kernel_stack_top
 
 section .bss
@@ -40,7 +40,7 @@ syscall_entry:
 
     ; Call C handler
     mov rdi, rsp
-    call syscall_handler_syscall
+    call syscall_handler
 
     ; Restore registers
     pop r9

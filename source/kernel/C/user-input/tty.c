@@ -1,5 +1,15 @@
-#include <tty.h>
+/**
+ * @file tty.c
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief Source code for kernel's terminal output management. (TTY)
+ * @version 0.1
+ * @date 2026-04-02
+ * 
+ * @copyright Copyright (c) Pradosh 2026
+ * 
+ */
 
+#include <tty.h>
 #include <graphics.h>
 #include <ringbuffer.h>
 
@@ -31,8 +41,6 @@ void tty_input_char(char c) {
             return;
 
         line_len--;
-        putc('\b');
-        putc(' ');
         putc('\b');
         return;
     }

@@ -75,12 +75,11 @@ uint8_t getc();
 int getc_nonblock();
 
 /**
- * @brief Non-blocking read directly from the PS/2 controller.
+ * @brief Converts the scancode passed to it to ASCII characters.
  * 
- * @return int Character if available, 0 if no input or only a modifier event
+ * @param data Scancode
+ * @return int eqivalent of a character.
  */
-int kgetc_nonblock();
-
 int handle_char_from_scancode(uint8_t data);
 
 #endif

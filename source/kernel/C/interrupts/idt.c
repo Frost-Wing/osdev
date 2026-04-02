@@ -16,6 +16,7 @@
 #include <pit.h>
 #include <syscalls.h>
 #include <executables/fwde.h>
+#include <cc-asm.h>
 
 extern void* isr_stub_table[];
 extern void* irq_stub_table[];
@@ -38,10 +39,6 @@ void setIdtEntry(IDTEntry *target, uint64_t offset, uint16_t selector, uint8_t i
     target->offset_3 = (offset >> 32) & 0xFFFFFFFF;
     target->zero = 0;
 }
-
-#define ICW1_INIT 0x10
-#define ICW1_ICW4 0x01
-#define ICW4_8086 0x01
 
 /**
  * @brief Small utility function for remapping the programmable interrupt controller
@@ -69,24 +66,15 @@ void remap_pic() {
     outb(0xa1, read_slave);
 }
 
-#define IA32_EFER   0xC0000080
-#define IA32_STAR   0xC0000081
-#define IA32_LSTAR  0xC0000082
-#define IA32_FMASK  0xC0000084
-
-#define EFER_SCE (1 << 0)
-
-extern void syscall_entry(void);
 void init_syscall()
 {
     wrmsr64(IA32_EFER, rdmsr64(IA32_EFER) | EFER_SCE);
 
     // kernel CS = 0x08
-    // user CS   = 0x1B (must match GDT!)
+    // user CS   = 0x1B
     uint64_t star = ((uint64_t)0x08 << 32) | ((uint64_t)(0x1B) << 48);
     wrmsr64(IA32_STAR, star);
 
-    debug_printf("syscall_entry addr = %u\n", syscall_entry);
     wrmsr64(IA32_LSTAR, (uint64_t)syscall_entry);
     wrmsr64(IA32_FMASK, 0);
 }
@@ -101,7 +89,7 @@ void initIdt()
     registerInterruptHandler(0x2C, process_mouse);
     registerInterruptHandler(0x21, process_keyboard);
     registerInterruptHandler(0x31, process_IFL);
-    registerInterruptHandler(0x80, syscalls_handler);
+    registerInterruptHandler(0x80, int80_handler);
 
     for (uint8_t i = 0; i < 32; i++) 
     {

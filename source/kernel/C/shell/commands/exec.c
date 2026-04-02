@@ -12,6 +12,7 @@
 #include <commands/commands.h>
 #include <executables/elf.h>
 #include <userland.h>
+#include <graphics.h>
 
 int cmd_exec(int argc, char** argv)
 {
@@ -35,10 +36,6 @@ int cmd_exec(int argc, char** argv)
         user_argv[user_argc++] = argv[i];
 
     user_argv[user_argc] = NULL;
-
-    for(int i = 0; i < user_argc; i++){
-        printf("arg[%d] = %s", i, user_argv[i]);
-    }
 
     if (userland_exec(path, user_argc, user_argv, NULL) != 0) {
         eprintf("exec: failed to load ELF");

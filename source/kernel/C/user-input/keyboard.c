@@ -119,9 +119,6 @@ int getc_nonblock() {
     return 0; // no key available
 }
 
-int kgetc_nonblock(){
-    return getc_nonblock();
-}
 
 static bool extended = false;
 int handle_char_from_scancode(uint8_t data)
