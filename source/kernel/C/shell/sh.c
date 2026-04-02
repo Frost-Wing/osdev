@@ -201,7 +201,6 @@ int shell_main(int argc, char** argv){
         if (c == '\n')
         {
             command[cursor] = '\0'; // Null-terminate the string
-            putc('\n');
             
             last_status_code = execute_chain(command);
 
@@ -233,8 +232,6 @@ int shell_main(int argc, char** argv){
             cursor++;
             commandSize++;
         }
-
-        putc(c);
     }
     kfree(command);
 

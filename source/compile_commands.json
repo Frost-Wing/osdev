@@ -71,6 +71,11 @@
   },
   {
     "directory": "/home/pradosh/osdev/source",
+    "file": "/home/pradosh/osdev/source/kernel/C/user-input/tty.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/user-input/tty.c -o /dev/null"
+  },
+  {
+    "directory": "/home/pradosh/osdev/source",
     "file": "/home/pradosh/osdev/source/kernel/C/logger.c",
     "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -MMD -MP -c /home/pradosh/osdev/source/kernel/C/logger.c -o /dev/null"
   },
