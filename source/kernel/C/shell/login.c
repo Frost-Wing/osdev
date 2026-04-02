@@ -81,7 +81,6 @@ int login_request(char* userbuf, int max){
 
             i--;
             username[i] = 0;
-            putc('\b');
             continue;
         }
 
@@ -92,7 +91,7 @@ int login_request(char* userbuf, int max){
 
     /* -------- PASSWORD -------- */
 
-    print("\nPassword: ");
+    print("Password: ");
     i = 0;
 
     while(i < 20){
@@ -111,7 +110,6 @@ int login_request(char* userbuf, int max){
 
             i--;
             password[i] = 0;
-            putc('\b');
             continue;
         }
 
@@ -119,8 +117,6 @@ int login_request(char* userbuf, int max){
     }
 
     password[i] = '\0';
-
-    vputc('\n');
 
     int64 username_hash = baranium_hash(username);
     int64 password_hash = baranium_hash(password);
