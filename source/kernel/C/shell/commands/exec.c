@@ -16,6 +16,8 @@
 #include <tty.h>
 #include <keyboard.h>
 
+extern char* global_envp[];
+
 int cmd_exec(int argc, char** argv)
 {
     if (argc < 2) {
@@ -42,7 +44,7 @@ int cmd_exec(int argc, char** argv)
     tty_flush_input();
     keyboard_flush_buffer();
 
-    if (userland_exec(path, user_argc, user_argv, NULL) != 0) {
+    if (userland_exec(path, user_argc, user_argv, global_envp) != 0) {
         keyboard_flush_buffer();
         eprintf("exec: failed to load ELF");
         return -1;

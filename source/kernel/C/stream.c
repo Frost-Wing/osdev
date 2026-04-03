@@ -77,7 +77,7 @@ static void fd_object_release(fd_object_t* object)
     if (object->ref_count > 0)
         return;
 
-    if (object->owns_file && object->file)
+    if (object->owns_file && object->file && object->file->mnt)
         vfs_close(object->file);
 
     memset(object, 0, sizeof(*object));

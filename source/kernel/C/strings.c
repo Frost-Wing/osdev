@@ -9,6 +9,7 @@
  * 
  */
 #include <strings.h>
+#include <stdarg.h>
 
 const char hex_digits[] = "0123456789abcdef";
 const char caps_hex_digits[] = "0123456789ABCDEF";
@@ -604,4 +605,34 @@ char* strtok_r(char* str, const char* delim, char** saveptr) {
 char* strtok(char* str, const char* delim) {
     static char* saveptr;
     return strtok_r(str, delim, &saveptr);
+}
+
+char* str_concat_impl(int count, ...)
+{
+    va_list args;
+    size_t total_len = 0;
+
+    // First pass: calculate total length
+    va_start(args, count);
+    for (int i = 0; i < count; i++) {
+        const char* s = va_arg(args, const char*);
+        if (s) total_len += strlen(s);
+    }
+    va_end(args);
+
+    // Allocate result
+    char* result = (char*)kmalloc(total_len + 1);
+    if (!result) return NULL;
+
+    result[0] = '\0';
+
+    // Second pass: concatenate
+    va_start(args, count);
+    for (int i = 0; i < count; i++) {
+        const char* s = va_arg(args, const char*);
+        if (s) strcat(result, s);
+    }
+    va_end(args);
+
+    return result;
 }

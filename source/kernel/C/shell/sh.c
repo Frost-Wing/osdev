@@ -10,10 +10,21 @@
  */
 
 #include <commands/login.h>
+#include <filesystems/vfs.h>
 #include <sh_util.h>
 #include <multitasking.h>
+#include <strings.h>
 
 int last_status_code = 0;
+
+char* global_envp[] = {
+    "HOME=/",
+    "PATH=/",
+    "TERM=linux",
+    "USER=none",
+    "SHLVL=1",
+    NULL
+};
 
 void init_command_list(command_list* lst)
 {
@@ -160,6 +171,8 @@ void ksh_exec(){
                 &sudo_flag
             };
 
+            strcpy(global_envp[3], CONCAT("USER=", username));
+
             shell_main(argc, dummy_argv);
         }
         else{
@@ -212,6 +225,7 @@ int shell_main(int argc, char** argv){
             memset(command, 0, commandBufferSize);
 
             if(running){
+                strcpy(global_envp[1], CONCAT("PATH", vfs_getcwd()));
                 show_prompt(argc, argv);
             }
             continue;

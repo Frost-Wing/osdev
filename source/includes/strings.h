@@ -16,6 +16,9 @@
 #define MAX_WORDS 30
 #define MAX_WORD_LEN 40
 
+#define CONCAT(...) \
+    str_concat_impl(sizeof((const char*[]){__VA_ARGS__}) / sizeof(const char*), __VA_ARGS__)
+
 // typedef char symbol[];
 
 /**

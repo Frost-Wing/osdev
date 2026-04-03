@@ -127,11 +127,11 @@ static int string_array_count(const char* const* arr) {
     return count;
 }
 
-static const char* const default_envp[] = {
+static char* default_envp[] = {
     "HOME=/",
     "PATH=/",
     "TERM=linux",
-    "USER=root",
+    "USER=none",
     "SHLVL=1",
     NULL
 };
