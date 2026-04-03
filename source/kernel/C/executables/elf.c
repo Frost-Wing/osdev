@@ -621,67 +621,23 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
         return NULL;
     }
 
-    uint64_t phdr_bytes = (uint64_t)header.e_phnum * header.e_phentsize;
-    Elf64_Phdr* program_headers = kmalloc(phdr_bytes);
-    if (!program_headers) {
-        eprintf("elf: failed to allocate program header table");
+    uint8_t* file_image = kmalloc(size);
+    if (!file_image) {
         vfs_close(&file);
+        eprintf("elf: failed to allocate file image");
         return NULL;
     }
 
-    if (elf_vfs_read_exact_path(path, (uint32_t)header.e_phoff, program_headers, (uint32_t)phdr_bytes) != 0) {
-        eprintf("elf: failed to read program headers");
-        kfree(program_headers);
+    if (elf_vfs_read_exact(&file, 0, file_image, size) != 0) {
         vfs_close(&file);
+        kfree(file_image);
+        eprintf("elf: failed to read file image");
         return NULL;
     }
-
     vfs_close(&file);
 
-    uint64_t load_bias = elf_compute_load_bias(&header, program_headers);
-
-    if (info)
-        memset(info, 0, sizeof(*info));
-
-    for (uint16_t i = 0; i < header.e_phnum; ++i) {
-        elf_log_load_progress(i, header.e_phnum, &program_headers[i]);
-        if (info)
-            elf_record_tls_segment(&program_headers[i], info);
-        if (elf_map_program_header_from_vfs(&program_headers[i], path, size, i, load_bias) != 0) {
-            kfree(program_headers);
-            return NULL;
-        }
-    }
-
-    print("\r\033[K");
-
-    if (info) {
-        info->entry = load_bias + header.e_entry;
-        info->phdr_addr = elf_stage_phdrs_for_user(program_headers, phdr_bytes);
-        if (info->phdr_addr == 0)
-            info->phdr_addr = elf_runtime_addr_for_offset(program_headers, header.e_phnum, header.e_phoff, load_bias);
-        info->phentsize = header.e_phentsize;
-        info->phnum = header.e_phnum;
-        if (elf_load_tls_template_from_vfs(path, info) != 0) {
-            kfree(program_headers);
-            return NULL;
-        }
-        if (info->tls_memsz) {
-            printf("elf: tls off=%x filesz=%u memsz=%u align=%u",
-                   info->tls_offset,
-                   info->tls_filesz,
-                   info->tls_memsz,
-                   info->tls_align);
-        }
-    }
-
-    if (elf_apply_runtime_relocations(load_bias, program_headers, header.e_phnum) != 0) {
-        kfree(program_headers);
-        return NULL;
-    }
-
-    kfree(program_headers);
-    void* entry = (void*)(load_bias + header.e_entry);
+    void* entry = elf_load_from_memory_ex(file_image, size, info);
+    kfree(file_image);
     return entry;
 }
 
