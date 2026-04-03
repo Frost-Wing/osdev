@@ -328,17 +328,37 @@ static void fill_stat_from_info(linux_stat_t* st, const vfs_stat_info_t* info) {
     st->st_blocks = (info->size + 511) / 512;
 }
 
-static bool fill_vfs_stat_for_path(const char* path, vfs_stat_info_t* info) {
+static bool resolve_path_at(int dirfd, const char* path, char* out, size_t out_sz) {
+    if (!path || !out)
+        return false;
+
+    if (path[0] == '/')
+        return vfs_normalize_path(path, out, out_sz) == 0;
+
+    if (dirfd == LINUX_AT_FDCWD || dirfd == 0)
+        return vfs_normalize_path(path, out, out_sz) == 0;
+
+    if (!fd_valid(dirfd))
+        return false;
+
+    const char* base = fd_get_path(dirfd);
+    if (!base)
+        base = vfs_getcwd();
+
+    char joined[512];
+    snprintf(joined, sizeof(joined), "%s/%s", base, path);
+    return vfs_normalize_path(joined, out, out_sz) == 0;
+}
+
+static bool fill_vfs_stat_for_path_at(int dirfd, const char* path, vfs_stat_info_t* info) {
     if (!path || !info)
         return false;
 
     memset(info, 0, sizeof(*info));
 
     char norm[256];
-    if (path[0] == '/')
-        snprintf(norm, sizeof(norm), "%s", path);
-    else
-        snprintf(norm, sizeof(norm), "%s/%s", vfs_getcwd(), path);
+    if (!resolve_path_at(dirfd, path, norm, sizeof(norm)))
+        return false;
 
     if (strcmp(norm, "/") == 0) {
         info->exists = true;
@@ -678,10 +698,11 @@ static int64 sys_open_common(int dirfd, const char* path, int flags, int mode) {
     if (path == NULL)
         return -LINUX_EINVAL;
 
-    if (dirfd != LINUX_AT_FDCWD && dirfd != 0)
+    char resolved_path[256];
+    if (!resolve_path_at(dirfd, path, resolved_path, sizeof(resolved_path)))
         return -LINUX_EINVAL;
 
-    int fd = fd_open(path, linux_flags_to_vfs(flags));
+    int fd = fd_open(resolved_path, linux_flags_to_vfs(flags));
     if (fd == -1)
         return -LINUX_ENFILE;
 
@@ -714,7 +735,7 @@ static int64 sys_stat(const char* path, linux_stat_t* st) {
         return -LINUX_EINVAL;
 
     vfs_stat_info_t info;
-    if (!fill_vfs_stat_for_path(path, &info))
+    if (!fill_vfs_stat_for_path_at(LINUX_AT_FDCWD, path, &info))
         return -LINUX_ENOENT;
 
     fill_stat_from_info(st, &info);
@@ -733,11 +754,8 @@ static int64 sys_newfstatat(int dirfd, const char* path, linux_stat_t* st, int f
 
     if (!path)
         return -LINUX_EINVAL;
-    if (dirfd != LINUX_AT_FDCWD && dirfd != 0)
-        return -LINUX_EINVAL;
-
     vfs_stat_info_t info;
-    if (!fill_vfs_stat_for_path(path, &info))
+    if (!fill_vfs_stat_for_path_at(dirfd, path, &info))
         return -LINUX_ENOENT;
     fill_stat_from_info(st, &info);
     return 0;
@@ -894,11 +912,8 @@ static int64 sys_access_common(int dirfd, const char* path, int mode) {
     (void)mode;
     if (!path)
         return -LINUX_EINVAL;
-    if (dirfd != LINUX_AT_FDCWD && dirfd != 0)
-        return -LINUX_EINVAL;
-
     vfs_stat_info_t info;
-    return fill_vfs_stat_for_path(path, &info) ? 0 : -LINUX_ENOENT;
+    return fill_vfs_stat_for_path_at(dirfd, path, &info) ? 0 : -LINUX_ENOENT;
 }
 
 static int64 sys_lseek(uint64_t fd, int64_t offset, uint64_t whence) {
@@ -976,12 +991,14 @@ static int64 sys_chdir(const char* path) {
 }
 
 static int64 sys_readlinkat(int dirfd, const char* path, char* buf, uint64_t bufsiz) {
-    if (dirfd != LINUX_AT_FDCWD && dirfd != 0)
-        return -LINUX_EINVAL;
     if (!path)
         return -LINUX_EINVAL;
 
-    if (strcmp(path, "/proc/self/exe") == 0 || strcmp(path, "self/exe") == 0)
+    char resolved_path[256];
+    if (!resolve_path_at(dirfd, path, resolved_path, sizeof(resolved_path)))
+        return -LINUX_EINVAL;
+
+    if (strcmp(resolved_path, "/proc/self/exe") == 0 || strcmp(resolved_path, "self/exe") == 0)
         return copy_readlink_result(current_exec_path, buf, bufsiz);
 
     return -LINUX_ENOENT;
