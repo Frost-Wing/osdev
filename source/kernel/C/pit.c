@@ -18,7 +18,6 @@ volatile int pit_ticks = 0;
 void process_pit(InterruptFrame* frame) {
     (void)frame;
     pit_ticks++;
-    multitasking_on_pit_tick((uint64_t)pit_ticks);
     outb(0x20, 0x20);  // Notify the PIC that we've handled the interrupt
 }
 
@@ -34,6 +33,6 @@ void pit_sleep(uint32_t milliseconds) {
     uint32_t target_ticks = pit_ticks + (milliseconds / (1000 / pit_freq));
 
     while (pit_ticks < target_ticks) {
-        
+        asm volatile("hlt");
     }
 }

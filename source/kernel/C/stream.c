@@ -113,8 +113,6 @@ void stream_init(void)
 
 int stream_set_file(stream_t s, vfs_file_t* file)
 {
-    fd_table_init();
-
     streams[s].file = file;
     streams[s].index = s;
 
@@ -182,7 +180,6 @@ void fd_table_init(void)
 
 bool fd_valid(int fd)
 {
-    fd_table_init();
     return fd >= 0 && fd < STREAM_MAX_FDS && fd_table[fd].used;
 }
 
@@ -199,8 +196,6 @@ vfs_file_t* fd_get_file(int fd)
 
 int fd_open(const char* path, int flags)
 {
-    fd_table_init();
-
     int fd = fd_alloc_slot();
     if (fd < 0)
         return -1;
@@ -224,8 +219,6 @@ int fd_open(const char* path, int flags)
 
 int fd_close(int fd)
 {
-    fd_table_init();
-
     if (!fd_valid(fd))
         return -1;
 
@@ -238,8 +231,6 @@ int fd_close(int fd)
 
 int fd_dup2(int oldfd, int newfd)
 {
-    fd_table_init();
-
     if (!fd_valid(oldfd) || newfd < 0 || newfd >= STREAM_MAX_FDS)
         return -1;
 
@@ -255,8 +246,6 @@ int fd_dup2(int oldfd, int newfd)
 
 int fd_dup(int oldfd)
 {
-    fd_table_init();
-
     if (!fd_valid(oldfd))
         return -1;
 

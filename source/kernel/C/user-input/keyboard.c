@@ -97,15 +97,23 @@ uint8_t getmodifiers()
     return modifiers;
 }
 
+extern volatile int pit_ticks;
 uint8_t getc()
 {
     uint8_t sc;
+    static uint64_t last_tick = 0;
 
     for (;;) {
         if (rb_pop(&kb_rb, &sc) == 0) {
             return handle_char_from_scancode(sc);
         }
-        asm volatile("pause");
+
+        if (pit_ticks != last_tick) {
+            last_tick = pit_ticks;
+            multitasking_on_pit_tick(last_tick);
+        }
+
+        asm volatile("hlt");
     }
 }
 
