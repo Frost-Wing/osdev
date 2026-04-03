@@ -30,6 +30,7 @@ typedef struct {
     int flags;
     vfs_file_t* file;
     vfs_file_t storage;
+    char path[256];
 } fd_object_t;
 
 typedef struct {
@@ -51,6 +52,7 @@ static fd_object_t* fd_object_alloc(vfs_file_t* file, bool owns_file, int flags)
             fd_objects[i].owns_file = owns_file;
             fd_objects[i].flags = flags;
             fd_objects[i].file = file;
+            memset(fd_objects[i].path, 0, sizeof(fd_objects[i].path));
 
             if (!owns_file)
                 memset(&fd_objects[i].storage, 0, sizeof(vfs_file_t));
@@ -206,6 +208,8 @@ int fd_open(const char* path, int flags)
 
     object->file = &object->storage;
     memset(object->file, 0, sizeof(vfs_file_t));
+    if (path)
+        vfs_normalize_path(path, object->path, sizeof(object->path));
 
     if (vfs_open(path, flags, object->file) != 0) {
         fd_object_release(object);
@@ -263,6 +267,17 @@ int fd_flags(int fd)
         return 0;
 
     return fd_table[fd].object->flags;
+}
+
+const char* fd_get_path(int fd)
+{
+    if (!fd_valid(fd) || !fd_table[fd].object)
+        return NULL;
+
+    if (fd_table[fd].object->path[0] == '\0')
+        return NULL;
+
+    return fd_table[fd].object->path;
 }
 
 uint32_t fd_file_size(int fd)
