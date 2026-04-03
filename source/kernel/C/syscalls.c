@@ -508,8 +508,6 @@ static void fat32_short_name(const fat32_dir_entry_t* e, char* out, size_t out_s
 }
 
 static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
-    fd_table_init();
-
     if (!buf || buflen < sizeof(linux_dirent64_t))
         return -LINUX_EINVAL;
     if (!fd_valid((int)fd))
@@ -676,7 +674,6 @@ iso_done:
 
 static int64 sys_open_common(int dirfd, const char* path, int flags, int mode) {
     (void)mode;
-    fd_table_init();
 
     if (path == NULL)
         return -LINUX_EINVAL;
@@ -696,8 +693,6 @@ static int64 sys_open_common(int dirfd, const char* path, int flags, int mode) {
 }
 
 static int64 sys_close(uint64_t fd) {
-    fd_table_init();
-
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
@@ -770,8 +765,6 @@ static int64 sys_statx(int dirfd, const char* path, int flags, unsigned int mask
 }
 
 static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
-    fd_table_init();
-
     if (buf == NULL || count == 0)
         return 0;
 
@@ -794,8 +787,6 @@ static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
 }
 
 static int64 sys_write(uint64_t fd, const char* buf, uint64_t count) {
-    fd_table_init();
-
     if (buf == NULL || count == 0)
         return 0;
 
@@ -874,7 +865,6 @@ static int64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
 }
 
 static int64 sys_fcntl(uint64_t fd, uint64_t cmd, uint64_t arg) {
-    fd_table_init();
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
@@ -912,8 +902,6 @@ static int64 sys_access_common(int dirfd, const char* path, int mode) {
 }
 
 static int64 sys_lseek(uint64_t fd, int64_t offset, uint64_t whence) {
-    fd_table_init();
-
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
@@ -945,8 +933,6 @@ static int64 sys_lseek(uint64_t fd, int64_t offset, uint64_t whence) {
 }
 
 static int64 sys_dup2(uint64_t oldfd, uint64_t newfd) {
-    fd_table_init();
-
     if (!fd_valid((int)oldfd))
         return -LINUX_EBADF;
 
@@ -958,8 +944,6 @@ static int64 sys_dup2(uint64_t oldfd, uint64_t newfd) {
 }
 
 static int64 sys_dup(uint64_t oldfd) {
-    fd_table_init();
-
     if (!fd_valid((int)oldfd))
         return -LINUX_EBADF;
 
@@ -1177,6 +1161,21 @@ static int64 sys_futex(uint32_t* uaddr, int op, uint32_t val,
     }
 }
 
+struct passwd {
+    char *pw_name;
+    int pw_uid;
+};
+
+struct passwd fake_root = {
+    .pw_name = "root",
+    .pw_uid = 0,
+};
+
+struct passwd* getpwuid(int uid) {
+    if (uid == 0)
+        return &fake_root;
+    return NULL;
+}
 
 // THIS IS FOR INTERRUPT 0X80
 void int80_handler(InterruptFrame* frame)
@@ -1303,6 +1302,9 @@ uint64_t syscall_dispatch (
 
         case LINUX_SYS_CHDIR:
             return sys_chdir((const char*)arg1);
+
+        case LINUX_SYS_FORK:
+            return 0;
 
         case LINUX_SYS_UNAME:
             return sys_uname((linux_utsname_t*)arg1);
