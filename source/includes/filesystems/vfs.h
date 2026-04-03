@@ -11,6 +11,7 @@
 #ifndef VFS_H
 #define VFS_H
 
+#include <stddef.h>
 #include <filesystems/fat16.h>
 #include <filesystems/fat32.h>
 #include <filesystems/iso9660.h>
@@ -134,5 +135,6 @@ int vfs_unlink(const char* path);
 const char* vfs_getcwd();
 
 const char* vfs_basename(const char* path);
+int vfs_normalize_path(const char* in, char* out, size_t out_sz);
 
 #endif // VFS_H
