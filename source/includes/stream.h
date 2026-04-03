@@ -52,6 +52,7 @@ int fd_close(int fd);
 int fd_dup(int oldfd);
 int fd_dup2(int oldfd, int newfd);
 int fd_flags(int fd);
+const char* fd_get_path(int fd);
 uint32_t fd_file_size(int fd);
 uint32_t* fd_pos_ptr(int fd);
 

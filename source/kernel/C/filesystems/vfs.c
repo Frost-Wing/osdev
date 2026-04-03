@@ -71,8 +71,11 @@ int vfs_resolve_mount(const char* path, vfs_mount_res_t* out) {
     return 0;
 }
 
-static void vfs_normalize_path(const char* in, char* out) {
-    memset(out, 0, 256);
+int vfs_normalize_path(const char* in, char* out, size_t out_sz) {
+    if (!in || !out || out_sz < 2)
+        return -1;
+
+    memset(out, 0, out_sz);
     char tmp[256];
 
     // Start with absolute or relative
@@ -113,9 +116,9 @@ static void vfs_normalize_path(const char* in, char* out) {
 
         // Copy next component
         while (*p && *p != '/') {
-            if (oi >= 255) {
-                out[255] = '\0';
-                return;
+            if ((size_t)oi >= out_sz - 1) {
+                out[out_sz - 1] = '\0';
+                return -2;
             }
             out[oi++] = *p++;
         }
@@ -123,6 +126,7 @@ static void vfs_normalize_path(const char* in, char* out) {
 
     if (oi == 0) out[oi++] = '/';
     out[oi] = '\0';
+    return 0;
 }
 
 int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
@@ -215,7 +219,8 @@ int vfs_ls(const char* path)
     }
 
     char norm[256];
-    vfs_normalize_path(path, norm);
+    if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
 
     vfs_mount_res_t res;
     if (vfs_resolve_mount(norm, &res) != 0)
@@ -322,14 +327,13 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
     }
 
     char norm[256];
-    vfs_normalize_path(path, norm);
+    if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
 
     vfs_mount_res_t res;
     if (vfs_resolve_mount(norm, &res) != 0)
         return -2;
 
-    printf("[OPEN] %s", norm);
-    
     if (res.mnt->type == FS_PROC) {
         strncpy(out->rel_path, res.rel_path, sizeof(out->rel_path));
         out->mnt = res.mnt;
@@ -454,7 +458,8 @@ int vfs_mkdir(const char* path) {
     }
 
     char norm[256];
-    vfs_normalize_path(path, norm);
+    if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
 
     vfs_mount_res_t res;
     if (vfs_resolve_mount(norm, &res) != 0) return -1;
@@ -477,7 +482,8 @@ int vfs_mkdir(const char* path) {
 int vfs_rm_recursive(const char* path)
 {
     char norm[256];
-    vfs_normalize_path(path, norm);
+    if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
 
     vfs_mount_res_t res;
     if (vfs_resolve_mount(norm, &res) != 0)
@@ -545,7 +551,8 @@ int vfs_cd(const char* path)
     }
 
     char norm[256];
-    vfs_normalize_path(path, norm);
+    if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
 
     vfs_mount_res_t res;
     if (vfs_resolve_mount(norm, &res) != 0)
@@ -633,7 +640,8 @@ int vfs_create_path(const char* path, uint8_t attr) {
     }
 
     char norm[256];
-    vfs_normalize_path(path, norm);
+    if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
 
     vfs_mount_res_t res;
     if (vfs_resolve_mount(norm, &res) != 0) return -1;
@@ -659,7 +667,8 @@ int vfs_unlink(const char* path)
     }
     /* Normalize */
     char norm[256];
-    vfs_normalize_path(path, norm);
+    if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
 
     /* Resolve mount */
     vfs_mount_res_t res;
@@ -717,8 +726,10 @@ int vfs_unlink(const char* path)
 int vfs_mv(const char* src, const char* dst)
 {
     char src_norm[256], dst_norm[256];
-    vfs_normalize_path(src, src_norm);
-    vfs_normalize_path(dst, dst_norm);
+    if (vfs_normalize_path(src, src_norm, sizeof(src_norm)) != 0)
+        return -1;
+    if (vfs_normalize_path(dst, dst_norm, sizeof(dst_norm)) != 0)
+        return -1;
 
     vfs_mount_res_t src_res, dst_res;
     if (vfs_resolve_mount(src_norm, &src_res) != 0) return -1;
