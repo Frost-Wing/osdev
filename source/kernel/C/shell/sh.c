@@ -17,12 +17,18 @@
 
 int last_status_code = 0;
 
+static char global_home_env[64] = "HOME=/";
+static char global_path_env[256] = "PATH=/";
+static char global_term_env[64] = "TERM=linux";
+static char global_user_env[64] = "USER=none";
+static char global_shlvl_env[32] = "SHLVL=1";
+
 char* global_envp[] = {
-    "HOME=/",
-    "PATH=/",
-    "TERM=linux",
-    "USER=none",
-    "SHLVL=1",
+    global_home_env,
+    global_path_env,
+    global_term_env,
+    global_user_env,
+    global_shlvl_env,
     NULL
 };
 
@@ -171,7 +177,7 @@ void ksh_exec(){
                 &sudo_flag
             };
 
-            strcpy(global_envp[3], CONCAT("USER=", username));
+            snprintf(global_user_env, sizeof(global_user_env), "USER=%s", username);
 
             shell_main(argc, dummy_argv);
         }
@@ -225,7 +231,7 @@ int shell_main(int argc, char** argv){
             memset(command, 0, commandBufferSize);
 
             if(running){
-                strcpy(global_envp[1], CONCAT("PATH", vfs_getcwd()));
+                snprintf(global_path_env, sizeof(global_path_env), "PATH=%s", vfs_getcwd());
                 show_prompt(argc, argv);
             }
             continue;
