@@ -67,16 +67,23 @@ void tty_input_char(char c) {
     putc(c);
 }
 
+extern volatile int pit_ticks;
 int tty_read(char* buf, uint64_t count) {
     if (!buf || count == 0)
         return 0;
 
     uint64_t read = 0;
+    static uint64_t last_tick = 0;
 
     while (read < count) {
         char c;
-        while (rb_pop(&cooked_rb, &c) != 0)
-            asm volatile("pause");
+        while (rb_pop(&cooked_rb, &c) != 0) {
+            if (pit_ticks != last_tick) {
+                last_tick = pit_ticks;
+                multitasking_on_pit_tick(last_tick);
+            }
+            asm volatile("hlt");
+        }
 
         buf[read++] = c;
 

@@ -516,6 +516,8 @@ int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size) {
         f->fs->bs.sectors_per_cluster * 512;
     uint16_t cluster = f->entry.first_cluster;
 
+    printf("READ CALLED: pos=%u size=%u\n", f->pos, size);
+
     if (cluster_size == 0 || cluster < 2)
         return 0;
 

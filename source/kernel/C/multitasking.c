@@ -273,11 +273,10 @@ static bool cursor_blink_task(uint32_t pid, uint64_t now_ticks, void* ctx, int* 
     if (!next_toggle_tick)
         return false;
 
-    if (now_ticks < *next_toggle_tick)
-        return false;
-
-    ft_ctx->cursor_enabled = !ft_ctx->cursor_enabled;
-    *next_toggle_tick = now_ticks + 50;
+    while (now_ticks >= *next_toggle_tick) {
+        ft_ctx->cursor_enabled = !ft_ctx->cursor_enabled;
+        *next_toggle_tick += 50;
+    }
     return false;
 }
 

@@ -15,7 +15,6 @@
 #include <graphics.h>
 #include <tty.h>
 #include <keyboard.h>
-#include <multitasking.h>
 
 int cmd_exec(int argc, char** argv)
 {
@@ -25,28 +24,30 @@ int cmd_exec(int argc, char** argv)
         return 1;
     }
 
-    user_task_spec_t spec;
-    memset(&spec, 0, sizeof(spec));
-
     const char* path = argv[1];
-    spec.path = path;
 
+    const char* user_argv[34];
     int user_argc = 0;
-    for (int i = 2; i < argc && user_argc < 31; ++i)
-        spec.argv[user_argc++] = argv[i];
 
-    spec.argc = user_argc;
-    spec.argv[user_argc] = NULL;
+    // argv[0] should be the program name (basename)
+    const char* basename = vfs_basename(path);
+    // user_argv[user_argc++] = basename;
+
+    // copy actual arguments AFTER the program path
+    for (int i = 2; i < argc && user_argc < 33; ++i)
+        user_argv[user_argc++] = argv[i];
+
+    user_argv[user_argc] = NULL;
 
     tty_flush_input();
     keyboard_flush_buffer();
 
-    uint32_t pid = multitasking_spawn_userland(path, &spec);
-    if (pid == 0) {
-        eprintf("exec: failed to create task");
+    if (userland_exec(path, user_argc, user_argv, NULL) != 0) {
+        keyboard_flush_buffer();
+        eprintf("exec: failed to load ELF");
         return -1;
     }
 
-    printf("exec: scheduled '%s' as pid %u", path, pid);
+    keyboard_flush_buffer();
     return 0;
 }

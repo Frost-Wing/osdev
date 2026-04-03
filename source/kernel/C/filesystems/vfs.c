@@ -328,6 +328,7 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
     if (vfs_resolve_mount(norm, &res) != 0)
         return -2;
 
+    printf("[OPEN] %s", norm);
     
     if (res.mnt->type == FS_PROC) {
         strncpy(out->rel_path, res.rel_path, sizeof(out->rel_path));
@@ -378,6 +379,11 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
     
         out->mnt   = res.mnt;
         out->flags = flags;
+        if (flags & VFS_APPEND) {
+            out->f.fat16.pos = out->f.fat16.entry.filesize;
+        } else {
+            out->f.fat16.pos = 0;
+        }
 
         return 0;
     } else if (res.mnt->type == FS_FAT32) {
@@ -411,6 +417,12 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
 
         out->mnt = res.mnt;
         out->flags = flags;
+
+        if (flags & VFS_APPEND) {
+            out->f.fat32.pos = out->f.fat32.entry.file_size;
+        } else {
+            out->f.fat32.pos = 0;
+        }
         return 0;
     }
 
