@@ -1240,6 +1240,14 @@ uint64_t syscall_dispatch (
         case LINUX_SYS_STAT:
             return sys_stat((const char*)arg1, (linux_stat_t*)arg2);
 
+        case LINUX_SYS_LSTAT:
+            return sys_newfstatat(
+                LINUX_AT_FDCWD,
+                (const char*)arg1,
+                (linux_stat_t*)arg2,
+                LINUX_AT_SYMLINK_NOFOLLOW
+            );
+
         case LINUX_SYS_MPROTECT:
             return sys_mprotect(arg1, arg2, arg3);
 
