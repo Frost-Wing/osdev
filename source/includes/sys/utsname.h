@@ -11,6 +11,7 @@
 #ifndef SYS_UTSNAME_H
 #define SYS_UTSNAME_H
 
+#include <commands/commands.h>
 #include <filesystems/vfs.h>
 #include <graphics.h>
 #include <heap.h>
@@ -69,44 +70,10 @@ static int64 sys_uname(linux_utsname_t* uts) {
 
     SET_FIELD(uts->sysname,    "FrostWing");
 
-    vfs_file_t hostname_file = {0};
-
-    if (vfs_open("/etc/hostname", VFS_RDONLY, &hostname_file) != 0) {
-        SET_FIELD(uts->nodename, "fwos1"); // fallback
-    } else {
-        char buf[32] = {0};
-        int total = 0;
-
-        while (total < (int)(sizeof(buf) - 1)) {
-            int r = vfs_read(&hostname_file, (uint8_t*)buf + total, sizeof(buf) - 1 - total);
-
-            if (r < 0) {
-                SET_FIELD(uts->nodename, "fwos3");
-                break;
-            }
-
-            if (r == 0)
-                break; // EOF
-
-            total += r;
-        }
-
-        if (total > 0) {
-            buf[total] = '\0';
-
-            // remove newline (VERY IMPORTANT)
-            for (int i = 0; i < total; i++) {
-                if (buf[i] == '\n' || buf[i] == '\r') {
-                    buf[i] = '\0';
-                    break;
-                }
-            }
-
-            SET_FIELD(uts->nodename, buf);
-        } else {
-            SET_FIELD(uts->nodename, "fwos2");
-        }
-    }
+    // sample code begin - open doesnt work since multiple open could not be done??
+    char* argv[2] = {"cat", "/etc/hostname"};
+    cmd_cat(2, &argv[0]);
+    // sample code end 
     
     SET_FIELD(uts->release,    "v0.1-prebuild-construct");
     SET_FIELD(uts->version,    CONCAT("fw-kernel (Build Stamp:", date, ")"));
