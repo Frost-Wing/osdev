@@ -17,173 +17,34 @@
 #include <memory.h>
 #include <stream.h>
 #include <userland.h>
+
+// Entire filesystems present in the OS.
 #include <filesystems/vfs.h>
 #include <filesystems/layers/proc.h>
 #include <filesystems/fat16.h>
 #include <filesystems/fat32.h>
 #include <filesystems/iso9660.h>
+
 #include <executables/elf.h>
 #include <ahci.h>
 #include <rtc.h>
 #include <heap.h>
 #include <tty.h>
 
+// sys headers
+#include <sys/dirent.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/termios.h>
+#include <sys/time.h>
+#include <sys/uio.h>
+#include <sys/utsname.h>
+#include <sys/helper.h>
+
 extern struct limine_framebuffer *framebuffer;
 extern int64* font_address;
 
 extern int execute_chain(const char* line);
-
-#define LINUX_AT_FDCWD   (-100)
-
-#define LINUX_O_RDONLY   0x0000
-#define LINUX_O_WRONLY   0x0001
-#define LINUX_O_RDWR     0x0002
-#define LINUX_O_CREAT    0x0040
-#define LINUX_O_TRUNC    0x0200
-#define LINUX_O_APPEND   0x0400
-
-#define LINUX_SEEK_SET   0
-#define LINUX_SEEK_CUR   1
-#define LINUX_SEEK_END   2
-
-#define LINUX_EBADF      9
-#define LINUX_EACCES     13
-#define LINUX_EINVAL     22
-#define LINUX_ENOEXEC    8
-#define LINUX_ENOTTY     25
-#define LINUX_ENOSYS     38
-#define LINUX_ENFILE     23
-#define LINUX_ENOENT     2
-#define LINUX_ENOMEM     12
-#define LINUX_ERANGE     34
-#define LINUX_ENOTDIR    20
-
-#define LINUX_S_IFMT     00170000
-#define LINUX_S_IFDIR    0040000
-#define LINUX_S_IFREG    0100000
-#define LINUX_S_IFCHR    0020000
-
-#define LINUX_AT_SYMLINK_NOFOLLOW 0x100
-#define LINUX_AT_EMPTY_PATH       0x1000
-
-#define LINUX_F_DUPFD    0
-#define LINUX_F_GETFD    1
-#define LINUX_F_SETFD    2
-#define LINUX_F_GETFL    3
-#define LINUX_F_SETFL    4
-
-#define LINUX_TIOCGWINSZ 0x5413
-#define LINUX_TCGETS     0x5401
-#define LINUX_TCSETS     0x5402
-#define LINUX_TCSETSW    0x5403
-#define LINUX_TCSETSF    0x5404
-#define LINUX_TIOCGPGRP  0x540F
-#define LINUX_TIOCSPGRP  0x5410
-
-#define LINUX_ARCH_SET_FS 0x1002
-#define LINUX_ARCH_GET_FS 0x1003
-
-#define LINUX_CLOCK_REALTIME 0
-#define LINUX_CLOCK_MONOTONIC 1
-
-#define IA32_FS_BASE_MSR 0xC0000100
-
-#define PROC_FILE_COUNT 3
-
-#define FW_SYS_GETC      0x1000
-#define FW_SYS_GETC_NB   0x1001
-#define FW_SYS_PUTC      0x1002
-#define FW_SYS_LOGIN     0x1055
-
-typedef struct {
-    uint64_t iov_base;
-    uint64_t iov_len;
-} linux_iovec_t;
-
-typedef struct {
-    char sysname[65];
-    char nodename[65];
-    char release[65];
-    char version[65];
-    char machine[65];
-    char domainname[65];
-} linux_utsname_t;
-
-typedef struct {
-    long tv_sec;
-    long tv_nsec;
-} linux_timespec_t;
-
-typedef struct {
-    uint16_t ws_row;
-    uint16_t ws_col;
-    uint16_t ws_xpixel;
-    uint16_t ws_ypixel;
-} linux_winsize_t;
-
-typedef struct {
-    uint32_t c_iflag;
-    uint32_t c_oflag;
-    uint32_t c_cflag;
-    uint32_t c_lflag;
-    uint8_t c_line;
-    uint8_t c_cc[19];
-} linux_termios_t;
-
-typedef struct {
-    uint64_t st_dev;
-    uint64_t st_ino;
-    uint64_t st_nlink;
-    uint32_t st_mode;
-    uint32_t st_uid;
-    uint32_t st_gid;
-    uint32_t __pad0;
-    uint64_t st_rdev;
-    int64_t st_size;
-    int64_t st_blksize;
-    int64_t st_blocks;
-    linux_timespec_t st_atim;
-    linux_timespec_t st_mtim;
-    linux_timespec_t st_ctim;
-    int64_t __unused[3];
-} linux_stat_t;
-
-typedef struct {
-    uint64_t d_ino;
-    int64_t d_off;
-    uint16_t d_reclen;
-    uint8_t d_type;
-    char d_name[];
-} linux_dirent64_t;
-
-typedef struct {
-    uint64_t rlim_cur;
-    uint64_t rlim_max;
-} linux_rlimit64_t;
-
-typedef struct {
-    uint32_t stx_mask;
-    uint32_t stx_blksize;
-    uint64_t stx_attributes;
-    uint32_t stx_nlink;
-    uint32_t stx_uid;
-    uint32_t stx_gid;
-    uint16_t stx_mode;
-    uint16_t __spare0[1];
-    uint64_t stx_ino;
-    uint64_t stx_size;
-    uint64_t stx_blocks;
-    uint64_t stx_attributes_mask;
-    linux_timespec_t stx_atime;
-    linux_timespec_t stx_btime;
-    linux_timespec_t stx_ctime;
-    linux_timespec_t stx_mtime;
-    uint32_t stx_rdev_major;
-    uint32_t stx_rdev_minor;
-    uint32_t stx_dev_major;
-    uint32_t stx_dev_minor;
-    uint64_t __spare2[14];
-} linux_statx_t;
 
 typedef struct {
     bool exists;
@@ -195,60 +56,6 @@ typedef struct {
 
 static char current_exec_path[256] = "/";
 static uint64_t current_fs_base = 0;
-
-static void free_copied_string_array(char** arr, int count) {
-    if (!arr)
-        return;
-
-    for (int i = 0; i < count; ++i)
-        kfree(arr[i]);
-
-    kfree(arr);
-}
-
-static int copy_user_string_array(char* const* user_arr, char*** out_arr) {
-    if (!user_arr) {
-        *out_arr = NULL;
-        return 0;
-    }
-
-    char** copied = kmalloc(sizeof(char*) * 33);
-    if (!copied)
-        return -LINUX_ENOMEM;
-
-    int count = 0;
-    for (; count < 32; ++count) {
-        const char* src = user_arr[count];
-        if (!src) {
-            copied[count] = NULL;
-            *out_arr = copied;
-            return count;
-        }
-
-        size_t len = strlen(src);
-        copied[count] = kmalloc(len + 1);
-        if (!copied[count]) {
-            free_copied_string_array(copied, count);
-            return -LINUX_ENOMEM;
-        }
-
-        memcpy(copied[count], src, len + 1);
-    }
-
-    copied[32] = NULL;
-    *out_arr = copied;
-    return 32;
-}
-
-
-static uint32_t path_inode_hash(const char* path) {
-    uint32_t hash = 2166136261u;
-    for (const unsigned char* p = (const unsigned char*)path; p && *p; ++p) {
-        hash ^= *p;
-        hash *= 16777619u;
-    }
-    return hash ? hash : 1;
-}
 
 #pragma pack(push, 1)
 typedef struct {
@@ -1002,21 +809,6 @@ static int64 sys_readlinkat(int dirfd, const char* path, char* buf, uint64_t buf
         return copy_readlink_result(current_exec_path, buf, bufsiz);
 
     return -LINUX_ENOENT;
-}
-
-static int64 sys_uname(linux_utsname_t* uts) {
-    if (uts == NULL)
-        return -LINUX_EINVAL;
-
-    memset(uts, 0, sizeof(*uts));
-    snprintf(uts->sysname, sizeof(uts->sysname), "FrostWing");
-    snprintf(uts->nodename, sizeof(uts->nodename), "fwos");
-    snprintf(uts->release, sizeof(uts->release), "0.1");
-    snprintf(uts->version, sizeof(uts->version), "fw-kernel");
-    snprintf(uts->machine, sizeof(uts->machine), "x86_64");
-    snprintf(uts->domainname, sizeof(uts->domainname), "localdomain");
-
-    return 0;
 }
 
 static int64 sys_clock_gettime(uint64_t clockid, linux_timespec_t* tp) {

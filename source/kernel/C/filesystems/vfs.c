@@ -326,6 +326,8 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
         return -1;
     }
 
+    memset(out, 0, sizeof(*out));
+
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
         return -1;
@@ -334,6 +336,7 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
     if (vfs_resolve_mount(norm, &res) != 0)
         return -2;
 
+    
     if (res.mnt->type == FS_PROC) {
         strncpy(out->rel_path, res.rel_path, sizeof(out->rel_path));
         out->mnt = res.mnt;
@@ -341,7 +344,7 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
         
         if (procfs_open(out) != 0)  // if file not found
             return -1;
-        
+
         return 0;
     }
 

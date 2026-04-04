@@ -45,7 +45,7 @@ int cmd_cat(int argc, char** argv)
             if (r == 0)
                 break; /* EOF */
 
-            for (j = 0; j < r && buf != null; j++)
+            for (j = 0; j < r; j++)
                 printfnoln("%c", buf[j]);
         }
 

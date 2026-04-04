@@ -71,6 +71,68 @@
 
 #define LINUX_EAGAIN 11
 
+#define LINUX_AT_FDCWD   (-100)
+
+#define LINUX_O_RDONLY   0x0000
+#define LINUX_O_WRONLY   0x0001
+#define LINUX_O_RDWR     0x0002
+#define LINUX_O_CREAT    0x0040
+#define LINUX_O_TRUNC    0x0200
+#define LINUX_O_APPEND   0x0400
+
+#define LINUX_SEEK_SET   0
+#define LINUX_SEEK_CUR   1
+#define LINUX_SEEK_END   2
+
+#define LINUX_EBADF      9
+#define LINUX_EACCES     13
+#define LINUX_EINVAL     22
+#define LINUX_ENOEXEC    8
+#define LINUX_ENOTTY     25
+#define LINUX_ENOSYS     38
+#define LINUX_ENFILE     23
+#define LINUX_ENOENT     2
+#define LINUX_ENOMEM     12
+#define LINUX_ERANGE     34
+#define LINUX_ENOTDIR    20
+
+#define LINUX_S_IFMT     00170000
+#define LINUX_S_IFDIR    0040000
+#define LINUX_S_IFREG    0100000
+#define LINUX_S_IFCHR    0020000
+
+#define LINUX_AT_SYMLINK_NOFOLLOW 0x100
+#define LINUX_AT_EMPTY_PATH       0x1000
+
+#define LINUX_F_DUPFD    0
+#define LINUX_F_GETFD    1
+#define LINUX_F_SETFD    2
+#define LINUX_F_GETFL    3
+#define LINUX_F_SETFL    4
+
+#define LINUX_TIOCGWINSZ 0x5413
+#define LINUX_TCGETS     0x5401
+#define LINUX_TCSETS     0x5402
+#define LINUX_TCSETSW    0x5403
+#define LINUX_TCSETSF    0x5404
+#define LINUX_TIOCGPGRP  0x540F
+#define LINUX_TIOCSPGRP  0x5410
+
+#define LINUX_ARCH_SET_FS 0x1002
+#define LINUX_ARCH_GET_FS 0x1003
+
+#define LINUX_CLOCK_REALTIME 0
+#define LINUX_CLOCK_MONOTONIC 1
+
+#define IA32_FS_BASE_MSR 0xC0000100
+
+#define PROC_FILE_COUNT 3
+
+#define FW_SYS_GETC      0x1000
+#define FW_SYS_GETC_NB   0x1001
+#define FW_SYS_PUTC      0x1002
+#define FW_SYS_LOGIN     0x1055
+
 typedef struct syscall_frame {
     uint64_t r9;
     uint64_t r8;
