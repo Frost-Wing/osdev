@@ -71,6 +71,8 @@ int fat16_mount(int portno, uint32_t partition_lba, fat16_fs_t* fs) {
     fs->fat_start = partition_lba + bs->reserved_sectors;
     fs->root_dir_start = fs->fat_start + (bs->num_fats * bs->sectors_per_fat);
     fs->data_start = fs->root_dir_start + fs->root_dir_sectors;
+    fs->cwd_cluster = FAT16_ROOT_CLUSTER;
+    strcpy(fs->cwd_path, "/");
     
     return FAT_OK;
 }
@@ -490,9 +492,13 @@ int fat16_open(fat16_fs_t* fs, const char* path, fat16_file_t* f) {
     if (!fs || !path || !f)
         return FAT_ERR_NOT_FOUND;
 
+    memset(f, 0, sizeof(*f));
+
+    while (*path == '/')
+        path++;
+
     /* Allow opening the FAT16 root directory via empty relative path. */
-    if (path[0] == '\0' || (path[0] == '/' && path[1] == '\0')) {
-        memset(f, 0, sizeof(*f));
+    if (path[0] == '\0') {
         f->fs = fs;
         f->entry.attr = 0x10; /* directory */
         f->entry.first_cluster = FAT16_ROOT_CLUSTER;
@@ -522,6 +528,9 @@ int fat16_open(fat16_fs_t* fs, const char* path, fat16_file_t* f) {
 }
 
 int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size) {
+    if (!f || !f->fs || !out || size == 0)
+        return 0;
+
     uint32_t read = 0;
     uint8_t sector[512];
     uint32_t depth = 0;
@@ -1183,11 +1192,14 @@ int fat16_find_parent(
     uint16_t* out_cluster,
     char* out_name
 ) {
+    if (!fs || !path || !out_cluster || !out_name)
+        return FAT_ERR_NOT_FOUND;
+
     const char* last_slash = strrchr(path, '/');
 
     /* ---------- NO SLASH → current directory ---------- */
     if (!last_slash) {
-        *out_cluster = fs->cwd_cluster;   // or 0 if you don't support CWD yet
+        *out_cluster = FAT16_ROOT_CLUSTER;
         strcpy(out_name, path);
         return FAT_OK;
     }

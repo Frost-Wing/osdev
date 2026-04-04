@@ -11,7 +11,6 @@
 #ifndef SYS_UTSNAME_H
 #define SYS_UTSNAME_H
 
-#include <commands/commands.h>
 #include <filesystems/vfs.h>
 #include <graphics.h>
 #include <heap.h>
@@ -69,11 +68,31 @@ static int64 sys_uname(linux_utsname_t* uts) {
         snprintf((field), sizeof(field), "%s", (value))
 
     SET_FIELD(uts->sysname,    "FrostWing");
+    SET_FIELD(uts->nodename,   "localhost");
 
-    // sample code begin - open doesnt work since multiple open could not be done??
-    char* argv[2] = {"cat", "/etc/hostname"};
-    cmd_cat(2, &argv[0]);
-    // sample code end 
+    vfs_file_t hostf = {0};
+    if (vfs_open("/etc/hostname", VFS_RDONLY, &hostf) == 0) {
+        char hostbuf[sizeof(uts->nodename)];
+        uint32_t total = 0;
+
+        while (total < (sizeof(hostbuf) - 1)) {
+            int r = vfs_read(&hostf, (uint8_t*)hostbuf + total, sizeof(hostbuf) - 1 - total);
+            if (r <= 0)
+                break;
+            total += (uint32_t)r;
+        }
+
+        vfs_close(&hostf);
+
+        hostbuf[total] = '\0';
+        while (total > 0 &&
+               (hostbuf[total - 1] == '\n' || hostbuf[total - 1] == '\r')) {
+            hostbuf[--total] = '\0';
+        }
+
+        if (total > 0)
+            SET_FIELD(uts->nodename, hostbuf);
+    }
     
     SET_FIELD(uts->release,    "v0.1-prebuild-construct");
     SET_FIELD(uts->version,    CONCAT("fw-kernel (Build Stamp:", date, ")"));
