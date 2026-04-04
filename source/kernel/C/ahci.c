@@ -37,6 +37,18 @@ static inline void ahci_unlock_port_io(int portno)
     __sync_lock_release(&ahci_port_io_lock[portno]);
 }
 
+static int ahci_find_free_slot(ahci_port_t* port)
+{
+    uint32_t slots = port->sact | port->ci;
+
+    for (int i = 0; i < 32; i++) {
+        if (!(slots & (1 << i)))
+            return i;
+    }
+
+    return -1; // no free slot
+}
+
 static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count);
 static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count);
 
@@ -460,23 +472,25 @@ static int ahci_wait_slot0_ready(ahci_port_t* port)
     return -1;
 }
 
-static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count) {
+static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count)
+{
     int rc = 0;
     ahci_port_t* port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t* mem = &port_mem[portno];
+
     ahci_lock_port_io(portno);
 
-    while (port->tfd & (0x80 | 0x08));
+    while (port->tfd & (0x80 | 0x08)); // BSY | DRQ
 
-    int slot = 0;
-    if (ahci_wait_slot0_ready(port) != 0) {
+    int slot = ahci_find_free_slot(port);
+    if (slot < 0) {
         rc = -1;
         goto out;
     }
 
     ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
     memset(hdr, 0, sizeof(*hdr));
-    hdr->flags = 5;
+    hdr->flags = (5 & AHCI_CMD_HDR_CFL_MASK); // CFL = 5 DWORDS
     hdr->prdtl = 1;
     hdr->ctba = (uint32_t)(uintptr_t)mem->cmd_tables[slot];
     hdr->ctbau = 0;
@@ -485,7 +499,13 @@ static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t
     memset(tbl->cfis, 0, 64);
     memset(tbl->prdt, 0, sizeof(tbl->prdt));
 
-    tbl->prdt[0].dba  = (uint32_t)(uintptr_t)buffer;
+    void* dma_buf = kmalloc_aligned(count * 512, 4096);
+    if (!dma_buf) {
+        rc = -10;
+        goto out;
+    }
+
+    tbl->prdt[0].dba  = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
     tbl->prdt[0].dbc  = (count * 512 - 1) | (1 << 31);
 
@@ -494,19 +514,21 @@ static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t
     cfis[1] = 1 << 7;
     cfis[2] = READ_DMA_EXT;
 
-    cfis[4] = (uint8_t)lba;
-    cfis[5] = (uint8_t)(lba >> 8);
-    cfis[6] = (uint8_t)(lba >> 16);
-    cfis[7] = 0x40;
-    cfis[8] = (uint8_t)(lba >> 24);
-    cfis[9] = (uint8_t)(lba >> 32);
+    cfis[4]  = (uint8_t)lba;
+    cfis[5]  = (uint8_t)(lba >> 8);
+    cfis[6]  = (uint8_t)(lba >> 16);
+    cfis[7]  = 0x40;
+    cfis[8]  = (uint8_t)(lba >> 24);
+    cfis[9]  = (uint8_t)(lba >> 32);
     cfis[10] = (uint8_t)(lba >> 40);
+
     cfis[12] = count & 0xFF;
     cfis[13] = (count >> 8) & 0xFF;
 
     port->serr = 0xFFFFFFFF;
-    port->is = 0xFFFFFFFF;
+    port->is   = 0xFFFFFFFF;
 
+    __sync_synchronize();
     port->ci = 1 << slot;
 
     while (port->ci & (1 << slot)) {
@@ -517,28 +539,33 @@ static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t
     }
 
     port->is = 0xFFFFFFFF;
+
 out:
+    memcpy(buffer, dma_buf, count * 512);
+    kfree(dma_buf);
     ahci_unlock_port_io(portno);
     return rc;
 }
 
-static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count) {
+static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count)
+{
     int rc = 0;
     ahci_port_t* port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t* mem = &port_mem[portno];
+
     ahci_lock_port_io(portno);
 
-    while (port->tfd & (0x80 | 0x08));
+    while (port->tfd & (0x80 | 0x08)); // BSY | DRQ
 
-    int slot = 0;
-    if (ahci_wait_slot0_ready(port) != 0) {
+    int slot = ahci_find_free_slot(port);
+    if (slot < 0) {
         rc = -1;
         goto out;
     }
 
     ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
     memset(hdr, 0, sizeof(*hdr));
-    hdr->flags = 5 | AHCI_CMD_HDR_W_BIT;
+    hdr->flags = (5 & AHCI_CMD_HDR_CFL_MASK) | AHCI_CMD_HDR_W_BIT;
     hdr->prdtl = 1;
     hdr->ctba = (uint32_t)(uintptr_t)mem->cmd_tables[slot];
     hdr->ctbau = 0;
@@ -547,7 +574,13 @@ static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_
     memset(tbl->cfis, 0, 64);
     memset(tbl->prdt, 0, sizeof(tbl->prdt));
 
-    tbl->prdt[0].dba  = (uint32_t)(uintptr_t)buffer;
+    void* dma_buf = kmalloc_aligned(count * 512, 4096);
+    if (!dma_buf) {
+        rc = -10;
+        goto out;
+    }
+
+    tbl->prdt[0].dba  = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
     tbl->prdt[0].dbc  = (count * 512 - 1) | (1 << 31);
 
@@ -556,91 +589,99 @@ static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_
     cfis[1] = 1 << 7;
     cfis[2] = ATA_CMD_WRITE_DMA_EXT;
 
-    cfis[4] = (uint8_t)lba;
-    cfis[5] = (uint8_t)(lba >> 8);
-    cfis[6] = (uint8_t)(lba >> 16);
-    cfis[7] = 0x40;
-    cfis[8] = (uint8_t)(lba >> 24);
-    cfis[9] = (uint8_t)(lba >> 32);
+    cfis[4]  = (uint8_t)lba;
+    cfis[5]  = (uint8_t)(lba >> 8);
+    cfis[6]  = (uint8_t)(lba >> 16);
+    cfis[7]  = 0x40;
+    cfis[8]  = (uint8_t)(lba >> 24);
+    cfis[9]  = (uint8_t)(lba >> 32);
     cfis[10] = (uint8_t)(lba >> 40);
+
     cfis[12] = count & 0xFF;
     cfis[13] = (count >> 8) & 0xFF;
 
     port->serr = 0xFFFFFFFF;
-    port->is = 0xFFFFFFFF;
+    port->is   = 0xFFFFFFFF;
 
+    __sync_synchronize();
     port->ci = 1 << slot;
 
     while (port->ci & (1 << slot)) {
-        if (port->tfd & (0x01 | 0x20)) { // ERR | DF
-            port->is = 0xFFFFFFFF;
-            printf("[AHCI] Write error! tfd=0x%X\n", port->tfd);
+        if (port->tfd & (0x01 | 0x20)) {
             rc = -3;
             goto out;
         }
     }
 
     port->is = 0xFFFFFFFF;
+
 out:
+    memcpy(dma_buf, buffer, count * 512);
+    kfree(dma_buf);
     ahci_unlock_port_io(portno);
     return rc;
 }
 
-int ahci_identify(int portno, void* buffer) {
+int ahci_identify(int portno, void* buffer)
+{
     int rc = 0;
     ahci_port_t* port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t* mem = &port_mem[portno];
+
     ahci_lock_port_io(portno);
 
-    // Wait until port is ready
-    while (port->tfd & (0x80 | 0x08)); // BSY | DRQ
+    while (port->tfd & (0x80 | 0x08));
 
-    int slot = 0;
-    if (ahci_wait_slot0_ready(port) != 0) {
+    int slot = ahci_find_free_slot(port);
+    if (slot < 0) {
         rc = -1;
         goto out;
     }
 
     ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
     memset(hdr, 0, sizeof(*hdr));
-    hdr->flags = 5; 
-    hdr->prdtl = 1; // one PRDT entry
+    hdr->flags = (5 & AHCI_CMD_HDR_CFL_MASK); // CFL = 5 DWORDS
+    hdr->prdtl = 1;
     hdr->ctba = (uint32_t)(uintptr_t)mem->cmd_tables[slot];
     hdr->ctbau = 0;
-
 
     ahci_cmd_table_t* tbl = mem->cmd_tables[slot];
     memset(tbl->cfis, 0, 64);
     memset(tbl->prdt, 0, sizeof(tbl->prdt));
 
+    void* dma_buf = kmalloc_aligned(512, 4096);
+    if (!dma_buf) {
+        rc = -10;
+        goto out;
+    }
 
-    tbl->prdt[0].dba  = (uint32_t)(uintptr_t)buffer;
+    tbl->prdt[0].dba  = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
-    tbl->prdt[0].dbc  = (512 - 1) | (1 << 31); // 512 bytes, IOC
+    tbl->prdt[0].dbc  = (512 - 1) | (1 << 31);
 
     uint8_t* cfis = tbl->cfis;
-    cfis[0] = 0x27;        // Host to device
-    cfis[1] = 1 << 7;      // Command
-    cfis[2] = ATA_CMD_IDENTIFY; // IDENTIFY DEVICE
-    cfis[7] = 0;           // Features = 0
-    cfis[8] = 0; cfis[9] = 0; cfis[10] = 0; // LBA = 0
+    cfis[0] = 0x27;
+    cfis[1] = 1 << 7;
+    cfis[2] = ATA_CMD_IDENTIFY;
 
     port->serr = 0xFFFFFFFF;
     port->is   = 0xFFFFFFFF;
 
+    __sync_synchronize();
     port->ci = 1 << slot;
 
-    // Wait for completion
     while (port->ci & (1 << slot)) {
-        if (port->tfd & (0x01 | 0x20)) { // ERR | DF
-            port->is = 0xFFFFFFFF;
+        if (port->tfd & (0x01 | 0x20)) {
             rc = -2;
             goto out;
         }
     }
 
     port->is = 0xFFFFFFFF;
+
 out:
+    memcpy(buffer, dma_buf, 512);
+    kfree(dma_buf);
     ahci_unlock_port_io(portno);
     return rc;
 }
