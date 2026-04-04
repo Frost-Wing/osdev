@@ -346,6 +346,7 @@ int fat16_find_in_dir(
                 if (e[i].attr & 0x08)
                     continue;
 
+
                 if (fat16_name_eq(e[i].name, name)) {
                     *out = e[i];
                     return FAT_OK;
@@ -486,6 +487,21 @@ int fat16_find_file(fat16_fs_t* fs, const char* name, fat16_dir_entry_t* out) {
 }
 
 int fat16_open(fat16_fs_t* fs, const char* path, fat16_file_t* f) {
+    if (!fs || !path || !f)
+        return FAT_ERR_NOT_FOUND;
+
+    /* Allow opening the FAT16 root directory via empty relative path. */
+    if (path[0] == '\0' || (path[0] == '/' && path[1] == '\0')) {
+        memset(f, 0, sizeof(*f));
+        f->fs = fs;
+        f->entry.attr = 0x10; /* directory */
+        f->entry.first_cluster = FAT16_ROOT_CLUSTER;
+        f->parent_cluster = FAT16_ROOT_CLUSTER;
+        f->cluster = FAT16_ROOT_CLUSTER;
+        f->pos = 0;
+        return FAT_OK;
+    }
+
     uint16_t parent;
     char name[13];
 
@@ -495,9 +511,6 @@ int fat16_open(fat16_fs_t* fs, const char* path, fat16_file_t* f) {
     fat16_dir_entry_t entry;
     if (fat16_find_in_dir(fs, parent, name, &entry) != 0)
         return FAT_ERR_NOT_FOUND;
-
-    if (entry.attr & 0x10)
-        return FAT_ERR_NOT_FOUND; // directory
 
     f->fs = fs;
     f->entry = entry;
