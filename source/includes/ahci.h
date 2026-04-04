@@ -29,6 +29,9 @@
 #define MAX_PARTITIONS 128
 #define MAX_BLOCK_DEVICES 64
 
+#define AHCI_MAX_PRDT 16  // 8,16 OR 32
+#define PRDT_MAX_BYTES (4 * 1024 * 1024) // 4 KiB
+
 
 /**
  * @brief AHCI device signatures.
@@ -80,7 +83,7 @@ typedef struct __attribute__((packed)) {
     uint8_t cfis[64];
     uint8_t acmd[16];
     uint8_t reserved[48];
-    prdt_entry_t prdt[1]; /* flexible / variable sized in allocation */
+    prdt_entry_t prdt[AHCI_MAX_PRDT]; /* flexible / variable sized in allocation */
 } ahci_cmd_table_t;
 
 typedef struct {
