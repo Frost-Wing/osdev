@@ -14,6 +14,8 @@
 #include <graphics.h>
 #include <filesystems/fat16.h>
 #include <filesystems/iso9660.h>
+#include <filesystems/layers/proc.h>
+#include <filesystems/layers/dev.h>
 #include <heap.h>
 #include <strings.h>
 
@@ -143,6 +145,8 @@ int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
     switch(file->mnt->type){
         case FS_PROC:
             return procfs_read(file, buf, size);
+        case FS_DEV:
+            return devfs_read(file, buf, size);
         case FS_FAT16:
             return fat16_read(&file->f.fat16, buf, size);
         case FS_FAT32:
@@ -173,6 +177,8 @@ int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size)
     switch(file->mnt->type){
         case FS_PROC:
             return -10; // not implemented
+        case FS_DEV:
+            return devfs_write(file, buf, size);
         case FS_FAT16:
             return fat16_write(&file->f.fat16, buf, size);
         case FS_FAT32:
@@ -198,6 +204,8 @@ void vfs_close(vfs_file_t* file) {
     switch(file->mnt->type){
         case FS_PROC:
             return; // not implemented
+        case FS_DEV:
+            return devfs_close(file);
         case FS_FAT16:
             return fat16_close(&file->f.fat16);
         case FS_FAT32:
@@ -241,6 +249,12 @@ int vfs_ls(const char* path)
     if(res.mnt->type == FS_PROC) {
         if (res.rel_path[0] == '\0') {
             procfs_ls();
+            entries = true;
+        }
+    }
+    if(res.mnt->type == FS_DEV) {
+        if (res.rel_path[0] == '\0') {
+            devfs_ls();
             entries = true;
         }
     }
@@ -343,6 +357,17 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
         out->flags = flags;
         
         if (procfs_open(out) != 0)  // if file not found
+            return -1;
+
+        return 0;
+    }
+
+    if (res.mnt->type == FS_DEV) {
+        strncpy(out->rel_path, res.rel_path, sizeof(out->rel_path));
+        out->mnt = res.mnt;
+        out->flags = flags;
+
+        if (devfs_open(out) != 0)
             return -1;
 
         return 0;
@@ -563,6 +588,16 @@ int vfs_cd(const char* path)
 
     /* ---------- PROCFS ---------- */
     if (res.mnt->type == FS_PROC) {
+        vfs_cwd_cluster = 0;
+        strncpy(vfs_cwd, norm, sizeof(vfs_cwd));
+        vfs_cwd[sizeof(vfs_cwd) - 1] = 0;
+        return 0;
+    }
+
+    if (res.mnt->type == FS_DEV) {
+        if (*res.rel_path)
+            return -4;
+
         vfs_cwd_cluster = 0;
         strncpy(vfs_cwd, norm, sizeof(vfs_cwd));
         vfs_cwd[sizeof(vfs_cwd) - 1] = 0;

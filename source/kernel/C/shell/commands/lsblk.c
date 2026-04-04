@@ -29,6 +29,7 @@ static const char* fs_name(partition_fs_type_t fs)
         case FS_FAT32:   return "fat32";
         case FS_ISO9660: return "iso9660";
         case FS_PROC:    return "proc";
+        case FS_DEV:     return "dev";
         default:         return "unknown";
     }
 }
@@ -58,6 +59,7 @@ static const char* ro_flag_for_filesystem(partition_fs_type_t fs)
     switch (fs) {
         case FS_ISO9660:
         case FS_PROC:
+        case FS_DEV:
             return "1";
         default:
             return "0";
