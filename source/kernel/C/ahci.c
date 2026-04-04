@@ -23,6 +23,19 @@ block_device_info_t block_devices[MAX_BLOCK_DEVICES];
 int general_partition_count = 0;
 int mounted_partition_count = 0;
 int block_device_count = 0;
+static volatile int ahci_port_io_lock[32];
+
+static inline void ahci_lock_port_io(int portno)
+{
+    while (__sync_lock_test_and_set(&ahci_port_io_lock[portno], 1)) {
+        __asm__ __volatile__("pause");
+    }
+}
+
+static inline void ahci_unlock_port_io(int portno)
+{
+    __sync_lock_release(&ahci_port_io_lock[portno]);
+}
 
 static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count);
 static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count);
@@ -436,22 +449,30 @@ void ahci_init_port(int portno) {
     port->cmd |= AHCI_PORT_CMD_FRE | AHCI_PORT_CMD_ST;
 }
 
-static int ahci_find_slot(ahci_port_t* port) {
-    uint32_t slots = port->ci | port->sact;
-    for (int i = 0; i < 32; i++) {
-        if (!(slots & (1 << i))) return i;
+static int ahci_wait_slot0_ready(ahci_port_t* port)
+{
+    uint32_t spins = 1000000;
+    while (spins--) {
+        if (((port->ci | port->sact) & 1U) == 0)
+            return 0;
+        __asm__ __volatile__("pause");
     }
     return -1;
 }
 
 static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count) {
+    int rc = 0;
     ahci_port_t* port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t* mem = &port_mem[portno];
+    ahci_lock_port_io(portno);
 
     while (port->tfd & (0x80 | 0x08));
 
-    int slot = ahci_find_slot(port);
-    if (slot == -1) return -1;
+    int slot = 0;
+    if (ahci_wait_slot0_ready(port) != 0) {
+        rc = -1;
+        goto out;
+    }
 
     ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
     memset(hdr, 0, sizeof(*hdr));
@@ -489,21 +510,31 @@ static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t
     port->ci = 1 << slot;
 
     while (port->ci & (1 << slot)) {
-        if (port->tfd & (0x01 | 0x20)) return -2;
+        if (port->tfd & (0x01 | 0x20)) {
+            rc = -2;
+            goto out;
+        }
     }
 
     port->is = 0xFFFFFFFF;
-    return 0;
+out:
+    ahci_unlock_port_io(portno);
+    return rc;
 }
 
 static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count) {
+    int rc = 0;
     ahci_port_t* port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t* mem = &port_mem[portno];
+    ahci_lock_port_io(portno);
 
     while (port->tfd & (0x80 | 0x08));
 
-    int slot = ahci_find_slot(port);
-    if (slot == -1) return -1;
+    int slot = 0;
+    if (ahci_wait_slot0_ready(port) != 0) {
+        rc = -1;
+        goto out;
+    }
 
     ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
     memset(hdr, 0, sizeof(*hdr));
@@ -544,23 +575,31 @@ static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_
         if (port->tfd & (0x01 | 0x20)) { // ERR | DF
             port->is = 0xFFFFFFFF;
             printf("[AHCI] Write error! tfd=0x%X\n", port->tfd);
-            return -3;
+            rc = -3;
+            goto out;
         }
     }
 
     port->is = 0xFFFFFFFF;
-    return 0;
+out:
+    ahci_unlock_port_io(portno);
+    return rc;
 }
 
 int ahci_identify(int portno, void* buffer) {
+    int rc = 0;
     ahci_port_t* port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t* mem = &port_mem[portno];
+    ahci_lock_port_io(portno);
 
     // Wait until port is ready
     while (port->tfd & (0x80 | 0x08)); // BSY | DRQ
 
-    int slot = ahci_find_slot(port);
-    if (slot == -1) return -1;
+    int slot = 0;
+    if (ahci_wait_slot0_ready(port) != 0) {
+        rc = -1;
+        goto out;
+    }
 
     ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
     memset(hdr, 0, sizeof(*hdr));
@@ -595,12 +634,15 @@ int ahci_identify(int portno, void* buffer) {
     while (port->ci & (1 << slot)) {
         if (port->tfd & (0x01 | 0x20)) { // ERR | DF
             port->is = 0xFFFFFFFF;
-            return -2;
+            rc = -2;
+            goto out;
         }
     }
 
     port->is = 0xFFFFFFFF;
-    return 0;
+out:
+    ahci_unlock_port_io(portno);
+    return rc;
 }
 
 int ahci_read_sector(int portno, uint64_t lba, void* buffer, uint32_t count)

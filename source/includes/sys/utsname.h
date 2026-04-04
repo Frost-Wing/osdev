@@ -97,7 +97,7 @@ static int64 sys_uname(linux_utsname_t* uts) {
     }
     
     SET_FIELD(uts->release,    "v0.1-prebuild-construct");
-    SET_FIELD(uts->version,    CONCAT("fw-kernel (Build Stamp:", date, ")"));
+    SET_FIELD(uts->version,    CONCAT("fw-kernel (Build Stamp: ", date, ")"));
     SET_FIELD(uts->machine,    "x86_64");
     SET_FIELD(uts->domainname, "localdomain");
 
