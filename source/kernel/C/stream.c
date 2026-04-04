@@ -294,6 +294,7 @@ uint32_t fd_file_size(int fd)
         case FS_ISO9660:
             return file->f.iso9660.entry.size;
         case FS_PROC:
+        case FS_DEV:
         default:
             return 0;
     }
@@ -313,6 +314,7 @@ uint32_t* fd_pos_ptr(int fd)
         case FS_ISO9660:
             return &file->f.iso9660.pos;
         case FS_PROC:
+        case FS_DEV:
             return &file->pos;
         default:
             return NULL;
