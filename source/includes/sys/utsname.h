@@ -92,6 +92,8 @@ static int64 sys_uname(linux_utsname_t* uts) {
 
         if (total > 0)
             SET_FIELD(uts->nodename, hostbuf);
+    } else {
+        printf("open failed!");
     }
     
     SET_FIELD(uts->release,    "v0.1-prebuild-construct");
