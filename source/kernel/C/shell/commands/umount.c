@@ -45,6 +45,8 @@ int cmd_umount(int argc, char** argv)
         case FS_PROC:
             // procfs_shutdown(); /* or procfs_unmount() */
             break;
+        case FS_DEV:
+            break;
 
         default:
             printf("umount: unsupported filesystem");
