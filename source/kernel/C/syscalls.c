@@ -21,6 +21,7 @@
 // Entire filesystems present in the OS.
 #include <filesystems/vfs.h>
 #include <filesystems/layers/proc.h>
+#include <filesystems/layers/dev.h>
 #include <filesystems/fat16.h>
 #include <filesystems/fat32.h>
 #include <filesystems/iso9660.h>
@@ -201,6 +202,24 @@ static bool fill_vfs_stat_for_path_at(int dirfd, const char* path, vfs_stat_info
         return true;
     }
 
+    if (res.mnt->type == FS_DEV) {
+        if (res.rel_path[0] == '\0') {
+            info->is_dir = true;
+            info->mode = LINUX_S_IFDIR | 0555;
+            return true;
+        }
+
+        vfs_file_t devf = {0};
+        snprintf(devf.rel_path, sizeof(devf.rel_path), "%s", res.rel_path);
+        devf.mnt = res.mnt;
+        if (devfs_open(&devf) != 0)
+            return false;
+        info->is_dir = false;
+        info->mode = LINUX_S_IFCHR | 0666;
+        info->size = 0;
+        return true;
+    }
+
     if (res.rel_path[0] == '\0') {
         info->is_dir = true;
         info->mode = LINUX_S_IFDIR | 0755;
@@ -255,6 +274,7 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t* info) {
     vfs_file_t* file = fd_get_file(fd);
     switch (file->mnt->type) {
         case FS_PROC:
+        case FS_DEV:
             info->is_dir = false;
             info->size = 0;
             break;
@@ -357,6 +377,48 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
         for (uint64_t i = entry_index; i < PROC_FILE_COUNT; ++i) {
             if (!emit_dirent(buf, buflen, &used, i + 2, 8, proc_entries[i], i + 1))
                 break;
+            *pos = (uint32_t)(i + 1);
+        }
+        return (int)used;
+    }
+
+    if (file->mnt->type == FS_DEV) {
+        static const char* dev_entries[] = {"null", "zero", "random", "urandom"};
+        const uint64_t fixed = 4;
+        uint64_t total = fixed;
+        for (int i = 0; i < block_device_count; i++) {
+            if (block_devices[i].present &&
+                (block_devices[i].type == BLOCK_DEVICE_AHCI || block_devices[i].type == BLOCK_DEVICE_NVME))
+                total++;
+        }
+
+        for (uint64_t i = entry_index; i < total; ++i) {
+            const char* name = NULL;
+
+            if (i < fixed) {
+                name = dev_entries[i];
+            } else {
+                uint64_t disk_idx = i - fixed;
+                uint64_t seen = 0;
+                for (int j = 0; j < block_device_count; j++) {
+                    if (!block_devices[j].present)
+                        continue;
+                    if (block_devices[j].type != BLOCK_DEVICE_AHCI && block_devices[j].type != BLOCK_DEVICE_NVME)
+                        continue;
+
+                    if (seen++ == disk_idx) {
+                        name = block_devices[j].name;
+                        break;
+                    }
+                }
+            }
+
+            if (!name)
+                continue;
+
+            if (!emit_dirent(buf, buflen, &used, path_inode_hash(name), 2, name, i + 1))
+                break;
+
             *pos = (uint32_t)(i + 1);
         }
         return (int)used;

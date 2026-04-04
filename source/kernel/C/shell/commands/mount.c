@@ -14,6 +14,8 @@
 #include <filesystems/fat16.h>
 #include <filesystems/fat32.h>
 #include <filesystems/iso9660.h>
+#include <filesystems/layers/proc.h>
+#include <filesystems/layers/dev.h>
 #include <ahci.h>
 
 const char* fs_type_to_string(int fs)
@@ -22,6 +24,7 @@ const char* fs_type_to_string(int fs)
         case FS_FAT16: return "FAT16";
         case FS_FAT32: return "FAT32";
         case FS_PROC:  return "PROCFS";
+        case FS_DEV:   return "DEVFS";
         case FS_ISO9660:return "ISO9660";
         default:       return "UNKNOWN";
     }
@@ -63,6 +66,24 @@ int cmd_mount(int argc, char** argv)
         printf("mount: mounted " red_color "%s" reset_color " (%s) at '%s'",
             device,
             fs_type_to_string(FS_PROC),
+            mount_point);
+
+        return 0;
+    }
+
+    if(strcmp(device, "dev") == 0){
+        mount_entry_t* new_mount = add_mount(mount_point, device, FS_DEV, NULL);
+        if (!new_mount)
+            return 1;
+
+        devfs_init();
+
+        if(strcmp(mount_point, "/dev") != 0)
+            printf("mount: warning mounting 'dev' on non-standard path.");
+
+        printf("mount: mounted " red_color "%s" reset_color " (%s) at '%s'",
+            device,
+            fs_type_to_string(FS_DEV),
             mount_point);
 
         return 0;

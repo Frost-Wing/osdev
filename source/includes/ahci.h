@@ -182,7 +182,8 @@ typedef enum {
     FS_UDF,
 
     // OS / Custom
-    FS_PROC
+    FS_PROC,
+    FS_DEV
 } partition_fs_type_t;
 
 
