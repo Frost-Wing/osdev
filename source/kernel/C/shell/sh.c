@@ -11,6 +11,7 @@
 
 #include <commands/login.h>
 #include <filesystems/vfs.h>
+#include <graphics.h>
 #include <sh_util.h>
 #include <multitasking.h>
 #include <strings.h>
@@ -93,11 +94,13 @@ void welcome_message(){
     printf(blue_color "| |  | | | (_) \\__ \\ ||  __/ (_| |____) | | | |  __/ | |");
     printf(blue_color "|_|  |_|  \\___/|___/\\__\\___|\\__,_|_____/|_| |_|\\___|_|_|" reset_color "\n");
 
-    printf(green_color "Welcome to frosted shell!" reset_color " This is an implementation of " blue_color "sh" reset_color ".");
-    printf("We as the developers try to make this shell as similar as " blue_color "sh" reset_color ".\n");
+    printf(green_color "Welcome to frosted shell!" reset_color " This is an custom implementation of " blue_color "sh" reset_color ".");
 
     printf("Wiki    : " blue_color "https://github.com/Frost-Wing/osdev/wiki" reset_color "");
     printf("Github  : " blue_color "https://github.com/Frost-Wing" reset_color "\n");
+
+    printf(blue_color "This shell is under kernel mode (ring-0) you are responsible for your actions.");
+    printf(blue_color "Root (/) and other VFS are not mounted, you need to mount them by youself. Check out" red_color " wiki " blue_color "for more details.\n" reset_color);
 
     uint8_t second, minute, hour, day, month, year;
     update_system_time(&second, &minute, &hour, &day, &month, &year);

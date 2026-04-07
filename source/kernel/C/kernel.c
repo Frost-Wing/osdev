@@ -250,7 +250,6 @@ void main(void) {
     multitasking_start_cursor_blink_task();
     create_user_str("root", "prad");
     
-    wm_addr = module_request.response->modules[0]->address;
     enable_fpu();
     
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");

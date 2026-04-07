@@ -1,6 +1,7 @@
 # FrostWing Operating System
 
-Welcome to FrostWing, a lightweight and flexible operating system designed for x86_64, ARM64 (aarch64), and RISC-V (riscv64) architectures. This README will guide you through the process of building and running FrostWing, along with an overview of its features and architecture.
+Welcome to FrostWing, a lightweight and flexible operating system designed for x86_64 platform. This README will guide you through the process of understanding the overall
+concept of the FrostWing Operating System.
 
 ![GitHub all releases](https://img.shields.io/github/downloads/Frost-Wing/osdev/total?style=flat-square&label=Downloads)
 ![GitHub](https://img.shields.io/github/license/Frost-Wing/osdev?style=flat-square&label=License)
@@ -13,34 +14,23 @@ Welcome to FrostWing, a lightweight and flexible operating system designed for x
 
 ## Table of Contents
 
-- [Images](#images)
-- [Features](#currently-working-features)
-- [Getting Started](#getting-started)
-  - [Hardware/Software (Emulator) Requirements](#hardwaresoftware-emulator-requirements)
-  - [Booting to real machine](#Booting-to-real-machine)
-- [Contributing](#contributing)
-- [License](#license)
-- [FrostWing Team](#frostwing-team)
+- [FrostWing Operating System](#frostwing-operating-system)
+  - [Table of Contents](#table-of-contents)
+  - [Gallery](#gallery)
+  - [Currently working Features](#currently-working-features)
+    - [Getting started](#getting-started)
+    - [Hardware/Software (Emulator) Requirements](#hardwaresoftware-emulator-requirements)
+      - [Minimum Requirements (BIOS)](#minimum-requirements-bios)
+      - [Minimum Requirements (UEFI)](#minimum-requirements-uefi)
+      - [Recommended Requirements (BIOS)](#recommended-requirements-bios)
+      - [Recommended Requirements (UEFI)](#recommended-requirements-uefi)
+    - [Booting to real machine](#booting-to-real-machine)
+  - [Contributing](#contributing)
+  - [License](#license)
+  - [FrostWing Team](#frostwing-team)
 
-## Images
-### Running (Early Booting)
-[![https://imgur.com/xY5Qzac.png](https://imgur.com/xY5Qzac.png)](https://imgur.com/xY5Qzac.png)
-
-### Running (Graphics Screen)
-[![https://imgur.com/22Uwf8a.png](https://imgur.com/22Uwf8a.png)](https://imgur.com/22Uwf8a.png)
-
-### Running (Initial Login Screen)
-![Screenshot from 2025-01-15 08-49-29](https://github.com/user-attachments/assets/a6ceca1c-3be5-45d9-8ee1-5856619e1f8a)
-
-### Running (Frosted Shell - fsh)
-![image](https://github.com/user-attachments/assets/976facae-3bc6-4033-bead-53800af2be4d)
-
-### Running (Exit and logging in)
-![image](https://github.com/user-attachments/assets/0319336b-bee5-43f4-b89b-88a721791468)
-
-
-### Meltdown (Panic) Screen
-[![https://imgur.com/HqYJvMK.png](https://imgur.com/HqYJvMK.png)](https://imgur.com/HqYJvMK.png)
+## Gallery
+Refer the wiki for Gallary.*
 
 ## Currently working Features
 - Interrupts
@@ -136,7 +126,7 @@ FrostWing is open-source software released under the [CC0-1.0 License](https://g
 
 ## FrostWing Team
 - Owner, founder & "The Dev" - Pradosh ([@PradoshGame](https://twitter.com/@PradoshGame))
-- OpenGL & Head Developer - GAMINGNOOB ([@GAMINGNOOBdev](https://github.com/GAMINGNOOBdev))
+- OpenGL & Head Developer - GAMINGNOOB ([@GAMINGNOOBdev](https://github.com/GAMINGNOOBdev)) (inactive)
 - Sources
     - [Flanterm](https://github.com/mintsuki/flanterm/tree/trunk) from Mintsuki
     - [ACPI and Shutdown](https://github.com/mintsuki/acpi-shutdown-hack) from Mintsuki

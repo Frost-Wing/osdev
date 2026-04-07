@@ -241,7 +241,7 @@ int vfs_ls(const char* path)
 
         if (vfs_is_direct_child_mount(norm, m)) {
             const char* name = vfs_basename(m->mount_point);
-            printfnoln(yellow_color "%s " reset_color, name);
+            printfnoln(yellow_color "%s/ " reset_color, name);
             entries = true;
         }
     }

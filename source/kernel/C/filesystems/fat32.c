@@ -9,6 +9,8 @@
  * 
  */
 #include <filesystems/fat32.h>
+#include <heap.h>
+#include <stdint.h>
 #include <strings.h>
 #include <basics.h>
 #include <graphics.h>
@@ -55,14 +57,17 @@ static int fat32_write_fat(fat32_fs_t* fs, uint32_t cluster, uint32_t value) {
     if (fat32_read_sector(fs, lba, sector))
         return -1;
 
-    *(uint32_t*)(sector + off) = value;
+    *(uint32_t*)(sector + off) = (value & 0x0FFFFFFF) | (*(uint32_t*)(sector + off) & 0xF0000000);
     return fat32_write_sector(fs, lba, sector);
 }
 
 uint32_t fat32_alloc_cluster(fat32_fs_t* fs) {
-    for (uint32_t c = 2; c < fs->total_clusters + 2; c++) {
+    uint32_t start = fs->last_alloc ? fs->last_alloc : 2;
+
+    for (uint32_t c = start; c < fs->total_clusters + 2; c++) {
         if (fat32_read_fat(fs, c) == FAT32_CLUSTER_FREE) {
             fat32_write_fat(fs, c, FAT32_CLUSTER_EOC);
+            fs->last_alloc = c;
             return c;
         }
     }
@@ -171,7 +176,7 @@ int fat32_open(fat32_fs_t* fs, const char* path, fat32_file_t* f) {
     fat32_dir_entry_t found = {0};
 
     while (tok) {
-        uint8_t buf[fs->sectors_per_cluster * FAT32_SECTOR_SIZE];
+        uint8_t* buf = kmalloc(sizeof(uint8_t) * fs->sectors_per_cluster * FAT32_SECTOR_SIZE);
         int hit = 0;
 
         while (cluster < FAT32_CLUSTER_EOC) {
@@ -805,7 +810,7 @@ int fat32_delete_entry(fat32_fs_t* fs, uint32_t dir_cluster, const char* name)
 
             for (uint32_t i = 0; i < FAT32_SECTOR_SIZE / sizeof(fat32_dir_entry_t); i++) {
                 if (e[i].name[0] == 0x00)
-                    return FAT_ERR_NOT_FOUND;
+                    break;
 
                 if (e[i].name[0] == 0xE5)
                     continue;

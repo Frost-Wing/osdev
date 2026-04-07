@@ -35,7 +35,15 @@ jobs:
     - name: Stop QEMU and VNC
       run: sudo pkill qemu
   
-    - name: Upload to file.io
-      run: |
-        RESPONSE=$(curl -s -F "file=@./FrostWing.iso" https://file.io)
-        echo "$RESPONSE" | jq -r '.link'
+    - name: Create Release and Upload ISO
+      if: github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v0.1.${{ github.run_number }}
+        name: FrostWing v0.1.${{ github.run_number }}
+        body: |
+          FrostWing OS Automated Build
+          Commit: ${{ github.sha }}
+        files: FrostWing.iso
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
