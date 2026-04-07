@@ -36,6 +36,7 @@ int cmd_cat(int argc, char** argv)
 
         /* Read loop */
         while (1) {
+            memset(&buf[0], 0, CAT_BUF_SIZE);
             int r = vfs_read(&file, buf, CAT_BUF_SIZE);
             if (r < 0) {
                 printf("cat: %s: read error", argv[i]);
