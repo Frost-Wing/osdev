@@ -51,6 +51,8 @@ static int ahci_find_free_slot(ahci_port_t* port)
 
 static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count);
 static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count);
+static int ahci_read_satapi_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count);
+static int ahci_satapi_read_capacity(int portno, uint32_t* out_last_lba, uint32_t* out_block_size);
 
 int block_register_device(
     block_device_type_t type,
@@ -183,12 +185,21 @@ void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
 void handle_satapi_disk(int portno) {
     ahci_init_port(portno);
 
+    uint32_t last_lba = 0;
+    uint32_t block_size = ISO9660_SECTOR_SIZE;
+    uint64_t total_sectors_512 = 0;
+
+    if (ahci_satapi_read_capacity(portno, &last_lba, &block_size) == 0 && block_size >= SECTOR_SIZE) {
+        uint64_t blocks = (uint64_t)last_lba + 1;
+        total_sectors_512 = blocks * (block_size / SECTOR_SIZE);
+    }
+
     ahci_disks[portno].present = 1;
-    ahci_disks[portno].total_sectors = 0;
+    ahci_disks[portno].total_sectors = total_sectors_512;
     ahci_disks[portno].logical_device = block_register_device(
         BLOCK_DEVICE_AHCI,
         portno,
-        0,
+        total_sectors_512,
         SECTOR_SIZE,
         NULL
     );
@@ -201,8 +212,8 @@ void handle_satapi_disk(int portno) {
         add_general_partition(
             PART_TABLE_MBR,
             0,
-            0,
-            0,
+            total_sectors_512 > 0 ? (int64_t)(total_sectors_512 - 1) : 0,
+            (int64_t)total_sectors_512,
             ahci_disks[portno].logical_device,
             false,
             FS_ISO9660,
@@ -475,6 +486,7 @@ static int ahci_wait_slot0_ready(ahci_port_t* port)
 static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count)
 {
     int rc = 0;
+    void* dma_buf = NULL;
     ahci_port_t* port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t* mem = &port_mem[portno];
 
@@ -499,7 +511,7 @@ static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t
     memset(tbl->cfis, 0, 64);
     memset(tbl->prdt, 0, sizeof(tbl->prdt));
 
-    void* dma_buf = kmalloc_aligned(count * 512, 4096);
+    dma_buf = kmalloc_aligned(count * 512, 4096);
     if (!dma_buf) {
         rc = -10;
         goto out;
@@ -541,8 +553,11 @@ static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t
     port->is = 0xFFFFFFFF;
 
 out:
-    memcpy(buffer, dma_buf, count * 512);
-    kfree(dma_buf);
+    if (dma_buf) {
+        if (rc == 0)
+            memcpy(buffer, dma_buf, count * 512);
+        kfree(dma_buf);
+    }
     ahci_unlock_port_io(portno);
     return rc;
 }
@@ -550,6 +565,7 @@ out:
 static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count)
 {
     int rc = 0;
+    void* dma_buf = NULL;
     ahci_port_t* port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t* mem = &port_mem[portno];
 
@@ -574,11 +590,12 @@ static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_
     memset(tbl->cfis, 0, 64);
     memset(tbl->prdt, 0, sizeof(tbl->prdt));
 
-    void* dma_buf = kmalloc_aligned(count * 512, 4096);
+    dma_buf = kmalloc_aligned(count * 512, 4096);
     if (!dma_buf) {
         rc = -10;
         goto out;
     }
+    memcpy(dma_buf, buffer, count * 512);
 
     tbl->prdt[0].dba  = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
@@ -616,8 +633,8 @@ static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_
     port->is = 0xFFFFFFFF;
 
 out:
-    memcpy(dma_buf, buffer, count * 512);
-    kfree(dma_buf);
+    if (dma_buf)
+        kfree(dma_buf);
     ahci_unlock_port_io(portno);
     return rc;
 }
@@ -688,10 +705,142 @@ out:
 
 int ahci_read_sector(int portno, uint64_t lba, void* buffer, uint32_t count)
 {
+    if (global_ahci_ctrl && global_ahci_ctrl->ports[portno].sig == satapi_disk)
+        return ahci_read_satapi_sector_raw(portno, lba, buffer, count);
     return block_read_sector(portno, lba, buffer, count);
 }
 
 int ahci_write_sector(int portno, uint64_t lba, void* buffer, uint32_t count)
 {
     return block_write_sector(portno, lba, buffer, count);
+}
+
+static int ahci_issue_packet_command(
+    int portno,
+    const uint8_t packet[12],
+    void* dma_buf,
+    uint32_t byte_count,
+    bool write
+) {
+    int rc = 0;
+    ahci_port_t* port = &global_ahci_ctrl->ports[portno];
+    ahci_port_mem_t* mem = &port_mem[portno];
+
+    while (port->tfd & (0x80 | 0x08));
+
+    int slot = ahci_find_free_slot(port);
+    if (slot < 0)
+        return -1;
+
+    ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
+    memset(hdr, 0, sizeof(*hdr));
+    hdr->flags = (5 & AHCI_CMD_HDR_CFL_MASK) | AHCI_CMD_HDR_A_BIT;
+    if (write)
+        hdr->flags |= AHCI_CMD_HDR_W_BIT;
+    hdr->prdtl = 1;
+    hdr->ctba = (uint32_t)(uintptr_t)mem->cmd_tables[slot];
+    hdr->ctbau = 0;
+
+    ahci_cmd_table_t* tbl = mem->cmd_tables[slot];
+    memset(tbl->cfis, 0, sizeof(tbl->cfis));
+    memset(tbl->acmd, 0, sizeof(tbl->acmd));
+    memset(tbl->prdt, 0, sizeof(tbl->prdt));
+
+    tbl->prdt[0].dba = (uint32_t)(uintptr_t)dma_buf;
+    tbl->prdt[0].dbau = 0;
+    tbl->prdt[0].dbc = (byte_count - 1) | (1 << 31);
+    memcpy(tbl->acmd, packet, 12);
+
+    uint8_t* cfis = tbl->cfis;
+    cfis[0] = 0x27;
+    cfis[1] = 1 << 7;
+    cfis[2] = 0xA0; // ATA PACKET command
+
+    port->serr = 0xFFFFFFFF;
+    port->is = 0xFFFFFFFF;
+
+    __sync_synchronize();
+    port->ci = 1U << slot;
+
+    while (port->ci & (1U << slot)) {
+        if (port->tfd & (0x01 | 0x20)) {
+            rc = -2;
+            break;
+        }
+    }
+
+    port->is = 0xFFFFFFFF;
+    return rc;
+}
+
+static int ahci_read_satapi_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count)
+{
+    if (!buffer || count == 0)
+        return -1;
+
+    if ((lba % (ISO9660_SECTOR_SIZE / SECTOR_SIZE)) != 0 ||
+        (count % (ISO9660_SECTOR_SIZE / SECTOR_SIZE)) != 0)
+        return -2;
+
+    uint32_t atapi_lba = (uint32_t)(lba / (ISO9660_SECTOR_SIZE / SECTOR_SIZE));
+    uint32_t atapi_blocks = count / (ISO9660_SECTOR_SIZE / SECTOR_SIZE);
+    uint32_t bytes = count * SECTOR_SIZE;
+
+    uint8_t* dma_buf = kmalloc_aligned(bytes, 4096);
+    if (!dma_buf)
+        return -3;
+
+    uint8_t packet[12];
+    memset(packet, 0, sizeof(packet));
+    packet[0] = 0xA8; // READ(12)
+    packet[2] = (uint8_t)(atapi_lba >> 24);
+    packet[3] = (uint8_t)(atapi_lba >> 16);
+    packet[4] = (uint8_t)(atapi_lba >> 8);
+    packet[5] = (uint8_t)atapi_lba;
+    packet[6] = (uint8_t)(atapi_blocks >> 24);
+    packet[7] = (uint8_t)(atapi_blocks >> 16);
+    packet[8] = (uint8_t)(atapi_blocks >> 8);
+    packet[9] = (uint8_t)atapi_blocks;
+
+    ahci_lock_port_io(portno);
+    int rc = ahci_issue_packet_command(portno, packet, dma_buf, bytes, false);
+    if (rc == 0)
+        memcpy(buffer, dma_buf, bytes);
+    ahci_unlock_port_io(portno);
+
+    kfree(dma_buf);
+    return rc;
+}
+
+static int ahci_satapi_read_capacity(int portno, uint32_t* out_last_lba, uint32_t* out_block_size)
+{
+    if (!out_last_lba || !out_block_size)
+        return -1;
+
+    uint8_t* dma_buf = kmalloc_aligned(8, 4096);
+    if (!dma_buf)
+        return -2;
+    memset(dma_buf, 0, 8);
+
+    uint8_t packet[12];
+    memset(packet, 0, sizeof(packet));
+    packet[0] = 0x25; // READ CAPACITY(10)
+
+    ahci_lock_port_io(portno);
+    int rc = ahci_issue_packet_command(portno, packet, dma_buf, 8, false);
+    ahci_unlock_port_io(portno);
+
+    if (rc == 0) {
+        *out_last_lba = ((uint32_t)dma_buf[0] << 24) |
+                        ((uint32_t)dma_buf[1] << 16) |
+                        ((uint32_t)dma_buf[2] << 8) |
+                        ((uint32_t)dma_buf[3]);
+        *out_block_size = ((uint32_t)dma_buf[4] << 24) |
+                          ((uint32_t)dma_buf[5] << 16) |
+                          ((uint32_t)dma_buf[6] << 8) |
+                          ((uint32_t)dma_buf[7]);
+    }
+
+    kfree(dma_buf);
+    return rc;
 }

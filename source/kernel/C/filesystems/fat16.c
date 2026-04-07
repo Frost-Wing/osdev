@@ -12,6 +12,27 @@
 #include <filesystems/fat16.h>
 #include <strings.h>
 
+typedef struct {
+    char name[13];
+    uint8_t attr;
+} fat16_ls_entry_t;
+
+static int fat16_ls_cmp(const void* a, const void* b)
+{
+    const fat16_ls_entry_t* ea = a;
+    const fat16_ls_entry_t* eb = b;
+
+    int da = (ea->attr & 0x10) != 0;
+    int db = (eb->attr & 0x10) != 0;
+
+    // Directories first
+    if (da != db)
+        return db - da;
+
+    // Alphabetical
+    return strcmp(ea->name, eb->name);
+}
+
 static int fat16_is_reserved_name(cstring name) {
     return strcmp(name, ".") == 0 || strcmp(name, "..") == 0;
 }
@@ -175,9 +196,12 @@ int fat16_name_eq(const uint8_t fat_name[11], const char* input)
 
 // END =========
 
-int fat16_list_root(fat16_fs_t* fs) {
+int fat16_list_root(fat16_fs_t* fs)
+{
     uint8_t buf[512];
-    int entries_exist = 0;
+
+    fat16_ls_entry_t entries[256];
+    int count = 0;
 
     for (uint32_t s = 0; s < fs->root_dir_sectors; s++) {
         ahci_read_sector(fs->portno, fs->root_dir_start + s, buf, 1);
@@ -185,56 +209,39 @@ int fat16_list_root(fat16_fs_t* fs) {
         fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
 
         for (int i = 0; i < 16; i++) {
-            /* End of directory */
-            if (e[i].name[0] == 0x00) return entries_exist;
+            if (e[i].name[0] == 0x00)
+                goto done;
 
-            /* Deleted entry */
-            if ((uint8_t)e[i].name[0] == 0xE5)
+            if ((uint8_t)e[i].name[0] == 0xE5) continue;
+            if (e[i].attr & 0x08) continue;
+            if ((e[i].attr & 0x0F) == 0x0F) continue;
+
+            char name[13];
+            fat16_unformat_name(&e[i], name);
+
+            if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
                 continue;
 
-            /* Volume label */
-            if (e[i].attr & 0x08)
-                continue;
+            entries[count].attr = e[i].attr;
+            strcpy(entries[count].name, name);
 
-            /* Long File Name entry */
-            if ((e[i].attr & 0x0F) == 0x0F)
-                continue;
-
-            char name[9], ext[4];
-            memcpy(name, e[i].name, 8);
-            memcpy(ext,  e[i].ext,  3);
-            name[8] = ext[3] = 0;
-
-            /* Japanese Kanji delete alias */
-            if ((uint8_t)name[0] == 0x05)
-                name[0] = (char)0xE5;
-
-            /* Trim trailing spaces */
-            for (int k = 7; k >= 0 && name[k] == ' '; k--)
-                name[k] = 0;
-            for (int k = 2; k >= 0 && ext[k] == ' '; k--)
-                ext[k] = 0;
-
-            /* Skip "." and ".." */
-            if (name[0] == '.' &&
-               (name[1] == 0 ||
-               (name[1] == '.' && name[2] == 0)))
-                continue;
-
-            /* Print entry */
-            if (e[i].attr & 0x10) {
-                printfnoln(yellow_color "%s " reset_color, name);
-            } else if (ext[0]) {
-                printfnoln(blue_color "%s.%s " reset_color, name, ext);
-            } else {
-                printfnoln(blue_color "%s " reset_color, name);
-            }
-
-            entries_exist++;
+            count++;
+            if (count >= 256)
+                goto done;
         }
     }
 
-    return entries_exist;
+done:
+    qsort(entries, count, sizeof(fat16_ls_entry_t), fat16_ls_cmp);
+
+    for (int i = 0; i < count; i++) {
+        if (entries[i].attr & 0x10)
+            printfnoln(yellow_color "%s/ " reset_color, entries[i].name);
+        else
+            printfnoln(blue_color "%s " reset_color, entries[i].name);
+    }
+
+    return count;
 }
 
 
@@ -362,11 +369,13 @@ int fat16_find_in_dir(
     return FAT_ERR_NOT_FOUND;
 }
 
-
-int fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster) {
+int fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster)
+{
     uint8_t buf[512];
     uint16_t cluster = start_cluster;
-    int entries_exist = 0;
+
+    fat16_ls_entry_t entries[256];
+    int count = 0;
 
     while (cluster >= 2 && cluster < 0xFFF8) {
         uint32_t lba =
@@ -379,59 +388,42 @@ int fat16_list_dir_cluster(fat16_fs_t* fs, uint16_t start_cluster) {
             fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
 
             for (int i = 0; i < 16; i++) {
-                /* End of directory */
-                if (e[i].name[0] == 0x00) return entries_exist;
+                if (e[i].name[0] == 0x00)
+                    goto done;
 
-                /* Deleted entry */
-                if ((uint8_t)e[i].name[0] == 0xE5)
+                if ((uint8_t)e[i].name[0] == 0xE5) continue;
+                if (e[i].attr & 0x08) continue;
+                if ((e[i].attr & 0x0F) == 0x0F) continue;
+
+                char name[13];
+                fat16_unformat_name(&e[i], name);
+
+                if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
                     continue;
 
-                /* Volume label */
-                if (e[i].attr & 0x08)
-                    continue;
+                entries[count].attr = e[i].attr;
+                strcpy(entries[count].name, name);
 
-                /* Long File Name entry */
-                if ((e[i].attr & 0x0F) == 0x0F)
-                    continue;
-
-                char name[9], ext[4];
-                memcpy(name, e[i].name, 8);
-                memcpy(ext,  e[i].ext,  3);
-                name[8] = ext[3] = 0;
-
-                /* Japanese Kanji delete alias */
-                if ((uint8_t)name[0] == 0x05)
-                    name[0] = (char)0xE5;
-
-                /* Trim trailing spaces */
-                for (int k = 7; k >= 0 && name[k] == ' '; k--)
-                    name[k] = 0;
-                for (int k = 2; k >= 0 && ext[k] == ' '; k--)
-                    ext[k] = 0;
-
-                /* Skip "." and ".." */
-                if (name[0] == '.' &&
-                   (name[1] == 0 ||
-                   (name[1] == '.' && name[2] == 0)))
-                    continue;
-
-                /* Print entry */
-                if (e[i].attr & 0x10) {
-                    printfnoln(yellow_color "%s " reset_color, name);
-                } else if (ext[0]) {
-                    printfnoln(blue_color "%s.%s " reset_color, name, ext);
-                } else {
-                    printfnoln(blue_color "%s " reset_color, name);
-                }
-
-                entries_exist++;
+                count++;
+                if (count >= 256)
+                    goto done;
             }
         }
 
         cluster = fat16_read_fat_fs(fs, cluster);
     }
 
-    return entries_exist;
+done:
+    qsort(entries, count, sizeof(fat16_ls_entry_t), fat16_ls_cmp);
+
+    for (int i = 0; i < count; i++) {
+        if (entries[i].attr & 0x10)
+            printfnoln(yellow_color "%s/ " reset_color, entries[i].name);
+        else
+            printfnoln(blue_color "%s " reset_color, entries[i].name);
+    }
+
+    return count;
 }
 
 
@@ -1298,6 +1290,7 @@ int fat16_ls(fat16_fs_t* fs, const char* path) {
     // Resolve directory
     if (strcmp(path, "/") == 0) {
         dir.first_cluster = 0;
+        dir.attr = 0x10;
     } else {
         if (fat16_find_path(fs, path, &dir) != 0) {
             printf("ls: cannot access '%s'", path);
@@ -1309,62 +1302,11 @@ int fat16_ls(fat16_fs_t* fs, const char* path) {
             return FAT_ERR_NOT_FOUND;
         }
     }
-
-    uint8_t buf[512];
-
-    // -------- ROOT DIRECTORY --------
+    
     if (dir.first_cluster == 0) {
-        for (uint32_t s = 0; s < fs->root_dir_sectors; s++) {
-            ahci_read_sector(fs->portno, fs->root_dir_start + s, buf, 1);
-            fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
-
-            for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
-                if (e[i].name[0] == 0x00) return FAT_OK;
-                if (e[i].name[0] == 0xE5) continue;
-                if ((e[i].attr & 0x0F) == 0x0F) continue;
-                if (e[i].attr & 0x08) continue;
-
-
-                char name[13];
-                fat16_unformat_name(&e[i], name);
-
-                printf("%s%s",
-                       name,
-                       (e[i].attr & 0x10) ? "/" : "");
-            }
-        }
-        return FAT_OK;
-    }
-
-    // -------- SUBDIRECTORY --------
-    uint16_t cluster = dir.first_cluster;
-
-    while (cluster < FAT16_EOC) {
-        for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
-            ahci_read_sector(
-                fs->portno,
-                fat16_cluster_lba(fs, cluster) + s,
-                buf,
-                1
-            );
-
-            fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
-
-            for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
-                if (e[i].name[0] == 0x00) return FAT_OK;
-                if (e[i].name[0] == 0xE5) continue;
-                if ((e[i].attr & 0x0F) == 0x0F) continue;
-                if (e[i].attr & 0x08) continue;
-
-
-                char name[13];
-                fat16_unformat_name(&e[i], name);
-
-                printf("%s%s",name, (e[i].attr & 0x10) ? "/" : "");
-            }
-        }
-
-        cluster = fat16_read_fat_fs(fs, cluster);
+        fat16_list_root(fs);
+    } else {
+        fat16_list_dir_cluster(fs, dir.first_cluster);
     }
 
     return FAT_OK;

@@ -122,6 +122,8 @@ typedef struct {
 
     uint32_t total_clusters;
     uint32_t root_cluster;
+
+    uint32_t last_alloc;
 } fat32_fs_t;
 
 /* ============================= */

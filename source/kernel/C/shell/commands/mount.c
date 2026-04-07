@@ -90,16 +90,30 @@ int cmd_mount(int argc, char** argv)
     }
 
     general_partition_t* partition = search_general_partition(device);
+    int raw_device_id = -1;
 
     if (!partition) {
-        printf("mount: %s: partition not found.", device);
-        return 1;
+        for (int i = 0; i < block_device_count; i++) {
+            if (!block_devices[i].present)
+                continue;
+            if (strcmp(block_devices[i].name, device) == 0) {
+                raw_device_id = i;
+                break;
+            }
+        }
+
+        if (raw_device_id < 0) {
+            printf("mount: %s: partition not found.", device);
+            return 1;
+        }
     }
 
     void* fs_struct = NULL;
     int ret = 0;
 
-    switch (partition->fs_type) {
+    partition_fs_type_t mount_fs = partition ? partition->fs_type : FS_ISO9660;
+
+    switch (mount_fs) {
         case FS_FAT16:
             fs_struct = kmalloc(sizeof(fat16_fs_t));
             if (!fs_struct) {
@@ -132,11 +146,14 @@ int cmd_mount(int argc, char** argv)
                 printf("mount: memory allocation failed.");
                 return 1;
             }
-            mount_entry_t* mount3 = add_mount(mount_point, device, partition->fs_type, fs_struct);
+            mount_entry_t* mount3 = add_mount(mount_point, device, mount_fs, fs_struct);
             if (!mount3)
                 return 1;
 
-            ret = iso9660_mount(partition->ahci_port, partition->lba_start, (iso9660_fs_t*)fs_struct);
+            if (partition)
+                ret = iso9660_mount(partition->ahci_port, partition->lba_start, (iso9660_fs_t*)fs_struct);
+            else
+                ret = iso9660_mount(raw_device_id, 0, (iso9660_fs_t*)fs_struct);
             break;
 
         default:
@@ -151,7 +168,7 @@ int cmd_mount(int argc, char** argv)
 
     printf("mount: mounted %s (%s) at '%s'",
        device,
-       fs_type_to_string(partition->fs_type),
+       fs_type_to_string(mount_fs),
        mount_point);
     
     return 0;
