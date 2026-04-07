@@ -2,6 +2,9 @@ name: Frosted Workflow
 
 on: [push, pull_request]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,6 +37,10 @@ jobs:
 
     - name: Stop QEMU and VNC
       run: sudo pkill qemu
+    
+    - name: Generate hashes
+      run: |
+        sha256sum FrostWing.iso FrostWing.iso.tar.gz > sha256sums
   
     - name: Create Release and Upload ISO
       if: github.ref == 'refs/heads/main'
@@ -44,6 +51,14 @@ jobs:
         body: |
           FrostWing OS Automated Build
           Commit: ${{ github.sha }}
-        files: FrostWing.iso
+
+          Verify:
+          sha256sum -c sha256sums
+          
+        files: |
+          FrostWing.iso
+          FrostWing.iso.tar.gz
+          sha256sums
+
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
