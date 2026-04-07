@@ -40,6 +40,7 @@ jobs:
     
     - name: Generate hashes
       run: |
+        make tarball
         sha256sum FrostWing.iso FrostWing.iso.tar.gz > sha256sums
   
     - name: Create Release and Upload ISO
@@ -54,7 +55,7 @@ jobs:
 
           Verify:
           sha256sum -c sha256sums
-          
+
         files: |
           FrostWing.iso
           FrostWing.iso.tar.gz
