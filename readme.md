@@ -30,7 +30,7 @@ concept of the FrostWing Operating System.
   - [FrostWing Team](#frostwing-team)
 
 ## Gallery
-Refer the wiki for Gallary.*
+[Refer the wiki for Gallary.*](https://github.com/Frost-Wing/osdev/wiki/%E2%80%90-Gallery)
 
 ## Currently working Features
 - Interrupts
