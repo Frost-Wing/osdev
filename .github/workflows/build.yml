@@ -52,7 +52,7 @@ jobs:
         body: |
           FrostWing OS Automated Build
           Commit: ${{ github.sha }}
-
+          
           Verify:
           sha256sum -c sha256sums
 
