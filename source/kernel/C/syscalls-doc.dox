@@ -33,6 +33,10 @@
  * - `set_robust_list(2)`   -> `sys_set_robust_list()`   -> ABI validation
  * - `tgkill(2)`            -> `sys_tgkill()`            -> argument validation + stubbed signal path
  *
+ * ## Socket compatibility
+ * - `socket(2)`            -> `sys_socket()`            -> returns `-EAFNOSUPPORT` (not wired yet)
+ * - `connect(2)`           -> `sys_connect()`           -> fd validation + `-ENOTSOCK`
+ *
  * ## Time and randomness
  * - `clock_gettime(2)`     -> `sys_clock_gettime()`     -> RTC-backed time fetch
  * - `nanosleep(2)`         -> `sys_nanosleep()`         -> `sleep()`
