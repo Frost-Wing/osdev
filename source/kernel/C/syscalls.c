@@ -31,6 +31,7 @@
 #include <rtc.h>
 #include <heap.h>
 #include <tty.h>
+#include <multitasking.h>
 
 // sys headers
 #include <sys/dirent.h>
@@ -57,6 +58,13 @@ typedef struct {
 
 static char current_exec_path[256] = "/";
 static uint64_t current_fs_base = 0;
+static uint32_t current_umask = 022;
+static uint64_t* clear_child_tid = NULL;
+static char current_exec_argv_storage[32][128];
+static const char* current_exec_argv[32];
+static int current_exec_argc = 0;
+static uint32_t fork_children[64];
+static int fork_child_count = 0;
 
 #pragma pack(push, 1)
 typedef struct {
@@ -307,6 +315,43 @@ static int64 copy_readlink_result(const char* target, char* buf, uint64_t bufsiz
         len = bufsiz;
     memcpy(buf, target, len);
     return (int64)len;
+}
+
+static void record_exec_context(const char* target, char* const* argv) {
+    if (target)
+        snprintf(current_exec_path, sizeof(current_exec_path), "%s", target);
+
+    current_exec_argc = 0;
+    memset(current_exec_argv_storage, 0, sizeof(current_exec_argv_storage));
+    memset(current_exec_argv, 0, sizeof(current_exec_argv));
+
+    if (!argv)
+        return;
+
+    for (int i = 0; i < 31 && argv[i]; ++i) {
+        snprintf(current_exec_argv_storage[i], sizeof(current_exec_argv_storage[i]), "%s", argv[i]);
+        current_exec_argv[i] = current_exec_argv_storage[i];
+        current_exec_argc++;
+    }
+    current_exec_argv[current_exec_argc] = NULL;
+}
+
+static bool track_fork_child(uint32_t pid) {
+    for (int i = 0; i < fork_child_count; ++i) {
+        if (fork_children[i] == pid)
+            return true;
+    }
+    if (fork_child_count >= (int)(sizeof(fork_children) / sizeof(fork_children[0])))
+        return false;
+    fork_children[fork_child_count++] = pid;
+    return true;
+}
+
+static void untrack_child_at(int idx) {
+    if (idx < 0 || idx >= fork_child_count)
+        return;
+    fork_child_count--;
+    fork_children[idx] = fork_children[fork_child_count];
 }
 
 static int emit_dirent(char* buf, uint64_t buflen, uint64_t* used, uint64_t ino, uint8_t type, const char* name, uint64_t next_off) {
@@ -713,6 +758,26 @@ static int64 sys_writev(uint64_t fd, const linux_iovec_t* iov, uint64_t iovcnt) 
     return total;
 }
 
+static int64 sys_socket(uint64_t domain, uint64_t type, uint64_t protocol) {
+    (void)type;
+    (void)protocol;
+
+    // Networking stack is not exposed through Linux sockets yet.
+    // Return Linux-like "address family not supported" instead of a fake fd.
+    if (domain == 1 || domain == 2 || domain == 10)
+        return -LINUX_EAFNOSUPPORT;
+    return -LINUX_EAFNOSUPPORT;
+}
+
+static int64 sys_connect(uint64_t fd, const void* addr, uint64_t addrlen) {
+    (void)addr;
+    (void)addrlen;
+
+    if (!fd_valid((int)fd))
+        return -LINUX_EBADF;
+    return -LINUX_ENOTSOCK;
+}
+
 static int64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
@@ -897,24 +962,66 @@ static int64 sys_nanosleep(const linux_timespec_t* req, linux_timespec_t* rem) {
     return 0;
 }
 
+/**
+ * @brief Linux-compatible mmap wrapper backed by the kernel's anonymous mapper.
+ *
+ * Only anonymous mappings are currently supported. The function enforces
+ * Linux argument validation and returns Linux errno values on failure.
+ */
 static int64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, uint64_t fd, uint64_t off) {
     (void)addr;
-    (void)prot;
-    (void)flags;
-    (void)fd;
-    (void)off;
+
+    if (length == 0)
+        return -LINUX_EINVAL;
+
+    if ((off & 0xFFFULL) != 0)
+        return -LINUX_EINVAL;
+
+    if ((prot & ~(LINUX_PROT_READ | LINUX_PROT_WRITE | LINUX_PROT_EXEC)) != 0)
+        return -LINUX_EINVAL;
+
+    if ((flags & (LINUX_MAP_PRIVATE | LINUX_MAP_SHARED)) == 0)
+        return -LINUX_EINVAL;
+
+    if ((flags & LINUX_MAP_ANONYMOUS) == 0)
+        return -LINUX_ENOSYS;
+
+    if ((int64_t)fd != -1)
+        return -LINUX_EBADF;
 
     uint64_t mapped = userland_mmap_anon(length);
     if (mapped == 0)
-        return -LINUX_EINVAL;
+        return -LINUX_ENOMEM;
 
     return (int64)mapped;
 }
 
+/**
+ * @brief Linux-compatible mprotect validation wrapper.
+ *
+ * The current VM layer maps user pages with a single userspace permission
+ * template, so mprotect is accepted as a successful no-op after validating
+ * address, size, and protection mask.
+ */
 static int64 sys_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
-    (void)addr;
-    (void)length;
-    (void)prot;
+    if (length == 0)
+        return 0;
+
+    if ((prot & ~(LINUX_PROT_READ | LINUX_PROT_WRITE | LINUX_PROT_EXEC)) != 0)
+        return -LINUX_EINVAL;
+
+    if ((addr & 0xFFFULL) != 0)
+        return -LINUX_EINVAL;
+
+    uint64_t end = addr + length;
+    if (end < addr)
+        return -LINUX_EINVAL;
+
+    bool in_heap = (addr >= USER_HEAP_VADDR && end <= (USER_HEAP_VADDR + USER_HEAP_SIZE));
+    bool in_mmap = (addr >= USER_MMAP_VADDR && end <= (USER_MMAP_VADDR + USER_MMAP_SIZE));
+    if (!in_heap && !in_mmap)
+        return -LINUX_EINVAL;
+
     return 0;
 }
 
@@ -923,8 +1030,21 @@ static int64 sys_brk(uint64_t requested_break) {
 }
 
 static int64 sys_munmap(uint64_t addr, uint64_t length) {
-    (void)addr;
-    (void)length;
+    if (length == 0)
+        return -LINUX_EINVAL;
+
+    if ((addr & 0xFFFULL) != 0)
+        return -LINUX_EINVAL;
+
+    uint64_t end = addr + length;
+    if (end < addr)
+        return -LINUX_EINVAL;
+
+    bool in_heap = (addr >= USER_HEAP_VADDR && end <= (USER_HEAP_VADDR + USER_HEAP_SIZE));
+    bool in_mmap = (addr >= USER_MMAP_VADDR && end <= (USER_MMAP_VADDR + USER_MMAP_SIZE));
+    if (!in_heap && !in_mmap)
+        return -LINUX_EINVAL;
+
     return 0;
 }
 
@@ -956,6 +1076,34 @@ static int64 sys_prlimit64(uint64_t pid, uint64_t resource, const linux_rlimit64
     return 0;
 }
 
+static int64 sys_umask(uint64_t mask) {
+    uint32_t previous = current_umask;
+    current_umask = (uint32_t)(mask & 0777U);
+    return (int64)previous;
+}
+
+static int64 sys_tgkill(uint64_t tgid, uint64_t tid, uint64_t sig) {
+    if (sig == 0)
+        return 0;
+    if (sig > 64)
+        return -LINUX_EINVAL;
+    if (tgid != 1 || tid != 1)
+        return -LINUX_ESRCH;
+    return -LINUX_ENOSYS;
+}
+
+static int64 sys_set_tid_address(uint64_t* tidptr) {
+    clear_child_tid = tidptr;
+    return 1;
+}
+
+static int64 sys_set_robust_list(const void* head, uint64_t len) {
+    (void)head;
+    if (len != 24)
+        return -LINUX_EINVAL;
+    return 0;
+}
+
 static int64 sys_getrandom(void* buf, uint64_t buflen, uint64_t flags) {
     (void)flags;
     if (!buf)
@@ -975,7 +1123,7 @@ static int64 sys_execve(const char* target, char* const* argv, char* const* envp
     if (!target)
         return -LINUX_EINVAL;
 
-    snprintf(current_exec_path, sizeof(current_exec_path), "%s", target);
+    record_exec_context(target, argv);
 
     char** copied_argv = NULL;
     char** copied_envp = NULL;
@@ -999,6 +1147,66 @@ static int64 sys_execve(const char* target, char* const* argv, char* const* envp
     return rc >= 0 ? rc : -LINUX_ENOEXEC;
 }
 
+static int64 sys_fork(void) {
+    if (current_exec_path[0] == '\0')
+        return -LINUX_ENOSYS;
+
+    user_task_spec_t spec = {0};
+    spec.path = current_exec_path;
+    spec.argc = current_exec_argc;
+    for (int i = 0; i < current_exec_argc && i < 32; ++i)
+        spec.argv[i] = current_exec_argv[i];
+
+    uint32_t child = multitasking_spawn_userland(current_exec_path, &spec);
+    if (child == 0)
+        return -LINUX_EAGAIN;
+
+    if (!track_fork_child(child))
+        return -LINUX_EAGAIN;
+
+    return (int64)child;
+}
+
+static int64 sys_wait4(int64_t pid, int* status, int options, void* rusage) {
+    (void)rusage;
+    const int LINUX_WNOHANG = 1;
+
+    if ((options & ~LINUX_WNOHANG) != 0)
+        return -LINUX_EINVAL;
+
+    while (1) {
+        int found_any = 0;
+        for (int i = 0; i < fork_child_count; ++i) {
+            uint32_t child = fork_children[i];
+            if (pid > 0 && child != (uint32_t)pid)
+                continue;
+
+            found_any = 1;
+            task_info_t info = {0};
+            if (!multitasking_get_task(child, &info)) {
+                untrack_child_at(i);
+                i--;
+                continue;
+            }
+
+            if (info.state != TASK_STATE_EXITED)
+                continue;
+
+            if (status)
+                *status = (info.exit_code & 0xFF) << 8;
+            untrack_child_at(i);
+            return (int64)child;
+        }
+
+        if (!found_any)
+            return -LINUX_ECHILD;
+        if (options & LINUX_WNOHANG)
+            return 0;
+
+        sleep(1);
+    }
+}
+
 #define FUTEX_WAIT 0
 #define FUTEX_WAKE 1
 
@@ -1020,8 +1228,11 @@ static int64 sys_futex(uint32_t* uaddr, int op, uint32_t val,
             if (*uaddr != val)
                 return -LINUX_EAGAIN;
 
-            // NO real blocking → just pretend we waited
-            return 0;
+            if (timeout && timeout->tv_sec == 0 && timeout->tv_nsec == 0)
+                return -LINUX_ETIMEDOUT;
+
+            // No kernel scheduler wait queue integration yet.
+            return -LINUX_EINTR;
 
         case FUTEX_WAKE:
             // pretend we woke threads
@@ -1068,6 +1279,8 @@ void int80_handler(InterruptFrame* frame)
 void syscall_handler(syscall_frame_t* f)
 {
     if (f && (f->rax == LINUX_SYS_EXIT || f->rax == LINUX_SYS_EXIT_GROUP)) {
+        if (clear_child_tid)
+            *clear_child_tid = 0;
         if (userland_prepare_exit(f, f->rdi))
             return;
     }
@@ -1125,7 +1338,7 @@ uint64_t syscall_dispatch (
         case LINUX_SYS_RT_SIGACTION:
         case LINUX_SYS_RT_SIGPROCMASK:
         case LINUX_SYS_SIGALTSTACK:
-            return 0;
+            return -LINUX_ENOSYS;
 
         case LINUX_SYS_ACCESS:
             return sys_access_common(LINUX_AT_FDCWD, (const char*)arg1, arg2);
@@ -1164,7 +1377,16 @@ uint64_t syscall_dispatch (
             return sys_nanosleep((const linux_timespec_t*)arg1, (linux_timespec_t*)arg2);
 
         case LINUX_SYS_GETPID:
-            return 1;
+            return multitasking_current_pid() ? multitasking_current_pid() : 1;
+
+        case LINUX_SYS_SOCKET:
+            return sys_socket(arg1, arg2, arg3);
+
+        case LINUX_SYS_CONNECT:
+            return sys_connect(arg1, (const void*)arg2, arg3);
+
+        case LINUX_SYS_CLONE:
+            return sys_fork();
 
         case LINUX_SYS_EXECVE:
             return sys_execve((const char*)arg1, (char* const*)arg2, (char* const*)arg3);
@@ -1183,7 +1405,7 @@ uint64_t syscall_dispatch (
             return sys_chdir((const char*)arg1);
 
         case LINUX_SYS_FORK:
-            return 0;
+            return sys_fork();
 
         case LINUX_SYS_UNAME:
             return sys_uname((linux_utsname_t*)arg1);
@@ -1192,7 +1414,7 @@ uint64_t syscall_dispatch (
             return sys_readlinkat(LINUX_AT_FDCWD, (const char*)arg1, (char*)arg2, arg3);
 
         case LINUX_SYS_UMASK:
-            return 022;
+            return sys_umask(arg1);
 
         case LINUX_SYS_GETUID:
         case LINUX_SYS_GETEUID:
@@ -1203,20 +1425,23 @@ uint64_t syscall_dispatch (
         case LINUX_SYS_GETPPID:
             return 1;
 
+        case LINUX_SYS_WAIT4:
+            return sys_wait4((int64_t)arg1, (int*)arg2, (int)arg3, (void*)arg4);
+
         case LINUX_SYS_ARCH_PRCTL:
             return sys_arch_prctl(arg1, arg2);
 
         case LINUX_SYS_GETTID:
-            return 1;
+            return multitasking_current_pid() ? multitasking_current_pid() : 1;
 
         case LINUX_SYS_TGKILL:
-            return 0;
+            return sys_tgkill(arg1, arg2, arg3);
 
         case LINUX_SYS_GETDENTS64:
             return sys_getdents64(arg1, (char*)arg2, arg3);
 
         case LINUX_SYS_SET_TID_ADDRESS:
-            return 1;
+            return sys_set_tid_address((uint64_t*)arg1);
 
         case LINUX_SYS_CLOCK_GETTIME:
             return sys_clock_gettime(arg1, (linux_timespec_t*)arg2);
@@ -1231,7 +1456,7 @@ uint64_t syscall_dispatch (
             return sys_access_common((int)arg1, (const char*)arg2, (int)arg3);
 
         case LINUX_SYS_SET_ROBUST_LIST:
-            return 0;
+            return sys_set_robust_list((const void*)arg1, arg2);
 
         case LINUX_SYS_PRLIMIT64:
             return sys_prlimit64(arg1, arg2, (const linux_rlimit64_t*)arg3, (linux_rlimit64_t*)arg4);
@@ -1250,8 +1475,6 @@ uint64_t syscall_dispatch (
             return sys_futex((uint32_t*)arg1, arg2, arg3,
                             (const linux_timespec_t*)arg4,
                             (uint32_t*)arg5, arg6);
-        case 41: // getuid (32-bit ABI compatibility)
-            return 0;
         case 19:
             {
                 linux_iovec_t* iov = (linux_iovec_t*)arg2;
