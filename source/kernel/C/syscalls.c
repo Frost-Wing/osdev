@@ -758,6 +758,26 @@ static int64 sys_writev(uint64_t fd, const linux_iovec_t* iov, uint64_t iovcnt) 
     return total;
 }
 
+static int64 sys_socket(uint64_t domain, uint64_t type, uint64_t protocol) {
+    (void)type;
+    (void)protocol;
+
+    // Networking stack is not exposed through Linux sockets yet.
+    // Return Linux-like "address family not supported" instead of a fake fd.
+    if (domain == 1 || domain == 2 || domain == 10)
+        return -LINUX_EAFNOSUPPORT;
+    return -LINUX_EAFNOSUPPORT;
+}
+
+static int64 sys_connect(uint64_t fd, const void* addr, uint64_t addrlen) {
+    (void)addr;
+    (void)addrlen;
+
+    if (!fd_valid((int)fd))
+        return -LINUX_EBADF;
+    return -LINUX_ENOTSOCK;
+}
+
 static int64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
@@ -1359,6 +1379,12 @@ uint64_t syscall_dispatch (
         case LINUX_SYS_GETPID:
             return multitasking_current_pid() ? multitasking_current_pid() : 1;
 
+        case LINUX_SYS_SOCKET:
+            return sys_socket(arg1, arg2, arg3);
+
+        case LINUX_SYS_CONNECT:
+            return sys_connect(arg1, (const void*)arg2, arg3);
+
         case LINUX_SYS_CLONE:
             return sys_fork();
 
@@ -1449,8 +1475,6 @@ uint64_t syscall_dispatch (
             return sys_futex((uint32_t*)arg1, arg2, arg3,
                             (const linux_timespec_t*)arg4,
                             (uint32_t*)arg5, arg6);
-        case 41: // getuid (32-bit ABI compatibility)
-            return 0;
         case 19:
             {
                 linux_iovec_t* iov = (linux_iovec_t*)arg2;
