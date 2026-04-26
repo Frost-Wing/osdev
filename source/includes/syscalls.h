@@ -37,6 +37,8 @@
 #define LINUX_SYS_DUP2              33
 #define LINUX_SYS_NANOSLEEP         35
 #define LINUX_SYS_GETPID            39
+#define LINUX_SYS_SOCKET            41
+#define LINUX_SYS_CONNECT           42
 #define LINUX_SYS_CLONE             56
 #define LINUX_SYS_FORK              57
 #define LINUX_SYS_WAIT4             61
@@ -103,6 +105,8 @@
 #define LINUX_EINTR      4
 #define LINUX_ETIMEDOUT  110
 #define LINUX_ECHILD     10
+#define LINUX_ENOTSOCK   88
+#define LINUX_EAFNOSUPPORT 97
 
 #define LINUX_PROT_NONE  0x0
 #define LINUX_PROT_READ  0x1
