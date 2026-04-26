@@ -1,0 +1,44 @@
+/**
+ * @file syscalls-doc.dox
+ * @brief Linux syscall compatibility mapping for the FrostWing kernel.
+ * @details
+ * This document lists the syscall wrappers that are dispatched in
+ * `syscalls.c` and the internal kernel entry points they use.
+ *
+ * ## Core mapping
+ * - `read(2)`              -> `sys_read()`              -> `vfs_read()` / `tty_read()`
+ * - `write(2)`             -> `sys_write()`             -> `vfs_write()` / `putc()`
+ * - `open(2)` / `openat(2)`-> `sys_open_common()`       -> `fd_open()`
+ * - `close(2)`             -> `sys_close()`             -> `fd_close()`
+ * - `lseek(2)`             -> `sys_lseek()`             -> fd position pointer update
+ * - `getdents64(2)`        -> `sys_getdents64()`        -> FAT16/FAT32/ISO9660/proc/dev walkers
+ *
+ * ## File metadata
+ * - `stat(2)`              -> `sys_stat()`              -> `fill_vfs_stat_for_path_at()`
+ * - `fstat(2)`             -> `sys_fstat()`             -> `fill_vfs_stat_for_fd()`
+ * - `newfstatat(2)`        -> `sys_newfstatat()`        -> `fill_vfs_stat_for_path_at()`
+ * - `statx(2)`             -> `sys_statx()`             -> `sys_newfstatat()`
+ *
+ * ## Memory management
+ * - `mmap(2)`              -> `sys_mmap()`              -> `userland_mmap_anon()`
+ * - `mprotect(2)`          -> `sys_mprotect()`          -> validation + no-op (current VM model)
+ * - `munmap(2)`            -> `sys_munmap()`            -> validation + no-op (current VM model)
+ * - `brk(2)`               -> `sys_brk()`               -> `userland_brk()`
+ *
+ * ## Process and thread compatibility
+ * - `execve(2)`            -> `sys_execve()`            -> `userland_exec()` / `execute_chain()`
+ * - `fork(2)` / `clone(2)` -> `sys_fork()`              -> `multitasking_spawn_userland()` (exec-context clone)
+ * - `wait4(2)`             -> `sys_wait4()`             -> multitasking task-state polling
+ * - `set_tid_address(2)`   -> `sys_set_tid_address()`   -> kernel clear-child-tid bookkeeping
+ * - `set_robust_list(2)`   -> `sys_set_robust_list()`   -> ABI validation
+ * - `tgkill(2)`            -> `sys_tgkill()`            -> argument validation + stubbed signal path
+ *
+ * ## Socket compatibility
+ * - `socket(2)`            -> `sys_socket()`            -> returns `-EAFNOSUPPORT` (not wired yet)
+ * - `connect(2)`           -> `sys_connect()`           -> fd validation + `-ENOTSOCK`
+ *
+ * ## Time and randomness
+ * - `clock_gettime(2)`     -> `sys_clock_gettime()`     -> RTC-backed time fetch
+ * - `nanosleep(2)`         -> `sys_nanosleep()`         -> `sleep()`
+ * - `getrandom(2)`         -> `sys_getrandom()`         -> xorshift seeded from `rdtsc64()`
+ */
