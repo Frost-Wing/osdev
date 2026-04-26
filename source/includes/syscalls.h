@@ -37,7 +37,11 @@
 #define LINUX_SYS_DUP2              33
 #define LINUX_SYS_NANOSLEEP         35
 #define LINUX_SYS_GETPID            39
+#define LINUX_SYS_SOCKET            41
+#define LINUX_SYS_CONNECT           42
+#define LINUX_SYS_CLONE             56
 #define LINUX_SYS_FORK              57
+#define LINUX_SYS_WAIT4             61
 #define LINUX_SYS_EXECVE            59
 #define LINUX_SYS_EXIT              60
 #define LINUX_SYS_CHDIR             80
@@ -85,6 +89,7 @@
 #define LINUX_SEEK_END   2
 
 #define LINUX_EBADF      9
+#define LINUX_EFAULT     14
 #define LINUX_EACCES     13
 #define LINUX_EINVAL     22
 #define LINUX_ENOEXEC    8
@@ -95,6 +100,23 @@
 #define LINUX_ENOMEM     12
 #define LINUX_ERANGE     34
 #define LINUX_ENOTDIR    20
+#define LINUX_ESRCH      3
+#define LINUX_EPERM      1
+#define LINUX_EINTR      4
+#define LINUX_ETIMEDOUT  110
+#define LINUX_ECHILD     10
+#define LINUX_ENOTSOCK   88
+#define LINUX_EAFNOSUPPORT 97
+
+#define LINUX_PROT_NONE  0x0
+#define LINUX_PROT_READ  0x1
+#define LINUX_PROT_WRITE 0x2
+#define LINUX_PROT_EXEC  0x4
+
+#define LINUX_MAP_SHARED    0x01
+#define LINUX_MAP_PRIVATE   0x02
+#define LINUX_MAP_FIXED     0x10
+#define LINUX_MAP_ANONYMOUS 0x20
 
 #define LINUX_S_IFMT     00170000
 #define LINUX_S_IFDIR    0040000
