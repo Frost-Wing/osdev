@@ -191,7 +191,7 @@ int fat16_name_eq(const uint8_t fat_name[11], const char* input)
 {
     char formatted[11];
     fat16_format_name(input, formatted);
-    return memcmp(fat_name, formatted, 11) == 0;
+    return memcmp((fat_name), (formatted), 11) == 0;
 }
 
 // END =========
@@ -357,6 +357,10 @@ int fat16_find_in_dir(
 
 
                 if (fat16_name_eq(e[i].name, name)) {
+                    debug_printf("FOUND '%s' cluster=%u size=%u\n",
+                        name,
+                        e[i].first_cluster,
+                        e[i].filesize);
                     *out = e[i];
                     return FAT_OK;
                 }
@@ -444,14 +448,14 @@ void fat16_format_name(const char* input, char out[11]) {
 
     // name
     while (input[i] && input[i] != '.' && j < 8)
-        out[j++] = (input[i++]);
+        out[j++] = toupper((unsigned char) input[i++]);
 
     // extension
     if (input[i] == '.') {
         i++;
         j = 8;
         while (input[i] && j < 11)
-            out[j++] = (input[i++]);
+            out[j++] = toupper((unsigned char) input[i++]);
     }
 }
 

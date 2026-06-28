@@ -149,12 +149,30 @@ clean:
 # -----------------------------
 # Misc
 # -----------------------------
+create-disk-fat16:
+	@echo "[*] Creating 64MB disk image..."
+	@rm -f disk.img
+	@truncate -s 64M disk.img
+
+	@echo "[*] Creating MBR..."
+	@parted -s disk.img mklabel msdos
+	@parted -s disk.img mkpart primary fat16 1MiB 100%
+	@echo "[+] Disk image created."
+
+format-disk:
+	@LOOP=$$(sudo losetup --find --show --partscan disk.img); \
+	echo "[*] Loop device: $$LOOP"; \
+	sudo mkfs.fat -F 16 -n FROSTDISK $${LOOP}p1; \
+	sudo losetup -d $$LOOP
+
 mount-dummy-disk:
-	sudo losetup -fP disk.img
-	sudo mkdir -p /mnt/fat16
-	sudo mount /dev/loop0p1 /mnt/fat16
-	cd /mnt/fat16
+	@LOOP=$$(sudo losetup --find --show --partscan disk.img); \
+	echo $$LOOP | sudo tee /tmp/frost_loop >/dev/null; \
+	sudo mkdir -p /mnt/fat16; \
+	sudo mount $${LOOP}p1 /mnt/fat16
 
 umount-dummy-disk:
-	sudo umount /mnt/fat16
-	sudo losetup -d /dev/loop0
+	@sudo umount /mnt/fat16
+	@LOOP=$$(cat /tmp/frost_loop); \
+	sudo losetup -d $$LOOP; \
+	rm -f /tmp/frost_loop
