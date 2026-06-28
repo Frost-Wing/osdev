@@ -86,7 +86,7 @@ void push_command_to_list(command_list* lst, const char* value, size_t length)
 
 bool running = true;
 
-void welcome_message(){
+void welcome_message(void){
     printf(blue_color " ______             _           _  _____ _          _ _ ");
     printf(blue_color "|  ____|           | |         | |/ ____| |        | | |");
     printf(blue_color "| |__ _ __ ___  ___| |_ ___  __| | (___ | |__   ___| | |");
@@ -111,7 +111,7 @@ void welcome_message(){
 
 extern int64* wm_addr;
 
-void start_window_manager(){
+void start_window_manager(void){
     void* file_addr = wm_addr;
     fdlfcn_handle* handle = fdlopen(file_addr, FDL_IMMEDIATE);
     int(*startfunction)(void);
@@ -153,7 +153,7 @@ int show_prompt(int argc, char** argv){
     return 0;
 }
 
-void ksh_exec(){
+void ksh_exec(void){
     int failed_attempts = 0;
 
     while(true){

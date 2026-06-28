@@ -80,7 +80,7 @@ typedef struct {
     uint16_t cluster;
 } fat16_file_t;
 
-// partition_fs_type_t detect_fat_type_enum(const int8* buf);
+partition_fs_type_t detect_fat_type_enum(const int8* buf);
 int fat16_mount(int portno, uint32_t partition_lba, fat16_fs_t* fs) ;
 uint16_t fat16_read_fat_fs(fat16_fs_t* fs, uint16_t cluster);
 int fat16_list_root(fat16_fs_t* fs);

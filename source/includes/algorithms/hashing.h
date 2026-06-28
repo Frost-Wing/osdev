@@ -19,7 +19,7 @@
  * @brief Verifies if the hash is working (not really initializing anything)
  * 
  */
-void init_hashing();
+void init_hashing(void);
 
 /**
  * @brief The function to hash an string (const char *)

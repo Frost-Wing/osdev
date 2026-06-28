@@ -83,7 +83,7 @@ void memory_dump(const void* start, const void* end) {
     }
 }
 
-void registers_dump(){
+void registers_dump(void){
     unsigned long long rax_value, rbx_value, rcx_value, rdx_value, rsi_value, rdi_value, 
                        rbp_value, rsp_value, r8_value, r9_value, r10_value, r11_value, 
                        r12_value, r13_value, r14_value, r15_value;
@@ -222,7 +222,7 @@ void analyze_memory_map(struct memory_context* memory, struct limine_memmap_requ
     }
 }
 
-uint64_t getCR2()
+uint64_t getCR2(void)
 {
 	uint64_t val;
 	__asm__ volatile ( "mov %%cr2, %0" : "=r"(val) );

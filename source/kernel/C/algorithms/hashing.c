@@ -10,7 +10,7 @@
  */
 #include <algorithms/hashing.h>
 
-void init_hashing(){
+void init_hashing(void){
     string data = "PradoshGame";
     int64 hash = hash_string(data);
 
