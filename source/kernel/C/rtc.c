@@ -22,7 +22,7 @@ int8 read_rtc_register(int8 reg) {
 }
  
 // Wait until RTC is not updating
-void wait_rtc_update() {
+void wait_rtc_update(void) {
     while (read_rtc_register(0x0A) & 0x80);
 }
  
@@ -36,7 +36,7 @@ int8 rtc_read_stable(int8 reg) {
     return val;
 }
  
-void init_rtc() {
+void init_rtc(void) {
     info("Initializing RTC", __FILE__);
     // Enable periodic interrupts if desired, not strictly necessary
     int8 prev = read_rtc_register(0x0B);
@@ -83,7 +83,7 @@ void update_system_time(int8 *second, int8 *minute, int8 *hour, int8 *day, int8 
     *year = yr;
 }
  
-void display_time() {
+void display_time(void) {
     int8 sec, min, hr, day, mon;
     int16 yr;
     update_system_time(&sec, &min, &hr, &day, &mon, &yr);
