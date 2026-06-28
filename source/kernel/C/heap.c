@@ -26,34 +26,46 @@ uint64_t memory_used = 0;
 
 static alloc_t* heap_alloc_from_user_ptr(void* ptr)
 {
-    if (!ptr)
+    if (!ptr || heap_begin == 0 || heap_end <= heap_begin)
         return NULL;
 
-    aligned_alloc_header_t* aligned_hdr =
-        (aligned_alloc_header_t*)((uint8_t*)ptr - sizeof(aligned_alloc_header_t));
+    uintptr_t user = (uintptr_t)ptr;
+    if (user < heap_begin + sizeof(alloc_t) || user > heap_end)
+        return NULL;
 
-    if ((uintptr_t)aligned_hdr >= heap_begin &&
-        (uintptr_t)aligned_hdr + sizeof(*aligned_hdr) <= heap_end &&
-        aligned_hdr->magic == ALIGNED_ALLOC_MAGIC) {
-        alloc_t* raw_alloc = (alloc_t*)((uint8_t*)aligned_hdr->raw - sizeof(alloc_t));
-        if ((uintptr_t)raw_alloc >= heap_begin &&
-            (uintptr_t)raw_alloc + sizeof(*raw_alloc) <= heap_end) {
-            return raw_alloc;
+    if (user >= heap_begin + sizeof(aligned_alloc_header_t)) {
+        aligned_alloc_header_t* aligned_hdr =
+            (aligned_alloc_header_t*)(user - sizeof(aligned_alloc_header_t));
+
+        if ((uintptr_t)aligned_hdr >= heap_begin &&
+            (uintptr_t)aligned_hdr <= heap_end - sizeof(*aligned_hdr) &&
+            aligned_hdr->magic == ALIGNED_ALLOC_MAGIC &&
+            aligned_hdr->raw >= heap_begin + sizeof(alloc_t) &&
+            aligned_hdr->raw <= heap_end) {
+            alloc_t* raw_alloc = (alloc_t*)(aligned_hdr->raw - sizeof(alloc_t));
+            if ((uintptr_t)raw_alloc >= heap_begin &&
+                (uintptr_t)raw_alloc <= heap_end - sizeof(*raw_alloc)) {
+                return raw_alloc;
+            }
         }
     }
 
-    return (alloc_t*)((uint8_t*)ptr - sizeof(alloc_t));
+    return (alloc_t*)(user - sizeof(alloc_t));
 }
 
 void mm_init(uintptr_t kernel_end, int64 heap_size)
 {
     info("Initializing heap", __FILE__);
 
-    heap_begin = kernel_end;
-    heap_end   = heap_begin + heap_size;
+    heap_begin = ALIGN_UP(kernel_end, 8);
+    if (heap_size <= 0 || (uint64_t)heap_size > UINT64_MAX - heap_begin) {
+        meltdown_screen("Invalid heap size!", __FILE__, __LINE__, 0, getCR2(), 0);
+        hcf();
+    }
+    heap_end   = heap_begin + (uint64_t)heap_size;
     last_alloc = heap_begin;
 
-    memset((void*)heap_begin, 0, heap_size);
+    memset((void*)heap_begin, 0, (size_t)(heap_end - heap_begin));
 
     printf("heap begin -> 0x%X", heap_begin);
     printf("heap end   -> 0x%X", heap_end);
@@ -93,7 +105,8 @@ void* kmalloc(size_t size)
     // Align new block start
     last_alloc = ALIGN_UP(last_alloc, 8);
 
-    if (last_alloc + sizeof(alloc_t) + size >= heap_end) {
+    if (size > UINT64_MAX - last_alloc - sizeof(alloc_t) ||
+        last_alloc + sizeof(alloc_t) + size > heap_end) {
         meltdown_screen("Heap out of memory!", __FILE__, __LINE__, 0, getCR2(), 0);
         hcf();
     }
@@ -123,7 +136,7 @@ void kfree(void* ptr)
     }
 
     alloc_t* a = heap_alloc_from_user_ptr(ptr);
-    if ((uintptr_t)a < heap_begin || (uintptr_t)a + sizeof(*a) > heap_end) {
+    if (!a || (uintptr_t)a < heap_begin || (uintptr_t)a > heap_end - sizeof(*a)) {
         warn("kfree: Pointer is outside heap.", __FILE__);
         return;
     }
@@ -146,7 +159,13 @@ void* krealloc(void* ptr, size_t size)
         return NULL;
     }
 
+    size = ALIGN_UP(size, 8);
+
     alloc_t* old = heap_alloc_from_user_ptr(ptr);
+    if (!old || old->status == 0) {
+        warn("krealloc: Invalid pointer", __FILE__);
+        return NULL;
+    }
     if (old->size >= size) return ptr;
 
     void* new_ptr = kmalloc(size);
@@ -161,6 +180,11 @@ void* kmalloc_aligned(size_t size, size_t align)
 {
     if (align < sizeof(void*) || (align & (align - 1)) != 0) {
         warn("kmalloc_aligned: align must be a power of two", __FILE__);
+        return NULL;
+    }
+
+    if (size == 0 || size > SIZE_MAX - align - sizeof(aligned_alloc_header_t)) {
+        warn("kmalloc_aligned: invalid size", __FILE__);
         return NULL;
     }
 
