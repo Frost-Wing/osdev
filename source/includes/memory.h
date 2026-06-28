@@ -112,7 +112,7 @@ void display_memory_formatted(struct memory_context* memory);
  * @param memory The memory context.
  * @param memory_map_request Limine Memory Mam Request.
  */
-void analyze_memory_map(struct memory_context* memory, volatile struct limine_memmap_request memory_map_request);
+void analyze_memory_map(struct memory_context* memory, struct limine_memmap_request memory_map_request);
 
 /**
  * @brief Returns the CR2 register.
