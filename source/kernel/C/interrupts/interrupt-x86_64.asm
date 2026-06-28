@@ -92,8 +92,8 @@ section .text align=16
         add rsp, 0x10
         iretq
 
-    %assign i 32
-    %rep    223
+        %assign i 32
+    %rep    224
     irq_stub_%+i:
         cli
         push 0
@@ -102,21 +102,24 @@ section .text align=16
         %assign i i+1
     %endrep
 
-    section .data
+section .rodata
+    align 8
     global isr_stub_table
     isr_stub_table:
     %assign i 0
     %rep    32
-        DQ isr_stub_%+i
+        dq isr_stub_%+i
         %assign i i+1
     %endrep
 
-    section .data
+section .rodata
+    align 8
     global irq_stub_table
     irq_stub_table:
     %assign i 32
-    %rep    223
-        DQ irq_stub_%+i
+    %rep    224
+        dq irq_stub_%+i
         %assign i i+1
     %endrep
+
 section .note.GNU-stack noalloc noexec nowrite progbits
