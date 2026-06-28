@@ -17,6 +17,7 @@
 #include <debugger.h>
 #include <meltdown.h>
 #include <userland.h>
+#include <cc-asm.h>
 
 irq_handler interrupt_handlers[256];
 
@@ -93,6 +94,7 @@ void irqHandler(InterruptFrame* frame)
 }
 
 void rtl8139_handler(InterruptFrame* frame) {
+    (void)frame;
 	uint16_t status = inw(RTL8139->io_base + 0x3e);
 	outw(RTL8139->io_base + 0x3E, 0x05);
 	if(status & TOK) {

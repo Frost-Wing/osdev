@@ -24,8 +24,8 @@
 #include <pci_id.h>
 
 extern cstring display_adapter_name;
-extern cstring GPUName[1]; //Max 2 GPUs allowed
-extern string using_graphics_card;
+extern cstring GPUName[2]; //Max 2 GPUs allowed
+extern cstring using_graphics_card;
 extern int64* graphics_base_Address;
 extern int total_devices;
 
@@ -94,6 +94,7 @@ int16 getClassId(int16 bus, int16 device, int16 function);
  * @return int16 Sub-class ID
  */
 int16 getSubClassId(int16 bus, int16 device, int16 function);
+int8 getRevision(int16 bus, int16 slot, int16 func);
 int8 getProgIF(int16 bus, int16 device, int16 function);
 
 /**
@@ -101,6 +102,7 @@ int8 getProgIF(int16 bus, int16 device, int16 function);
  * 
  */
 void probe_pci(void);
+void print_lspci(void);
 
 /**
  * @brief Function to read a 32-bit value from the PCI configuration space

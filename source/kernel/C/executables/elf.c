@@ -30,6 +30,18 @@ static uint32_t* elf_vfs_pos_ptr(vfs_file_t* file)
             return &file->f.fat32.pos;
         case FS_ISO9660:
             return &file->f.iso9660.pos;
+        case FS_UNKNOWN:
+        case FS_FAT12:
+        case FS_EXFAT:
+        case FS_EXT2:
+        case FS_EXT3:
+        case FS_EXT4:
+        case FS_XFS:
+        case FS_BTRFS:
+        case FS_NTFS:
+        case FS_UDF:
+        case FS_PROC:
+        case FS_DEV:
         default:
             return NULL;
     }
@@ -110,7 +122,7 @@ static int elf_load_tls_template_from_memory(void* file_base_address, uint64_t f
     return 0;
 }
 
-static int elf_load_tls_template_from_vfs(const char* path, elf_image_info_t* info)
+__attribute__((unused)) static int elf_load_tls_template_from_vfs(const char* path, elf_image_info_t* info)
 {
     if (!info || info->tls_filesz == 0)
         return 0;
@@ -351,7 +363,7 @@ static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum,
     return 0;
 }
 
-static void elf_log_load_progress(uint16_t current, uint16_t total, Elf64_Phdr* ph)
+__attribute__((unused)) static void elf_log_load_progress(uint16_t current, uint16_t total, Elf64_Phdr* ph)
 {
     if (!total)
         return;
@@ -448,7 +460,7 @@ static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file
     return 0;
 }
 
-static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uint64_t file_size, uint16_t seg_index, uint64_t load_bias)
+__attribute__((unused)) static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uint64_t file_size, uint16_t seg_index, uint64_t load_bias)
 {
     if (ph->p_type != PT_LOAD)
         return 0;
@@ -531,7 +543,7 @@ void* elf_load_from_memory_ex(void* file_base_address, uint64_t file_size, elf_i
         return NULL;
 
     uint8_t* file_ptr = file_base_address;
-    Elf64_Ehdr header = {};
+    Elf64_Ehdr header = {0};
     memcpy(&header, file_ptr, sizeof(Elf64_Ehdr));
 
     if (elf_validate_header(&header, file_size) != 0)
@@ -599,6 +611,18 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
         case FS_ISO9660:
             size = file.f.iso9660.entry.size;
             break;
+        case FS_UNKNOWN:
+        case FS_FAT12:
+        case FS_EXFAT:
+        case FS_EXT2:
+        case FS_EXT3:
+        case FS_EXT4:
+        case FS_XFS:
+        case FS_BTRFS:
+        case FS_NTFS:
+        case FS_UDF:
+        case FS_PROC:
+        case FS_DEV:
         default:
             vfs_close(&file);
             return NULL;
@@ -609,7 +633,7 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
         return NULL;
     }
 
-    Elf64_Ehdr header = {};
+    Elf64_Ehdr header = {0};
     if (elf_vfs_read_exact(&file, 0, &header, sizeof(header)) != 0) {
         eprintf("elf: failed to read header");
         vfs_close(&file);

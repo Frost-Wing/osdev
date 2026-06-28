@@ -13,7 +13,7 @@
  
  // --- Helpers ---
 int8 bcd_to_bin(int8 val) {
-    return (val & 0x0F) + ((val >> 4) * 10);
+    return (int8)((val & 0x0FU) + (((val >> 4U) & 0x0FU) * 10U));
 }
  
 int8 read_rtc_register(int8 reg) {
@@ -41,7 +41,7 @@ void init_rtc(void) {
     // Enable periodic interrupts if desired, not strictly necessary
     int8 prev = read_rtc_register(0x0B);
     outb(RTC_PORT, 0x0B);
-    outb(RTC_DATA, prev | 0x40); // Set bit 6 = Update-Ended Interrupt Enable (optional)
+    outb(RTC_DATA, (int8)(prev | 0x40U)); // Set bit 6 = Update-Ended Interrupt Enable (optional)
     done("Initialized RTC", __FILE__);
 }
  
@@ -57,7 +57,7 @@ void update_system_time(int8 *second, int8 *minute, int8 *hour, int8 *day, int8 
     int8 hr    = rtc_read_stable(RTC_HOURS);
     int8 day_r = rtc_read_stable(RTC_DAY);
     int8 mon   = rtc_read_stable(RTC_MONTH);
-    int16 yr   = rtc_read_stable(RTC_YEAR);
+    int8 yr   = rtc_read_stable(RTC_YEAR);
     int8 cent  = rtc_read_stable(RTC_CENTURY); // optional
  
     if (is_bcd) {
@@ -72,7 +72,7 @@ void update_system_time(int8 *second, int8 *minute, int8 *hour, int8 *day, int8 
  
     // Handle 12-hour mode
     if (!is_24h && (hr & 0x80)) {
-         hr = ((hr & 0x7F) + 12) % 24;
+         hr = (int8)(((hr & 0x7FU) + 12U) % 24U);
     }
  
     *second = sec;
@@ -80,7 +80,7 @@ void update_system_time(int8 *second, int8 *minute, int8 *hour, int8 *day, int8 
     *hour   = hr;
     *day    = day_r;
     *month  = mon;
-    *year = yr;
+    *year = (int16)yr;
 }
  
 void display_time(void) {

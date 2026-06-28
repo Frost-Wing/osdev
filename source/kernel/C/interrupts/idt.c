@@ -23,20 +23,19 @@ extern void* irq_stub_table[];
 
 IDTEntry idt_entries[256];
 
-IDTPointer idt_ptr = (IDTPointer)
-{
-    (uint16_t)sizeof(idt_entries) - 1,
-    (uintptr_t)&idt_entries[0]
+IDTPointer idt_ptr = {
+    (uint16_t)(sizeof(idt_entries) - 1U),
+    0U
 };
 
 void setIdtEntry(IDTEntry *target, uint64_t offset, uint16_t selector, uint8_t ist, uint8_t type_attributes)
 {
-    target->offset_1 = offset & 0xFFFF;
+    target->offset_1 = (uint16_t)(offset & 0xFFFFU);
     target->selector = selector;
     target->ist = ist;
     target->type_attributes = type_attributes;
-    target->offset_2 = (offset >> 16) & 0xFFFF;
-    target->offset_3 = (offset >> 32) & 0xFFFFFFFF;
+    target->offset_2 = (uint16_t)((offset >> 16) & 0xFFFFU);
+    target->offset_3 = (uint32_t)((offset >> 32) & 0xFFFFFFFFU);
     target->zero = 0;
 }
 
@@ -108,6 +107,7 @@ void initIdt(void)
     outb(0x21, 0xf8); // 0xfd for keyboard only and for mouse + keyboard 0xf8 (if sb 16 support then 0x??)
     outb(0xa1, 0xef); // 0xff for keyboard only and for mouse + keyboard 0xef
 
+    idt_ptr.offset = (uintptr_t)&idt_entries[0];
     __asm__ volatile("lidt %0" : : "m"(idt_ptr));
     set_interrupts();
     init_syscall();

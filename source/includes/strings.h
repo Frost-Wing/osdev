@@ -30,7 +30,7 @@
  * @param s The input string.
  * @return The length of the string.
  */
-int strlen(char s[]);
+int strlen(cstring s);
 
 /**
  * @brief Copies a string from `src` to `dest`
@@ -192,3 +192,5 @@ char* trim_inplace(char* s);
 
 char* strrchr(const char* s, int c);
 char* strdup(const char* str);
+
+int itoa(int num, string str, int len, int base);

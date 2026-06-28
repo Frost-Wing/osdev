@@ -11,8 +11,8 @@
 
 #include <executables/fwde.h>
 
-bool verify_signature(char* signature){
-    char interrupt_opcode = 0xCD;
+bool verify_signature(const char* signature){
+    char interrupt_opcode = (char)0xCD;
     if(signature[0] == interrupt_opcode &&
        signature[1] == '1' &&
        signature[2] == 'F' &&
@@ -26,7 +26,8 @@ bool verify_signature(char* signature){
 }
 
 void process_IFL(InterruptFrame* frame){ // process Invalid FWDE Loading
-    meltdown_screen("Frost Wing Deployed executable was not executed the way it should have!", __FILE__, __LINE__, 0xbadf1e, 0x0, 0xFfe);
+    (void)frame;
+    meltdown_screen("Frost Wing Deployed executable was not executed the way it should have!", __FILE__, __LINE__, 0xbadf1e, 0x0, 0xFfe, frame);
     hcf2();
 }
 
@@ -54,7 +55,7 @@ void execute_fwde(int64* addr, kernel_data* data){
         local += sizeof(fwde_header);
         info("Starting executing the FrostWing deployed executable...", __FILE__);
 
-        entry_function execute_binary = (entry_function)local;
+        entry_function execute_binary = (entry_function)(uintptr_t)local;
 
         info("Function is ready! executing it..", __FILE__);
         printf("=========================================================");

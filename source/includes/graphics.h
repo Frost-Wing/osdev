@@ -211,6 +211,6 @@ void print(cstring s);
  * @param pixels 
  * @param color 
  */
-void print_bitmap(int x, int y, int w, int h, bool* pixels, int32 color);
+void print_bitmap(int x, int y, int w, int h, const bool* pixels, int32 color);
 
 #endif
