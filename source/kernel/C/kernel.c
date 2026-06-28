@@ -264,12 +264,12 @@ void main(void) {
     // enter_userland_at((uint64_t)entry);
 }
 
-void shutdown(){
+void shutdown(void){
     info("shutdown has been called", __FILE__);
     acpi_shutdown_hack(hhdm_request.response->offset, acpi_find_sdt);
 }
 
-void reboot(){
+void reboot(void){
     info("reboot has been called", __FILE__);
     acpi_reboot(hhdm_request.response->offset);
 }

@@ -15,7 +15,8 @@
 #include <basics.h>
 #include <graphics.h>
 
-extern struct InterruptFrame;
+struct InterruptFrame;
+void interrupt_frame_dump(struct InterruptFrame* frame);
 
 /**
  * @brief The Meltdown (Panic) Screen

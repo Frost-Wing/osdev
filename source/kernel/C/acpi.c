@@ -4,9 +4,9 @@
  * @brief The full ACPI Source
  * @version 0.1
  * @date 2023-10-29
- * 
+ *
  * @copyright Copyright (C) 2019-2023 mintsuki and contributors.
- * 
+ *
  */
 
 #include <stdint.h>
@@ -71,7 +71,7 @@ struct fadt {
 static bool use_xsdt;
 static struct rsdt *rsdt;
 
-char* oem_name = "";
+const char* oem_name = "";
 
 bool virtualized = false;
 
@@ -79,7 +79,7 @@ static volatile struct limine_rsdp_request rsdp_req = {
     LIMINE_RSDP_REQUEST, 0, NULL
 };
 
-void acpi_init()
+void acpi_init(void)
 {
     struct rsdp *rsdp = rsdp_req.response->address;
     info("Found RSDP address!", __FILE__);
@@ -135,20 +135,21 @@ void acpi_reboot(uintptr_t hhdm_offset) {
     struct fadt *fadt = (struct fadt *)((uintptr_t)acpi_find_sdt("FACP", 0) + hhdm_offset);
     if (!fadt) goto fallback;
 
-    struct acpi_gas *reg = &fadt->reset_reg;
+    struct acpi_gas reg;
+    memcpy(&reg, (const void*)&fadt->reset_reg, sizeof(reg));
 
-    if (reg->address && reg->address_space == 1) {
-        printf("ACPI reset: space=%d addr=0x%x value=0x%x", reg->address_space, reg->address, fadt->reset_value);
-        if (reg->address > 0xFFFF) 
+    if (reg.address && reg.address_space == 1) {
+        printf("ACPI reset: space=%d addr=0x%x value=0x%x", reg.address_space, reg.address, fadt->reset_value);
+        if (reg.address > 0xFFFF)
             printf("Invalid I/O port! Will not work.");
 
-        outb((uint16_t)reg->address, fadt->reset_value);
+        outb((uint16_t)reg.address, fadt->reset_value);
     }
 
 fallback:
     outb(0xCF9, 0x02);
     outb(0xCF9, 0x06);
-    
+
     // Keyboard controller reset
     for (int i = 0; i < 100000; i++)
         if (!(inb(0x64) & 0x02)) break;

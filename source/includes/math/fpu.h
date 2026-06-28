@@ -22,4 +22,4 @@ void set_fpu_cw(const uint16_t cw);
  * @brief Enables the Floating point arithmetic unit for x86-64
  * 
  */
-void enable_fpu();
+void enable_fpu(void);

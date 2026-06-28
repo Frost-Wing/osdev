@@ -13,7 +13,7 @@
 #include <cpuid2.h>
 #include <graphics.h>
 
-void fwfetch(){
+void fwfetch(void){
     print(blue_color);
     printf("OS       : %s", OS_NAME);
     printf("CPU      : %s", get_cpu_vendor());

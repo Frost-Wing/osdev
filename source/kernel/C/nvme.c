@@ -10,6 +10,9 @@
 #include <disk/mbr.h>
 #include <heap.h>
 #include <graphics.h>
+#include <memory.h>
+#include <paging.h>
+#include <cc-asm.h>
 
 #define NVME_CC_EN            (1U << 0)
 #define NVME_CC_CSS_NVM       (0U << 4)
@@ -32,13 +35,13 @@ int nvme_namespace_count = 0;
 
 static inline volatile uint32_t* nvme_sq_doorbell(nvme_controller_t* ctrl, uint16_t qid)
 {
-    uintptr_t base = (uintptr_t)ctrl->regs + 0x1000 + (2 * qid) * ctrl->doorbell_stride;
+    uintptr_t base = (uintptr_t)ctrl->regs + 0x1000 + (uint32_t)(2U * (uint32_t)qid) * ctrl->doorbell_stride;
     return (volatile uint32_t*)base;
 }
 
 static inline volatile uint32_t* nvme_cq_doorbell(nvme_controller_t* ctrl, uint16_t qid)
 {
-    uintptr_t base = (uintptr_t)ctrl->regs + 0x1000 + (2 * qid + 1) * ctrl->doorbell_stride;
+    uintptr_t base = (uintptr_t)ctrl->regs + 0x1000 + (uint32_t)((2U * (uint32_t)qid) + 1U) * ctrl->doorbell_stride;
     return (volatile uint32_t*)base;
 }
 
@@ -60,7 +63,7 @@ static int nvme_submit_and_wait(nvme_controller_t* ctrl, nvme_queue_t* q, nvme_c
     cmd->cid = cid;
     q->sq[q->sq_tail] = *cmd;
 
-    q->sq_tail = (q->sq_tail + 1) % q->depth;
+    q->sq_tail = (uint16_t)((q->sq_tail + 1U) % q->depth);
     *nvme_sq_doorbell(ctrl, q->qid) = q->sq_tail;
 
     for (int spin = 0; spin < 1000000; spin++) {
@@ -113,7 +116,7 @@ static int nvme_create_io_queues(nvme_controller_t* ctrl)
     memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = NVME_ADMIN_OP_CREATE_IO_CQ;
     cmd.prp1 = (uint64_t)(uintptr_t)ctrl->ioq.cq;
-    cmd.cdw10 = ((ctrl->ioq.depth - 1) << 16) | ctrl->ioq.qid;
+    cmd.cdw10 = (((uint32_t)ctrl->ioq.depth - 1U) << 16) | (uint32_t)ctrl->ioq.qid;
     cmd.cdw11 = 0x1; // phase = 1
     if (nvme_submit_and_wait(ctrl, &ctrl->adminq, &cmd) != 0)
         return -3;
@@ -122,8 +125,8 @@ static int nvme_create_io_queues(nvme_controller_t* ctrl)
     memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = NVME_ADMIN_OP_CREATE_IO_SQ;
     cmd.prp1 = (uint64_t)(uintptr_t)ctrl->ioq.sq;
-    cmd.cdw10 = ((ctrl->ioq.depth - 1) << 16) | ctrl->ioq.qid;
-    cmd.cdw11 = (ctrl->ioq.qid << 16) | 0x1; // CQID + PC=1
+    cmd.cdw10 = (((uint32_t)ctrl->ioq.depth - 1U) << 16) | (uint32_t)ctrl->ioq.qid;
+    cmd.cdw11 = ((uint32_t)ctrl->ioq.qid << 16) | 0x1U; // CQID + PC=1
     if (nvme_submit_and_wait(ctrl, &ctrl->adminq, &cmd) != 0)
         return -4;
 
@@ -169,7 +172,7 @@ static int nvme_init_controller(nvme_controller_t* ctrl)
     ctrl->adminq.cq_head = 0;
     ctrl->adminq.phase = 1;
 
-    ctrl->regs->aqa = ((ctrl->adminq.depth - 1) << 16) | (ctrl->adminq.depth - 1);
+    ctrl->regs->aqa = (((uint32_t)ctrl->adminq.depth - 1U) << 16) | ((uint32_t)ctrl->adminq.depth - 1U);
     ctrl->regs->asq = (uint64_t)(uintptr_t)ctrl->adminq.sq;
     ctrl->regs->acq = (uint64_t)(uintptr_t)ctrl->adminq.cq;
 
@@ -241,7 +244,7 @@ static int nvme_read_write_one(nvme_namespace_t* ns, uint64_t lba, void* buffer,
     memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = is_write ? NVME_NVM_OP_WRITE : NVME_NVM_OP_READ;
     cmd.nsid = ns->nsid;
-    cmd.prp1 = fast_virt_to_phys((uint64_t)io_buffer);
+    cmd.prp1 = fast_virt_to_phys(io_buffer);
     cmd.cdw10 = (uint32_t)lba;
     cmd.cdw11 = (uint32_t)(lba >> 32);
     cmd.cdw12 = 0;
@@ -330,7 +333,7 @@ void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function)
         command |= 0x00000006U; /* bus master + memory space */
         pci_config_write_dword(bus, slot, function, 0x04, command);
 
-        uint64_t bar = (uint32_t)(pci_config_read_dword(bus, slot, function, 0x10) & ~0xF);
+        uint64_t bar = (uint32_t)(pci_config_read_dword(bus, slot, function, 0x10) & ~0xFU);
         uint32_t upper = pci_config_read_dword(bus, slot, function, 0x14);
         if (upper && upper != 0xFFFFFFFFU)
             bar |= ((uint64_t)upper << 32);
@@ -342,7 +345,7 @@ void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function)
 
         memset(ctrl, 0, sizeof(*ctrl));
         ctrl->regs = (nvme_regs_t*)(uintptr_t)bar;
-        ctrl->controller_id = i;
+        ctrl->controller_id = (uint32_t)i;
 
         if (nvme_init_controller(ctrl) != 0) {
             printf("[NVMe] init failure: CAP=0x%X:%X CC=0x%X CSTS=0x%X",

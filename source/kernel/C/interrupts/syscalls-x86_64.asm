@@ -81,3 +81,5 @@ syscall_entry:
     ; Return to user
     swapgs
     iretq
+
+section .note.GNU-stack noalloc noexec nowrite progbits

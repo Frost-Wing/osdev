@@ -10,16 +10,17 @@
  */
 #include <graphics.h>
 #include <gdt.h>
+#include <tss.h>
 
 struct gdt_entry gdt[7];
 struct gdt_ptr gdtp;
 
 static void gdt_set_entry(int i, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
-    gdt[i].base_low    = base & 0xFFFF;
-    gdt[i].base_middle = (base >> 16) & 0xFF;
-    gdt[i].base_high   = (base >> 24) & 0xFF;
-    gdt[i].limit_low   = limit & 0xFFFF;
-    gdt[i].granularity = ((limit >> 16) & 0x0F) | (gran & 0xF0);
+    gdt[i].base_low    = (uint16_t)(base & 0xFFFFU);
+    gdt[i].base_middle = (uint8_t)((base >> 16) & 0xFFU);
+    gdt[i].base_high   = (uint8_t)((base >> 24) & 0xFFU);
+    gdt[i].limit_low   = (int16)(limit & 0xFFFFU);
+    gdt[i].granularity = (uint8_t)(((limit >> 16) & 0x0FU) | (gran & 0xF0U));
     gdt[i].access      = access;
 }
 
@@ -49,7 +50,7 @@ void setup_gdt(void) {
     /* TSS Setup */
     kernel_tss_init();
 
-    gdtp.limit = sizeof(gdt) - 1;
+    gdtp.limit = (uint16_t)(sizeof(gdt) - 1U);
     gdtp.base  = (uint64_t)&gdt;
 
     /* Load GDT, reload data segments, then reload CS with lretq. */
