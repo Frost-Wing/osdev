@@ -12,9 +12,11 @@
 #include <stdbool.h>
 #include <graphics.h>
 #include <isr.h>
+#include <meltdown.h>
+#include <cc-asm.h>
 
 typedef struct {
-    char signature[5]; // 0xCD + 0x31 + FWDE
+    char signature[6]; // 0xCD + 0x31 + FWDE
     int8 architecture; // 1 = 64 bits; 2 = 32 bits; 3 = 16 bits; 4 = 8 bits
     int16 raw_size; // size of just the executable part and not the header
     int8 endian; // 0 = error; 1 = little; 2 = big
@@ -31,5 +33,6 @@ typedef struct
 
 typedef void(*entry_function)(kernel_data*);
 
+bool verify_signature(const char* signature);
 void process_IFL(InterruptFrame* frame);
 void execute_fwde(int64* addr, kernel_data* data);

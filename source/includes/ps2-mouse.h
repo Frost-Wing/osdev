@@ -17,13 +17,13 @@
 #include <isr.h>
 #include <hal.h>
 
-#define PS2_left_button   0b00000001
-#define PS2_middle_button 0b00000100
-#define PS2_right_button  0b00000010
-#define PS2_x             0b00010000
-#define PS2_y             0b00100000
-#define PS2_x_overflow    0b01000000
-#define PS2_y_overflow    0b10000000
+#define PS2_left_button   0x01U
+#define PS2_middle_button 0x04U
+#define PS2_right_button  0x02U
+#define PS2_x             0x10U
+#define PS2_y             0x20U
+#define PS2_x_overflow    0x40U
+#define PS2_y_overflow    0x80U
 
 #define MOUSE_BUTTON_LEFT PS2_left_button
 #define MOUSE_BUTTON_RIGHT PS2_right_button
@@ -86,3 +86,4 @@ ivec2 GetLastMousePosition(void);
  * @param frame 
  */
 void process_mouse(InterruptFrame* frame);
+void init_ps2_mouse(void);

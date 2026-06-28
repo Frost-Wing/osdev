@@ -27,7 +27,7 @@ void init_hashing(void);
  * @param data The string to be hashed.
  * @return [int64] Hashed value.
  */
-int64 hash_string(string data);
+int64 hash_string(cstring data);
 
 /**
  * @brief A function to hash a string from BARANIUM ENTERTAINMENT

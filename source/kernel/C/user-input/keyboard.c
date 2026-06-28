@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <ringbuffer.h>
 #include <tty.h>
+#include <multitasking.h>
 
 bool enable_keyboard = yes;
 static ring_buffer_t kb_rb;
@@ -76,6 +77,7 @@ uint8_t modifiers = 0;
 
 void process_keyboard(InterruptFrame* frame)
 {
+    (void)frame;
     if (!enable_keyboard) {
         outb(0x20, 0x20);
         return;
@@ -97,7 +99,7 @@ uint8_t getmodifiers(void)
     return modifiers;
 }
 
-extern volatile int pit_ticks;
+extern volatile uint64_t pit_ticks;
 uint8_t getc(void)
 {
     uint8_t sc;
@@ -105,7 +107,7 @@ uint8_t getc(void)
 
     for (;;) {
         if (rb_pop(&kb_rb, &sc) == 0) {
-            return handle_char_from_scancode(sc);
+            return (uint8_t)handle_char_from_scancode(sc);
         }
 
         if (pit_ticks != last_tick) {
@@ -146,18 +148,18 @@ int handle_char_from_scancode(uint8_t data)
 
         switch (key) {
             case 0x2A: // LSHIFT release
-                modifiers &= ~MOD_LSHIFT;
+                modifiers = (uint8_t)(modifiers & (uint8_t)~MOD_LSHIFT);
                 return 0;
             case 0x36: // RSHIFT release
-                modifiers &= ~MOD_RSHIFT;
+                modifiers = (uint8_t)(modifiers & (uint8_t)~MOD_RSHIFT);
                 return 0;
 
             case 0x1D: // CTRL release
-                modifiers &= ~MOD_LCTRL;
+                modifiers = (uint8_t)(modifiers & (uint8_t)~MOD_LCTRL);
                 return 0;
 
             case 0x38: // ALT release
-                modifiers &= ~MOD_LALT;
+                modifiers = (uint8_t)(modifiers & (uint8_t)~MOD_LALT);
                 return 0;
         }
 
@@ -221,10 +223,10 @@ int handle_char_from_scancode(uint8_t data)
         return 0;
 
     // -------- Character conversion --------
-    bool use_shift = (modifiers & (MOD_LSHIFT | MOD_RSHIFT));
+    bool use_shift = (modifiers & (uint8_t)(MOD_LSHIFT | MOD_RSHIFT)) != 0U;
 
     // Caps lock XOR shift logic
-    bool uppercase = use_shift ^ (modifiers & MOD_CAPSLOCK);
+    bool uppercase = use_shift ^ ((modifiers & MOD_CAPSLOCK) != 0U);
 
     char c = scancode_to_char(data, uppercase);
 

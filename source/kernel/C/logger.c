@@ -437,7 +437,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
     return outpos;
 }
 
-void print_bitmap(int x, int y, int w, int h, bool* pixels, int32 color) {
+void print_bitmap(int x, int y, int w, int h, const bool* pixels, int32 color) {
     int i, j, l;
     for (l = j = 0; l < h; l++) {
         for (i = 0; i < w; i++, j++) {
