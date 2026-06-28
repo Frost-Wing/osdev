@@ -30,7 +30,7 @@ static inline uint64_t *phys_to_virt_ptr(uint64_t phys_addr) {
     return (uint64_t *)(phys_addr + hhdm_offset);
 }
 
-uintptr_t allocate_page() {
+uintptr_t allocate_page(void) {
     if(!memmap){
         error("Limine failed to give the memory map", __FILE__);
         hcf2();
@@ -58,7 +58,7 @@ uintptr_t allocate_pages(size_t count) {
     return base;
 }
 
-static inline uint64_t get_kernel_pml4() {
+static inline uint64_t get_kernel_pml4(void) {
     uint64_t cr3;
     asm volatile("mov %%cr3, %0" : "=r"(cr3));
     return cr3;

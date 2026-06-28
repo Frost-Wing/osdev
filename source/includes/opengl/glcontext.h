@@ -32,7 +32,7 @@ struct GLContext
  * 
  * @returns The current active "OpenGL" context
  */
-GLAPI struct GLContext* glCreateContext();
+GLAPI struct GLContext* glCreateContext(void);
 
 /**
  * @brief Initializes an "OpenGL" context
@@ -53,14 +53,14 @@ GLAPI struct GLContext* glCreateContextCustom(uint32_t* buffer, uint32_t width, 
  * 
  * @returns The current "OpenGL" context 
  */
-GLAPI struct GLContext* glGetCurrentContext();
+GLAPI struct GLContext* glGetCurrentContext(void);
 
 /**
  * @brief Checks if the current context (if existent) is initialized
  * 
  * @returns `true` if the context is initialized, otherwise `false` 
  */
-GLAPI bool glContextInitialized();
+GLAPI bool glContextInitialized(void);
 
 /**
  * @brief Destroys a given "OpenGL" context
