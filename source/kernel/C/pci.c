@@ -14,10 +14,10 @@ int gpu_index = 0;
 int total_devices = 0;
 
 cstring display_adapter_name = "Frost Generic Display Adapter";
-cstring GPUName[1] = {"Frost Generic Display Driver for Graphics Processing Unit"}; // Max 2 GPUs allowed
+cstring GPUName[2] = {"Frost Generic Display Driver for Graphics Processing Unit"}; // Max 2 GPUs allowed
 
 int64* graphics_base_Address = null;
-string using_graphics_card = "unknown";
+cstring using_graphics_card = "unknown";
 
 /**
  * @brief Function to read a 32-bit value from the PCI configuration space
@@ -29,13 +29,13 @@ string using_graphics_card = "unknown";
  * @return int32 
  */
 int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset) {
-    int32 address = (1 << 31) | (bus << 16) | (slot << 11) | (func << 8) | (offset & 0xFC);
+    int32 address = (int32)((1U << 31) | ((uint32_t)bus << 16) | ((uint32_t)slot << 11) | ((uint32_t)func << 8) | ((uint32_t)offset & 0xFCU));
     outl(PCI_CONFIG_ADDRESS, address);
     return inl(PCI_CONFIG_DATA);
 }
 
 void pci_config_write_dword(int8 bus, int8 slot, int8 func, int8 offset, uint32_t value) {
-    int32 address = (1 << 31) | (bus << 16) | (slot << 11) | (func << 8) | (offset & 0xFC);
+    int32 address = (int32)((1U << 31) | ((uint32_t)bus << 16) | ((uint32_t)slot << 11) | ((uint32_t)func << 8) | ((uint32_t)offset & 0xFCU));
     outl(PCI_CONFIG_ADDRESS, address);
     outl(PCI_CONFIG_DATA, value);
 }
@@ -52,7 +52,7 @@ void pci_config_write_dword(int8 bus, int8 slot, int8 func, int8 offset, uint32_
 int32 get_ahci_bar_address(int8 bus, int slot, int func, int bar_num) {
     int bar_offset = 0x10 + (bar_num * 4);
 
-    return pci_config_read_dword(bus, slot, func, bar_offset);
+    return pci_config_read_dword(bus, (int8)slot, (int8)func, (int8)bar_offset);
 }
 
 /**
@@ -69,12 +69,12 @@ int32 get_ahci_bar_address(int8 bus, int slot, int func, int bar_num) {
  */
 int16 pci_read_word(int16 bus, int16 slot, int16 func, int16 offset)
 {
-    int64 address;
-    int64 lbus = (int64)bus;
-    int64 lslot = (int64)slot;
-    int64 lfunc = (int64)func;
+    uint32_t address;
+    uint32_t lbus = (uint32_t)bus;
+    uint32_t lslot = (uint32_t)slot;
+    uint32_t lfunc = (uint32_t)func;
     int16 tmp = 0;
-    address = (int64)((lbus << 16) | (lslot << 11) | (lfunc << 8) | (offset & 0xfc) | ((int32)0x80000000));
+    address = (uint32_t)((lbus << 16) | (lslot << 11) | (lfunc << 8) | ((uint32_t)offset & 0xfcU) | 0x80000000U);
     outl(0xCF8, address);
     tmp = (int16)((inl(0xCFC) >> ((offset & 2) * 8)) & 0xffff);
     return (tmp);
@@ -92,7 +92,7 @@ int16 pci_read_word(int16 bus, int16 slot, int16 func, int16 offset)
 int16 getVendorID(int16 bus, int16 device, int16 function)
 {
     int32 r0 = pci_read_word(bus,device,function,0);
-    return r0;
+    return (int16)r0;
 }
 
 /**
@@ -106,15 +106,15 @@ int16 getVendorID(int16 bus, int16 device, int16 function)
 int16 getDeviceID(int16 bus, int16 device, int16 function)
 {
     int32 r0 = pci_read_word(bus,device,function,2);
-    return r0;
+    return (int16)r0;
 }
 
 int8 getRevision(int16 bus, int16 slot, int16 func) {
-    return pci_read_word(bus, slot, func, 0x08) & 0xFF;
+    return (int8)(pci_read_word(bus, slot, func, 0x08) & 0xFFU);
 }
 
 int8 getProgIF(int16 bus, int16 slot, int16 func) {
-    return pci_config_read_dword(bus, slot, func, 0x08) >> 8;
+    return (int8)((pci_config_read_dword((int8)bus, (int8)slot, (int8)func, 0x08) >> 8U) & 0xFFU);
 }
 
 /**
@@ -128,7 +128,7 @@ int8 getProgIF(int16 bus, int16 slot, int16 func) {
 int16 getClassId(int16 bus, int16 device, int16 function)
 {
     int32 r0 = pci_read_word(bus,device,function,0xA);
-    return (r0 & ~0x00FF) >> 8;
+    return (int16)((r0 & 0xFF00U) >> 8U);
 }
 
 /**
@@ -142,7 +142,7 @@ int16 getClassId(int16 bus, int16 device, int16 function)
 int16 getSubClassId(int16 bus, int16 device, int16 function)
 {
     int32 r0 = pci_read_word(bus,device,function,0xA);
-    return (r0 & ~0xFF00);
+    return (int16)(r0 & 0x00FFU);
 }
 
 char vendorNames[MAX_PCI_DEVICES][64];
@@ -170,37 +170,35 @@ void probe_pci(void){
         {
             for(int32 function = 0; function < 8; function++)
             {
-                    int16 vendor = getVendorID(bus, slot, function);
+                    int16 vendor = getVendorID((int16)bus, (int16)slot, (int16)function);
                     if(vendor == 0xffff) continue;
-                    int16 device = getDeviceID(bus, slot, function);
-                    int16 classid = getClassId(bus, slot, function);
-                    int16 subclassid = getSubClassId(bus, slot, function);
-                    int16 revision = getRevision(bus, slot, function);
-                    int8 prog_if = getProgIF(bus, slot, function);
+                    int16 device = getDeviceID((int16)bus, (int16)slot, (int16)function);
+                    int16 classid = getClassId((int16)bus, (int16)slot, (int16)function);
+                    int16 subclassid = getSubClassId((int16)bus, (int16)slot, (int16)function);
+                    int16 revision = getRevision((int16)bus, (int16)slot, (int16)function);
+                    int8 prog_if = getProgIF((int16)bus, (int16)slot, (int16)function);
 
-                    string vendorName  = parse_vendor(vendor);
-                    string className   = parse_class(classid);
+                    cstring vendorName  = parse_vendor(vendor);
+                    cstring className   = parse_class(classid);
                     char deviceName[64];
 
                     strcpy(deviceName, "Unknown Device");
 
-                    const pci_id_entry_t* entry = pci_lookup(vendor, device, classid);
+                    const pci_id_entry_t* entry = pci_lookup(vendor, device, (uint8_t)classid);
 
                     if (entry) {
                         strncpy(deviceName, entry->name, sizeof(deviceName) - 1);
 
                         if (entry->is_gpu) {
-                            display_adapter_name = deviceName;
-                            GPUName[gpu_index++] = deviceName;
+                            /* assigned after device name is copied to stable storage */
                         }
 
                         if (entry->probe)
-                            entry->probe(bus, slot, function);
+                            entry->probe((uint8_t)bus, (uint8_t)slot, (uint8_t)function);
                     } else if (classid == 0x03) {
                         cstring gpu = auto_name_gpu(vendor, device);
                         strncpy(deviceName, gpu, sizeof(deviceName) - 1);
-                        display_adapter_name = deviceName;
-                        GPUName[gpu_index++] = deviceName;
+                        /* assigned after device name is copied to stable storage */
                     } else {
                         snprintf(deviceName, sizeof(deviceName), "Unknown Device (0x%04X)", device);
                     }
@@ -209,10 +207,10 @@ void probe_pci(void){
 
                     if (classid == 0x01 && subclassid == 0x06 && prog_if == 0x01) {
                         done("AHCI controller detected (generic)", __FILE__);
-                        probe_ahci(bus, slot, function);
+                        probe_ahci((uint8_t)bus, (uint8_t)slot, (uint8_t)function);
                     } else if (classid == 0x01 && subclassid == 0x08 && prog_if == 0x02) {
                         done("NVMe controller detected (generic)", __FILE__);
-                        probe_nvme(bus, slot, function);
+                        probe_nvme((uint8_t)bus, (uint8_t)slot, (uint8_t)function);
                     }
                     
                     print(green_color);
@@ -226,17 +224,21 @@ void probe_pci(void){
                     strncpy(vendorNames[i], vendorName, 63);
                     strncpy(deviceNames[i], deviceName, 63);
                     strncpy(classNames[i],  className,  63);
-                    pciLocations[i] = (pci_location_t){bus, slot, function};
+                    pciLocations[i] = (pci_location_t){(int16)bus, (int16)slot, (int16)function};
 
                     vendors[i] = vendor;
                     devices[i] = device;
                     classes[i] = classid;
                     subclasses[i] = subclassid;
-                    revisions[i] = revision;
+                    revisions[i] = (int8)revision;
 
                     vendorNames[i][63] = 0;
                     deviceNames[i][63] = 0;
                     classNames[i][63]  = 0;
+                    if (classid == 0x03 && gpu_index < 2) {
+                        display_adapter_name = deviceNames[i];
+                        GPUName[gpu_index++] = deviceNames[i];
+                    }
                     i++;
             }
         }
