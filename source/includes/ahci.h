@@ -92,7 +92,7 @@ typedef struct {
     void*              fis;
 } ahci_port_mem_t;
 
-static ahci_port_mem_t port_mem[32];
+extern ahci_port_mem_t port_mem[32];
 
 
 /**
@@ -281,5 +281,7 @@ general_partition_t* search_general_partition(cstring partition_name);
 
 mount_entry_t* add_mount(const char* mount_point, const char* part_name, partition_fs_type_t type, void* fs_ptr);
 mount_entry_t* find_mount_by_point(const char* mount_point);
+int remove_mount(const char* mount_point);
+void list_all_mounts(void);
 
 #endif // AHCI_H

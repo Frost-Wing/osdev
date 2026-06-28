@@ -100,7 +100,7 @@ int8 getProgIF(int16 bus, int16 device, int16 function);
  * @brief Scans (Probes) PCI Devices
  * 
  */
-void probe_pci();
+void probe_pci(void);
 
 /**
  * @brief Function to read a 32-bit value from the PCI configuration space

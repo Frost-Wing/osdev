@@ -56,7 +56,7 @@ extern struct rtl8139* RTL8139;
  * 
  * @param nic 
  */
-void read_mac_address();
+void read_mac_address(void);
 
 /**
  * @brief Initialize RTL8139 NIC

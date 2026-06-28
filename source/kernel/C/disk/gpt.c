@@ -13,6 +13,8 @@
 #include <ahci.h>
 #include <filesystems/fat16.h>
 #include <filesystems/iso9660.h>
+#include <heap.h>
+#include <memory.h>
 
 int gpt_disks_count = 0;
 gpt_disk_t gpt_disks[10];
@@ -136,11 +138,11 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
             start,
             end,
             end - start + 1,
-            portno,
+            (int64)portno,
             bootable,
             fs_type,
             part_name,
-            null,
+            0,
             p->PartitionTypeGUID
         );
 

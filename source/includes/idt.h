@@ -53,9 +53,9 @@ extern void syscall_entry(void);
  * @brief Tells the CPU to use the syscall instruction.
  * 
  */
-void init_syscall();
+void init_syscall(void);
 
-void initIdt();
+void initIdt(void);
 void setIdtEntry(IDTEntry *target, uint64_t offset, uint16_t selector, uint8_t ist, uint8_t type_attributes);
 
 #endif

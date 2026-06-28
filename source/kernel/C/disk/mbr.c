@@ -13,6 +13,9 @@
 #include <ahci.h>
 #include <filesystems/fat16.h>
 #include <filesystems/iso9660.h>
+#include <heap.h>
+#include <strings.h>
+#include <memory.h>
 
 mbr_disk_t mbr_disks[10];
 int mbr_disks_count = 0;
@@ -86,7 +89,7 @@ void parse_mbr_partitions(int8* mbr, int portno){
             start,
             end,
             count,
-            portno,
+            (int64)portno,
             partitions[i].boot_flag == MBR_PART_BOOTABLE,
             fs_type,
             part_name,

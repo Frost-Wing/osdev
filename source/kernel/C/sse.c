@@ -18,7 +18,7 @@ char fxsave_region[512] __attribute__((aligned(16)));
  * @brief Loads the SEE fully with fxsave
  * 
  */
-void load_complete_sse(){
+void load_complete_sse(void){
     #if defined (__x86_64__)
         asm volatile (
             "mov %%cr0, %%rax\n"
@@ -41,7 +41,7 @@ void load_complete_sse(){
  * @brief Checks if CPU is compatible with SSE
  * 
  */
-void check_sse(){
+void check_sse(void){
     #if defined (__x86_64__)
         int eax = 0x1;
         int ebx, ecx, edx;

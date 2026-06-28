@@ -23,7 +23,7 @@ extern cstring versions;
  */
 extern cstring date;
 
-static void frost_compilation_information(){
+static inline void frost_compilation_information(void){
     print(yellow_color);
     print(versions);
     print(orange_color);

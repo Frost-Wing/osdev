@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-extern char* oem_name;
+extern const char* oem_name;
 
 extern bool virtualized;
 
@@ -43,7 +43,7 @@ struct acpi_gas {
  * @brief Initializes and iterates through all ACPI tables
  * 
  */
-void acpi_init();
+void acpi_init(void);
 
 /**
  * @brief Searches for an STD Header in the ACPI Tables

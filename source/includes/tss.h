@@ -65,12 +65,12 @@ extern uint64_t kernel_stack_top;
  * @brief Initialize TSS.
  * 
  */
-void kernel_tss_init();
+void kernel_tss_init(void);
 
 /**
  * @brief Load the TSS.
  * 
  */
-void tss_load();
+void tss_load(void);
 
 #endif

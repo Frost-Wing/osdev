@@ -41,5 +41,5 @@ extern struct gdt_ptr gdtp;
  * @brief Set the up GDT for the entire OS.
  * 
  */
-void setup_gdt();
+void setup_gdt(void);
 #endif

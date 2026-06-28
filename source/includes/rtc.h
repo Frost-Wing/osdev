@@ -48,7 +48,7 @@ int8 read_rtc_register(int8 reg);
  * @brief Wait till RTC is responding.
  * 
  */
-void wait_rtc_update();
+void wait_rtc_update(void);
 
 /**
  * @brief Reads from a register without tick glitch (more stable)
@@ -62,7 +62,7 @@ int8 rtc_read_stable(int8 reg);
  * @brief Initializes the main RTC for use.
  * 
  */
-void init_rtc();
+void init_rtc(void);
 
 /**
  * @brief Updated the given variable with system time.
@@ -80,7 +80,7 @@ void update_system_time(int8 *second, int8 *minute, int8 *hour, int8 *day, int8 
  * @brief Displays time in an neat format.
  * 
  */
-void display_time();
+void display_time(void);
 
 /**
  * @brief Pauses the OS for set seconds. Use PIT for accuracy.

@@ -25,7 +25,7 @@ void set_fpu_cw(const uint16_t cw) {
  * @brief Enables the Floating point arithmetic unit for x86-64
  * 
  */
-void enable_fpu() {
+void enable_fpu(void) {
 	info("Enabling floating-point arithmetic unit!", __FILE__);
 	size_t cr4;
 	asm volatile ("mov %%cr4, %0" : "=r"(cr4));

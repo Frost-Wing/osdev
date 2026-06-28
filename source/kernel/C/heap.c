@@ -203,7 +203,7 @@ void* kmalloc_aligned(size_t size, size_t align)
     return (void*)aligned;
 }
 
-void mm_print_out()
+void mm_print_out(void)
 {
     printf("%sMemory used :%s %u KiB", yellow_color, reset_color, memory_used/(1 KiB));
     printf("%sMemory free :%s %u KiB", yellow_color, reset_color, (heap_end - last_alloc)/(1 KiB));

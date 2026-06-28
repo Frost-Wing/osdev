@@ -132,7 +132,7 @@ int vfs_unlink(const char* path);
  * @brief Get the current working directory
  * @return Pointer to CWD string
  */
-const char* vfs_getcwd();
+const char* vfs_getcwd(void);
 
 const char* vfs_basename(const char* path);
 int vfs_normalize_path(const char* in, char* out, size_t out_sz);

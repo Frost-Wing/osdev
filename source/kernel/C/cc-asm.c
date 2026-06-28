@@ -14,7 +14,7 @@
  * @brief Halt and catch fire function.
  * 
  */
-void hcf() {
+void hcf(void) {
     for (;;) {
         #if defined (__x86_64__)
             // info("x86_64: Halt Initalized.", __FILE__);
@@ -33,7 +33,7 @@ void hcf() {
  * @brief Halt and catch fire function but doesn't print any text.
  * 
  */
-void hcf2() {
+void hcf2(void) {
     for (;;) {
         #if defined (__x86_64__)
             asm volatile ("hlt");
@@ -49,7 +49,7 @@ void hcf2() {
  * @brief The clear interrupts command for all architectures.
  * 
  */
-void clear_interrupts() {
+void clear_interrupts(void) {
     #if defined(__x86_64__)
         info("x86_64: Cleared interrupts.", __FILE__);
         asm volatile ("cli");
@@ -66,7 +66,7 @@ void clear_interrupts() {
  * @brief The set interrupts command for various architectures.
  * 
  */
-void set_interrupts() {
+void set_interrupts(void) {
     #if defined(__x86_64__)
         info("x86_64: Set interrupts.", __FILE__);
         asm volatile ("sti");
@@ -84,7 +84,7 @@ void set_interrupts() {
  * @brief It uses while loops instead of assembly's halt.
  * 
  */
-void high_level_halt(){
+void high_level_halt(void){
     while(1){
         asm volatile ("pause");
     }

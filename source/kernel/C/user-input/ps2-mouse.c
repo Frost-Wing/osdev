@@ -11,7 +11,7 @@
 extern int64 fb_width;
 extern int64 fb_height;
 
-void ps2_mouse_wait(){
+void ps2_mouse_wait(void){
     int64 timeout = 100000;
     while (timeout--){
         if ((inb(0x64) & 0b10) == 0){
@@ -20,7 +20,7 @@ void ps2_mouse_wait(){
     }
 }
 
-void ps2_mouse_wait_input(){
+void ps2_mouse_wait_input(void){
     int64 timeout = 100000;
     while (timeout--){
         if (inb(0x64) & 0b1){
@@ -36,7 +36,7 @@ void ps2_mouse_write(int8 value){
     outb(0x60, value);
 }
 
-int8 ps2_mouse_read(){
+int8 ps2_mouse_read(void){
     ps2_mouse_wait_input();
     return inb(0x60);
 }
@@ -113,17 +113,17 @@ void SetMouseButtonHandler(MouseButtonHandler handler)
     mButtonHandler = handler;
 }
 
-ivec2 GetMousePosition()
+ivec2 GetMousePosition(void)
 {
     return current_mouse_position;
 }
 
-ivec2 GetLastMousePosition()
+ivec2 GetLastMousePosition(void)
 {
     return previous_mouse_position;
 }
 
-void process_mouse_packet(){
+void process_mouse_packet(void){
     if (!isMousePacketReady)
         return;
 
@@ -213,7 +213,7 @@ void handle_click(int64 type, ivec2 position){
     }
 }
 
-void init_ps2_mouse(){
+void init_ps2_mouse(void){
     outb(0x64, 0xA8); //enabling the auxiliary device - mouse
 
     ps2_mouse_wait();

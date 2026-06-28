@@ -69,7 +69,7 @@ void SetMouseButtonHandler(MouseButtonHandler handler);
  * 
  * @returns The mouse position
  */
-ivec2 GetMousePosition();
+ivec2 GetMousePosition(void);
 
 /**
  * @brief Get the last mouse position
@@ -78,7 +78,7 @@ ivec2 GetMousePosition();
  * 
  * @returns The last mouse position
  */
-ivec2 GetLastMousePosition();
+ivec2 GetLastMousePosition(void);
 
 /**
  * @brief Handles the mouse's 

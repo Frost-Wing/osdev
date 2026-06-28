@@ -22,7 +22,7 @@ void play_sound(int32 frequency);
  * @brief Mutes the PC Speaker temporaily 
  * 
  */
-void mute();
+void mute(void);
 
 /**
  * @brief Does a BEEP in PC Speaker

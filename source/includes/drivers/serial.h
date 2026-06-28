@@ -37,7 +37,7 @@ extern int select;
  * @brief Finds the working serial COM port in the OS ranging from 1-8
  * 
  */
-void probe_serial();
+void probe_serial(void);
 
 /**
  * @brief Initialize serial at a specific port
@@ -52,7 +52,7 @@ int init_serial(int port);
  * 
  * @return int status code
  */
-int transmit_status();
+int transmit_status(void);
 
 /**
  * @brief Put a character to a serial COM

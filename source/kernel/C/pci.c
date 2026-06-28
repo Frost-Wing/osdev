@@ -161,7 +161,7 @@ pci_location_t pciLocations[MAX_PCI_DEVICES];
  * @brief Scans (Probes) PCI Devices
  * 
  */
-void probe_pci(){
+void probe_pci(void){
     info("Probe has been started!", __FILE__);
     int i = 0;
     for(int32 bus = 0; bus < 256; bus++)
@@ -251,7 +251,7 @@ void probe_pci(){
     printf("Display Adapter : %s", display_adapter_name);
 }
 
-void print_lspci() {
+void print_lspci(void) {
     for (int i = 0; i < total_devices; i++) {
             printf("%02d:%2x.%d " yellow_color "%s " green_color "%s " red_color "%s" reset_color " (rev %02x)",
                 pciLocations[i].bus,

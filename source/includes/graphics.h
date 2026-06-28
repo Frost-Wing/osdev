@@ -35,7 +35,6 @@
 // #define orange_color "\x1b[38;5;172m"
 
 
-extern string last_filename;
 extern string last_filename; // for warn, info, err, done
 extern string last_print_file;
 extern string last_print_func;
@@ -145,6 +144,7 @@ void printf_internal(cstring file, cstring func, int64 line, cstring format, ...
  * @param ... 
  */
 void printfnoln_internal(cstring file, cstring func, int64 line, cstring format, ...);
+void eprintf_internal(cstring file, cstring func, int64 line, cstring format, ...);
 
 /**
  * @brief Core printf implementation used internally by both printf_internal and printfnoln_internal.
@@ -166,7 +166,7 @@ void printfnoln_internal(cstring file, cstring func, int64 line, cstring format,
  */
 void vprintf_internal(stream_t stream, cstring file, cstring func, int64 line, bool newline, cstring format, va_list argp);
 
-/**
+/*
  * @brief Formats a string into a buffer using a va_list.
  *
  * @param buf  destination buffer.

@@ -138,7 +138,6 @@ string strcat(string dest, cstring src);
 void remove_last_char(string str);
 
 /**
-/**
  * @brief Converts a string to a long integer.
  * 
  * @param str The input string to be converted.
@@ -192,3 +191,4 @@ int isspace(char c);
 char* trim_inplace(char* s);
 
 char* strrchr(const char* s, int c);
+char* strdup(const char* str);

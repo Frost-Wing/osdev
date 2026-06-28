@@ -45,7 +45,7 @@ extern void mm_constrict(uint64_t removal_size);
  * @brief Prints out heap information.
  * 
  */
-extern void mm_print_out();
+extern void mm_print_out(void);
 
 /**
  * @brief The main memory alloc function.

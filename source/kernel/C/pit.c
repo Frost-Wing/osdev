@@ -21,7 +21,7 @@ void process_pit(InterruptFrame* frame) {
     outb(0x20, 0x20);  // Notify the PIC that we've handled the interrupt
 }
 
-void init_pit() {
+void init_pit(void) {
     uint32_t divisor = 1193180 / pit_freq;  // PIT operates at 1193180 Hz
 
     outb(0x43, 0x36);  // Command byte: Channel 0, lobyte/hibyte, mode 3 (square wave generator)

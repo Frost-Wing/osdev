@@ -14,7 +14,11 @@
 #include <graphics.h>
 #include <filesystems/iso9660.h>
 #include <nvme.h>
+#include <memory.h>
+#include <disk/gpt.h>
+#include <disk/mbr.h>
 
+ahci_port_mem_t port_mem[32];
 ahci_hba_mem_t* global_ahci_ctrl;
 ahci_disk_info_t ahci_disks[32];
 general_partition_t ahci_partitions[MAX_PARTITIONS];
@@ -212,9 +216,9 @@ void handle_satapi_disk(int portno) {
         add_general_partition(
             PART_TABLE_MBR,
             0,
-            total_sectors_512 > 0 ? (int64_t)(total_sectors_512 - 1) : 0,
-            (int64_t)total_sectors_512,
-            ahci_disks[portno].logical_device,
+            total_sectors_512 > 0 ? (int64)(total_sectors_512 - 1U) : (int64)0,
+            (int64)total_sectors_512,
+            (int64)ahci_disks[portno].logical_device,
             false,
             FS_ISO9660,
             part_name,
@@ -334,7 +338,7 @@ general_partition_t* search_general_partition(cstring partition_name) {
     if (!partition_name)
         return NULL;
 
-    for (size_t i = 0; i < general_partition_count; i++) {
+    for (int i = 0; i < general_partition_count; i++) {
         if (strcmp(ahci_partitions[i].name, partition_name) == 0) {
             return &ahci_partitions[i];
         }
@@ -425,7 +429,7 @@ mount_entry_t* find_mount_by_point(const char* mount_point)
     return NULL; // not found
 }
 
-void list_all_mounts()
+void list_all_mounts(void)
 {
     if(mounted_partition_count == 0){
         printf("no mounted partitions.");
@@ -443,10 +447,10 @@ void ahci_init_port(int portno) {
     ahci_port_t* port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t* mem = &port_mem[portno];
 
-    port->cmd &= ~AHCI_PORT_CMD_ST;
+    port->cmd &= (uint32_t)~AHCI_PORT_CMD_ST;
     while (port->cmd & AHCI_PORT_CMD_CR);
 
-    port->cmd &= ~AHCI_PORT_CMD_FRE;
+    port->cmd &= (uint32_t)~AHCI_PORT_CMD_FRE;
     while (port->cmd & AHCI_PORT_CMD_FR);
 
     mem->cmd_list = kmalloc_aligned(1024, 1024);
@@ -472,7 +476,7 @@ void ahci_init_port(int portno) {
     port->cmd |= AHCI_PORT_CMD_FRE | AHCI_PORT_CMD_ST;
 }
 
-static int ahci_wait_slot0_ready(ahci_port_t* port)
+static int __attribute__((unused)) ahci_wait_slot0_ready(ahci_port_t* port)
 {
     uint32_t spins = 1000000;
     while (spins--) {
@@ -519,7 +523,7 @@ static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t
 
     tbl->prdt[0].dba  = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
-    tbl->prdt[0].dbc  = (count * 512 - 1) | (1 << 31);
+    tbl->prdt[0].dbc  = (count * 512 - 1) | (1U << 31);
 
     uint8_t* cfis = tbl->cfis;
     cfis[0] = 0x27;
@@ -599,7 +603,7 @@ static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_
 
     tbl->prdt[0].dba  = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
-    tbl->prdt[0].dbc  = (count * 512 - 1) | (1 << 31);
+    tbl->prdt[0].dbc  = (count * 512 - 1) | (1U << 31);
 
     uint8_t* cfis = tbl->cfis;
     cfis[0] = 0x27;
@@ -642,6 +646,7 @@ out:
 int ahci_identify(int portno, void* buffer)
 {
     int rc = 0;
+    void* dma_buf = NULL;
     ahci_port_t* port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t* mem = &port_mem[portno];
 
@@ -666,7 +671,7 @@ int ahci_identify(int portno, void* buffer)
     memset(tbl->cfis, 0, 64);
     memset(tbl->prdt, 0, sizeof(tbl->prdt));
 
-    void* dma_buf = kmalloc_aligned(512, 4096);
+    dma_buf = kmalloc_aligned(512, 4096);
     if (!dma_buf) {
         rc = -10;
         goto out;
@@ -674,7 +679,7 @@ int ahci_identify(int portno, void* buffer)
 
     tbl->prdt[0].dba  = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
-    tbl->prdt[0].dbc  = (512 - 1) | (1 << 31);
+    tbl->prdt[0].dbc  = (512 - 1) | (1U << 31);
 
     uint8_t* cfis = tbl->cfis;
     cfis[0] = 0x27;
@@ -697,8 +702,11 @@ int ahci_identify(int portno, void* buffer)
     port->is = 0xFFFFFFFF;
 
 out:
-    memcpy(buffer, dma_buf, 512);
-    kfree(dma_buf);
+    if (dma_buf) {
+        if (rc == 0)
+            memcpy(buffer, dma_buf, 512);
+        kfree(dma_buf);
+    }
     ahci_unlock_port_io(portno);
     return rc;
 }
@@ -748,7 +756,7 @@ static int ahci_issue_packet_command(
 
     tbl->prdt[0].dba = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
-    tbl->prdt[0].dbc = (byte_count - 1) | (1 << 31);
+    tbl->prdt[0].dbc = (byte_count - 1) | (1U << 31);
     memcpy(tbl->acmd, packet, 12);
 
     uint8_t* cfis = tbl->cfis;

@@ -47,7 +47,7 @@ char scancode_to_char(int scancode, bool uppercase);
  * @brief Initalizes the RingBuffer to store the characters.
  * 
  */
-void keyboard_init();
+void keyboard_init(void);
 
 /**
  * @brief This is a function that is ran even when the sleep() function is called
@@ -58,21 +58,21 @@ void process_keyboard(InterruptFrame* frame);
 /**
  * @brief Gets the current modifiers (like lshift, rshift, etc.)
  */
-uint8_t getmodifiers();
+uint8_t getmodifiers(void);
 
 /**
  * @brief Gets the last pressed char.
  * 
  * @return [uint8_t] Last scancode
  */
-uint8_t getc();
+uint8_t getc(void);
 
 /**
  * @brief Non-blocking getc from keyboard buffer
  * 
  * @return int Character if available, 0 if no input
  */
-int getc_nonblock();
+int getc_nonblock(void);
 
 /**
  * @brief Clears pending keyboard input so stale keypresses are discarded.
