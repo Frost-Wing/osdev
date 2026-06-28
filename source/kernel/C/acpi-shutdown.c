@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <acpi-shutdown.h>
+#include <hal.h>
 
 struct facp {
     char     signature[4];
@@ -59,7 +60,7 @@ static inline int8 parse_integer(int8* s5_addr, int64* value) {
             return 9; // 1 Type Byte, 8 Data Bytes
 
         case 0xFF: // OnesOp
-            *value = ~0;
+            *value = UINT64_MAX;
             return 1; // 1 Op Byte
 
         default:
@@ -98,7 +99,7 @@ s5_found:
     if (size == 0) // Wasn't able to parse it
         return -1;
 
-    int16 SLP_TYPa = value << 10;
+    int16 SLP_TYPa = (int16)((value & 0x7ULL) << 10);
     s5_addr += size;
 
 
@@ -106,22 +107,22 @@ s5_found:
     if (size == 0) // Wasn't able to parse it
         return -1;
 
-    int16 SLP_TYPb = value << 10;
+    int16 SLP_TYPb = (int16)((value & 0x7ULL) << 10);
     s5_addr += size;
 
     if(facp->SMI_CMD != 0 && facp->ACPI_ENABLE != 0) { // This PC has SMM and we need to enable ACPI mode first
-        outb(facp->SMI_CMD, facp->ACPI_ENABLE);
+        outb((int16)facp->SMI_CMD, facp->ACPI_ENABLE);
         for (int i = 0; i < 100; i++)
             inb(0x80);
     
-        while (!inw(facp->PM1a_CNT_BLK) & (1 << 0))
+        while ((inw((int16)facp->PM1a_CNT_BLK) & 1U) == 0U)
             ;
     }
     
 
-    outw(facp->PM1a_CNT_BLK, SLP_TYPa | (1 << 13));
+    outw((int16)facp->PM1a_CNT_BLK, (int16)(SLP_TYPa | (1U << 13)));
     if (facp->PM1b_CNT_BLK)
-        outw(facp->PM1b_CNT_BLK, SLP_TYPb | (1 << 13));
+        outw((int16)facp->PM1b_CNT_BLK, (int16)(SLP_TYPb | (1U << 13)));
 
     for (int i = 0; i < 100; i++)
         inb(0x80);

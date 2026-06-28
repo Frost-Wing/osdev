@@ -12,6 +12,7 @@
 #include <tty.h>
 #include <graphics.h>
 #include <ringbuffer.h>
+#include <multitasking.h>
 
 static ring_buffer_t cooked_rb;
 static char cooked_storage[TTY_COOKED_MAX];
@@ -67,7 +68,7 @@ void tty_input_char(char c) {
     putc(c);
 }
 
-extern volatile int pit_ticks;
+extern volatile uint64_t pit_ticks;
 int tty_read(char* buf, uint64_t count) {
     if (!buf || count == 0)
         return 0;

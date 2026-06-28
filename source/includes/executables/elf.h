@@ -95,7 +95,7 @@ typedef int64_t  Elf64_Sxword;
 #define R_X86_64_IRELATIVE  37
 
 // Extract symbol and type from r_info
-#define ELF64_R_SYM(info)  ((info) >> 32)
+#define ELF64_R_SYM(info)  ((uint32_t)((info) >> 32))
 #define ELF64_R_TYPE(info) ((uint32_t)(info))
 
 // Program header

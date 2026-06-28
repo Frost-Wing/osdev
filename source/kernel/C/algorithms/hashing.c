@@ -11,7 +11,7 @@
 #include <algorithms/hashing.h>
 
 void init_hashing(void){
-    string data = "PradoshGame";
+    cstring data = "PradoshGame";
     int64 hash = hash_string(data);
 
     if(hash == (int64)0x393e7fd){
@@ -22,12 +22,12 @@ void init_hashing(void){
     }
 }
 
-int64 hash_string(string data){
-    int hash = 0;
+int64 hash_string(cstring data){
+    int64 hash = 0;
     while(*data){
-        hash += *data++;
+        hash += (uint8_t)*data++;
         if(*data)
-        hash *= *data++;
+        hash *= (uint8_t)*data++;
     }
     return hash;
 }
@@ -35,10 +35,10 @@ int64 hash_string(string data){
 int64 baranium_hash(const char* name)
 {
     int64 identifier = 9780;
-    size_t length = strlen(name);
+    size_t length = (size_t)strlen(name);
     for (size_t i = 0; i < length; i++)
     {
-        char c = name[i];
+        uint8_t c = (uint8_t)name[i];
         identifier = ((identifier << 5) + identifier) + c;
     }
     return (int64)identifier;

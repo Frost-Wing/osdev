@@ -11,38 +11,42 @@
 extern int64 fb_width;
 extern int64 fb_height;
 
-void ps2_mouse_wait(void){
+static void handle_ps2_mouse(int8 data);
+static void process_mouse_packet(void);
+static void handle_click(uint8_t type, ivec2 position);
+
+static void ps2_mouse_wait(void){
     int64 timeout = 100000;
     while (timeout--){
-        if ((inb(0x64) & 0b10) == 0){
+        if ((inb(0x64) & 0x02U) == 0){
             return;
         }
     }
 }
 
-void ps2_mouse_wait_input(void){
+static void ps2_mouse_wait_input(void){
     int64 timeout = 100000;
     while (timeout--){
-        if (inb(0x64) & 0b1){
+        if (inb(0x64) & 0x01U){
             return;
         }
     }
 }
 
-void ps2_mouse_write(int8 value){
+static void ps2_mouse_write(int8 value){
     ps2_mouse_wait();
     outb(0x64, 0xD4);
     ps2_mouse_wait();
     outb(0x60, value);
 }
 
-int8 ps2_mouse_read(void){
+static int8 ps2_mouse_read(void){
     ps2_mouse_wait_input();
     return inb(0x60);
 }
 
 int8 mouse_cycle = 0;
-int64 mouse_packet[4];
+uint8_t mouse_packet[4];
 bool isMousePacketReady = false;
 ivec2 current_mouse_position;
 ivec2 previous_mouse_position;
@@ -70,6 +74,7 @@ const bool mouse_cursor[] = {
 };
 
 void process_mouse(InterruptFrame* frame){
+    (void)frame;
     int8 data = inb(0x60);
     handle_ps2_mouse(data);
 
@@ -77,7 +82,7 @@ void process_mouse(InterruptFrame* frame){
     outb(0xA0, 0x20); // End PIC Slave
 }
 
-void handle_ps2_mouse(int8 data){
+static void handle_ps2_mouse(int8 data){
     process_mouse_packet();
     static bool skip = true;
     if (skip) {
@@ -87,7 +92,7 @@ void handle_ps2_mouse(int8 data){
 
     switch(mouse_cycle){
         case 0:
-            if ((data & 0b00001000) == 0) break;
+            if ((data & 0x08U) == 0) break;
             mouse_packet[0] = data;
             mouse_cycle++;
             break;
@@ -123,50 +128,48 @@ ivec2 GetLastMousePosition(void)
     return previous_mouse_position;
 }
 
-void process_mouse_packet(void){
+static void process_mouse_packet(void){
     if (!isMousePacketReady)
         return;
 
-    bool xNegative, yNegative, xOverflow, yOverflow;
-
-    xNegative = mouse_packet[0] & PS2_x;
-    yNegative = mouse_packet[0] & PS2_y;
-    xOverflow = mouse_packet[0] & PS2_x_overflow;
-    yOverflow = mouse_packet[0] & PS2_y_overflow;
+    bool xNegative = (mouse_packet[0] & (int64_t)PS2_x) != 0;
+    bool yNegative = (mouse_packet[0] & (int64_t)PS2_y) != 0;
+    bool xOverflow = (mouse_packet[0] & (int64_t)PS2_x_overflow) != 0;
+    bool yOverflow = (mouse_packet[0] & (int64_t)PS2_y_overflow) != 0;
 
     if (!xNegative){
-        current_mouse_position.x += mouse_packet[1];
+        current_mouse_position.x += (int64_t)mouse_packet[1];
         if (xOverflow){
-            current_mouse_position.x += (int64)255;
+            current_mouse_position.x += 255;
         }
     } else
     {
-        mouse_packet[1] = ((int64)256) - mouse_packet[1];
-        current_mouse_position.x -= mouse_packet[1];
+        mouse_packet[1] = (uint8_t)(256U - mouse_packet[1]);
+        current_mouse_position.x -= (int64_t)mouse_packet[1];
         if (xOverflow){
-            current_mouse_position.x -= (int64)255;
+            current_mouse_position.x -= 255;
         }
     }
 
     if (!yNegative)
     {
-        current_mouse_position.y -= mouse_packet[2];
+        current_mouse_position.y -= (int64_t)mouse_packet[2];
         if (yOverflow)
-            current_mouse_position.y -= (int64)255;
+            current_mouse_position.y -= 255;
     }
     else
     {
-        mouse_packet[2] = ((int64)256) - mouse_packet[2];
-        current_mouse_position.y += mouse_packet[2];
+        mouse_packet[2] = (uint8_t)(256U - mouse_packet[2]);
+        current_mouse_position.y += (int64_t)mouse_packet[2];
         if (yOverflow)
-            current_mouse_position.y += (int64)255;
+            current_mouse_position.y += 255;
     }
 
     if (current_mouse_position.x < 0) current_mouse_position.x = 0;
-    if (current_mouse_position.x > fb_width) current_mouse_position.x = fb_width - 1;
+    if (fb_width > 0U && current_mouse_position.x >= (int64_t)fb_width) current_mouse_position.x = (int64_t)(fb_width - 1U);
 
     if (current_mouse_position.y < 0) current_mouse_position.y = 0;
-    if (current_mouse_position.y > fb_height) current_mouse_position.y = fb_height - 1;
+    if (fb_height > 0U && current_mouse_position.y >= (int64_t)fb_height) current_mouse_position.y = (int64_t)(fb_height - 1U);
 
     int64_t deltaX = current_mouse_position.x - previous_mouse_position.x;
     int64_t deltaY = current_mouse_position.y - previous_mouse_position.y;
@@ -176,9 +179,9 @@ void process_mouse_packet(void){
 
     mLastMouseButtonState = mMouseButtonState;
     mMouseButtonState = 0;
-    mMouseButtonState |= mouse_packet[0] & PS2_left_button;
-    mMouseButtonState |= mouse_packet[0] & PS2_middle_button;
-    mMouseButtonState |= mouse_packet[0] & PS2_right_button;
+    mMouseButtonState |= (uint8_t)(mouse_packet[0] & (int64_t)PS2_left_button);
+    mMouseButtonState |= (uint8_t)(mouse_packet[0] & (int64_t)PS2_middle_button);
+    mMouseButtonState |= (uint8_t)(mouse_packet[0] & (int64_t)PS2_right_button);
 
     if (mLastMouseButtonState != mMouseButtonState && mButtonHandler != NULL)
     {
@@ -196,7 +199,8 @@ void process_mouse_packet(void){
     previous_mouse_position = current_mouse_position;
 }
 
-void handle_click(int64 type, ivec2 position){
+__attribute__((unused)) static void handle_click(uint8_t type, ivec2 position){
+    (void)position;
     switch (type)
     {
         case PS2_left_button:
@@ -220,15 +224,15 @@ void init_ps2_mouse(void){
     outb(0x64, 0x20); //tells the keyboard controller that we want to send a command to the mouse
     ps2_mouse_wait_input();
     int8 status = inb(0x60);
-    status |= 0b10;
+    status |= 0x02U;
     ps2_mouse_wait();
     outb(0x64, 0x60);
     ps2_mouse_wait();
     outb(0x60, status); // setting the correct bit is the "compaq" status byte
 
     ps2_mouse_write(0xF6);
-    ps2_mouse_read();
+    (void)ps2_mouse_read();
 
     ps2_mouse_write(0xF4);
-    ps2_mouse_read();
+    (void)ps2_mouse_read();
 }

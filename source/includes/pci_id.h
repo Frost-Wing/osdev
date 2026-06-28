@@ -33,7 +33,7 @@ typedef struct {
  * @param vendor vendor id
  * @return string vendor name
  */
-string parse_vendor(int16 vendor);
+cstring parse_vendor(int16 vendor);
 
 /**
  * @brief Gets the class id and gives the appropriate class name.
@@ -41,7 +41,7 @@ string parse_vendor(int16 vendor);
  * @param classid class id
  * @return string class name
  */
-string parse_class(int16 classid);
+cstring parse_class(int16 classid);
 
 /**
  * @brief A Simplified and clean PCI lookup function.

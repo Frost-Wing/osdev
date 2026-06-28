@@ -11,6 +11,7 @@
 
 #include <pci.h>
 #include <pci_id.h>
+#include <strings.h>
 
 static pci_id_entry_t pci_ids[] = {
 
@@ -94,8 +95,9 @@ static pci_id_entry_t pci_ids[] = {
     {0, 0, 0, NULL, 0, NULL}
 };
 
-string parse_vendor(int16 vendor){
-    string vendorName;
+cstring parse_vendor(int16 vendor){
+    cstring vendorName;
+    static char unknown_vendor[20];
 
     switch (vendor) {
         case 0x8086:
@@ -128,16 +130,16 @@ string parse_vendor(int16 vendor){
             vendorName = "Red Hat, Inc.";
             break;
         default:
-            unsigned char str[20];
-            itoa(vendor, str, sizeof(str), 16);
-            vendorName = str;
+            itoa((int)vendor, unknown_vendor, (int)sizeof(unknown_vendor), 16);
+            vendorName = unknown_vendor;
     }
 
     return vendorName;
 }
 
-string parse_class(int16 classid){
-    string className;
+cstring parse_class(int16 classid){
+    cstring className;
+    static char unknown_class[20];
 
     switch (classid) {
         case 0x01:
@@ -204,9 +206,8 @@ string parse_class(int16 classid){
             className = "Unassigned";
             break;
         default:
-            unsigned char str[20];
-            itoa(classid, str, sizeof(str), 16);
-            className = str;
+            itoa((int)classid, unknown_class, (int)sizeof(unknown_class), 16);
+            className = unknown_class;
     }
 
     return className;
@@ -252,7 +253,7 @@ cstring auto_name_gpu(int16 vendor, int16 device)
 
 void probe_ahci(uint8_t bus, uint8_t slot, uint8_t function)
 {
-    ahci_hba_mem_t* abar = (ahci_hba_mem_t*)(pci_config_read_dword(bus, slot, function, 0x24) & ~0xF);
+    ahci_hba_mem_t* abar = (ahci_hba_mem_t*)(uintptr_t)(pci_config_read_dword(bus, slot, function, 0x24) & 0xFFFFFFF0U);
 
     if (abar && abar != (void*)0xFFFFFFFF) {
         done("Found AHCI BAR!", __FILE__);
@@ -266,7 +267,7 @@ void probe_rtl8139(uint8_t bus, uint8_t slot, uint8_t function)
 {
     RTL8139->io_base = (uint16_t)(pci_read_word(bus, slot, function, RTL8139_IOADDR1) & 0xFFFC);
 
-    int8_t irq = pci_read_word(bus, slot, function, RTL8139_IRQ_LINE);
+    uint8_t irq = (uint8_t)(pci_read_word(bus, slot, function, RTL8139_IRQ_LINE) & 0xFFU);
 
     printf("Handler number : 0x%x", irq);
     registerInterruptHandler(irq, rtl8139_handler);

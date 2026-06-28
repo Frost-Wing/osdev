@@ -27,6 +27,8 @@ int64* wm_addr;
 
 int64* font_address = null;
 
+extern void ksh_exec(void);
+
 // The Limine requests can be placed anywhere, but it is important that
 // the compiler does not optimise them away, so, usually, they should
 // be made volatile or equivalent.
@@ -51,7 +53,7 @@ static volatile struct limine_boot_time_request boot_time_request = {
 };
 
 struct limine_module_request module_request = {
-    LIMINE_MODULE_REQUEST, 0, null
+    LIMINE_MODULE_REQUEST, 0, null, 0, null
 };
 
 struct flanterm_context *ft_ctx = null;
@@ -62,7 +64,7 @@ bool isBufferReady = no;
 
 int32 ctr = 0;
 
-void ap_entry(struct limine_smp_info *info) {
+static void ap_entry(struct limine_smp_info *info) {
 #if defined (__x86_64__)
     printf("LAPIC ID: 0x%x", info->lapic_id);
 #elif defined (__aarch64__)
@@ -84,18 +86,20 @@ void ap_entry(struct limine_smp_info *info) {
 
 uint32_t mouseColor = MOUSE_COLOR_DEFAULT;
 
-void mouseMovementHandler(int64_t xRel, int64_t yRel)
+__attribute__((unused)) static void mouseMovementHandler(int64_t xRel, int64_t yRel)
 {
+    (void)xRel;
+    (void)yRel;
     ivec2 lastMousePos = GetLastMousePosition();
     ivec2 mousePos = GetMousePosition();
 
     // glDrawLine((uvec2){0, 0}, (uvec2){lastMousePos.x, lastMousePos.y}, 0x000000);
     // glDrawLine((uvec2){0, 0}, (uvec2){mousePos.x, mousePos.y}, mouseColor);
-    print_bitmap(lastMousePos.x, lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
-    print_bitmap(mousePos.x, mousePos.y, 8, 16, mouse_cursor, mouseColor);
+    print_bitmap((int)lastMousePos.x, (int)lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
+    print_bitmap((int)mousePos.x, (int)mousePos.y, 8, 16, mouse_cursor, mouseColor);
 }
 
-void mouseButtonHandler(uint8_t button, uint8_t action)
+__attribute__((unused)) static void mouseButtonHandler(uint8_t button, uint8_t action)
 {
     if (action == MOUSE_BUTTON_RELEASE)
     {
@@ -144,8 +148,8 @@ void main(void) {
         info("Multiple framebuffers detected! using the first one.", __FILE__);
     }
 
-    terminal_rows = ft_ctx->rows;
-    terminal_columns = ft_ctx->cols;
+    terminal_rows = (int)ft_ctx->rows;
+    terminal_columns = (int)ft_ctx->cols;
     fb_width = framebuffer->width;
     fb_height = framebuffer->height;
 
@@ -153,11 +157,8 @@ void main(void) {
         probe_serial();
     }
 
-    int64 kernel_phys_start = ((int64)kstart) + (int64)KERNEL_OFFSET;
-    int64 kernel_phys_end   = ((int64)kend)   + (int64)KERNEL_OFFSET;
-
-    debug_printf("KERNEL STR -> %z : %z\n", (int64)virtual_to_physical(kstart), kstart);
-    debug_printf("KERNEL END -> %z : %z\n", (int64)virtual_to_physical(kend), kend);
+    debug_printf("KERNEL STR -> %z : %z\n", (int64)virtual_to_physical((uint64_t)(uintptr_t)kstart), kstart);
+    debug_printf("KERNEL END -> %z : %z\n", (int64)virtual_to_physical((uint64_t)(uintptr_t)kend), kend);
     
     /**
      * ! In memory, kernel is loaded at higher half and at 0x8000000.
@@ -214,9 +215,9 @@ void main(void) {
     }
 
     printf("Total CPU(s): %d", smp_request.response->cpu_count);
-    for(int i=0;i<smp_request.response->cpu_count;i++){
-        printf("Processor  ID [%d] : 0x%X", i+1, smp_request.response->cpus[i]->processor_id);
-        printf("Local APIC ID [%d] : 0x%X", i+1, smp_request.response->cpus[i]->lapic_id);
+    for(uint64_t i=0;i<smp_request.response->cpu_count;i++){
+        printf("Processor  ID [%d] : 0x%X", (int)(i+1U), smp_request.response->cpus[i]->processor_id);
+        printf("Local APIC ID [%d] : 0x%X", (int)(i+1U), smp_request.response->cpus[i]->lapic_id);
 
         if (smp_request.response->cpus[i]->lapic_id !=  smp_request.response->bsp_lapic_id) {
             uint32_t old_ctr = __atomic_load_n(&ctr, __ATOMIC_SEQ_CST);

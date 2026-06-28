@@ -2,6 +2,7 @@
 #include <strings.h>
 #include <heap.h>
 #include <graphics.h>
+#include <memory.h>
 
 #pragma pack(push, 1)
 typedef struct {

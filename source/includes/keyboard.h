@@ -16,17 +16,17 @@
 #include <hal.h>
 #include <isr.h>
 
-#define MOD_LCTRL       0b00000001
-#define MOD_RCTRL       0b00000010
-#define MOD_CTRL        0b00000011
-#define MOD_LSHIFT      0b00000100
-#define MOD_RSHIFT      0b00001000
-#define MOD_SHIFT       0b01001100
-#define MOD_LALT        0b00010000
-#define MOD_RALT        0b00100000
-#define MOD_ALT         0b00110000
-#define MOD_CAPSLOCK    0b01000000
-#define MOD_NUMLOCK     0b10000000
+#define MOD_LCTRL       0x01U
+#define MOD_RCTRL       0x02U
+#define MOD_CTRL        0x03U
+#define MOD_LSHIFT      0x04U
+#define MOD_RSHIFT      0x08U
+#define MOD_SHIFT       0x4CU
+#define MOD_LALT        0x10U
+#define MOD_RALT        0x20U
+#define MOD_ALT         0x30U
+#define MOD_CAPSLOCK    0x40U
+#define MOD_NUMLOCK     0x80U
 
 #define CUR_UP          -1
 #define CUR_DOWN        -2
