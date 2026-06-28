@@ -44,11 +44,15 @@ void *memmove(void *dest, const void *src, size_t n) {
     uint8_t *pdest = (uint8_t *)dest;
     const uint8_t *psrc = (const uint8_t *)src;
  
-    if (src > dest) {
+    if (pdest == psrc || n == 0) {
+        return dest;
+    }
+
+    if (pdest < psrc) {
         for (size_t i = 0; i < n; i++) {
             pdest[i] = psrc[i];
         }
-    } else if (src < dest) {
+    } else {
         for (size_t i = n; i > 0; i--) {
             pdest[i-1] = psrc[i-1];
         }
@@ -130,18 +134,20 @@ void registers_dump(){
 }
 
 void* allocate_memory_at_address(int64 phys_addr, size_t size) {
-    for(int64 i = phys_addr; i < phys_addr + size; i++){
-        int64* ptr_i = (int64*)i;
-        int64 value_at_i = *ptr_i;
-        if(value_at_i != 0){
+    if (phys_addr <= 0 || size == 0 || (uint64_t)phys_addr > UINT64_MAX - size) {
+        error("Invalid memory block requested!", __FILE__);
+        return null;
+    }
+
+    const uint8_t* begin = (const uint8_t*)(uintptr_t)phys_addr;
+    for (size_t i = 0; i < size; i++) {
+        if (begin[i] != 0) {
             error("The memory block you requested is being used!", __FILE__);
             return null;
         }
     }
 
-    void* ptr = (void*)phys_addr;
-
-    return ptr;
+    return (void*)(uintptr_t)phys_addr;
 }
 
 void display_memory_formatted(struct memory_context* memory) {
@@ -171,7 +177,7 @@ void analyze_memory_map(struct memory_context* memory, struct limine_memmap_requ
     memory->unknown = 0;
 
     for (size_t i = 0; i < memory_map_request.response->entry_count; ++i) {
-        int length = memory_map_request.response->entries[i]->length;
+        uint64_t length = memory_map_request.response->entries[i]->length;
         memory->total += length;
         string type = "";
         switch (memory_map_request.response->entries[i]->type)
