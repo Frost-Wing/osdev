@@ -67,7 +67,7 @@ char scancode_to_char(int scancode, bool uppercase) {
     return '\0';
 }
 
-void keyboard_init() {
+void keyboard_init(void) {
     rb_init(&kb_rb, kb_storage, KB_BUFFER_SIZE, sizeof(uint8_t));
 }
 
@@ -92,13 +92,13 @@ void process_keyboard(InterruptFrame* frame)
     outb(0x20, 0x20);
 }
 
-uint8_t getmodifiers()
+uint8_t getmodifiers(void)
 {
     return modifiers;
 }
 
 extern volatile int pit_ticks;
-uint8_t getc()
+uint8_t getc(void)
 {
     uint8_t sc;
     static uint64_t last_tick = 0;
@@ -117,7 +117,7 @@ uint8_t getc()
     }
 }
 
-int getc_nonblock() {
+int getc_nonblock(void) {
     uint8_t sc;
 
     if (rb_pop(&kb_rb, &sc) == 0) {

@@ -13,11 +13,25 @@
 #include <stdarg.h>
 #include <strings.h>
 
+static char* debug_uint64_to_hex(uint64_t value)
+{
+    static char buf[19];
+    const char* digits = "0123456789ABCDEF";
+    buf[0] = '0';
+    buf[1] = 'x';
+    for (int i = 0; i < 16; ++i) {
+        unsigned int shift = (unsigned int)(60 - (i * 4));
+        buf[i + 2] = digits[(value >> shift) & 0xFULL];
+    }
+    buf[18] = '\0';
+    return buf;
+}
+
 /**
  * @brief If there was possibility for the change in port, we can easily change the E9 Port.
  * 
  */
-int port = 0xE9;
+static const int16 debug_port = 0xE9;
 
 /**
  * @brief Puts a character to the address 0xE9 using x86_64 outb
@@ -26,7 +40,7 @@ int port = 0xE9;
  */
 void debug_putc(char c){
     #if debugger_mode
-    outb(port, c);
+    outb(debug_port, (int8)c);
     #endif
 }
 
@@ -72,15 +86,15 @@ void debug_printf(cstring format, ...)
             switch (*format)
             {
             case 'u':
-                debug_print(uint_to_string(va_arg(argp, size_t)));
+                debug_print(uint_to_string(va_arg(argp, unsigned int)));
                 break;
 
             case 'z':
-                debug_print(uint64_to_hex(va_arg(argp, size_t)));
+                debug_print(debug_uint64_to_hex(va_arg(argp, uint64_t)));
                 break;
 
             case 'x':
-                debug_print(hex_to_string(va_arg(argp, size_t), 0));
+                debug_print(hex_to_string(va_arg(argp, int), false));
                 break;
             
             case 's':
@@ -88,7 +102,7 @@ void debug_printf(cstring format, ...)
                 break;
 
             case 'c':
-                debug_putc(va_arg(argp, char));
+                debug_putc((char)va_arg(argp, int));
                 break;
             }
         } else {

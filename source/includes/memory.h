@@ -119,6 +119,6 @@ void analyze_memory_map(struct memory_context* memory, struct limine_memmap_requ
  * 
  * @return uint64_t value of CR2.
  */
-uint64_t getCR2();
+uint64_t getCR2(void);
 
 #endif // MEMORY_H

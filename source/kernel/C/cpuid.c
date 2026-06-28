@@ -10,7 +10,7 @@
  * @param where An integer array to store the result, with at least 4 elements.
  * @return The value of the EAX register after executing CPUID.
  */
-static inline int cpuid_string(int code, int where[4]) {
+int cpuid_string(int code, int where[4]) {
     #if defined (__x86_64__)
     __asm__ volatile ("cpuid":"=a"(*where),"=b"(*(where+0)),
                "=d"(*(where+1)),"=c"(*(where+2)):"a"(code));
@@ -26,7 +26,7 @@ static inline int cpuid_string(int code, int where[4]) {
  *
  * @return A constant string representing the CPU type.
  */
-cstring const cpu_string() {
+cstring cpu_string(void) {
     static char s[16] = "BogusProces!";
     cpuid_string(0, (int*)(s));
     return s;
@@ -44,7 +44,7 @@ cstring const cpu_string() {
  * @param ecx Pointer to store the value of ECX register.
  * @param edx Pointer to store the value of EDX register.
  */
-inline void cpuid(int32 reg, int32 *eax, int32 *ebx, int32 *ecx, int32 *edx) {
+void cpuid(int32 reg, int32 *eax, int32 *ebx, int32 *ecx, int32 *edx) {
     #if defined (__x86_64__)
     __asm__ volatile("cpuid"
         : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
@@ -57,7 +57,7 @@ inline void cpuid(int32 reg, int32 *eax, int32 *ebx, int32 *ecx, int32 *edx) {
  * 
  * @return The CPU vendor string.
  */
-cstring get_cpu_vendor() {
+cstring get_cpu_vendor(void) {
     static char vendor[128];
     cpuid(0x80000002, (int32 *)(vendor +  0), (int32 *)(vendor +  4), (int32 *)(vendor +  8), (int32 *)(vendor + 12));
     cpuid(0x80000003, (int32 *)(vendor + 16), (int32 *)(vendor + 20), (int32 *)(vendor + 24), (int32 *)(vendor + 28));
@@ -69,7 +69,7 @@ cstring get_cpu_vendor() {
 /**
  * @brief Print CPU information, including the vendor and CPU string.
  */
-void print_cpu_info() {
+void print_cpu_info(void) {
     printf("CPU Vendor: %s", get_cpu_vendor());
     printf("CPU String: %s", cpu_string());
 }
@@ -77,7 +77,7 @@ void print_cpu_info() {
 /**
  * @brief Retrieve and print L1 cache information.
  */
-void print_L1_cache_info() {
+void print_L1_cache_info(void) {
     int32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
@@ -90,7 +90,7 @@ void print_L1_cache_info() {
 /**
  * @brief Retrieve and print L2 cache information.
  */
-void print_L2_cache_info() {
+void print_L2_cache_info(void) {
     int32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
@@ -103,7 +103,7 @@ void print_L2_cache_info() {
 /**
  * @brief Retrieve and print L3 cache information.
  */
-void print_L3_cache_info() {
+void print_L3_cache_info(void) {
     int32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
@@ -113,7 +113,7 @@ void print_L3_cache_info() {
     printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L3 INFO)", edx & 0xff, (edx >> 12) & 0x0F, (edx >> 16) & 0xFFFF);
 }
 
-bool is_kvm_supported(){
+bool is_kvm_supported(void){
     int32 eax, ebx, ecx, edx;
 
     // Check if CPUID instruction is supported
@@ -123,7 +123,7 @@ bool is_kvm_supported(){
         // Check if KVM is supported
         cpuid(1, &eax, &ebx, &ecx, &edx);
 
-        if (ecx & (1 << 31)) {
+        if (ecx & (1U << 31)) {
             info("KVM is supported!", __FILE__);
             return yes;
         } else {

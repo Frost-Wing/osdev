@@ -4,9 +4,9 @@
  * @brief Interrupt descriptor table code.
  * @version 0.1
  * @date 2025-02-03
- * 
+ *
  * @copyright Copyright Pradosh (c) 2025
- * 
+ *
  */
 
 #include <idt.h>
@@ -23,13 +23,13 @@ extern void* irq_stub_table[];
 
 IDTEntry idt_entries[256];
 
-IDTPointer idt_ptr = (IDTPointer) 
+IDTPointer idt_ptr = (IDTPointer)
 {
     (uint16_t)sizeof(idt_entries) - 1,
     (uintptr_t)&idt_entries[0]
 };
 
-void setIdtEntry(IDTEntry *target, uint64_t offset, uint16_t selector, uint8_t ist, uint8_t type_attributes) 
+void setIdtEntry(IDTEntry *target, uint64_t offset, uint16_t selector, uint8_t ist, uint8_t type_attributes)
 {
     target->offset_1 = offset & 0xFFFF;
     target->selector = selector;
@@ -44,7 +44,7 @@ void setIdtEntry(IDTEntry *target, uint64_t offset, uint16_t selector, uint8_t i
  * @brief Small utility function for remapping the programmable interrupt controller
  * @author GAMINGNOOBdev
  */
-void remap_pic() {
+void remap_pic(void) {
     uint8_t read_master, read_slave;
 
     read_master = inb(0x21);
@@ -66,7 +66,7 @@ void remap_pic() {
     outb(0xa1, read_slave);
 }
 
-void init_syscall()
+void init_syscall(void)
 {
     wrmsr64(IA32_EFER, rdmsr64(IA32_EFER) | EFER_SCE);
 
@@ -79,7 +79,7 @@ void init_syscall()
     wrmsr64(IA32_FMASK, 0);
 }
 
-void initIdt() 
+void initIdt(void)
 {
     info("Started initialization!", __FILE__);
 
@@ -91,12 +91,12 @@ void initIdt()
     registerInterruptHandler(0x31, process_IFL);
     registerInterruptHandler(0x80, int80_handler);
 
-    for (uint8_t i = 0; i < 32; i++) 
+    for (uint8_t i = 0; i < 32; i++)
     {
         setIdtEntry(&idt_entries[i], (uint64_t)isr_stub_table[i], 0x08, 0, 0x8E);
     }
 
-    for (uint8_t i = 32; i < 255; i++) 
+    for (uint8_t i = 32; i < 255; i++)
     {
         setIdtEntry(&idt_entries[i], (uint64_t)irq_stub_table[i-32], 0x08, 0, 0x8E);
     }

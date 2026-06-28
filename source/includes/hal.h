@@ -4,9 +4,9 @@
  * @brief Header file for Hardware Abstraction Layer -> Source from GoGX OS
  * @version v1.0
  * @date 2022-08-03
- * 
+ *
  * @copyright Copyright Pradosh (c) 2022
- * 
+ *
  */
 
 #include <stdint.h>
@@ -19,9 +19,9 @@
 
 /**
  * @brief Initializes HAL by remapping the PIC interrupts to avoid conflicts
- * 
+ *
  */
-void init_hardware_abstraction_layer();
+void init_hardware_abstraction_layer(void);
 
 /**
  * @brief Output a byte to the specified I/O port.
@@ -89,4 +89,6 @@ void outl(int16 portNumber, int32 data);
  * This function performs an I/O wait operation using inline assembly.
  * It is used to add a small delay in I/O operations.
  */
-void io_wait();
+void io_wait(void);
+void io_wait_us(uint32_t usec);
+void io_wait_ms(uint32_t msec);

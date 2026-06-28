@@ -4,9 +4,9 @@
  * @brief Hardware Abstraction Layer (HAL) -> Source from GoGX OS
  * @version v1.0
  * @date 2022-08-03
- * 
+ *
  * @copyright Copyright Pradosh (c) 2022
- * 
+ *
  */
 
 #include <hal.h>
@@ -14,10 +14,10 @@
 
 /**
  * @brief Initializes HAL by remapping the PIC interrupts to avoid conflicts
- * 
+ *
  */
 deprecated_message("Do not use this! this crashes the OS, this is for a future use.")
-void init_hardware_abstraction_layer() {
+void init_hardware_abstraction_layer(void) {
     clear_interrupts();
 
     outb(pic1_command, 0x11);
@@ -62,7 +62,7 @@ int8 inb(int16 port){
     __asm__ volatile ("inb %1, %0" : "=a"(returnVal) : "Nd"(port));
     return returnVal;
     #endif
-    
+
     return 0;
 }
 
@@ -86,7 +86,7 @@ void outw(int16 portNumber, int16 data) {
  * This function performs an I/O wait operation using inline assembly.
  * It is used to add a small delay in I/O operations.
  */
-void io_wait(){
+void io_wait(void){
     #if defined (__x86_64__)
     __asm__ volatile ("outb %%al, $0x80" : : "a"(0));
     #endif
@@ -144,7 +144,7 @@ void outl(int16 portNumber, int32 data) {
 
 /**
  * @brief Wait approximately the given number of microseconds using io_wait()
- * 
+ *
  * @param usec Number of microseconds to wait
  */
 void io_wait_us(uint32_t usec)
@@ -156,7 +156,7 @@ void io_wait_us(uint32_t usec)
 
 /**
  * @brief Wait approximately the given number of milliseconds using io_wait()
- * 
+ *
  * @param msec Number of milliseconds to wait
  */
 void io_wait_ms(uint32_t msec)

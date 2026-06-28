@@ -5,7 +5,7 @@ struct GLContext g_gl_context;
 
 extern struct limine_framebuffer *framebuffer;
 
-struct GLContext* glCreateContext()
+struct GLContext* glCreateContext(void)
 {
     if (g_gl_context.Initialized)
         return &g_gl_context;
@@ -31,13 +31,13 @@ struct GLContext* glCreateContextCustom(uint32_t* buffer, uint32_t width, uint32
     return &g_gl_context;
 }
 
-struct GLContext* glGetCurrentContext()
+struct GLContext* glGetCurrentContext(void)
 {
     if (g_gl_context.Initialized)
         return &g_gl_context;
 }
 
-bool glContextInitialized()
+bool glContextInitialized(void)
 {
     return g_gl_context.Initialized && g_gl_context.ColorBuffer != NULL;
 }
