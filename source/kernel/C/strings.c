@@ -94,25 +94,36 @@ char toupper(char c) {
  */
 int itoa(int num, string str, int len, int base)
 {
-	int sum = num;
-	int i = 0;
-	int digit;
-	if (len == 0)
-		return -1;
-	do
-	{
-		digit = sum % base;
-		if (digit < 0xA)
-			str[i++] = '0' + digit;
-		else
-			str[i++] = 'A' + digit - 0xA;
-		sum /= base;
-	}while (sum && (i < (len - 1)));
-	if (i == (len - 1) && sum)
-		return -1;
-	str[i] = '\0';
-	strrev(str);
-	return 0;
+    if (!str || len <= 0 || base < 2 || base > 36)
+        return -1;
+
+    unsigned int value;
+    int i = 0;
+    if (num < 0 && base == 10) {
+        if (len < 2)
+            return -1;
+        str[i++] = '-';
+        value = (unsigned int)(-(num + 1)) + 1;
+    } else {
+        value = (num < 0) ? (unsigned int)num : (unsigned int)num;
+    }
+
+    int start = i;
+    do {
+        if (i >= len - 1)
+            return -1;
+        unsigned int digit = value % (unsigned int)base;
+        str[i++] = (digit < 10) ? (char)('0' + digit) : (char)('A' + digit - 10);
+        value /= (unsigned int)base;
+    } while (value);
+
+    str[i] = '\0';
+    for (int left = start, right = i - 1; left < right; left++, right--) {
+        char tmp = str[left];
+        str[left] = str[right];
+        str[right] = tmp;
+    }
+    return 0;
 }
 
 /**
@@ -181,27 +192,18 @@ bool contains(const char *str, const char *substr) {
  * @note This function modifies the input string in place.
  */
 void string_transport_front(char *str, int x) {
-    int len = strlen(str);
-
-    if (x >= len) {
-        // Nothing to do, x is greater than or equal to the string length.
+    if (!str || x <= 0) {
+        if (str)
+            str[0] = '\0';
         return;
     }
 
-    // Calculate the number of characters to delete.
-    int charsToDelete = len - x;
+    int len = strlen(str);
+    if (x >= len)
+        return;
 
-    // Move the last x characters to the front.
-    memmove(str, str + len - x, x);
-
-    // Null-terminate the string at the new end.
+    memmove(str, str + len - x, (size_t)x);
     str[x] = '\0';
-
-    // Delete the remaining characters by shifting them left.
-    memmove(str + x, str + len - charsToDelete, charsToDelete);
-
-    // Null-terminate the final string.
-    str[len - charsToDelete] = '\0';
 }
 
 string trim(cstring str) {
@@ -231,6 +233,9 @@ string trim(cstring str) {
 }
 
 string strcat(string dest, cstring src) {
+    if (!dest || !src)
+        return dest;
+
     string start = dest;
 
     while (*dest != '\0') {
