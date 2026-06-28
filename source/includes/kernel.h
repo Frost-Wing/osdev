@@ -93,3 +93,5 @@ extern int64* wm_addr;
  * @attention main() to something else, make sure to change the linker script accordingly.
  */
 void main(void);
+void shutdown(void);
+void reboot(void);

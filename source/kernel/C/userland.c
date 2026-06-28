@@ -7,6 +7,9 @@
 #include <filesystems/vfs.h>
 #include <heap.h>
 #include <tss.h>
+#include <tty.h>
+#include <debugger.h>
+#include <cc-asm.h>
 
 static uint64_t user_heap_break = USER_HEAP_VADDR;
 static uint64_t user_heap_mapped_end = USER_HEAP_VADDR;
@@ -102,7 +105,7 @@ static uint64_t align_up_u64(uint64_t value, uint64_t align) {
     return (value + align - 1) & ~(align - 1);
 }
 
-static uint64_t max_u64(uint64_t a, uint64_t b) {
+__attribute__((unused)) static uint64_t max_u64(uint64_t a, uint64_t b) {
     return a > b ? a : b;
 }
 
@@ -113,7 +116,7 @@ static uint64_t push_bytes_to_stack(uint64_t* stack_ptr, const void* src, uint64
 }
 
 static uint64_t push_cstr_to_stack(uint64_t* stack_ptr, const char* str) {
-    return push_bytes_to_stack(stack_ptr, str, strlen(str) + 1);
+    return push_bytes_to_stack(stack_ptr, str, (uint64_t)strlen(str) + 1U);
 }
 
 static int string_array_count(const char* const* arr) {
@@ -346,13 +349,13 @@ void userland_heap_init(void) {
 }
 
 uint64_t userland_brk(uint64_t requested_break) {
-    uint64_t heap_end = USER_HEAP_VADDR + USER_HEAP_SIZE;
+    uint64_t user_heap_end = USER_HEAP_VADDR + USER_HEAP_SIZE;
 
     if (requested_break == 0) {
         return user_heap_break;
     }
 
-    if (requested_break < USER_HEAP_VADDR || requested_break > heap_end) {
+    if (requested_break < USER_HEAP_VADDR || requested_break > user_heap_end) {
         return user_heap_break;
     }
 

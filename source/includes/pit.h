@@ -18,3 +18,5 @@
  * @param frame 
  */
 void process_pit(InterruptFrame* frame);
+void init_pit(void);
+void pit_sleep(uint32_t milliseconds);

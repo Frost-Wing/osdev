@@ -20,7 +20,7 @@ const char caps_hex_digits[] = "0123456789ABCDEF";
  * @param s (char[]) The string to know the length of.
  * @return int 
  */
-int strlen(char s[]) {
+int strlen(cstring s) {
     int i = 0;
     while (s[i] != '\0') ++i;
     return i;
