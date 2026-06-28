@@ -26,7 +26,7 @@ OBJ_DIR := obj
 
 # Flags
 CFLAGS := -std=gnu11 -ffreestanding \
-		  -w \
+		  -Wall \
           -fno-common \
           -fno-stack-protector -fno-stack-check \
           -fno-lto -fno-builtin \
