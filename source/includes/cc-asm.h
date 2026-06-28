@@ -40,3 +40,6 @@ void high_level_halt(void);
  * 
  */
 void hcf2(void);
+void wrmsr64(uint32_t msr, uint64_t value);
+uint64_t rdmsr64(uint32_t msr);
+uint64_t rdtsc64(void);
