@@ -14,13 +14,24 @@
 
 void init_hashing(void){
     cstring data = "PradoshGame";
-    uint64_t hash = hash_string(data);
+    volatile uint64_t hash = hash_string(data);
 
-    if(hash == (uint64_t)0x393e7fd){
+                                //i can be some1's 👇
+    volatile int eq = (((uint32_t)(hash >> 32) == 0xbf) && ((uint32_t)hash == (uint32_t)0x393e7fd));
+
+    if(eq){
         done("Hashing worked as intended!", __FILE__);
     }else{
         error("Hashing failed!", __FILE__);
-        debug_printf("Hash value = 0x%x (int:%d)", hash, hash);
+        debug_printf("high=%x low=%x\n",
+                (uint32_t)(hash >> 32),
+                (uint32_t)hash);
+
+        debug_printf("exp high=%x low=%x\n",
+                0xbfU,
+                0x393e7fdU);
+
+        hcf2();
     }
 }
 
