@@ -20,6 +20,7 @@
 #include <filesystems/layers/dev.h>
 #include <heap.h>
 #include <strings.h>
+#include <memory.h>
 
 char vfs_cwd[256] = "/";
 uint16_t vfs_cwd_cluster = 0; 
