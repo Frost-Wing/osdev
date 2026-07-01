@@ -42,6 +42,7 @@
 #define LINUX_SYS_CLONE             56
 #define LINUX_SYS_FORK              57
 #define LINUX_SYS_WAIT4             61
+#define LINUX_SYS_KILL              62
 #define LINUX_SYS_EXECVE            59
 #define LINUX_SYS_EXIT              60
 #define LINUX_SYS_CHDIR             80
@@ -57,6 +58,8 @@
 #define LINUX_SYS_GETPPID           110
 #define LINUX_SYS_SIGALTSTACK       131
 #define LINUX_SYS_ARCH_PRCTL        158
+#define LINUX_SYS_SYNC              162
+#define LINUX_SYS_REBOOT            169
 #define LINUX_SYS_GETTID            186
 #define LINUX_SYS_FUTEX             202
 #define LINUX_SYS_GETDENTS64        217
@@ -154,6 +157,40 @@
 #define FW_SYS_GETC_NB   0x1001
 #define FW_SYS_PUTC      0x1002
 #define FW_SYS_LOGIN     0x1055
+
+/* POSIX signals */
+
+#define SIGHUP      1
+#define SIGINT      2
+#define SIGQUIT     3
+#define SIGILL      4
+#define SIGTRAP     5
+#define SIGABRT     6
+#define SIGBUS      7
+#define SIGFPE      8
+#define SIGKILL     9
+#define SIGUSR1     10
+#define SIGSEGV     11
+#define SIGUSR2     12
+#define SIGPIPE     13
+#define SIGALRM     14
+#define SIGTERM     15
+#define SIGSTKFLT   16
+#define SIGCHLD     17
+#define SIGCONT     18
+#define SIGSTOP     19
+#define SIGTSTP     20
+#define SIGTTIN     21
+#define SIGTTOU     22
+#define SIGURG      23
+#define SIGXCPU     24
+#define SIGXFSZ     25
+#define SIGVTALRM   26
+#define SIGPROF     27
+#define SIGWINCH    28
+#define SIGIO       29
+#define SIGPWR      30
+#define SIGSYS      31
 
 typedef struct syscall_frame {
     uint64_t r9;
