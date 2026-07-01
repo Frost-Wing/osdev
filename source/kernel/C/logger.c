@@ -17,7 +17,7 @@ static stream_t printf_stream;
 string last_filename = "unknown"; // for warn, info, err, done
 string last_print_file = "unknown";
 string last_print_func = "unknown";
-int32 last_print_line = 0;
+uint32 last_print_line = 0;
 
 bool enable_logging = true;
 
@@ -150,7 +150,7 @@ static void printstr_fmt(const char* s, int width)
     print(s);
 }
 
-void vprintf_internal(stream_t stream, cstring file, cstring func, int64 line, bool newline, cstring format, va_list argp) {
+void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, bool newline, cstring format, va_list argp) {
     if (enable_logging) {
         last_print_file = file;
         last_print_func = func;
@@ -246,21 +246,21 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, int64 line, b
         print("\n");
 }
 
-void printf_internal(cstring file, cstring func, int64 line, cstring format, ...) {
+void printf_internal(cstring file, cstring func, uint64 line, cstring format, ...) {
     va_list argp;
     va_start(argp, format);
     vprintf_internal(STDOUT, file, func, line, true, format, argp);
     va_end(argp);
 }
 
-void printfnoln_internal(cstring file, cstring func, int64 line, cstring format, ...) {
+void printfnoln_internal(cstring file, cstring func, uint64 line, cstring format, ...) {
     va_list argp;
     va_start(argp, format);
     vprintf_internal(STDOUT, file, func, line, false, format, argp);
     va_end(argp);
 }
 
-void eprintf_internal(cstring file, cstring func, int64 line, cstring format, ...) {
+void eprintf_internal(cstring file, cstring func, uint64 line, cstring format, ...) {
     va_list argp;
     va_start(argp, format);
     vprintf_internal(STDERR, file, func, line, true, format, argp);
@@ -437,7 +437,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
     return outpos;
 }
 
-void print_bitmap(int x, int y, int w, int h, const bool* pixels, int32 color) {
+void print_bitmap(int x, int y, int w, int h, const bool* pixels, uint32 color) {
     int i, j, l;
     for (l = j = 0; l < h; l++) {
         for (i = 0; i < w; i++, j++) {

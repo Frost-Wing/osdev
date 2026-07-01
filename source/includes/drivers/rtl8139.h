@@ -41,8 +41,8 @@
 #define RTL8139_IRQ_LINE 0x3C 
 
 struct rtl8139 {
-    int16 io_base;
-    int8 mac_address[6];
+    uint16 io_base;
+    uint8 mac_address[6];
 };
 
 /**
@@ -73,7 +73,7 @@ void rtl8139_init(struct rtl8139* nic);
  * @return true if successfully sent.
  * @return false if failed to sent.
  */
-bool rtl8139_send_packet(const int8* data, int16 length);
+bool rtl8139_send_packet(const uint8* data, uint16 length);
 
 /**
  * @brief Receives a packet
@@ -83,6 +83,6 @@ bool rtl8139_send_packet(const int8* data, int16 length);
  * @return [true] Return yes if a packet was received
  * @return [false] Return false if a packet was not received
  */
-bool rtl8139_receive_packet(int8* buffer, int16* length);
+bool rtl8139_receive_packet(uint8* buffer, uint16* length);
 
 #endif

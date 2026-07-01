@@ -48,7 +48,7 @@ int check_mbr(int portno){
     return 0;
 }
 
-void parse_mbr_partitions(int8* mbr, int portno){
+void parse_mbr_partitions(uint8* mbr, int portno){
     mbr_partition_t* partitions = (mbr_partition_t*)&mbr[446];
     block_device_info_t* dev = block_get_device(portno);
     const char* dev_name = block_get_device_name(portno);
@@ -78,6 +78,10 @@ void parse_mbr_partitions(int8* mbr, int portno){
         }
 
         partition_fs_type_t fs_type = detect_fat_type_enum(buf);
+        
+        if (fs_type == FS_UNKNOWN)
+            fs_type = detect_ext2_type_enum(portno, start);
+
         if (fs_type == FS_UNKNOWN && iso9660_detect_at_lba(portno, start))
             fs_type = FS_ISO9660;
 
@@ -89,7 +93,7 @@ void parse_mbr_partitions(int8* mbr, int portno){
             start,
             end,
             count,
-            (int64)portno,
+            (uint64)portno,
             partitions[i].boot_flag == MBR_PART_BOOTABLE,
             fs_type,
             part_name,

@@ -43,6 +43,6 @@ extern mbr_disk_t mbr_disks[10];
 extern int mbr_disks_count;
 
 int check_mbr(int portno);
-void parse_mbr_partitions(int8* mbr, int portno);
+void parse_mbr_partitions(uint8* mbr, int portno);
 
 #endif

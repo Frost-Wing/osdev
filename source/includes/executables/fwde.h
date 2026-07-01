@@ -17,17 +17,17 @@
 
 typedef struct {
     char signature[6]; // 0xCD + 0x31 + FWDE
-    int8 architecture; // 1 = 64 bits; 2 = 32 bits; 3 = 16 bits; 4 = 8 bits
-    int16 raw_size; // size of just the executable part and not the header
-    int8 endian; // 0 = error; 1 = little; 2 = big
+    uint8 architecture; // 1 = 64 bits; 2 = 32 bits; 3 = 16 bits; 4 = 8 bits
+    uint16 raw_size; // size of just the executable part and not the header
+    uint8 endian; // 0 = error; 1 = little; 2 = big
 } fwde_header;
 
 typedef struct
 {
-    int64* fb_addr;
-    int64 width;
-    int64 height;
-    int64 pitch;
+    uint64* fb_addr;
+    uint64 width;
+    uint64 height;
+    uint64 pitch;
     void (*print)(cstring msg);
 } kernel_data ;
 
@@ -35,4 +35,4 @@ typedef void(*entry_function)(kernel_data*);
 
 bool verify_signature(const char* signature);
 void process_IFL(InterruptFrame* frame);
-void execute_fwde(int64* addr, kernel_data* data);
+void execute_fwde(uint64* addr, kernel_data* data);

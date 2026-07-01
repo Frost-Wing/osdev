@@ -216,9 +216,9 @@ void handle_satapi_disk(int portno) {
         add_general_partition(
             PART_TABLE_MBR,
             0,
-            total_sectors_512 > 0 ? (int64)(total_sectors_512 - 1U) : (int64)0,
-            (int64)total_sectors_512,
-            (int64)ahci_disks[portno].logical_device,
+            total_sectors_512 > 0 ? (uint64)(total_sectors_512 - 1U) : (uint64)0,
+            (uint64)total_sectors_512,
+            (uint64)ahci_disks[portno].logical_device,
             false,
             FS_ISO9660,
             part_name,
@@ -233,7 +233,7 @@ void handle_satapi_disk(int portno) {
 void handle_sata_disk(int portno) {
     ahci_init_port(portno);
 
-    int16* id = kmalloc_aligned(512, 4096);
+    uint16* id = kmalloc_aligned(512, 4096);
 
     if (!id) {
         error("[AHCI] Allocation failed!", __FILE__);
@@ -289,10 +289,10 @@ void handle_sata_disk(int portno) {
 
 general_partition_t* add_general_partition(
     partition_table_type_t table_type,
-    int64 lba_start,
-    int64 lba_end,
-    int64 sector_count,
-    int64 ahci_port,
+    uint64 lba_start,
+    uint64 lba_end,
+    uint64 sector_count,
+    uint64 ahci_port,
     bool bootable,
     partition_fs_type_t fs_type,
     cstring name,

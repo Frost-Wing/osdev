@@ -12,11 +12,11 @@
 #include <rtc.h>
  
  // --- Helpers ---
-int8 bcd_to_bin(int8 val) {
-    return (int8)((val & 0x0FU) + (((val >> 4U) & 0x0FU) * 10U));
+uint8 bcd_to_bin(uint8 val) {
+    return (uint8)((val & 0x0FU) + (((val >> 4U) & 0x0FU) * 10U));
 }
  
-int8 read_rtc_register(int8 reg) {
+uint8 read_rtc_register(uint8 reg) {
     outb(RTC_PORT, reg);
     return inb(RTC_DATA);
 }
@@ -27,8 +27,8 @@ void wait_rtc_update(void) {
 }
  
 // Safe read of a register (avoid tick glitch)
-int8 rtc_read_stable(int8 reg) {
-    int8 last, val;
+uint8 rtc_read_stable(uint8 reg) {
+    uint8 last, val;
     do {
         last = read_rtc_register(reg);
         val = read_rtc_register(reg);
@@ -39,26 +39,26 @@ int8 rtc_read_stable(int8 reg) {
 void init_rtc(void) {
     info("Initializing RTC", __FILE__);
     // Enable periodic interrupts if desired, not strictly necessary
-    int8 prev = read_rtc_register(0x0B);
+    uint8 prev = read_rtc_register(0x0B);
     outb(RTC_PORT, 0x0B);
-    outb(RTC_DATA, (int8)(prev | 0x40U)); // Set bit 6 = Update-Ended Interrupt Enable (optional)
+    outb(RTC_DATA, (uint8)(prev | 0x40U)); // Set bit 6 = Update-Ended Interrupt Enable (optional)
     done("Initialized RTC", __FILE__);
 }
  
-void update_system_time(int8 *second, int8 *minute, int8 *hour, int8 *day, int8 *month, int16 *year) {
+void update_system_time(uint8 *second, uint8 *minute, uint8 *hour, uint8 *day, uint8 *month, uint16 *year) {
     wait_rtc_update();
  
-    int8 regB = rtc_read_stable(0x0B);
+    uint8 regB = rtc_read_stable(0x0B);
     int is_bcd = !(regB & 0x04);
     int is_24h = regB & 0x02;
  
-    int8 sec   = rtc_read_stable(RTC_SECONDS);
-    int8 min   = rtc_read_stable(RTC_MINUTES);
-    int8 hr    = rtc_read_stable(RTC_HOURS);
-    int8 day_r = rtc_read_stable(RTC_DAY);
-    int8 mon   = rtc_read_stable(RTC_MONTH);
-    int8 yr   = rtc_read_stable(RTC_YEAR);
-    int8 cent  = rtc_read_stable(RTC_CENTURY); // optional
+    uint8 sec   = rtc_read_stable(RTC_SECONDS);
+    uint8 min   = rtc_read_stable(RTC_MINUTES);
+    uint8 hr    = rtc_read_stable(RTC_HOURS);
+    uint8 day_r = rtc_read_stable(RTC_DAY);
+    uint8 mon   = rtc_read_stable(RTC_MONTH);
+    uint8 yr   = rtc_read_stable(RTC_YEAR);
+    uint8 cent  = rtc_read_stable(RTC_CENTURY); // optional
  
     if (is_bcd) {
         sec   = bcd_to_bin(sec);
@@ -72,7 +72,7 @@ void update_system_time(int8 *second, int8 *minute, int8 *hour, int8 *day, int8 
  
     // Handle 12-hour mode
     if (!is_24h && (hr & 0x80)) {
-         hr = (int8)(((hr & 0x7FU) + 12U) % 24U);
+         hr = (uint8)(((hr & 0x7FU) + 12U) % 24U);
     }
  
     *second = sec;
@@ -80,20 +80,20 @@ void update_system_time(int8 *second, int8 *minute, int8 *hour, int8 *day, int8 
     *hour   = hr;
     *day    = day_r;
     *month  = mon;
-    *year = (int16)yr;
+    *year = (uint16)yr;
 }
  
 void display_time(void) {
-    int8 sec, min, hr, day, mon;
-    int16 yr;
+    uint8 sec, min, hr, day, mon;
+    uint16 yr;
     update_system_time(&sec, &min, &hr, &day, &mon, &yr);
     printf("Time: %d:%d:%d %d/%d/%d", hr, min, sec, mon, day, yr);
 }
  
 void sleep(int seconds) {
-    int8 start_sec, cur_sec;
-    int8 start_min, cur_min;
-    int8 start_hr, cur_hr;
+    uint8 start_sec, cur_sec;
+    uint8 start_min, cur_min;
+    uint8 start_hr, cur_hr;
     
     start_sec = rtc_read_stable(RTC_SECONDS);
     start_min = rtc_read_stable(RTC_MINUTES);

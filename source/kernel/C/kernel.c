@@ -20,12 +20,12 @@
 int terminal_rows = 0;
 int terminal_columns = 0;
 
-int64 fb_width = 0;
-int64 fb_height = 0;
+uint64 fb_width = 0;
+uint64 fb_height = 0;
 
-int64* wm_addr;
+uint64* wm_addr;
 
-int64* font_address = null;
+uint64* font_address = null;
 
 extern void ksh_exec(void);
 
@@ -62,7 +62,7 @@ struct memory_context* limine_memory_ctx;
 
 bool isBufferReady = no;
 
-int32 ctr = 0;
+uint32 ctr = 0;
 
 static void ap_entry(struct limine_smp_info *info) {
 #if defined (__x86_64__)
@@ -157,8 +157,8 @@ void main(void) {
         probe_serial();
     }
 
-    debug_printf("KERNEL STR -> %z : %z\n", (int64)virtual_to_physical((uint64_t)(uintptr_t)kstart), kstart);
-    debug_printf("KERNEL END -> %z : %z\n", (int64)virtual_to_physical((uint64_t)(uintptr_t)kend), kend);
+    debug_printf("KERNEL STR -> %z : %z\n", (uint64)virtual_to_physical((uint64_t)(uintptr_t)kstart), kstart);
+    debug_printf("KERNEL END -> %z : %z\n", (uint64)virtual_to_physical((uint64_t)(uintptr_t)kend), kend);
     
     /**
      * ! In memory, kernel is loaded at higher half and at 0x8000000.

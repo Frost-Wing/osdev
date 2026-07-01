@@ -147,32 +147,31 @@ clean:
 	@cd source && make deep-clean && cd ..
 
 # -----------------------------
-# Misc
+# Making root fs
 # -----------------------------
-create-disk-fat16:
-	@echo "[*] Creating 64MB disk image..."
+root-disk:
+	@echo $(SUDO_MESSAGE)
+	@sudo -v
+
+	@echo "[*] Creating GPT disk image..."
 	@rm -f disk.img
-	@truncate -s 64M disk.img
+	@truncate -s 80M disk.img
 
-	@echo "[*] Creating MBR..."
-	@parted -s disk.img mklabel msdos
-	@parted -s disk.img mkpart primary fat16 1MiB 100%
-	@echo "[+] Disk image created."
+	@parted -s disk.img mklabel gpt
+	@parted -s disk.img mkpart primary ext2 1MiB 65MiB
 
-format-disk:
 	@LOOP=$$(sudo losetup --find --show --partscan disk.img); \
 	echo "[*] Loop device: $$LOOP"; \
-	sudo mkfs.fat -F 16 -n FROSTDISK $${LOOP}p1; \
+	echo "[*] Formatting Ext2..."; \
+	sudo mkfs.ext2 -F $${LOOP}p1 >/dev/null; \
+	sudo mkdir -p /tmp/frost-root; \
+	echo "[*] Mounting..."; \
+	sudo mount $${LOOP}p1 /tmp/frost-root; \
+	echo "[*] Copying fs_root..."; \
+	sudo cp -a ./fs_root/. /tmp/frost-root/; \
+	sync; \
+	echo "[*] Unmounting..."; \
+	sudo umount /tmp/frost-root; \
 	sudo losetup -d $$LOOP
 
-mount-dummy-disk:
-	@LOOP=$$(sudo losetup --find --show --partscan disk.img); \
-	echo $$LOOP | sudo tee /tmp/frost_loop >/dev/null; \
-	sudo mkdir -p /mnt/fat16; \
-	sudo mount $${LOOP}p1 /mnt/fat16
-
-umount-dummy-disk:
-	@sudo umount /mnt/fat16
-	@LOOP=$$(cat /tmp/frost_loop); \
-	sudo losetup -d $$LOOP; \
-	rm -f /tmp/frost_loop
+	@echo "[+] disk.img ready."

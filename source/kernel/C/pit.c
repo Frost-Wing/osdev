@@ -25,8 +25,8 @@ void init_pit(void) {
     uint32_t divisor = 1193180 / pit_freq;  // PIT operates at 1193180 Hz
 
     outb(0x43, 0x36);  // Command byte: Channel 0, lobyte/hibyte, mode 3 (square wave generator)
-    outb(0x40, (int8)(divisor & 0xFFU));  // Set low byte of divisor
-    outb(0x40, (int8)((divisor >> 8) & 0xFFU));  // Set high byte of divisor
+    outb(0x40, (uint8)(divisor & 0xFFU));  // Set low byte of divisor
+    outb(0x40, (uint8)((divisor >> 8) & 0xFFU));  // Set high byte of divisor
 }
 
 void pit_sleep(uint32_t milliseconds) {

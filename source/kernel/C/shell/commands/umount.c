@@ -12,6 +12,7 @@
 #include <commands/commands.h>
 #include <ahci.h>
 #include <filesystems/fat16.h>
+#include <filesystems/ext2.h>
 #include <strings.h>
 
 int cmd_umount(int argc, char** argv)
@@ -41,7 +42,12 @@ int cmd_umount(int argc, char** argv)
                 kfree(m->fs);
             }
             break;
-
+        case FS_EXT2:
+            if (m->fs) {
+                ext2_unmount((ext2_fs_t*)m->fs);
+                kfree(m->fs);
+            }
+            break;
         case FS_PROC:
             // procfs_shutdown(); /* or procfs_unmount() */
             break;

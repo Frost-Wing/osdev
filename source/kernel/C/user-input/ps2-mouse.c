@@ -8,15 +8,15 @@
  */
 #include <ps2-mouse.h>
 
-extern int64 fb_width;
-extern int64 fb_height;
+extern uint64 fb_width;
+extern uint64 fb_height;
 
-static void handle_ps2_mouse(int8 data);
+static void handle_ps2_mouse(uint8 data);
 static void process_mouse_packet(void);
 static void handle_click(uint8_t type, ivec2 position);
 
 static void ps2_mouse_wait(void){
-    int64 timeout = 100000;
+    uint64 timeout = 100000;
     while (timeout--){
         if ((inb(0x64) & 0x02U) == 0){
             return;
@@ -25,7 +25,7 @@ static void ps2_mouse_wait(void){
 }
 
 static void ps2_mouse_wait_input(void){
-    int64 timeout = 100000;
+    uint64 timeout = 100000;
     while (timeout--){
         if (inb(0x64) & 0x01U){
             return;
@@ -33,19 +33,19 @@ static void ps2_mouse_wait_input(void){
     }
 }
 
-static void ps2_mouse_write(int8 value){
+static void ps2_mouse_write(uint8 value){
     ps2_mouse_wait();
     outb(0x64, 0xD4);
     ps2_mouse_wait();
     outb(0x60, value);
 }
 
-static int8 ps2_mouse_read(void){
+static uint8 ps2_mouse_read(void){
     ps2_mouse_wait_input();
     return inb(0x60);
 }
 
-int8 mouse_cycle = 0;
+uint8 mouse_cycle = 0;
 uint8_t mouse_packet[4];
 bool isMousePacketReady = false;
 ivec2 current_mouse_position;
@@ -75,14 +75,14 @@ const bool mouse_cursor[] = {
 
 void process_mouse(InterruptFrame* frame){
     (void)frame;
-    int8 data = inb(0x60);
+    uint8 data = inb(0x60);
     handle_ps2_mouse(data);
 
     outb(0x20, 0x20); // End PIC Master
     outb(0xA0, 0x20); // End PIC Slave
 }
 
-static void handle_ps2_mouse(int8 data){
+static void handle_ps2_mouse(uint8 data){
     process_mouse_packet();
     static bool skip = true;
     if (skip) {
@@ -223,7 +223,7 @@ void init_ps2_mouse(void){
     ps2_mouse_wait();
     outb(0x64, 0x20); //tells the keyboard controller that we want to send a command to the mouse
     ps2_mouse_wait_input();
-    int8 status = inb(0x60);
+    uint8 status = inb(0x60);
     status |= 0x02U;
     ps2_mouse_wait();
     outb(0x64, 0x60);

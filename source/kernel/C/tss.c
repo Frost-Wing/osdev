@@ -47,6 +47,6 @@ void kernel_tss_init(void) {
 
 // Load TSS using ltr instruction
 void tss_load(void) {
-    asm volatile("ltr %0" :: "r"((int16)0x28));
+    asm volatile("ltr %0" :: "r"((uint16)0x28));
     done("Done loading TSS", __FILE__);
 }

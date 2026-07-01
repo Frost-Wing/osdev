@@ -9,21 +9,23 @@
  * 
  */
 #include <algorithms/hashing.h>
+#include <debugger.h>
+#include <stdint.h>
 
 void init_hashing(void){
     cstring data = "PradoshGame";
-    int64 hash = hash_string(data);
+    uint64_t hash = hash_string(data);
 
-    if(hash == (int64)0x393e7fd){
+    if(hash == (uint64_t)0x393e7fd){
         done("Hashing worked as intended!", __FILE__);
     }else{
         error("Hashing failed!", __FILE__);
-        printf("Hash value = 0x%x (int:%d)", hash, hash);
+        debug_printf("Hash value = 0x%x (int:%d)", hash, hash);
     }
 }
 
-int64 hash_string(cstring data){
-    int64 hash = 0;
+uint64_t hash_string(cstring data){
+    uint64_t hash = 0;
     while(*data){
         hash += (uint8_t)*data++;
         if(*data)
@@ -32,14 +34,14 @@ int64 hash_string(cstring data){
     return hash;
 }
 
-int64 baranium_hash(const char* name)
+uint64 baranium_hash(const char* name)
 {
-    int64 identifier = 9780;
+    uint64 identifier = 9780;
     size_t length = (size_t)strlen(name);
     for (size_t i = 0; i < length; i++)
     {
         uint8_t c = (uint8_t)name[i];
         identifier = ((identifier << 5) + identifier) + c;
     }
-    return (int64)identifier;
+    return (uint64)identifier;
 }

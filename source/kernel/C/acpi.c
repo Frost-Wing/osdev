@@ -23,15 +23,15 @@ typedef char symbol[];
 
 struct rsdp {
     char signature[8];
-    int8 checksum;
+    uint8 checksum;
     char oem_id[6];
-    int8 rev;
-    int32 rsdt_addr;
+    uint8 rev;
+    uint32 rsdt_addr;
     // ver 2.0 only
-    int32 length;
-    int64 xsdt_addr;
-    int8 ext_checksum;
-    int8 reserved[3];
+    uint32 length;
+    uint64 xsdt_addr;
+    uint8 ext_checksum;
+    uint8 reserved[3];
 } __attribute__((packed));
 
 struct rsdt {

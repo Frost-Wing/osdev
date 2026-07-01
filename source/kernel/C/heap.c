@@ -53,7 +53,7 @@ static alloc_t* heap_alloc_from_user_ptr(void* ptr)
     return (alloc_t*)(user - sizeof(alloc_t));
 }
 
-void mm_init(uintptr_t kernel_end, int64 heap_size)
+void mm_init(uintptr_t kernel_end, uint64 heap_size)
 {
     info("Initializing heap", __FILE__);
 

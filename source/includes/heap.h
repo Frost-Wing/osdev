@@ -25,7 +25,7 @@ extern uint64_t memory_used;
  * @param kernel_end The position in memory where kernel ends.
  * @param heap_size The size of heap allocated.
  */
-extern void mm_init(uintptr_t kernel_end, int64 heap_size);
+extern void mm_init(uintptr_t kernel_end, uint64 heap_size);
 
 /**
  * @brief Function to extend available heap.

@@ -45,7 +45,7 @@ cstring cpu_string(void);
  * @param ecx Pointer to store the value of ECX register.
  * @param edx Pointer to store the value of EDX register.
  */
-void cpuid(int32 reg, int32 *eax, int32 *ebx, int32 *ecx, int32 *edx);
+void cpuid(uint32 reg, uint32 *eax, uint32 *ebx, uint32 *ecx, uint32 *edx);
 
 /**
  * @brief Retrieve the CPU vendor string.

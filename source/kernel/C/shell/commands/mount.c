@@ -16,7 +16,9 @@
 #include <filesystems/iso9660.h>
 #include <filesystems/layers/proc.h>
 #include <filesystems/layers/dev.h>
+#include <filesystems/ext2.h>
 #include <ahci.h>
+#include <heap.h>
 
 const char* fs_type_to_string(int fs)
 {
@@ -26,6 +28,7 @@ const char* fs_type_to_string(int fs)
         case FS_PROC:  return "PROCFS";
         case FS_DEV:   return "DEVFS";
         case FS_ISO9660:return "ISO9660";
+        case FS_EXT2:  return "EXT2";
         default:       return "UNKNOWN";
     }
 }
@@ -50,6 +53,12 @@ int cmd_mount(int argc, char** argv)
         if (vfs_resolve_mount("/", &res) != 0){
             eprintf("mount: cannot mount block device, root (/) is not mounted.");
             return -2;
+        }
+
+        int is_dir = vfs_path_is_dir(mount_point);
+        if (is_dir <= 0) {
+            eprintf("mount: mount point '%s' does not exist on the underlying filesystem.", mount_point);
+            return -3;
         }
     }
 
@@ -154,6 +163,19 @@ int cmd_mount(int argc, char** argv)
                 ret = iso9660_mount(partition->ahci_port, partition->lba_start, (iso9660_fs_t*)fs_struct);
             else
                 ret = iso9660_mount(raw_device_id, 0, (iso9660_fs_t*)fs_struct);
+            break;
+        
+        case FS_EXT2:
+            fs_struct = kmalloc(sizeof(ext2_fs_t));
+            if (!fs_struct) {
+                printf("mount: memory allocation failed.");
+                return 1;
+            }
+            mount_entry_t* mount4 = add_mount(mount_point, device, partition->fs_type, fs_struct);
+            if (!mount4)
+                return 1;
+
+            ret = ext2_mount(partition->ahci_port, partition->lba_start, (ext2_fs_t*)fs_struct);
             break;
 
         default:

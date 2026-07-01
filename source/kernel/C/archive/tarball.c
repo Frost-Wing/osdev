@@ -15,7 +15,7 @@ char* file_datas[2 KiB];
 
 int counter;
 
-void extract_tarball(int64* tarball_addr) {
+void extract_tarball(uint64* tarball_addr) {
     uintptr_t addr = (uintptr_t)tarball_addr;
 
     while (1) {

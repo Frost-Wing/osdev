@@ -28,6 +28,6 @@ void interrupt_frame_dump(struct InterruptFrame* frame);
  * @param cr2
  * @param int_no
  */
-void meltdown_screen(cstring message, cstring file, int line, int64 error_code, int64 cr2, int64 int_no, struct InterruptFrame* frame);
+void meltdown_screen(cstring message, cstring file, int line, uint64 error_code, uint64 cr2, uint64 int_no, struct InterruptFrame* frame);
 
 #endif

@@ -49,4 +49,4 @@ struct tarball_header {
  *
  * @param tarball_addr Pointer to the memory location where the TAR archive is stored.
  */
-void extract_tarball(int64* tarball_addr);
+void extract_tarball(uint64* tarball_addr);

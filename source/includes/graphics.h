@@ -38,7 +38,7 @@
 extern string last_filename; // for warn, info, err, done
 extern string last_print_file;
 extern string last_print_func;
-extern int32 last_print_line;
+extern uint32 last_print_line;
 extern bool enable_logging;
 
 #define printf(fmt, ...) \
@@ -132,7 +132,7 @@ int format_number(
  * @param format String.
  * @param ... 
  */
-void printf_internal(cstring file, cstring func, int64 line, cstring format, ...);
+void printf_internal(cstring file, cstring func, uint64 line, cstring format, ...);
 
 /**
  * @brief Prints with formatting supported (does not add an new line).
@@ -143,8 +143,8 @@ void printf_internal(cstring file, cstring func, int64 line, cstring format, ...
  * @param format String.
  * @param ... 
  */
-void printfnoln_internal(cstring file, cstring func, int64 line, cstring format, ...);
-void eprintf_internal(cstring file, cstring func, int64 line, cstring format, ...);
+void printfnoln_internal(cstring file, cstring func, uint64 line, cstring format, ...);
+void eprintf_internal(cstring file, cstring func, uint64 line, cstring format, ...);
 
 /**
  * @brief Core printf implementation used internally by both printf_internal and printfnoln_internal.
@@ -164,7 +164,7 @@ void eprintf_internal(cstring file, cstring func, int64 line, cstring format, ..
  * @param format  The printf-style format string
  * @param argp    The variable argument list (already started via va_start)
  */
-void vprintf_internal(stream_t stream, cstring file, cstring func, int64 line, bool newline, cstring format, va_list argp);
+void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, bool newline, cstring format, va_list argp);
 
 /*
  * @brief Formats a string into a buffer using a va_list.
@@ -211,6 +211,6 @@ void print(cstring s);
  * @param pixels 
  * @param color 
  */
-void print_bitmap(int x, int y, int w, int h, const bool* pixels, int32 color);
+void print_bitmap(int x, int y, int w, int h, const bool* pixels, uint32 color);
 
 #endif

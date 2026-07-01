@@ -17,7 +17,7 @@
  * 
  */
 struct gdt_entry {
-    int16 limit_low;
+    uint16 limit_low;
     uint16_t base_low;
     uint8_t  base_middle;
     uint8_t  access;

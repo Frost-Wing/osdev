@@ -15,16 +15,16 @@
 #include <limine.h>
 
 struct memory_context {
-    int64 total;
-    int64 usable;
-    int64 reserved;
-    int64 acpi_reclaimable;
-    int64 acpi_nvs;
-    int64 bad;
-    int64 bootloader_reclaimable;
-    int64 kernel_modules;
-    int64 framebuffer;            // Mostly unneeded because frame buffer struct separately gives it,
-    int64 unknown;                // This value must be always 0.
+    uint64 total;
+    uint64 usable;
+    uint64 reserved;
+    uint64 acpi_reclaimable;
+    uint64 acpi_nvs;
+    uint64 bad;
+    uint64 bootloader_reclaimable;
+    uint64 kernel_modules;
+    uint64 framebuffer;            // Mostly unneeded because frame buffer struct separately gives it,
+    uint64 unknown;                // This value must be always 0.
 };
 
 /**
@@ -97,7 +97,7 @@ void memory_dump(const void* start, const void* end);
  * @param size Size of the memory to allocate.
  * @return Pointer to the allocated memory, or NULL if allocation fails.
  */
-void* allocate_memory_at_address(int64 phys_addr, size_t size);
+void* allocate_memory_at_address(uint64 phys_addr, size_t size);
 
 /**
  * @brief Display the formatted memory context.

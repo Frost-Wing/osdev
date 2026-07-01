@@ -37,7 +37,7 @@ static int fat16_is_reserved_name(cstring name) {
     return strcmp(name, ".") == 0 || strcmp(name, "..") == 0;
 }
 
-partition_fs_type_t detect_fat_type_enum(const int8* buf) {
+partition_fs_type_t detect_fat_type_enum(const uint8* buf) {
     fat16_boot_sector_t* bs = (fat16_boot_sector_t*)buf;
     const uint8_t* fat16_sig = (const uint8_t*)buf + 54;
     const uint8_t* fat32_sig = (const uint8_t*)buf + 82;
@@ -149,26 +149,37 @@ static int fat16_next_cluster_with_fallback(fat16_fs_t* fs,
                                             uint32_t* depth)
 {
     int rc = fat16_next_cluster_safe(fs, current, next, depth);
-    if (rc == FAT_OK && *next != 0)
-        return FAT_OK;
+    if (rc != FAT_OK)
+        return rc;
 
-    if (current + 1 < FAT16_EOC) {
-        eprintf("fat16: fallback contiguous cluster %u -> %u", current, current + 1);
-        *next = current + 1;
-        return FAT_OK;
+    /* A FAT entry of 0 in a live chain means corruption, not free cluster */
+    if (*next == 0) {
+        eprintf("fat16: FAT entry 0 in live chain at cluster %u", current);
+        return FAT_ERR_CORRUPT;
     }
 
-    return rc;
+    return FAT_OK;
 }
 
 
 uint16_t fat16_read_fat_fs(fat16_fs_t* fs, uint16_t cluster) {
     uint8_t buf[512];
-    uint32_t offset = cluster * 2;
-    uint32_t sector = fs->fat_start + offset / fs->bs.bytes_per_sector;
+    uint32_t offset = (uint32_t)cluster * 2;
+    uint32_t bps    = fs->bs.bytes_per_sector;
+    uint32_t sector = fs->fat_start + offset / bps;
+    uint32_t off    = offset % bps;
 
     ahci_read_sector(fs->portno, sector, buf, 1);
-    return *(uint16_t*)(buf + (offset % fs->bs.bytes_per_sector));
+
+    /* If the 2-byte entry straddles a sector boundary, read the high byte
+     * from the next sector. */
+    if (off + 1 >= bps) {
+        uint8_t buf2[512];
+        ahci_read_sector(fs->portno, sector + 1, buf2, 1);
+        return (uint16_t)buf[off] | ((uint16_t)buf2[0] << 8);
+    }
+
+    return *(uint16_t*)(buf + off);
 }
 
 // HELPERS ============
@@ -180,10 +191,10 @@ static uint32_t fat16_cluster_lba(fat16_fs_t* fs, uint16_t cluster) {
 }
 
 static inline int fat16_dir_valid(fat16_dir_entry_t* e) {
-    if (e->name[0] == 0x00) return 0; // end
-    if (e->name[0] == 0xE5) return FAT_ERR_NOT_FOUND; // deleted
-    if (e->attr == 0x0F) return FAT_ERR_NOT_FOUND;    // LFN
-    if (e->attr & 0x08) return FAT_ERR_NOT_FOUND;     // volume label
+    if (e->name[0] == 0x00) return 0; // end of directory
+    if ((uint8_t)e->name[0] == 0xE5) return 0; // deleted
+    if ((e->attr & 0x0F) == 0x0F) return 0;    // LFN entry
+    if (e->attr & 0x08) return 0;              // volume label
     return 1;
 }
 
@@ -319,7 +330,7 @@ int fat16_find_in_dir(
             for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
                 if (e[i].name[0] == 0x00)
                     return FAT_ERR_NOT_FOUND;
-                if (e[i].name[0] == 0xE5)
+                if ((uint8_t)e[i].name[0] == 0xE5)
                     continue;
                 if ((e[i].attr & 0x0F) == 0x0F)
                     continue;
@@ -348,7 +359,7 @@ int fat16_find_in_dir(
             for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
                 if (e[i].name[0] == 0x00)
                     return FAT_ERR_NOT_FOUND;
-                if (e[i].name[0] == 0xE5)
+                if ((uint8_t)e[i].name[0] == 0xE5)
                     continue;
                 if ((e[i].attr & 0x0F) == 0x0F)
                     continue;
@@ -472,7 +483,7 @@ int fat16_find_file(fat16_fs_t* fs, const char* name, fat16_dir_entry_t* out) {
 
         for (int j = 0; j < 16; j++) {
             if (e[j].name[0] == 0x00) return FAT_ERR_NOT_FOUND;
-            if (e[j].name[0] == 0xE5) continue;
+            if ((uint8_t)e[j].name[0] == 0xE5) continue;
             if (e[j].attr & 0x08) continue; // volume label
 
             if (memcmp(e[j].name, fatname, 11) == 0) {
@@ -530,8 +541,8 @@ int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size) {
     uint32_t read = 0;
     uint8_t sector[512];
     uint32_t depth = 0;
-    uint32_t cluster_size =
-        f->fs->bs.sectors_per_cluster * 512;
+    uint32_t bps = f->fs->bs.bytes_per_sector;
+    uint32_t cluster_size = f->fs->bs.sectors_per_cluster * bps;
     uint16_t cluster = f->entry.first_cluster;
 
     if (cluster_size == 0 || cluster < 2)
@@ -549,15 +560,15 @@ int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size) {
 
     while (read < size && f->pos < f->entry.filesize) {
         uint32_t sector_in_cluster =
-            (f->pos / 512) % f->fs->bs.sectors_per_cluster;
+            (f->pos / bps) % f->fs->bs.sectors_per_cluster;
 
         uint32_t lba =
             fat16_cluster_lba(f->fs, cluster) + sector_in_cluster;
 
         ahci_read_sector(f->fs->portno, lba, sector, 1);
 
-        uint32_t off = f->pos % 512;
-        uint32_t to_copy = 512 - off;
+        uint32_t off = f->pos % bps;
+        uint32_t to_copy = bps - off;
 
         if (to_copy > size - read)
             to_copy = size - read;
@@ -590,10 +601,11 @@ int fat16_read(fat16_file_t* f, uint8_t* out, uint32_t size) {
 int fat16_write(fat16_file_t* f, const uint8_t* data, uint32_t size)
 {
     uint32_t written = 0;
-    uint8_t sector[512];
+    uint32_t bps = f->fs->bs.bytes_per_sector;
+    uint8_t sector[512]; /* 512 is the max standard sector size; safe stack buffer */
 
     uint32_t cluster_size =
-        f->fs->bs.sectors_per_cluster * 512;
+        f->fs->bs.sectors_per_cluster * bps;
 
     /* ---------- allocate first cluster ---------- */
     if (f->entry.first_cluster == 0) {
@@ -606,14 +618,18 @@ int fat16_write(fat16_file_t* f, const uint8_t* data, uint32_t size)
         f->cluster = c;
     }
 
+    /* Cache current cluster to avoid re-walking from head every sector */
+    uint16_t cur_cluster = f->cluster;
+    if (cur_cluster < 2)
+        cur_cluster = f->entry.first_cluster;
+
     while (written < size) {
         uint32_t cluster_index = f->pos / cluster_size;
         uint32_t sector_in_cluster =
-            (f->pos / 512) % f->fs->bs.sectors_per_cluster;
+            (f->pos / bps) % f->fs->bs.sectors_per_cluster;
 
+        /* Only re-walk from head if cluster cache is stale (e.g. seek) */
         uint16_t cluster = f->entry.first_cluster;
-
-        /* ---------- walk / extend FAT chain ---------- */
         for (uint32_t i = 0; i < cluster_index; i++) {
             uint16_t next = fat16_read_fat_fs(f->fs, cluster);
 
@@ -629,13 +645,15 @@ int fat16_write(fat16_file_t* f, const uint8_t* data, uint32_t size)
             cluster = next;
         }
 
+        cur_cluster = cluster;
+
         uint32_t lba =
             fat16_cluster_lba(f->fs, cluster) + sector_in_cluster;
 
         ahci_read_sector(f->fs->portno, lba, sector, 1);
 
-        uint32_t off = f->pos % 512;
-        uint32_t to_copy = 512 - off;
+        uint32_t off = f->pos % bps;
+        uint32_t to_copy = bps - off;
         if (to_copy > size - written)
             to_copy = size - written;
 
@@ -646,7 +664,11 @@ int fat16_write(fat16_file_t* f, const uint8_t* data, uint32_t size)
         written += to_copy;
     }
 
-    f->entry.filesize = f->pos;
+    f->cluster = cur_cluster;
+
+    /* Only update filesize if we extended the file */
+    if (f->pos > f->entry.filesize)
+        f->entry.filesize = f->pos;
 
     /* ---------- update directory entry ---------- */
     if (f->parent_cluster == 0)
@@ -664,36 +686,58 @@ void fat16_close(fat16_file_t* f) {
 // WRITE WITH EXTEND = START ========
 uint16_t fat16_find_free_cluster(fat16_fs_t* fs) {
     uint8_t sector[512];
+    uint32_t bps = fs->bs.bytes_per_sector;
+    uint32_t entries_per_sector = bps / 2; /* each FAT16 entry is 2 bytes */
 
     for (uint32_t s = 0; s < fs->bs.sectors_per_fat; s++) {
         ahci_read_sector(fs->portno, fs->fat_start + s, sector, 1);
 
         uint16_t* fat = (uint16_t*)sector;
-        for (int i = 0; i < 256; i++) {
-            uint16_t cluster = s * 256 + i;
+        for (uint32_t i = 0; i < entries_per_sector; i++) {
+            uint32_t cluster = s * entries_per_sector + i;
 
             if (cluster < 2)
                 continue;
 
+            if (cluster >= 0xFFF8) /* past valid cluster range */
+                return 0;
+
             if (fat[i] == 0x0000)
-                return cluster;
+                return (uint16_t)cluster;
         }
     }
 
-    return 0; // ✅ NO SPACE
+    return 0; /* disk full */
 }
 
 void fat16_write_fat_entry(fat16_fs_t* fs, uint16_t cluster, uint16_t value) {
-    uint32_t offset = cluster * 2;
-    uint32_t sector = fs->fat_start + offset / fs->bs.bytes_per_sector;
-    uint32_t off = offset % fs->bs.bytes_per_sector;
+    uint32_t offset  = (uint32_t)cluster * 2;
+    uint32_t bps     = fs->bs.bytes_per_sector;
+    uint32_t sec_off = offset / bps;
+    uint32_t byte_off = offset % bps;
 
     uint8_t buf[512];
-    ahci_read_sector(fs->portno, sector, buf, 1);
 
-    *(uint16_t*)(buf + off) = value;
+    /* Write to every FAT copy */
+    for (uint8_t fat_n = 0; fat_n < fs->bs.num_fats; fat_n++) {
+        uint32_t fat_base = fs->fat_start + fat_n * fs->bs.sectors_per_fat;
+        uint32_t sector   = fat_base + sec_off;
 
-    ahci_write_sector(fs->portno, sector, buf, 1);
+        ahci_read_sector(fs->portno, sector, buf, 1);
+
+        if (byte_off + 1 >= bps) {
+            /* Entry straddles sector boundary */
+            buf[byte_off] = (uint8_t)(value & 0xFF);
+            ahci_write_sector(fs->portno, sector, buf, 1);
+
+            ahci_read_sector(fs->portno, sector + 1, buf, 1);
+            buf[0] = (uint8_t)(value >> 8);
+            ahci_write_sector(fs->portno, sector + 1, buf, 1);
+        } else {
+            *(uint16_t*)(buf + byte_off) = value;
+            ahci_write_sector(fs->portno, sector, buf, 1);
+        }
+    }
 }
 
 uint16_t fat16_allocate_cluster(fat16_fs_t* fs) {
@@ -703,7 +747,9 @@ uint16_t fat16_allocate_cluster(fat16_fs_t* fs) {
 
     fat16_write_fat_entry(fs, cluster, FAT16_EOC);
 
-    uint8_t zero[512] = {0};
+    /* Zero out the newly allocated cluster */
+    uint8_t zero[512];
+    memset(zero, 0, sizeof(zero));
     uint32_t lba = fat16_cluster_lba(fs, cluster);
 
     for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++)
@@ -737,7 +783,7 @@ void fat16_update_root_entry(
             if (e[j].name[0] == 0x00)
                 return;
 
-            if (e[j].name[0] == 0xE5)
+            if ((uint8_t)e[j].name[0] == 0xE5)
                 continue;
 
             if (e[j].attr == 0x0F)
@@ -783,7 +829,7 @@ int fat16_update_dir_entry(
     uint8_t buf[512];
     uint16_t cluster = dir_cluster;
 
-    while (cluster < FAT16_EOC) {
+    while (cluster >= 2 && cluster < FAT16_EOC) {
         uint32_t lba = fat16_cluster_lba(fs, cluster);
 
         for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
@@ -791,6 +837,13 @@ int fat16_update_dir_entry(
             fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
 
             for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
+                if (e[i].name[0] == 0x00)
+                    return FAT_ERR_NOT_FOUND; /* end of directory */
+                if ((uint8_t)e[i].name[0] == 0xE5)
+                    continue; /* deleted entry */
+                if ((e[i].attr & 0x0F) == 0x0F)
+                    continue; /* LFN */
+
                 if (memcmp(e[i].name, entry->name, 11) == 0) {
                     e[i] = *entry;
                     ahci_write_sector(fs->portno, lba + s, buf, 1);
@@ -812,9 +865,33 @@ int fat16_find_free_dir_entry(
     uint32_t* out_index
 ) {
     uint8_t buf[512];
-    uint16_t cluster = dir_cluster;
 
-    while (1) {
+    /* ---------- ROOT DIR (fixed-size, not cluster-based) ---------- */
+    if (dir_cluster == 0) {
+        for (uint32_t s = 0; s < fs->root_dir_sectors; s++) {
+            uint32_t lba = fs->root_dir_start + s;
+            ahci_read_sector(fs->portno, lba, buf, 1);
+            fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
+
+            for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
+                if (e[i].name[0] == 0x00 || (uint8_t)e[i].name[0] == 0xE5) {
+                    *out_lba   = lba;
+                    *out_index = (uint32_t)i;
+                    return FAT_OK;
+                }
+            }
+        }
+        return FAT_ERR_NOT_FOUND; /* root dir is full - cannot extend */
+    }
+
+    /* ---------- SUBDIRECTORY ---------- */
+    uint16_t cluster = dir_cluster;
+    uint32_t depth   = 0;
+
+    while (cluster >= 2 && cluster < FAT16_EOC) {
+        if (depth++ > FAT16_MAX_CLUSTERS)
+            return FAT_ERR_CORRUPT;
+
         uint32_t lba = fat16_cluster_lba(fs, cluster);
 
         for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
@@ -822,9 +899,9 @@ int fat16_find_free_dir_entry(
             fat16_dir_entry_t* e = (fat16_dir_entry_t*)buf;
 
             for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
-                if (e[i].name[0] == 0x00 || e[i].name[0] == 0xE5) {
-                    *out_lba = lba + s;
-                    *out_index = i;
+                if (e[i].name[0] == 0x00 || (uint8_t)e[i].name[0] == 0xE5) {
+                    *out_lba   = lba + s;
+                    *out_index = (uint32_t)i;
                     return FAT_OK;
                 }
             }
@@ -837,6 +914,8 @@ int fat16_find_free_dir_entry(
         }
         cluster = next;
     }
+
+    return FAT_ERR_NOT_FOUND;
 }
 
 int fat16_create(fat16_fs_t* fs, uint16_t parent_cluster, const char* name, uint8_t attr) {
@@ -871,7 +950,7 @@ int fat16_create(fat16_fs_t* fs, uint16_t parent_cluster, const char* name, uint
             ahci_read_sector(fs->portno, fs->root_dir_start + i, buf, 1);
             fat16_dir_entry_t* d = (fat16_dir_entry_t*)buf;
             for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
-                if (d[j].name[0] == 0x00 || d[j].name[0] == 0xE5) {
+                if (d[j].name[0] == 0x00 || (uint8_t)d[j].name[0] == 0xE5) {
                     d[j] = e;
                     ahci_write_sector(fs->portno, fs->root_dir_start + i, buf, 1);
                     return FAT_OK;
@@ -895,7 +974,7 @@ int fat16_create(fat16_fs_t* fs, uint16_t parent_cluster, const char* name, uint
 int fat16_delete_entry_in_cluster(fat16_fs_t* fs, uint16_t cluster, const char* fatname) {
     uint8_t buf[512];
 
-    while (cluster < FAT16_EOC) {
+    while (cluster >= 2 && cluster < FAT16_EOC) {
         uint32_t lba = fat16_cluster_lba(fs, cluster);
 
         for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
@@ -967,7 +1046,7 @@ int fat16_unlink(fat16_fs_t* fs, uint16_t parent_cluster, const char* name) {
 int fat16_truncate(fat16_file_t* f, uint32_t new_size)
 {
     uint32_t cluster_size =
-        f->fs->bs.sectors_per_cluster * 512;
+        f->fs->bs.sectors_per_cluster * f->fs->bs.bytes_per_sector;
 
     /* ---------- truncate to zero ---------- */
     if (new_size == 0) {
@@ -989,17 +1068,26 @@ int fat16_truncate(fat16_file_t* f, uint32_t new_size)
         (new_size + cluster_size - 1) / cluster_size;
 
     uint16_t cluster = f->entry.first_cluster;
-    uint16_t prev = 0;
+    uint16_t prev    = 0;
 
     for (uint32_t i = 0; i < keep_clusters; i++) {
-        prev = cluster;
+        if (cluster < 2 || cluster >= FAT16_EOC)
+            break; /* chain shorter than expected - stop */
+        prev    = cluster;
         cluster = fat16_read_fat_fs(f->fs, cluster);
     }
 
-    if (prev)
+    if (prev != 0) {
+        /* Terminate the chain at the last kept cluster */
         fat16_write_fat_entry(f->fs, prev, FAT16_EOC);
+    } else {
+        /* keep_clusters == 0: free entire chain and zero first_cluster */
+        cluster = f->entry.first_cluster;
+        f->entry.first_cluster = 0;
+    }
 
-    if (cluster < FAT16_EOC)
+    /* Free everything from cluster onwards */
+    if (cluster >= 2 && cluster < FAT16_EOC)
         fat16_free_chain(f->fs, cluster);
 
     f->entry.filesize = new_size;
@@ -1060,7 +1148,7 @@ int fat16_mkdir(fat16_fs_t* fs, uint16_t parent_cluster, const char* name) {
             fat16_dir_entry_t* d = (fat16_dir_entry_t*)sector;
 
             for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
-                if (d[j].name[0] == 0x00 || d[j].name[0] == 0xE5) {
+                if (d[j].name[0] == 0x00 || (uint8_t)d[j].name[0] == 0xE5) {
                     d[j] = dir;
                     ahci_write_sector(fs->portno, fs->root_dir_start + i, sector, 1);
                     return FAT_OK;
@@ -1095,7 +1183,7 @@ static int fat16_dir_is_empty(fat16_fs_t* fs, uint16_t cluster)
                 if (e[i].name[0] == 0x00)
                     return FAT_OK; // end → empty
 
-                if (e[i].name[0] == 0xE5)
+                if ((uint8_t)e[i].name[0] == 0xE5)
                     continue;
 
                 if (fat16_name_eq(e[i].name, ".") ||
@@ -1195,6 +1283,8 @@ int fat16_find_parent(
 
     /* ---------- NO SLASH → current directory ---------- */
     if (!last_slash) {
+        if (strlen(path) >= 13)
+            return FAT_ERR_NOT_FOUND; /* name too long for FAT16 8.3 */
         *out_cluster = FAT16_ROOT_CLUSTER;
         strcpy(out_name, path);
         return FAT_OK;
@@ -1202,6 +1292,8 @@ int fat16_find_parent(
 
     /* ---------- ROOT (/file) ---------- */
     if (last_slash == path) {
+        if (strlen(last_slash + 1) >= 13)
+            return FAT_ERR_NOT_FOUND;
         *out_cluster = 0;
         strcpy(out_name, last_slash + 1);
         return FAT_OK;
@@ -1209,13 +1301,21 @@ int fat16_find_parent(
 
     /* ---------- SUBDIRECTORY ---------- */
     char parent_path[128];
-    int len = last_slash - path;
-    strncpy(parent_path, path, len);
+    size_t len = (size_t)(last_slash - path);
+    if (len >= sizeof(parent_path))
+        return FAT_ERR_NOT_FOUND; /* path too long */
+    if (strlen(last_slash + 1) >= 13)
+        return FAT_ERR_NOT_FOUND; /* final component too long for FAT16 8.3 */
+
+    memcpy(parent_path, path, len);
     parent_path[len] = 0;
 
     fat16_dir_entry_t entry;
     if (fat16_find_path(fs, parent_path, &entry) != 0)
         return FAT_ERR_NOT_FOUND;
+
+    if (!(entry.attr & 0x10))
+        return FAT_ERR_NOT_FOUND; /* parent component is not a directory */
 
     *out_cluster = entry.first_cluster;
     strcpy(out_name, last_slash + 1);
@@ -1254,7 +1354,7 @@ int fat16_delete_entry(fat16_fs_t* fs, uint16_t parent_cluster, const char* name
 
     // Subdirectory
     uint16_t cluster = parent_cluster;
-    while (cluster < FAT16_EOC) {
+    while (cluster >= 2 && cluster < FAT16_EOC) {
         uint32_t lba = fat16_cluster_lba(fs, cluster);
         for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
             ahci_read_sector(fs->portno, lba + s, buf, 1);
@@ -1275,16 +1375,18 @@ int fat16_delete_entry(fat16_fs_t* fs, uint16_t parent_cluster, const char* name
 
 void fat16_unformat_name(const fat16_dir_entry_t* e, char* out) {
     int i = 0;
-    // Copy name
+    // Copy base name (bytes 0-7 of the 11-byte 8.3 field)
     for (int j = 0; j < 8 && e->name[j] != ' '; j++)
         out[i++] = e->name[j];
 
-    // Copy extension if present
-    if (e->ext[0] != ' ') {
+    // Copy extension if present (bytes 8-10 of the same 11-byte field)
+    if (e->name[8] != ' ') {
         out[i++] = '.';
-        for (int j = 0; j < 3 && e->ext[j] != ' '; j++)
-            out[i++] = e->ext[j];
+        for (int j = 8; j < 11 && e->name[j] != ' '; j++)
+            out[i++] = e->name[j];
     }
+    /* i is bounded to at most 8 + 1 + 3 = 12, so out[12] (the NUL) is
+     * always within a 13-byte buffer as used by every call site. */
     out[i] = 0;
 }
 
@@ -1345,6 +1447,9 @@ int fat16_resolve_path(
         int len = 0;
         while (p[len] && p[len] != '/') len++;
 
+        if (len >= (int)sizeof(part))
+            return FAT_ERR_NOT_FOUND; /* component too long for FAT16 8.3 */
+
         memcpy(part, p, len);
         part[len] = 0;
 
@@ -1401,15 +1506,15 @@ int fat16_unlink_path(fat16_fs_t* fs, uint16_t parent_cluster, const char* name)
         uint16_t cluster = e.first_cluster;
         int empty = 1;
 
-        while (cluster < FAT16_EOC && cluster >= 2) {
+        while (cluster >= 2 && cluster < FAT16_EOC) {
             uint32_t lba = fat16_cluster_lba(fs, cluster);
-            for (int s = 0; s < fs->bs.sectors_per_cluster; s++) {
+            for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
                 ahci_read_sector(fs->portno, lba + s, buf, 1);
                 fat16_dir_entry_t* entries = (fat16_dir_entry_t*)buf;
                 for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; i++) {
-                    if (entries[i].name[0] != 0x00 && entries[i].name[0] != 0xE5) {
+                    if (entries[i].name[0] != 0x00 && (uint8_t)entries[i].name[0] != 0xE5) {
                         // skip "." and ".."
-                        if (!(entries[i].name[0] == '.' && (entries[i].name[1] == 0 || entries[i].name[1] == '.')))
+                        if (!(entries[i].name[0] == '.' && (entries[i].name[1] == ' ' || entries[i].name[1] == '.')))
                             empty = 0;
                     }
                 }
@@ -1459,7 +1564,7 @@ int fat16_rmdir(fat16_fs_t* fs, uint16_t dir_cluster)
     uint16_t cluster = dir_cluster;
 
     /* ---------- PASS 1: recurse & free children ---------- */
-    while (cluster < FAT16_EOC) {
+    while (cluster >= 2 && cluster < FAT16_EOC) {
         uint32_t lba = fat16_cluster_lba(fs, cluster);
 
         for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
@@ -1470,7 +1575,7 @@ int fat16_rmdir(fat16_fs_t* fs, uint16_t dir_cluster)
                 if (e[i].name[0] == 0x00)
                     goto pass2;
 
-                if (e[i].name[0] == 0xE5)
+                if ((uint8_t)e[i].name[0] == 0xE5)
                     continue;
 
                 if (fat16_name_eq(e[i].name, ".") ||
@@ -1485,7 +1590,7 @@ int fat16_rmdir(fat16_fs_t* fs, uint16_t dir_cluster)
                 else
                     fat16_free_chain(fs, e[i].first_cluster);
 
-                e[i].name[0] = 0xE5;
+                e[i].name[0] = (char)0xE5;
                 ahci_write_sector(fs->portno, lba + s, buf, 1);
             }
         }
@@ -1497,7 +1602,7 @@ pass2:
     cluster = dir_cluster;
 
     /* ---------- PASS 2: mark entries deleted ---------- */
-    while (cluster < FAT16_EOC) {
+    while (cluster >= 2 && cluster < FAT16_EOC) {
         uint32_t lba = fat16_cluster_lba(fs, cluster);
 
         for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; s++) {
@@ -1512,7 +1617,7 @@ pass2:
                     fat16_name_eq(e[i].name, ".."))
                     continue;
 
-                e[i].name[0] = 0xE5;
+                e[i].name[0] = (char)0xE5;
             }
 
             ahci_write_sector(fs->portno, lba + s, buf, 1);
@@ -1556,7 +1661,7 @@ int fat16_mv(
             ahci_read_sector(fs->portno, fs->root_dir_start + i, buf, 1);
             fat16_dir_entry_t* d = (fat16_dir_entry_t*)buf;
             for (int j = 0; j < DIR_ENTRIES_PER_SECTOR; j++) {
-                if (d[j].name[0] == 0x00 || d[j].name[0] == 0xE5) {
+                if (d[j].name[0] == 0x00 || (uint8_t)d[j].name[0] == 0xE5) {
                     d[j] = new_entry;
                     ahci_write_sector(fs->portno, fs->root_dir_start + i, buf, 1);
                     goto inserted;
