@@ -11,6 +11,7 @@
 #include <algorithms/hashing.h>
 #include <debugger.h>
 #include <stdint.h>
+#include <cc-asm.h>
 
 void init_hashing(void){
     cstring data = "PradoshGame";

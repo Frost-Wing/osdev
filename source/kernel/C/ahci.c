@@ -165,7 +165,6 @@ void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
         switch (sig) {
             case sata_disk:
                 printf("[AHCI] SATA Disk detected on port %d", i);
-                
                 handle_sata_disk(i);
                 break;
             case satapi_disk:
