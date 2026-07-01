@@ -29,11 +29,18 @@ typedef int (*procfs_write_cb)(
     void* priv
 );
 
-/* One proc file entry */
+typedef enum {
+    PROC_FILE,
+    PROC_DIR
+} procfs_type_t;
+
 typedef struct procfs_entry {
-    const char* name;          // "stat", "uptime", etc
-    procfs_read_cb  read;
-    procfs_write_cb write;
+    const char* name;
+    procfs_type_t type;
+
+    int (*read)(vfs_file_t*, uint8_t*, uint32_t, void*);
+    int (*write)(vfs_file_t*, const uint8_t*, uint32_t, void*);
+
     void* priv;
 } procfs_entry_t;
 
@@ -45,6 +52,6 @@ int  procfs_open(vfs_file_t* file);
 int  procfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size);
 int  procfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size);
 void procfs_close(vfs_file_t* file);
-int  procfs_ls(void);
+int procfs_ls(const char* path);
 
 #endif

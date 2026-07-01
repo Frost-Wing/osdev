@@ -14,7 +14,7 @@
 
 #define clean_mode
 
-void meltdown_screen(cstring message, cstring file, int line, int64 error_code, int64 cr2, int64 int_no, InterruptFrame* frame){
+void meltdown_screen(cstring message, cstring file, int line, uint64 error_code, uint64 cr2, uint64 int_no, InterruptFrame* frame){
 #ifndef clean_mode    
     print("\x1b[2J");
     print("\x1b[H");

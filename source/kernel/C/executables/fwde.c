@@ -31,10 +31,10 @@ void process_IFL(InterruptFrame* frame){ // process Invalid FWDE Loading
     hcf2();
 }
 
-void execute_fwde(int64* addr, kernel_data* data){
+void execute_fwde(uint64* addr, kernel_data* data){
     info("Verifying the FrostWing deployed executable!", __FILE__);
 
-    int8* local = (int8*)addr;
+    uint8* local = (uint8*)addr;
 
     fwde_header* header = (fwde_header*)local;
 

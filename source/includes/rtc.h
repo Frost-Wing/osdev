@@ -33,17 +33,17 @@
  * @brief Converts BDC to binary.
  * 
  * @param val The BCD value.
- * @return int8 
+ * @return uint8 
  */
-int8 bcd_to_bin(int8 val);
+uint8 bcd_to_bin(uint8 val);
 
 /**
  * @brief Reads the value from an RTC register.
  * 
  * @param reg The register number
- * @return int8 Value of the Register
+ * @return uint8 Value of the Register
  */
-int8 read_rtc_register(int8 reg);
+uint8 read_rtc_register(uint8 reg);
 
 /**
  * @brief Wait till RTC is responding.
@@ -55,9 +55,9 @@ void wait_rtc_update(void);
  * @brief Reads from a register without tick glitch (more stable)
  * 
  * @param reg 
- * @return int8 
+ * @return uint8 
  */
-int8 rtc_read_stable(int8 reg);
+uint8 rtc_read_stable(uint8 reg);
 
 /**
  * @brief Initializes the main RTC for use.
@@ -75,7 +75,7 @@ void init_rtc(void);
  * @param month 
  * @param year 
  */
-void update_system_time(int8 *second, int8 *minute, int8 *hour, int8 *day, int8 *month, int16 *year);
+void update_system_time(uint8 *second, uint8 *minute, uint8 *hour, uint8 *day, uint8 *month, uint16 *year);
 
 /**
  * @brief Displays time in an neat format.

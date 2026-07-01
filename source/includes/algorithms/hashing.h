@@ -25,16 +25,16 @@ void init_hashing(void);
  * @brief The function to hash an string (const char *)
  * 
  * @param data The string to be hashed.
- * @return [int64] Hashed value.
+ * @return [uint64] Hashed value.
  */
-int64 hash_string(cstring data);
+uint64 hash_string(cstring data);
 
 /**
  * @brief A function to hash a string from BARANIUM ENTERTAINMENT
  * 
  * @param name The string to be hashed.
- * @return [int64] Hashed value
+ * @return [uint64] Hashed value
  */
-int64 baranium_hash(cstring name);
+uint64 baranium_hash(cstring name);
 
 #endif

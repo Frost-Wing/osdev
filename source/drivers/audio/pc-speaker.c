@@ -15,16 +15,16 @@
  * 
  * @param frequency in Hz
  */
-void play_sound(int32 frequency) {
- 	int32 div;
- 	int8 tmp;
+void play_sound(uint32 frequency) {
+ 	uint32 div;
+ 	uint8 tmp;
 
  	div = 1193180 / frequency;
  	outb(0x43, 0xb6);
- 	outb(0x42, (int8) (div) );
- 	outb(0x42, (int8) (div >> 8));
+ 	outb(0x42, (uint8) (div) );
+ 	outb(0x42, (uint8) (div >> 8));
 
- 	tmp = (int8)inb(0x61);
+ 	tmp = (uint8)inb(0x61);
   	if (tmp != (tmp | 3)) {
  		outb(0x61, tmp | 3);
  	}
@@ -35,7 +35,7 @@ void play_sound(int32 frequency) {
  * 
  */
  void mute() {
- 	int8 tmp = (int8)inb(0x61) & 0xFC;
+ 	uint8 tmp = (uint8)inb(0x61) & 0xFC;
  
  	outb(0x61, tmp);
  }

@@ -11,6 +11,7 @@
 #ifndef VFS_H
 #define VFS_H
 
+#include <filesystems/ext2.h>
 #include <stddef.h>
 #include <filesystems/fat16.h>
 #include <filesystems/fat32.h>
@@ -22,6 +23,7 @@ typedef struct vfs_file {
         fat16_file_t fat16;
         fat32_file_t fat32;
         iso9660_file_t iso9660;
+        ext2_file_t ext2;
     } f;
     uint32_t pos; // for virtual files only, must not be used for real fs
     int flags;
@@ -42,6 +44,8 @@ typedef struct {
 #define VFS_CREATE  0x0100
 #define VFS_TRUNC   0x0200
 #define VFS_APPEND  0x0400
+
+#define VFS_FILE_ROOT_DIR (1 << 0)
 
 
 // Current working directory
@@ -79,6 +83,16 @@ int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size);
  * @param file Pointer to file
  */
 void vfs_close(vfs_file_t* file);
+
+/**
+ * @brief Checks whether a given path exists and is a directory,
+ *        without changing the current working directory.
+ *
+ * @param path Path to check (absolute or relative to vfs_cwd)
+ * @return 1 if it exists and is a directory, 0 if it doesn't exist
+ *         or isn't a directory, negative on error.
+ */
+int vfs_path_is_dir(const char* path);;
 
 /**
  * @brief List files and directories at path

@@ -26,7 +26,7 @@
 extern cstring display_adapter_name;
 extern cstring GPUName[2]; //Max 2 GPUs allowed
 extern cstring using_graphics_card;
-extern int64* graphics_base_Address;
+extern uint64* graphics_base_Address;
 extern int total_devices;
 
 // Define the base address for the PCI configuration space
@@ -36,9 +36,9 @@ extern int total_devices;
 typedef void (*pci_probe_fn)(uint8_t bus, uint8_t slot, uint8_t function);
 
 typedef struct {
-    int16 bus;
-    int16 slot;
-    int16 func;
+    uint16 bus;
+    uint16 slot;
+    uint16 func;
 } pci_location_t;
 
 /**
@@ -53,7 +53,7 @@ typedef struct {
  * @param offset The offset within the PCI configuration register to read.
  * @return The 16-bit value read from the specified PCI configuration register.
  */
-int16 pci_read_word(int16 bus, int16 slot, int16 func, int16 offset);
+uint16 pci_read_word(uint16 bus, uint16 slot, uint16 func, uint16 offset);
 
 /**
  * @brief Gets the Vendor ID from PCI
@@ -61,9 +61,9 @@ int16 pci_read_word(int16 bus, int16 slot, int16 func, int16 offset);
  * @param bus 
  * @param device 
  * @param function 
- * @return int16 Vendor ID
+ * @return uint16 Vendor ID
  */
-int16 getVendorID(int16 bus, int16 device, int16 function);
+uint16 getVendorID(uint16 bus, uint16 device, uint16 function);
 
 /**
  * @brief Gets the Device ID from PCI
@@ -71,9 +71,9 @@ int16 getVendorID(int16 bus, int16 device, int16 function);
  * @param bus 
  * @param device 
  * @param function 
- * @return int16  Device ID
+ * @return uint16  Device ID
  */
-int16 getDeviceID(int16 bus, int16 device, int16 function);
+uint16 getDeviceID(uint16 bus, uint16 device, uint16 function);
 
 /**
  * @brief Gets the Class ID from PCI
@@ -81,9 +81,9 @@ int16 getDeviceID(int16 bus, int16 device, int16 function);
  * @param bus 
  * @param device 
  * @param function 
- * @return int16 Class ID
+ * @return uint16 Class ID
  */
-int16 getClassId(int16 bus, int16 device, int16 function);
+uint16 getClassId(uint16 bus, uint16 device, uint16 function);
 
 /**
  * @brief Gets the Sub-class ID from PCI
@@ -91,11 +91,11 @@ int16 getClassId(int16 bus, int16 device, int16 function);
  * @param bus 
  * @param device 
  * @param function 
- * @return int16 Sub-class ID
+ * @return uint16 Sub-class ID
  */
-int16 getSubClassId(int16 bus, int16 device, int16 function);
-int8 getRevision(int16 bus, int16 slot, int16 func);
-int8 getProgIF(int16 bus, int16 device, int16 function);
+uint16 getSubClassId(uint16 bus, uint16 device, uint16 function);
+uint8 getRevision(uint16 bus, uint16 slot, uint16 func);
+uint8 getProgIF(uint16 bus, uint16 device, uint16 function);
 
 /**
  * @brief Scans (Probes) PCI Devices
@@ -111,10 +111,10 @@ void print_lspci(void);
  * @param slot 
  * @param func 
  * @param offset 
- * @return int32 
+ * @return uint32 
  */
-int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset);
-void pci_config_write_dword(int8 bus, int8 slot, int8 func, int8 offset, uint32_t value);
+uint32 pci_config_read_dword(uint8 bus, uint8 slot, uint8 func, uint8 offset);
+void pci_config_write_dword(uint8 bus, uint8 slot, uint8 func, uint8 offset, uint32_t value);
 
 /**
  * @brief Gets the AHCI bar address
@@ -123,8 +123,15 @@ void pci_config_write_dword(int8 bus, int8 slot, int8 func, int8 offset, uint32_
  * @param slot The PCI slot number.
  * @param func The PCI function number.
  * @param bar_num The Base Address Register Number.
- * @return int32 
+ * @return uint32 
  */
-int32 get_ahci_bar_address(int8 bus, int slot, int func, int bar_num);
+uint32 get_ahci_bar_address(uint8 bus, int slot, int func, int bar_num);
+
+/**
+ * @brief Registers the PCI devices into the procfs.
+ * 
+ * @return int 0 always
+ */
+int proc_pci_register();
 
 #endif

@@ -42,7 +42,7 @@ void init_hardware_abstraction_layer(void) {
  * @param port  The 16-bit I/O port number.
  * @param value The 8-bit value to be sent to the port.
  */
-void outb(int16 port, int8 value){
+void outb(uint16 port, uint8 value){
     #if defined (__x86_64__)
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
     #endif
@@ -56,9 +56,9 @@ void outb(int16 port, int8 value){
  * @param port The 16-bit I/O port number.
  * @return    The 8-bit value read from the port.
  */
-int8 inb(int16 port){
+uint8 inb(uint16 port){
     #if defined (__x86_64__)
-    int8 returnVal;
+    uint8 returnVal;
     __asm__ volatile ("inb %1, %0" : "=a"(returnVal) : "Nd"(port));
     return returnVal;
     #endif
@@ -74,7 +74,7 @@ int8 inb(int16 port){
  * @param portNumber The 16-bit I/O port number.
  * @param data       The 16-bit value to be sent to the port.
  */
-void outw(int16 portNumber, int16 data) {
+void outw(uint16 portNumber, uint16 data) {
     #if defined (__x86_64__)
     __asm__ volatile("outw %0, %1" : : "a"(data), "Nd"(portNumber));
     #endif
@@ -100,9 +100,9 @@ void io_wait(void){
  * @param portNumber The 16-bit I/O port number.
  * @return           The 16-bit value read from the port.
  */
-int16 inw(int16 portNumber) {
+uint16 inw(uint16 portNumber) {
     #if defined (__x86_64__)
-    int16 data;
+    uint16 data;
     __asm__ volatile("inw %1, %0" : "=a"(data) : "Nd"(portNumber));
     return data;
     #endif
@@ -118,9 +118,9 @@ int16 inw(int16 portNumber) {
  * @param portNumber The 16-bit I/O port number.
  * @return           The 32-bit value read from the port.
  */
-int32 inl(int16 portNumber) {
+uint32 inl(uint16 portNumber) {
     #if defined (__x86_64__)
-    int32 data;
+    uint32 data;
     __asm__ volatile("inl %1, %0" : "=a"(data) : "Nd"(portNumber));
     return data;
     #endif
@@ -136,7 +136,7 @@ int32 inl(int16 portNumber) {
  * @param portNumber The 16-bit I/O port number.
  * @param data       The 32-bit value to be sent to the port.
  */
-void outl(int16 portNumber, int32 data) {
+void outl(uint16 portNumber, uint32 data) {
     #if defined (__x86_64__)
     __asm__ volatile("outl %0, %1" : : "a"(data), "Nd"(portNumber));
     #endif

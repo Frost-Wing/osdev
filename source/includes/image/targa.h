@@ -20,18 +20,18 @@
  * 
  */
 typedef struct {
-    int8  idLength;
-    int8  colorMapType;
-    int8  imageType;
-    int16 colorMapOrigin;
-    int16 colorMapLength;
-    // int8  colorMapDepth;
-    int16 xOrigin;
-    int16 yOrigin;
-    int16 width;
-    int16 height;
-    int8  bpp;
-    int8  imageDescriptor;
+    uint8  idLength;
+    uint8  colorMapType;
+    uint8  imageType;
+    uint16 colorMapOrigin;
+    uint16 colorMapLength;
+    // uint8  colorMapDepth;
+    uint16 xOrigin;
+    uint16 yOrigin;
+    uint16 width;
+    uint16 height;
+    uint8  bpp;
+    uint8  imageDescriptor;
 } targa_header;
 
 /**
@@ -39,6 +39,6 @@ typedef struct {
  * 
  * @param targa_pointer The memory address pointer where the targa is loaded.
  */
-void decode_targa_image(const int64* targa_pointer, uvec2 position, int64 width, int64 height);
+void decode_targa_image(const uint64* targa_pointer, uvec2 position, uint64 width, uint64 height);
 
 #endif

@@ -125,10 +125,19 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
 
         bool bootable = gpt_is_uefi_bootable(p);
 
-        partition_fs_type_t fs_type = detect_fat_type_enum(bs);
-        if (fs_type == FS_UNKNOWN && start <= 0xFFFFFFFFULL &&
-            iso9660_detect_at_lba(portno, (uint32_t)start))
-            fs_type = FS_ISO9660;
+        partition_fs_type_t fs_type = FS_UNKNOWN;
+
+        fs_type = detect_fat_type_enum(bs);
+
+        if (fs_type == FS_UNKNOWN)
+            fs_type = detect_ext2_type_enum(portno, start);
+
+        if (fs_type == FS_UNKNOWN)
+        {
+            if (start <= 0xFFFFFFFFULL &&
+                iso9660_detect_at_lba(portno, (uint32_t)start))
+                fs_type = FS_ISO9660;
+        }
 
         char part_name[64];
         snprintf(part_name, sizeof(part_name), "%sp%u", dev_name ? dev_name : "disk", disk->partition_count);
@@ -138,7 +147,7 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
             start,
             end,
             end - start + 1,
-            (int64)portno,
+            (uint64)portno,
             bootable,
             fs_type,
             part_name,

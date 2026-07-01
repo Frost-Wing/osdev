@@ -133,7 +133,7 @@ void registers_dump(void){
     return;
 }
 
-void* allocate_memory_at_address(int64 phys_addr, size_t size) {
+void* allocate_memory_at_address(uint64 phys_addr, size_t size) {
     if (phys_addr <= 0 || size == 0 || (uint64_t)phys_addr > UINT64_MAX - size) {
         error("Invalid memory block requested!", __FILE__);
         return null;

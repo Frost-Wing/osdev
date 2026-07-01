@@ -54,13 +54,13 @@
  * @brief The memory address where the kernel starts.
  * 
  */
-extern int8 kstart[];
+extern uint8 kstart[];
 
 /**
  * @brief The memory address where the kernel ends.
  * 
  */
-extern int8 kend[];
+extern uint8 kend[];
 
 /**
  * @brief An integer value which stores terminal's rows
@@ -78,15 +78,15 @@ extern int terminal_columns;
  * @brief An integer value which stores the framebuffer's (display) width
  * 
  */
-extern int64 fb_width;
+extern uint64 fb_width;
 
 /**
  * @brief An integer value which stores the framebuffer's (display) height
  * 
  */
-extern int64 fb_height;
+extern uint64 fb_height;
 
-extern int64* wm_addr;
+extern uint64* wm_addr;
 
 /**
  * @brief The main kernel function

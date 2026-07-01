@@ -16,7 +16,7 @@
  * 
  * @param frequency in Hz
  */
-void play_sound(int32 frequency);
+void play_sound(uint32 frequency);
 
 /**
  * @brief Mutes the PC Speaker temporaily 

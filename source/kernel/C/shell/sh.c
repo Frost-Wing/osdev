@@ -109,7 +109,7 @@ void welcome_message(void){
            hour, minute, second, day, month, year);
 }
 
-extern int64* wm_addr;
+extern uint64* wm_addr;
 
 void start_window_manager(void){
     void* file_addr = wm_addr;

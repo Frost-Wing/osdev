@@ -34,6 +34,7 @@ static uint32_t* elf_vfs_pos_ptr(vfs_file_t* file)
         case FS_FAT12:
         case FS_EXFAT:
         case FS_EXT2:
+            return &file->f.ext2.pos;
         case FS_EXT3:
         case FS_EXT4:
         case FS_XFS:
@@ -600,7 +601,7 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
         return NULL;
     }
 
-    uint32_t size = 0;
+    uint64_t size = 0;
     switch (file.mnt->type) {
         case FS_FAT16:
             size = file.f.fat16.entry.filesize;
@@ -615,6 +616,8 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
         case FS_FAT12:
         case FS_EXFAT:
         case FS_EXT2:
+            size = ((uint64_t)file.f.ext2.inode.i_size_high << 32) | file.f.ext2.inode.i_size;
+            break;
         case FS_EXT3:
         case FS_EXT4:
         case FS_XFS:
