@@ -10,6 +10,7 @@
  */
 #include <graphics.h>
 #include <opengl/glbackend.h>
+#include <ringbuffer.h>
 
 extern struct flanterm_context* ft_ctx;
 static stream_t printf_stream;
@@ -115,7 +116,10 @@ void putc(char c){
     vputc(c);
 }
 
+extern ring_buffer_t klog_rb;
 void vputc(char c) {
+    rb_push_overwrite(&klog_rb, &c);
+
     stream_putc(printf_stream, c);
 }
 
