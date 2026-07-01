@@ -1705,3 +1705,19 @@ inserted:
 
     return FAT_OK;
 }
+
+int fat16_sync(fat16_fs_t *fs)
+{
+    if (!fs)
+        return -1;
+
+    /*
+     * Future work:
+     *  - Flush FAT cache
+     *  - Flush directory cache
+     *  - Flush data block cache
+     *  - Issue ATA FLUSH CACHE if supported
+     */
+
+    return 0;
+}

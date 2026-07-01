@@ -14,6 +14,7 @@
 #include <strings.h>
 #include <basics.h>
 #include <graphics.h>
+#include <memory.h>
 
 /* ========================== */
 /*  LOW LEVEL DISK WRAPPERS   */
@@ -347,6 +348,8 @@ int fat32_write(fat32_file_t* f, const void* buf, uint32_t len) {
     if (f->pos > f->entry.file_size)
         f->entry.file_size = f->pos;
 
+    f->dirty = true;
+
     kfree(clbuf);
     return done;
 }
@@ -355,8 +358,14 @@ int fat32_write(fat32_file_t* f, const void* buf, uint32_t len) {
 /*  CLOSE                     */
 /* ========================== */
 
-void fat32_close(fat32_file_t* f) {
-    if (f) memset(f, 0, sizeof(*f));
+void fat32_close(fat32_file_t* f)
+{
+    if (!f)
+        return;
+
+    fat32_sync(f);
+
+    memset(f, 0, sizeof(*f));
 }
 
 void fat32_list_root(fat32_fs_t* fs)
@@ -949,5 +958,20 @@ int fat32_rmdir(fat32_fs_t* fs, uint32_t cluster)
     }
 
     fat32_free_chain(fs, cluster);
+    return FAT_OK;
+}
+
+int fat32_sync(fat32_file_t* f)
+{
+    if (!f || !f->fs)
+        return FAT_ERR_INVALID;
+
+    if (!f->dirty)
+        return FAT_OK;
+
+    fat32_update_entry(f->fs, &f->entry);
+
+    f->dirty = false;
+
     return FAT_OK;
 }

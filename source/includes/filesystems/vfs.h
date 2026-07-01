@@ -153,4 +153,6 @@ int vfs_normalize_path(const char* in, char* out, size_t out_sz);
 
 int vfs_resolve_mount(const char* path, vfs_mount_res_t* out);
 
+int vfs_sync(void);
+
 #endif // VFS_H

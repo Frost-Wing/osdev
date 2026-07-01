@@ -123,4 +123,15 @@ int fat16_resolve_path(
     uint16_t* out_cluster      // result cluster
 );
 void fat16_unformat_name(const fat16_dir_entry_t* e, char* out);
+
+/**
+ * @brief Flush all pending FAT16 writes to disk.
+ *
+ * Since FrostWing currently performs synchronous writes,
+ * all filesystem metadata and data are already committed.
+ *
+ * @param fs FAT16 filesystem.
+ * @return 0 on success.
+ */
+int fat16_sync(fat16_fs_t *fs);
 #endif

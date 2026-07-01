@@ -21,6 +21,7 @@
 #include <filesystems/ext2.h>
 #include <graphics.h>
 #include <strings.h>
+#include <memory.h>
 
 #define EXT2_MAX_BLOCK_SIZE 4096U
 #define EXT2_PTRS_PER_BLOCK_MAX (EXT2_MAX_BLOCK_SIZE / 4)
@@ -1438,6 +1439,33 @@ int ext2_rename(ext2_fs_t* fs, const char* src_path, const char* dst_path) {
         ext2_write_inode(fs, src_parent_ino, &src_parent);
         ext2_write_inode(fs, dst_parent_ino, &dst_parent);
     }
+
+    return EXT2_OK;
+}
+
+int ext2_sync(ext2_fs_t *fs)
+{
+    if (!fs)
+        return EXT2_ERR_INVAL;
+
+    /*
+     * If, for some reason, the superblock is still marked dirty,
+     * commit it now.
+     */
+    if (fs->sb_dirty) {
+        int rc = ext2_write_superblock(fs);
+        if (rc != EXT2_OK)
+            return rc;
+    }
+
+    /*
+     * Future:
+     *  - Flush inode cache
+     *  - Flush block cache
+     *  - Flush bitmap cache
+     *  - Flush directory cache
+     *  - ATA FLUSH CACHE
+     */
 
     return EXT2_OK;
 }

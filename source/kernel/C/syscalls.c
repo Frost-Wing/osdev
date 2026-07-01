@@ -988,6 +988,69 @@ static uint64 sys_nanosleep(const linux_timespec_t* req, linux_timespec_t* rem) 
     return 0;
 }
 
+int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg)
+{
+    (void)arg;
+
+    if (magic1 != 0xfee1dead)
+        return -LINUX_EINVAL;
+
+    switch (magic2)
+    {
+        case 672274793:
+        case 85072278:
+        case 369367448:
+        case 537993216:
+            break;
+        default:
+            return -LINUX_EINVAL;
+    }
+
+    switch (cmd)
+    {
+        case 0x01234567:      /* RESTART */
+            reboot();
+            break;
+
+        case 0x4321FEDC:      /* POWER_OFF */
+            shutdown();
+            break;
+
+        case 0xCDEF0123:      /* HALT */
+            hcf();
+            break;
+
+        default:
+            return -LINUX_EINVAL;
+    }
+
+    /* Should never return */
+    return 0;
+}
+
+int sys_kill(int pid, int sig)
+{
+    if (pid == 1)
+    {
+        switch (sig)
+        {
+            case SIGTERM:
+            case SIGINT:
+                reboot();
+                break;
+
+            case SIGKILL:
+                shutdown();
+                break;
+        }
+
+        return 0;
+    }
+
+    /* normal process killing */
+    return 0; // process_kill(pid, sig)
+}
+
 /**
  * @brief Linux-compatible mmap wrapper backed by the kernel's anonymous mapper.
  *
@@ -1492,6 +1555,21 @@ uint64_t syscall_dispatch (
 
         case LINUX_SYS_STATX:
             return sys_statx((int)arg1, (const char*)arg2, (int)arg3, (unsigned int)arg4, (linux_statx_t*)arg5);
+
+        case LINUX_SYS_SYNC: // sync
+            return vfs_sync();
+
+        case LINUX_SYS_KILL:
+            return sys_kill((int)arg1, (int)arg2);
+
+        case LINUX_SYS_REBOOT:
+            return sys_reboot(
+                (int)arg1,
+                (int)arg2,
+                (unsigned int)arg3,
+                (void*)arg4
+            );
+            return 1;
 
         case PRAD_MAGIC:
             info("Alive from userland", __FILE__);

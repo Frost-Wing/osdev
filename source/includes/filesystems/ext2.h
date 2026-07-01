@@ -243,4 +243,19 @@ int ext2_truncate(ext2_fs_t* fs, ext2_file_t* f);
 
 int ext2_find_in_dir(ext2_fs_t* fs, uint32_t dir_ino, const char* name, uint32_t* out_ino, uint8_t* out_type);
 
+/**
+ * @brief Flush all pending EXT2 filesystem writes.
+ *
+ * FrostWing's EXT2 implementation performs synchronous writes for
+ * all metadata and file data, so there are currently no dirty buffers
+ * to flush.
+ *
+ * Future implementations with block caches or delayed allocation
+ * should flush those here before returning.
+ *
+ * @param fs Mounted EXT2 filesystem.
+ * @return EXT2_OK on success.
+ */
+int ext2_sync(ext2_fs_t *fs);
+
 #endif /* EXT2_H */

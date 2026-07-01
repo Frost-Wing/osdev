@@ -140,6 +140,7 @@ typedef struct {
 
     uint32_t parent_cluster;
     uint8_t is_dir;
+    uint8_t dirty;
 } fat32_file_t;
 
 uint32_t fat32_read_fat(fat32_fs_t* fs, uint32_t cluster);
@@ -184,4 +185,5 @@ int fat32_mv(fat32_fs_t* fs, const char* src, const char* dst);
 int fat32_delete_entry(fat32_fs_t* fs, uint32_t dir_cluster, const char* name);
 int fat32_rmdir(fat32_fs_t* fs, uint32_t dir_cluster);
 
+int fat32_sync(fat32_file_t* f);
 #endif

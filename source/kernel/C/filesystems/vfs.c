@@ -1042,3 +1042,35 @@ const char* vfs_basename(const char* path) {
     }
     return last;
 }
+
+int vfs_sync(void)
+{
+    int ret = 0;
+
+    for (int i = 0; i < mounted_partition_count; i++) {
+        mount_entry_t *mnt = &mounted_partitions[i];
+
+        switch (mnt->type) {
+
+        case FS_FAT16:
+            ret |= fat16_sync((fat16_fs_t*)mnt->fs);
+            break;
+
+        case FS_FAT32:
+            ret |= fat32_sync((fat32_fs_t*)mnt->fs);
+            break;
+
+        case FS_EXT2:
+            ret |= ext2_sync((ext2_fs_t*)mnt->fs);
+            break;
+
+        case FS_ISO9660:
+        case FS_PROC:
+        case FS_DEV:
+            break;
+        }
+    }
+
+    debug_printf("sync has been called!");
+    return ret;
+}
