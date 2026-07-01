@@ -45,6 +45,22 @@ int rb_push(ring_buffer_t* rb, const void* data)
     return 0;
 }
 
+int rb_push_overwrite(ring_buffer_t* rb, const void* data)
+{
+    if (rb_full(rb)) {
+        rb->tail = (rb->tail + 1) % rb->capacity;
+        rb->count--;
+    }
+
+    uint8_t* dest = rb->buffer + (rb->head * rb->elem_size);
+    memcpy(dest, data, rb->elem_size);
+
+    rb->head = (rb->head + 1) % rb->capacity;
+    rb->count++;
+
+    return 0;
+}
+
 int rb_pop(ring_buffer_t* rb, void* out)
 {
     if (rb_empty(rb))
