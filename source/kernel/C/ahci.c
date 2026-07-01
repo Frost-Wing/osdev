@@ -217,7 +217,7 @@ void handle_satapi_disk(int portno) {
             0,
             total_sectors_512 > 0 ? (uint64)(total_sectors_512 - 1U) : (uint64)0,
             (uint64)total_sectors_512,
-            (uint64)ahci_disks[portno].logical_device,
+            (uint64)portno,
             false,
             FS_ISO9660,
             part_name,
@@ -711,9 +711,13 @@ out:
 }
 
 int ahci_read_sector(int portno, uint64_t lba, void* buffer, uint32_t count)
-{
-    if (global_ahci_ctrl && global_ahci_ctrl->ports[portno].sig == satapi_disk)
+{   
+    if (!global_ahci_ctrl || portno < 0 || portno >= 32)
+        return -1;
+
+    if (global_ahci_ctrl->ports[portno].sig == satapi_disk)
         return ahci_read_satapi_sector_raw(portno, lba, buffer, count);
+    
     return block_read_sector(portno, lba, buffer, count);
 }
 

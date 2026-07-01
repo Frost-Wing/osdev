@@ -25,6 +25,7 @@
 #include <filesystems/fat16.h>
 #include <filesystems/fat32.h>
 #include <filesystems/iso9660.h>
+#include <filesystems/ext2.h>
 
 #include <executables/elf.h>
 #include <ahci.h>
@@ -32,6 +33,7 @@
 #include <heap.h>
 #include <tty.h>
 #include <multitasking.h>
+#include <cc-asm.h>
 
 // sys headers
 #include <sys/dirent.h>
