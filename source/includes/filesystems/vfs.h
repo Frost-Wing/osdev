@@ -151,4 +151,6 @@ const char* vfs_getcwd(void);
 const char* vfs_basename(const char* path);
 int vfs_normalize_path(const char* in, char* out, size_t out_sz);
 
+int vfs_resolve_mount(const char* path, vfs_mount_res_t* out);
+
 #endif // VFS_H

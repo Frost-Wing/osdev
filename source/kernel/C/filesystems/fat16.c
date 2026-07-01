@@ -10,6 +10,8 @@
  */
 
 #include <filesystems/fat16.h>
+#include <memory.h>
+#include <debugger.h>
 #include <strings.h>
 
 typedef struct {
