@@ -44,7 +44,7 @@
 #include <sys/helper.h>
 
 extern struct limine_framebuffer *framebuffer;
-extern int64* font_address;
+extern uint64* font_address;
 
 extern int execute_chain(const char* line);
 
@@ -306,7 +306,7 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t* info) {
     return true;
 }
 
-static int64 copy_readlink_result(const char* target, char* buf, uint64_t bufsiz) {
+static uint64 copy_readlink_result(const char* target, char* buf, uint64_t bufsiz) {
     if (!target || !buf || bufsiz == 0)
         return -LINUX_EINVAL;
 
@@ -314,7 +314,7 @@ static int64 copy_readlink_result(const char* target, char* buf, uint64_t bufsiz
     if (len > bufsiz)
         len = bufsiz;
     memcpy(buf, target, len);
-    return (int64)len;
+    return (uint64)len;
 }
 
 static void record_exec_context(const char* target, char* const* argv) {
@@ -416,6 +416,30 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
 
     uint64_t used = 0;
     uint64_t entry_index = *pos;
+
+    if (file->flags & VFS_FILE_ROOT_DIR) {
+        uint64_t idx = 0;
+
+        for (int i = 1; i < mounted_partition_count; i++) {
+            if (idx++ < entry_index)
+                continue;
+
+            mount_entry_t* m = &mounted_partitions[i];
+            const char* name = vfs_basename(m->mount_point);
+
+            if (!emit_dirent(
+                    buf,
+                    buflen,
+                    &used,
+                    path_inode_hash(m->mount_point),
+                    4, // DT_DIR
+                    name,
+                    idx))
+                break;
+
+            *pos = (uint32_t)idx;
+        }
+    }
 
     if (file->mnt->type == FS_PROC) {
         static const char* proc_entries[PROC_FILE_COUNT] = {"stat", "heap", "meminfo"};
@@ -606,7 +630,7 @@ iso_done:
     return -LINUX_ENOTDIR;
 }
 
-static int64 sys_open_common(int dirfd, const char* path, int flags, int mode) {
+static uint64 sys_open_common(int dirfd, const char* path, int flags, int mode) {
     (void)mode;
 
     if (path == NULL)
@@ -627,14 +651,14 @@ static int64 sys_open_common(int dirfd, const char* path, int flags, int mode) {
     return fd;
 }
 
-static int64 sys_close(uint64_t fd) {
+static uint64 sys_close(uint64_t fd) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
     return fd_close((int)fd) == 0 ? 0 : -LINUX_EBADF;
 }
 
-static int64 sys_fstat(uint64_t fd, linux_stat_t* st) {
+static uint64 sys_fstat(uint64_t fd, linux_stat_t* st) {
     vfs_stat_info_t info;
     if (!st)
         return -LINUX_EINVAL;
@@ -644,7 +668,7 @@ static int64 sys_fstat(uint64_t fd, linux_stat_t* st) {
     return 0;
 }
 
-static int64 sys_stat(const char* path, linux_stat_t* st) {
+static uint64 sys_stat(const char* path, linux_stat_t* st) {
     if (!path || !st)
         return -LINUX_EINVAL;
 
@@ -656,7 +680,7 @@ static int64 sys_stat(const char* path, linux_stat_t* st) {
     return 0;
 }
 
-static int64 sys_newfstatat(int dirfd, const char* path, linux_stat_t* st, int flags) {
+static uint64 sys_newfstatat(int dirfd, const char* path, linux_stat_t* st, int flags) {
     (void)flags;
     if (!st)
         return -LINUX_EINVAL;
@@ -675,12 +699,12 @@ static int64 sys_newfstatat(int dirfd, const char* path, linux_stat_t* st, int f
     return 0;
 }
 
-static int64 sys_statx(int dirfd, const char* path, int flags, unsigned int mask, linux_statx_t* stx) {
+static uint64 sys_statx(int dirfd, const char* path, int flags, unsigned int mask, linux_statx_t* stx) {
     (void)mask;
     linux_stat_t st;
     if (!stx)
         return -LINUX_EINVAL;
-    int64 rc = sys_newfstatat(dirfd, path, &st, flags);
+    uint64 rc = sys_newfstatat(dirfd, path, &st, flags);
     if (rc < 0)
         return rc;
 
@@ -696,7 +720,7 @@ static int64 sys_statx(int dirfd, const char* path, int flags, unsigned int mask
     return 0;
 }
 
-static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
+static uint64 sys_read(uint64_t fd, char* buf, uint64_t count) {
     if (buf == NULL || count == 0)
         return 0;
 
@@ -718,7 +742,7 @@ static int64 sys_read(uint64_t fd, char* buf, uint64_t count) {
     return rd;
 }
 
-static int64 sys_write(uint64_t fd, const char* buf, uint64_t count) {
+static uint64 sys_write(uint64_t fd, const char* buf, uint64_t count) {
     if (buf == NULL || count == 0)
         return 0;
 
@@ -733,7 +757,7 @@ static int64 sys_write(uint64_t fd, const char* buf, uint64_t count) {
     if (file == NULL) {
         for (uint64_t i = 0; i < count; ++i)
             putc(buf[i]);
-        return (int64)count;
+        return (uint64)count;
     }
 
     int wr = vfs_write(file, (const uint8_t*)buf, (uint32_t)count);
@@ -743,13 +767,13 @@ static int64 sys_write(uint64_t fd, const char* buf, uint64_t count) {
     return wr;
 }
 
-static int64 sys_writev(uint64_t fd, const linux_iovec_t* iov, uint64_t iovcnt) {
+static uint64 sys_writev(uint64_t fd, const linux_iovec_t* iov, uint64_t iovcnt) {
     if (iov == NULL)
         return -LINUX_EINVAL;
 
-    int64 total = 0;
+    uint64 total = 0;
     for (uint64_t i = 0; i < iovcnt; ++i) {
-        int64 written = sys_write(fd, (const char*)iov[i].iov_base, iov[i].iov_len);
+        uint64 written = sys_write(fd, (const char*)iov[i].iov_base, iov[i].iov_len);
         if (written < 0)
             return written;
         total += written;
@@ -758,7 +782,7 @@ static int64 sys_writev(uint64_t fd, const linux_iovec_t* iov, uint64_t iovcnt) 
     return total;
 }
 
-static int64 sys_socket(uint64_t domain, uint64_t type, uint64_t protocol) {
+static uint64 sys_socket(uint64_t domain, uint64_t type, uint64_t protocol) {
     (void)type;
     (void)protocol;
 
@@ -769,7 +793,7 @@ static int64 sys_socket(uint64_t domain, uint64_t type, uint64_t protocol) {
     return -LINUX_EAFNOSUPPORT;
 }
 
-static int64 sys_connect(uint64_t fd, const void* addr, uint64_t addrlen) {
+static uint64 sys_connect(uint64_t fd, const void* addr, uint64_t addrlen) {
     (void)addr;
     (void)addrlen;
 
@@ -778,7 +802,7 @@ static int64 sys_connect(uint64_t fd, const void* addr, uint64_t addrlen) {
     return -LINUX_ENOTSOCK;
 }
 
-static int64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
+static uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
@@ -816,7 +840,7 @@ static int64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
     }
 }
 
-static int64 sys_fcntl(uint64_t fd, uint64_t cmd, uint64_t arg) {
+static uint64 sys_fcntl(uint64_t fd, uint64_t cmd, uint64_t arg) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
@@ -842,7 +866,7 @@ static int64 sys_fcntl(uint64_t fd, uint64_t cmd, uint64_t arg) {
     }
 }
 
-static int64 sys_access_common(int dirfd, const char* path, int mode) {
+static uint64 sys_access_common(int dirfd, const char* path, int mode) {
     (void)mode;
     if (!path)
         return -LINUX_EINVAL;
@@ -850,7 +874,7 @@ static int64 sys_access_common(int dirfd, const char* path, int mode) {
     return fill_vfs_stat_for_path_at(dirfd, path, &info) ? 0 : -LINUX_ENOENT;
 }
 
-static int64 sys_lseek(uint64_t fd, int64_t offset, uint64_t whence) {
+static uint64 sys_lseek(uint64_t fd, int64_t offset, uint64_t whence) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
@@ -881,7 +905,7 @@ static int64 sys_lseek(uint64_t fd, int64_t offset, uint64_t whence) {
     return new_pos;
 }
 
-static int64 sys_dup2(uint64_t oldfd, uint64_t newfd) {
+static uint64 sys_dup2(uint64_t oldfd, uint64_t newfd) {
     if (!fd_valid((int)oldfd))
         return -LINUX_EBADF;
 
@@ -889,10 +913,10 @@ static int64 sys_dup2(uint64_t oldfd, uint64_t newfd) {
         return -LINUX_EBADF;
 
     int rc = fd_dup2((int)oldfd, (int)newfd);
-    return rc < 0 ? -LINUX_EBADF : (int64)rc;
+    return rc < 0 ? -LINUX_EBADF : (uint64)rc;
 }
 
-static int64 sys_dup(uint64_t oldfd) {
+static uint64 sys_dup(uint64_t oldfd) {
     if (!fd_valid((int)oldfd))
         return -LINUX_EBADF;
 
@@ -900,7 +924,7 @@ static int64 sys_dup(uint64_t oldfd) {
     return newfd < 0 ? -LINUX_ENFILE : newfd;
 }
 
-static int64 sys_getcwd(char* buf, uint64_t size) {
+static uint64 sys_getcwd(char* buf, uint64_t size) {
     const char* cwd = vfs_getcwd();
     if (!buf || size == 0)
         return -LINUX_EINVAL;
@@ -910,10 +934,10 @@ static int64 sys_getcwd(char* buf, uint64_t size) {
         return -LINUX_EINVAL;
 
     memcpy(buf, cwd, len + 1);
-    return (int64)len;
+    return (uint64)len;
 }
 
-static int64 sys_chdir(const char* path) {
+static uint64 sys_chdir(const char* path) {
     if (!path)
         return -LINUX_EINVAL;
 
@@ -924,7 +948,7 @@ static int64 sys_chdir(const char* path) {
     return 0;
 }
 
-static int64 sys_readlinkat(int dirfd, const char* path, char* buf, uint64_t bufsiz) {
+static uint64 sys_readlinkat(int dirfd, const char* path, char* buf, uint64_t bufsiz) {
     if (!path)
         return -LINUX_EINVAL;
 
@@ -938,14 +962,14 @@ static int64 sys_readlinkat(int dirfd, const char* path, char* buf, uint64_t buf
     return -LINUX_ENOENT;
 }
 
-static int64 sys_clock_gettime(uint64_t clockid, linux_timespec_t* tp) {
+static uint64 sys_clock_gettime(uint64_t clockid, linux_timespec_t* tp) {
     if (!tp)
         return -LINUX_EINVAL;
     if (clockid != LINUX_CLOCK_REALTIME && clockid != LINUX_CLOCK_MONOTONIC)
         return -LINUX_EINVAL;
 
-    int8 sec = 0, min = 0, hour = 0, day = 0, month = 0;
-    int16 year = 0;
+    uint8 sec = 0, min = 0, hour = 0, day = 0, month = 0;
+    uint16 year = 0;
     update_system_time(&sec, &min, &hour, &day, &month, &year);
 
     tp->tv_sec = (hour * 3600) + (min * 60) + sec;
@@ -953,7 +977,7 @@ static int64 sys_clock_gettime(uint64_t clockid, linux_timespec_t* tp) {
     return 0;
 }
 
-static int64 sys_nanosleep(const linux_timespec_t* req, linux_timespec_t* rem) {
+static uint64 sys_nanosleep(const linux_timespec_t* req, linux_timespec_t* rem) {
     (void)rem;
     if (!req)
         return -LINUX_EINVAL;
@@ -968,7 +992,7 @@ static int64 sys_nanosleep(const linux_timespec_t* req, linux_timespec_t* rem) {
  * Only anonymous mappings are currently supported. The function enforces
  * Linux argument validation and returns Linux errno values on failure.
  */
-static int64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, uint64_t fd, uint64_t off) {
+static uint64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, uint64_t fd, uint64_t off) {
     (void)addr;
 
     if (length == 0)
@@ -993,7 +1017,7 @@ static int64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t fl
     if (mapped == 0)
         return -LINUX_ENOMEM;
 
-    return (int64)mapped;
+    return (uint64)mapped;
 }
 
 /**
@@ -1003,7 +1027,7 @@ static int64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t fl
  * template, so mprotect is accepted as a successful no-op after validating
  * address, size, and protection mask.
  */
-static int64 sys_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
+static uint64 sys_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
     if (length == 0)
         return 0;
 
@@ -1025,11 +1049,11 @@ static int64 sys_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
     return 0;
 }
 
-static int64 sys_brk(uint64_t requested_break) {
-    return (int64)userland_brk(requested_break);
+static uint64 sys_brk(uint64_t requested_break) {
+    return (uint64)userland_brk(requested_break);
 }
 
-static int64 sys_munmap(uint64_t addr, uint64_t length) {
+static uint64 sys_munmap(uint64_t addr, uint64_t length) {
     if (length == 0)
         return -LINUX_EINVAL;
 
@@ -1048,7 +1072,7 @@ static int64 sys_munmap(uint64_t addr, uint64_t length) {
     return 0;
 }
 
-static int64 sys_arch_prctl(uint64_t code, uint64_t addr) {
+static uint64 sys_arch_prctl(uint64_t code, uint64_t addr) {
     switch (code) {
         case LINUX_ARCH_SET_FS:
             current_fs_base = addr;
@@ -1064,7 +1088,7 @@ static int64 sys_arch_prctl(uint64_t code, uint64_t addr) {
     }
 }
 
-static int64 sys_prlimit64(uint64_t pid, uint64_t resource, const linux_rlimit64_t* new_limit, linux_rlimit64_t* old_limit) {
+static uint64 sys_prlimit64(uint64_t pid, uint64_t resource, const linux_rlimit64_t* new_limit, linux_rlimit64_t* old_limit) {
     (void)resource;
     (void)new_limit;
     if (pid != 0 && pid != 1)
@@ -1076,13 +1100,13 @@ static int64 sys_prlimit64(uint64_t pid, uint64_t resource, const linux_rlimit64
     return 0;
 }
 
-static int64 sys_umask(uint64_t mask) {
+static uint64 sys_umask(uint64_t mask) {
     uint32_t previous = current_umask;
     current_umask = (uint32_t)(mask & 0777U);
-    return (int64)previous;
+    return (uint64)previous;
 }
 
-static int64 sys_tgkill(uint64_t tgid, uint64_t tid, uint64_t sig) {
+static uint64 sys_tgkill(uint64_t tgid, uint64_t tid, uint64_t sig) {
     if (sig == 0)
         return 0;
     if (sig > 64)
@@ -1092,19 +1116,19 @@ static int64 sys_tgkill(uint64_t tgid, uint64_t tid, uint64_t sig) {
     return -LINUX_ENOSYS;
 }
 
-static int64 sys_set_tid_address(uint64_t* tidptr) {
+static uint64 sys_set_tid_address(uint64_t* tidptr) {
     clear_child_tid = tidptr;
     return 1;
 }
 
-static int64 sys_set_robust_list(const void* head, uint64_t len) {
+static uint64 sys_set_robust_list(const void* head, uint64_t len) {
     (void)head;
     if (len != 24)
         return -LINUX_EINVAL;
     return 0;
 }
 
-static int64 sys_getrandom(void* buf, uint64_t buflen, uint64_t flags) {
+static uint64 sys_getrandom(void* buf, uint64_t buflen, uint64_t flags) {
     (void)flags;
     if (!buf)
         return -LINUX_EINVAL;
@@ -1116,10 +1140,10 @@ static int64 sys_getrandom(void* buf, uint64_t buflen, uint64_t flags) {
         state ^= state << 17;
         out[i] = (uint8_t)(state >> (i & 7));
     }
-    return (int64)buflen;
+    return (uint64)buflen;
 }
 
-static int64 sys_execve(const char* target, char* const* argv, char* const* envp) {
+static uint64 sys_execve(const char* target, char* const* argv, char* const* envp) {
     if (!target)
         return -LINUX_EINVAL;
 
@@ -1147,7 +1171,7 @@ static int64 sys_execve(const char* target, char* const* argv, char* const* envp
     return rc >= 0 ? rc : -LINUX_ENOEXEC;
 }
 
-static int64 sys_fork(void) {
+static uint64 sys_fork(void) {
     if (current_exec_path[0] == '\0')
         return -LINUX_ENOSYS;
 
@@ -1164,10 +1188,10 @@ static int64 sys_fork(void) {
     if (!track_fork_child(child))
         return -LINUX_EAGAIN;
 
-    return (int64)child;
+    return (uint64)child;
 }
 
-static int64 sys_wait4(int64_t pid, int* status, int options, void* rusage) {
+static uint64 sys_wait4(int64_t pid, int* status, int options, void* rusage) {
     (void)rusage;
     const int LINUX_WNOHANG = 1;
 
@@ -1195,7 +1219,7 @@ static int64 sys_wait4(int64_t pid, int* status, int options, void* rusage) {
             if (status)
                 *status = (info.exit_code & 0xFF) << 8;
             untrack_child_at(i);
-            return (int64)child;
+            return (uint64)child;
         }
 
         if (!found_any)
@@ -1210,7 +1234,7 @@ static int64 sys_wait4(int64_t pid, int* status, int options, void* rusage) {
 #define FUTEX_WAIT 0
 #define FUTEX_WAKE 1
 
-static int64 sys_futex(uint32_t* uaddr, int op, uint32_t val,
+static uint64 sys_futex(uint32_t* uaddr, int op, uint32_t val,
                        const linux_timespec_t* timeout,
                        uint32_t* uaddr2, uint32_t val3)
 {

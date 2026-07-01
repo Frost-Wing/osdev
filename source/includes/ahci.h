@@ -196,10 +196,10 @@ typedef struct {
     partition_table_type_t table_type;
 
     // Common geometry
-    int64 lba_start;
-    int64 lba_end;
-    int64 sector_count;
-    int64 ahci_port;
+    uint64 lba_start;
+    uint64 lba_end;
+    uint64 sector_count;
+    uint64 ahci_port;
 
     // Bootable?
     bool bootable;
@@ -266,10 +266,10 @@ int block_write_sector(int device_id, uint64_t lba, void* buffer, uint32_t count
 
 general_partition_t* add_general_partition(
     partition_table_type_t table_type,
-    int64 lba_start,
-    int64 lba_end,
-    int64 sector_count,
-    int64 ahci_port,
+    uint64 lba_start,
+    uint64 lba_end,
+    uint64 sector_count,
+    uint64 ahci_port,
     bool bootable,
     partition_fs_type_t fs_type,
     cstring name,

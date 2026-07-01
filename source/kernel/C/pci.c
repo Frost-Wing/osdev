@@ -9,14 +9,24 @@
  * 
  */
 #include <pci.h>
+#include <memory.h>
+#include <filesystems/vfs.h>
+#include <filesystems/layers/proc.h>
 
 int gpu_index = 0;
 int total_devices = 0;
 
+typedef struct {
+    int index;
+} pci_proc_priv_t;
+
+pci_proc_priv_t pci_privs[MAX_PCI_DEVICES];
+procfs_entry_t pci_entries[MAX_PCI_DEVICES];
+
 cstring display_adapter_name = "Frost Generic Display Adapter";
 cstring GPUName[2] = {"Frost Generic Display Driver for Graphics Processing Unit"}; // Max 2 GPUs allowed
 
-int64* graphics_base_Address = null;
+uint64* graphics_base_Address = null;
 cstring using_graphics_card = "unknown";
 
 /**
@@ -26,16 +36,16 @@ cstring using_graphics_card = "unknown";
  * @param slot 
  * @param func 
  * @param offset 
- * @return int32 
+ * @return uint32 
  */
-int32 pci_config_read_dword(int8 bus, int8 slot, int8 func, int8 offset) {
-    int32 address = (int32)((1U << 31) | ((uint32_t)bus << 16) | ((uint32_t)slot << 11) | ((uint32_t)func << 8) | ((uint32_t)offset & 0xFCU));
+uint32 pci_config_read_dword(uint8 bus, uint8 slot, uint8 func, uint8 offset) {
+    uint32 address = (uint32)((1U << 31) | ((uint32_t)bus << 16) | ((uint32_t)slot << 11) | ((uint32_t)func << 8) | ((uint32_t)offset & 0xFCU));
     outl(PCI_CONFIG_ADDRESS, address);
     return inl(PCI_CONFIG_DATA);
 }
 
-void pci_config_write_dword(int8 bus, int8 slot, int8 func, int8 offset, uint32_t value) {
-    int32 address = (int32)((1U << 31) | ((uint32_t)bus << 16) | ((uint32_t)slot << 11) | ((uint32_t)func << 8) | ((uint32_t)offset & 0xFCU));
+void pci_config_write_dword(uint8 bus, uint8 slot, uint8 func, uint8 offset, uint32_t value) {
+    uint32 address = (uint32)((1U << 31) | ((uint32_t)bus << 16) | ((uint32_t)slot << 11) | ((uint32_t)func << 8) | ((uint32_t)offset & 0xFCU));
     outl(PCI_CONFIG_ADDRESS, address);
     outl(PCI_CONFIG_DATA, value);
 }
@@ -47,12 +57,12 @@ void pci_config_write_dword(int8 bus, int8 slot, int8 func, int8 offset, uint32_
  * @param slot The PCI slot number.
  * @param func The PCI function number.
  * @param bar_num The Base Address Register Number.
- * @return int32 
+ * @return uint32 
  */
-int32 get_ahci_bar_address(int8 bus, int slot, int func, int bar_num) {
+uint32 get_ahci_bar_address(uint8 bus, int slot, int func, int bar_num) {
     int bar_offset = 0x10 + (bar_num * 4);
 
-    return pci_config_read_dword(bus, (int8)slot, (int8)func, (int8)bar_offset);
+    return pci_config_read_dword(bus, (uint8)slot, (uint8)func, (uint8)bar_offset);
 }
 
 /**
@@ -67,16 +77,16 @@ int32 get_ahci_bar_address(int8 bus, int slot, int func, int bar_num) {
  * @param offset The offset within the PCI configuration register to read.
  * @return The 16-bit value read from the specified PCI configuration register.
  */
-int16 pci_read_word(int16 bus, int16 slot, int16 func, int16 offset)
+uint16 pci_read_word(uint16 bus, uint16 slot, uint16 func, uint16 offset)
 {
     uint32_t address;
     uint32_t lbus = (uint32_t)bus;
     uint32_t lslot = (uint32_t)slot;
     uint32_t lfunc = (uint32_t)func;
-    int16 tmp = 0;
+    uint16 tmp = 0;
     address = (uint32_t)((lbus << 16) | (lslot << 11) | (lfunc << 8) | ((uint32_t)offset & 0xfcU) | 0x80000000U);
     outl(0xCF8, address);
-    tmp = (int16)((inl(0xCFC) >> ((offset & 2) * 8)) & 0xffff);
+    tmp = (uint16)((inl(0xCFC) >> ((offset & 2) * 8)) & 0xffff);
     return (tmp);
 }
 
@@ -87,12 +97,12 @@ int16 pci_read_word(int16 bus, int16 slot, int16 func, int16 offset)
  * @param bus 
  * @param device 
  * @param function 
- * @return int16 Vendor ID
+ * @return uint16 Vendor ID
  */
-int16 getVendorID(int16 bus, int16 device, int16 function)
+uint16 getVendorID(uint16 bus, uint16 device, uint16 function)
 {
-    int32 r0 = pci_read_word(bus,device,function,0);
-    return (int16)r0;
+    uint32 r0 = pci_read_word(bus,device,function,0);
+    return (uint16)r0;
 }
 
 /**
@@ -101,20 +111,20 @@ int16 getVendorID(int16 bus, int16 device, int16 function)
  * @param bus 
  * @param device 
  * @param function 
- * @return int16  Device ID
+ * @return uint16  Device ID
  */
-int16 getDeviceID(int16 bus, int16 device, int16 function)
+uint16 getDeviceID(uint16 bus, uint16 device, uint16 function)
 {
-    int32 r0 = pci_read_word(bus,device,function,2);
-    return (int16)r0;
+    uint32 r0 = pci_read_word(bus,device,function,2);
+    return (uint16)r0;
 }
 
-int8 getRevision(int16 bus, int16 slot, int16 func) {
-    return (int8)(pci_read_word(bus, slot, func, 0x08) & 0xFFU);
+uint8 getRevision(uint16 bus, uint16 slot, uint16 func) {
+    return (uint8)(pci_read_word(bus, slot, func, 0x08) & 0xFFU);
 }
 
-int8 getProgIF(int16 bus, int16 slot, int16 func) {
-    return (int8)((pci_config_read_dword((int8)bus, (int8)slot, (int8)func, 0x08) >> 8U) & 0xFFU);
+uint8 getProgIF(uint16 bus, uint16 slot, uint16 func) {
+    return (uint8)((pci_config_read_dword((uint8)bus, (uint8)slot, (uint8)func, 0x08) >> 8U) & 0xFFU);
 }
 
 /**
@@ -123,12 +133,12 @@ int8 getProgIF(int16 bus, int16 slot, int16 func) {
  * @param bus 
  * @param device 
  * @param function 
- * @return int16 Class ID
+ * @return uint16 Class ID
  */
-int16 getClassId(int16 bus, int16 device, int16 function)
+uint16 getClassId(uint16 bus, uint16 device, uint16 function)
 {
-    int32 r0 = pci_read_word(bus,device,function,0xA);
-    return (int16)((r0 & 0xFF00U) >> 8U);
+    uint32 r0 = pci_read_word(bus,device,function,0xA);
+    return (uint16)((r0 & 0xFF00U) >> 8U);
 }
 
 /**
@@ -137,25 +147,72 @@ int16 getClassId(int16 bus, int16 device, int16 function)
  * @param bus 
  * @param device 
  * @param function 
- * @return int16 Sub-class ID
+ * @return uint16 Sub-class ID
  */
-int16 getSubClassId(int16 bus, int16 device, int16 function)
+uint16 getSubClassId(uint16 bus, uint16 device, uint16 function)
 {
-    int32 r0 = pci_read_word(bus,device,function,0xA);
-    return (int16)(r0 & 0x00FFU);
+    uint32 r0 = pci_read_word(bus,device,function,0xA);
+    return (uint16)(r0 & 0x00FFU);
 }
+
 
 char vendorNames[MAX_PCI_DEVICES][64];
 char deviceNames[MAX_PCI_DEVICES][64];
 char classNames[MAX_PCI_DEVICES][64];
 
-int16 vendors[MAX_PCI_DEVICES];
-int16 devices[MAX_PCI_DEVICES];
-int16 classes[MAX_PCI_DEVICES];
-int16 subclasses[MAX_PCI_DEVICES];
-int8 revisions[MAX_PCI_DEVICES];
+uint16 vendors[MAX_PCI_DEVICES];
+uint16 devices[MAX_PCI_DEVICES];
+uint16 classes[MAX_PCI_DEVICES];
+uint16 subclasses[MAX_PCI_DEVICES];
+uint8 revisions[MAX_PCI_DEVICES];
 
 pci_location_t pciLocations[MAX_PCI_DEVICES];
+// PROCFS PCI
+int proc_pci_device_read(
+    vfs_file_t* file,
+    uint8_t* buf,
+    uint32_t size,
+    void* priv
+)
+{
+    pci_proc_priv_t* p = priv;
+    int i = p->index;
+
+    char tmp[512];
+
+    int len = snprintf(
+        tmp,
+        sizeof(tmp),
+        "Bus: %02x\n"
+        "Slot: %02x\n"
+        "Function: %x\n"
+        "Vendor: %04x\n"
+        "Device: %04x\n"
+        "Class: %s\n"
+        "Name: %s\n"
+        "Revision: %02x\n",
+        pciLocations[i].bus,
+        pciLocations[i].slot,
+        pciLocations[i].func,
+        vendors[i],
+        devices[i],
+        classNames[i],
+        deviceNames[i],
+        revisions[i]
+    );
+
+    if (file->pos >= (uint32_t)len)
+        return 0;
+
+    uint32_t rem = len - file->pos;
+    if (rem > size)
+        rem = size;
+
+    memcpy(buf, tmp + file->pos, rem);
+    file->pos += rem;
+
+    return rem;
+}
 
 /**
  * @brief Scans (Probes) PCI Devices
@@ -164,19 +221,19 @@ pci_location_t pciLocations[MAX_PCI_DEVICES];
 void probe_pci(void){
     info("Probe has been started!", __FILE__);
     int i = 0;
-    for(int32 bus = 0; bus < 256; bus++)
+    for(uint32 bus = 0; bus < 256; bus++)
     {
-        for(int32 slot = 0; slot < 32; slot++)
+        for(uint32 slot = 0; slot < 32; slot++)
         {
-            for(int32 function = 0; function < 8; function++)
+            for(uint32 function = 0; function < 8; function++)
             {
-                    int16 vendor = getVendorID((int16)bus, (int16)slot, (int16)function);
+                    uint16 vendor = getVendorID((uint16)bus, (uint16)slot, (uint16)function);
                     if(vendor == 0xffff) continue;
-                    int16 device = getDeviceID((int16)bus, (int16)slot, (int16)function);
-                    int16 classid = getClassId((int16)bus, (int16)slot, (int16)function);
-                    int16 subclassid = getSubClassId((int16)bus, (int16)slot, (int16)function);
-                    int16 revision = getRevision((int16)bus, (int16)slot, (int16)function);
-                    int8 prog_if = getProgIF((int16)bus, (int16)slot, (int16)function);
+                    uint16 device = getDeviceID((uint16)bus, (uint16)slot, (uint16)function);
+                    uint16 classid = getClassId((uint16)bus, (uint16)slot, (uint16)function);
+                    uint16 subclassid = getSubClassId((uint16)bus, (uint16)slot, (uint16)function);
+                    uint16 revision = getRevision((uint16)bus, (uint16)slot, (uint16)function);
+                    uint8 prog_if = getProgIF((uint16)bus, (uint16)slot, (uint16)function);
 
                     cstring vendorName  = parse_vendor(vendor);
                     cstring className   = parse_class(classid);
@@ -224,13 +281,13 @@ void probe_pci(void){
                     strncpy(vendorNames[i], vendorName, 63);
                     strncpy(deviceNames[i], deviceName, 63);
                     strncpy(classNames[i],  className,  63);
-                    pciLocations[i] = (pci_location_t){(int16)bus, (int16)slot, (int16)function};
+                    pciLocations[i] = (pci_location_t){(uint16)bus, (uint16)slot, (uint16)function};
 
                     vendors[i] = vendor;
                     devices[i] = device;
                     classes[i] = classid;
                     subclasses[i] = subclassid;
-                    revisions[i] = (int8)revision;
+                    revisions[i] = (uint8)revision;
 
                     vendorNames[i][63] = 0;
                     deviceNames[i][63] = 0;
@@ -243,6 +300,7 @@ void probe_pci(void){
             }
         }
     }
+
     done("Successfully completed probe!", __FILE__);
     done("Successfully saved to a array and verified.", __FILE__);
 
@@ -252,6 +310,73 @@ void probe_pci(void){
     printf("GPU(1) : %s" reset_color,  GPUName[1]);
     printf("Display Adapter : %s", display_adapter_name);
 }
+
+int proc_pci_register() {
+    for (int i = 0; i < total_devices; i++) {
+        static char names[MAX_PCI_DEVICES][32];
+
+        snprintf(
+            names[i],
+            sizeof(names[i]),
+            "pci/%02x:%02x.%x",
+            pciLocations[i].bus,
+            pciLocations[i].slot,
+            pciLocations[i].func
+        );
+
+        pci_privs[i].index = i;
+
+        pci_entries[i].name = names[i];
+        pci_entries[i].type = PROC_FILE;
+        pci_entries[i].read = proc_pci_device_read;
+        pci_entries[i].write = NULL;
+        pci_entries[i].priv = &pci_privs[i];
+
+        procfs_register(&pci_entries[i]);
+    }
+
+    return 0;
+}
+
+int proc_pci_devices_read(
+    vfs_file_t* file,
+    uint8_t* buf,
+    uint32_t size,
+    void* priv
+)
+{
+    (void)priv;
+
+    static char tmp[4096];
+    int len = 0;
+
+    for (int i = 0; i < total_devices; i++) {
+        len += snprintf(
+            tmp + len,
+            sizeof(tmp) - len,
+            "%02x:%02x.%x %04x %04x %s\n",
+            pciLocations[i].bus,
+            pciLocations[i].slot,
+            pciLocations[i].func,
+            vendors[i] & 0xffff,
+            devices[i] & 0xffff,
+            deviceNames[i]
+        );
+    }
+
+    if (file->pos >= (uint32_t)len)
+        return 0;
+
+    uint32_t rem = len - file->pos;
+    if (rem > size)
+        rem = size;
+
+    memcpy(buf, tmp + file->pos, rem);
+    file->pos += rem;
+
+    return rem;
+}
+
 
 void print_lspci(void) {
     for (int i = 0; i < total_devices; i++) {

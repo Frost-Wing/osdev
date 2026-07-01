@@ -13,6 +13,8 @@
 #include <strings.h>
 #include <heap.h>
 #include <memory.h>
+#include <pci.h>
+#include <strings.h>
 
 #define PROCFS_MAX_FILES 32
 
@@ -141,6 +143,23 @@ static procfs_entry_t proc_meminfo = {
     .priv  = NULL
 };
 
+static procfs_entry_t proc_pci = {
+    .name = "pci",
+    .type = PROC_DIR,
+};
+
+extern int proc_pci_devices_read(
+    vfs_file_t* file,
+    uint8_t* buf,
+    uint32_t size,
+    void* priv
+);
+
+static procfs_entry_t proc_pci_devices = {
+    .name = "pci/devices",
+    .type = PROC_FILE,
+    .read = proc_pci_devices_read
+};
 /* END */
 
 void procfs_init(void) {
@@ -149,6 +168,10 @@ void procfs_init(void) {
     procfs_register(&proc_stat);
     procfs_register(&proc_heap);
     procfs_register(&proc_meminfo);
+    procfs_register(&proc_pci);
+    procfs_register(&proc_pci_devices);
+
+    proc_pci_register();
 }
 
 /* Register a virtual proc file */
@@ -208,9 +231,35 @@ void procfs_close(vfs_file_t* file) {
     (void)file;
 }
 
-int procfs_ls(void) {
+int procfs_ls(const char* path)
+{
+    size_t plen = strlen(path);
+
     for (int i = 0; i < proc_file_count; i++) {
-        printfnoln(blue_color "%s " reset_color, proc_files[i]->name);
+        const char* name = proc_files[i]->name;
+
+        if (plen) {
+            if (strncmp(name, path, plen))
+                continue;
+
+            name += plen;
+
+            if (*name == '/')
+                name++;
+        }
+
+        const char* slash = strchr(name, '/');
+
+        if (slash)
+            continue;
+
+        printfnoln(
+            proc_files[i]->type == PROC_DIR ?
+                blue_color "%s/ " reset_color :
+                green_color "%s " reset_color,
+            name
+        );
     }
+
     return 0;
 }

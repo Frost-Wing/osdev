@@ -95,7 +95,7 @@ static pci_id_entry_t pci_ids[] = {
     {0, 0, 0, NULL, 0, NULL}
 };
 
-cstring parse_vendor(int16 vendor){
+cstring parse_vendor(uint16 vendor){
     cstring vendorName;
     static char unknown_vendor[20];
 
@@ -137,7 +137,7 @@ cstring parse_vendor(int16 vendor){
     return vendorName;
 }
 
-cstring parse_class(int16 classid){
+cstring parse_class(uint16 classid){
     cstring className;
     static char unknown_class[20];
 
@@ -226,7 +226,7 @@ const pci_id_entry_t* pci_lookup(uint16_t vendor, uint16_t device, uint8_t class
     return NULL;
 }
 
-cstring auto_name_gpu(int16 vendor, int16 device)
+cstring auto_name_gpu(uint16 vendor, uint16 device)
 {
     static char name[64];
 

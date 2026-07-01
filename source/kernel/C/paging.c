@@ -13,7 +13,7 @@
 uint64_t memory_start;
 uint64_t memory_end;
 size_t   amount_of_pages;
-int8*    page_bitmap;
+uint8*    page_bitmap;
 
 extern uint8_t user_code_start[];
 extern uint8_t user_code_end[];

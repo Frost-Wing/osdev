@@ -12,6 +12,8 @@
 #include <graphics.h>
 #include <heap.h>
 #include <strings.h>
+#include <cc-asm.h>
+#include <memory.h>
 
 static uint64_t devfs_rng_state = 0x9E3779B97F4A7C15ULL;
 

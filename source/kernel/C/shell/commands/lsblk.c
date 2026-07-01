@@ -22,7 +22,7 @@ void print_size(uint64_t sectors)
     }
 }
 
-static const char* fs_name(partition_fs_type_t fs)
+const char* fs_name(partition_fs_type_t fs)
 {
     switch (fs) {
         case FS_FAT16:   return "fat16";
@@ -30,6 +30,7 @@ static const char* fs_name(partition_fs_type_t fs)
         case FS_ISO9660: return "iso9660";
         case FS_PROC:    return "proc";
         case FS_DEV:     return "dev";
+        case FS_EXT2:    return "ext2";
         default:         return "unknown";
     }
 }
@@ -58,7 +59,6 @@ static const char* ro_flag_for_filesystem(partition_fs_type_t fs)
 {
     switch (fs) {
         case FS_ISO9660:
-        case FS_PROC:
         case FS_DEV:
             return "1";
         default:
@@ -88,14 +88,14 @@ int cmd_lsblk(int argc, char** argv)
 
         int part_count = 0;
         for (int i = 0; i < general_partition_count; i++) {
-            if (ahci_partitions[i].ahci_port == (int64)dev_id)
+            if (ahci_partitions[i].ahci_port == (uint64)dev_id)
                 part_count++;
         }
 
         int seen = 0;
         for (int i = 0; i < general_partition_count; i++) {
             general_partition_t* p = &ahci_partitions[i];
-            if (p->ahci_port != (int64)dev_id)
+            if (p->ahci_port != (uint64)dev_id)
                 continue;
 
             seen++;

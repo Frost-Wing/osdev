@@ -42,21 +42,21 @@ void rtl8139_init(struct rtl8139* nic) {
 }
 
 // Transmit a packet
-bool rtl8139_send_packet(const int8* data, int16 length) {
+bool rtl8139_send_packet(const uint8* data, uint16 length) {
     if(RTL8139->io_base == null || RTL8139->io_base == 0){
         warn("RTL8139 Card is not detected but tried to send data to it. Skipping...", __FILE__);
         return no;
     }
     // Check if the NIC is ready for transmission (status checks)
-    int16 status = inw(RTL8139->io_base + RTL8139_REG_TX_STATUS);
+    uint16 status = inw(RTL8139->io_base + RTL8139_REG_TX_STATUS);
     if ((status & 0x8000) == 0) {
         return no; // Transmission is not ready
     }
 
     // Write the packet to the transmit buffer
-    int16 tx_buffer_offset = status >> 11;
-    int16 tx_buffer_address = RTL8139->io_base + RTL8139_REG_TX_ADDR + tx_buffer_offset;
-    for (int16 i = 0; i < length; i++) {
+    uint16 tx_buffer_offset = status >> 11;
+    uint16 tx_buffer_address = RTL8139->io_base + RTL8139_REG_TX_ADDR + tx_buffer_offset;
+    for (uint16 i = 0; i < length; i++) {
         outb(tx_buffer_address, data[i]);
         tx_buffer_address++;
     }
@@ -68,22 +68,22 @@ bool rtl8139_send_packet(const int8* data, int16 length) {
 }
 
 // Receives a packet
-bool rtl8139_receive_packet(int8* buffer, int16* length) {
+bool rtl8139_receive_packet(uint8* buffer, uint16* length) {
     if(RTL8139->io_base == null || RTL8139->io_base == 0){
         warn("RTL8139 Card is not detected but tried to receive data. Skipping...", __FILE__);
         return no;
     }
-    int16 status = inw(RTL8139->io_base + RTL8139_REG_RX_BUFFER);
+    uint16 status = inw(RTL8139->io_base + RTL8139_REG_RX_BUFFER);
     if ((status & 0x01) == 0) {
         return no; // No packet available
     }
 
     // Copy the received packet to the buffer
-    int16 rx_buffer_offset = status >> 1;
-    int16 rx_buffer_address = RTL8139->io_base + RTL8139_REG_RX_BUFFER + rx_buffer_offset;
+    uint16 rx_buffer_offset = status >> 1;
+    uint16 rx_buffer_address = RTL8139->io_base + RTL8139_REG_RX_BUFFER + rx_buffer_offset;
     *length = inw(rx_buffer_address);
     rx_buffer_address += 4; // Skip status and reserved fields
-    for (int16 i = 0; i < *length; i++) {
+    for (uint16 i = 0; i < *length; i++) {
         buffer[i] = inb(rx_buffer_address);
         rx_buffer_address++;
     }

@@ -31,7 +31,7 @@ static char* debug_uint64_to_hex(uint64_t value)
  * @brief If there was possibility for the change in port, we can easily change the E9 Port.
  * 
  */
-static const int16 debug_port = 0xE9;
+static const uint16 debug_port = 0xE9;
 
 /**
  * @brief Puts a character to the address 0xE9 using x86_64 outb
@@ -40,7 +40,7 @@ static const int16 debug_port = 0xE9;
  */
 void debug_putc(char c){
     #if debugger_mode
-    outb(debug_port, (int8)c);
+    outb(debug_port, (uint8)c);
     #endif
 }
 

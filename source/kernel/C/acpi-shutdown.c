@@ -15,22 +15,22 @@
 
 struct facp {
     char     signature[4];
-    int32 length;
-    int8  unneeded1[40 - 8];
-    int32 dsdt;
-    int8  unneeded2[48 - 44];
-    int32 SMI_CMD;
-    int8  ACPI_ENABLE;
-    int8  ACPI_DISABLE;
-    int8  unneeded3[64 - 54];
-    int32 PM1a_CNT_BLK;
-    int32 PM1b_CNT_BLK;
-    int8  unneeded4[89 - 72];
-    int8  PM1_CNT_LEN;
+    uint32 length;
+    uint8  unneeded1[40 - 8];
+    uint32 dsdt;
+    uint8  unneeded2[48 - 44];
+    uint32 SMI_CMD;
+    uint8  ACPI_ENABLE;
+    uint8  ACPI_DISABLE;
+    uint8  unneeded3[64 - 54];
+    uint32 PM1a_CNT_BLK;
+    uint32 PM1b_CNT_BLK;
+    uint8  unneeded4[89 - 72];
+    uint8  PM1_CNT_LEN;
 };
 
-static inline int8 parse_integer(int8* s5_addr, int64* value) {
-    int8 operation = *s5_addr++;
+static inline uint8 parse_integer(uint8* s5_addr, uint64* value) {
+    uint8 operation = *s5_addr++;
 
     switch(operation)
     {
@@ -47,16 +47,16 @@ static inline int8 parse_integer(int8* s5_addr, int64* value) {
             return 2; // 1 Type Byte, 1 Data Byte
 
         case 0xB: // WordConst
-            *value = s5_addr[0] | ((int16)s5_addr[1] << 8);
+            *value = s5_addr[0] | ((uint16)s5_addr[1] << 8);
             return 3; // 1 Type Byte, 3 Data Bytes
 
         case 0xC: // DWordConst
-            *value = s5_addr[0] | ((int32)s5_addr[1] << 8) | ((int32)s5_addr[2] << 16) | ((int32)s5_addr[3] << 24);
+            *value = s5_addr[0] | ((uint32)s5_addr[1] << 8) | ((uint32)s5_addr[2] << 16) | ((uint32)s5_addr[3] << 24);
             return 5; // 1 Type Byte, 4 Data Bytes
 
         case 0xE: // QWordConst
-            *value = s5_addr[0] | ((int64)s5_addr[1] << 8) | ((int64)s5_addr[2] << 16) | ((int64)s5_addr[3] << 24) \
-                | ((int64)s5_addr[4] << 32) | ((int64)s5_addr[5] << 40) | ((int64)s5_addr[6] << 48) | ((int64)s5_addr[7] << 56);
+            *value = s5_addr[0] | ((uint64)s5_addr[1] << 8) | ((uint64)s5_addr[2] << 16) | ((uint64)s5_addr[3] << 24) \
+                | ((uint64)s5_addr[4] << 32) | ((uint64)s5_addr[5] << 40) | ((uint64)s5_addr[6] << 48) | ((uint64)s5_addr[7] << 56);
             return 9; // 1 Type Byte, 8 Data Bytes
 
         case 0xFF: // OnesOp
@@ -71,10 +71,10 @@ static inline int8 parse_integer(int8* s5_addr, int64* value) {
 int acpi_shutdown_hack(uintptr_t direct_map_base, void *(*find_sdt)(cstring signature, size_t index)) {
     struct facp *facp = find_sdt("FACP", 0);
 
-    int8 *dsdt_ptr = (int8 *)(uintptr_t)facp->dsdt + 36 + direct_map_base;
-    size_t   dsdt_len = *((int32 *)((uintptr_t)facp->dsdt + 4 + direct_map_base)) - 36;
+    uint8 *dsdt_ptr = (uint8 *)(uintptr_t)facp->dsdt + 36 + direct_map_base;
+    size_t   dsdt_len = *((uint32 *)((uintptr_t)facp->dsdt + 4 + direct_map_base)) - 36;
 
-    int8 *s5_addr = 0;
+    uint8 *s5_addr = 0;
     for (size_t i = 0; i < dsdt_len; i++) {
         if ((dsdt_ptr + i)[0] == '_'
          && (dsdt_ptr + i)[1] == 'S'
@@ -94,12 +94,12 @@ s5_found:
     if (*s5_addr++ < 2) // Make sure there are at least 2 elements, which we need, normally there are 4
         return -1;
 
-    int64 value = 0;
-    int8 size = parse_integer(s5_addr, &value);
+    uint64 value = 0;
+    uint8 size = parse_integer(s5_addr, &value);
     if (size == 0) // Wasn't able to parse it
         return -1;
 
-    int16 SLP_TYPa = (int16)((value & 0x7ULL) << 10);
+    uint16 SLP_TYPa = (uint16)((value & 0x7ULL) << 10);
     s5_addr += size;
 
 
@@ -107,22 +107,22 @@ s5_found:
     if (size == 0) // Wasn't able to parse it
         return -1;
 
-    int16 SLP_TYPb = (int16)((value & 0x7ULL) << 10);
+    uint16 SLP_TYPb = (uint16)((value & 0x7ULL) << 10);
     s5_addr += size;
 
     if(facp->SMI_CMD != 0 && facp->ACPI_ENABLE != 0) { // This PC has SMM and we need to enable ACPI mode first
-        outb((int16)facp->SMI_CMD, facp->ACPI_ENABLE);
+        outb((uint16)facp->SMI_CMD, facp->ACPI_ENABLE);
         for (int i = 0; i < 100; i++)
             inb(0x80);
     
-        while ((inw((int16)facp->PM1a_CNT_BLK) & 1U) == 0U)
+        while ((inw((uint16)facp->PM1a_CNT_BLK) & 1U) == 0U)
             ;
     }
     
 
-    outw((int16)facp->PM1a_CNT_BLK, (int16)(SLP_TYPa | (1U << 13)));
+    outw((uint16)facp->PM1a_CNT_BLK, (uint16)(SLP_TYPa | (1U << 13)));
     if (facp->PM1b_CNT_BLK)
-        outw((int16)facp->PM1b_CNT_BLK, (int16)(SLP_TYPb | (1U << 13)));
+        outw((uint16)facp->PM1b_CNT_BLK, (uint16)(SLP_TYPb | (1U << 13)));
 
     for (int i = 0; i < 100; i++)
         inb(0x80);

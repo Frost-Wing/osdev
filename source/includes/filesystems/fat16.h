@@ -64,6 +64,7 @@ typedef struct {
     fat16_boot_sector_t bs;
 
     uint32_t fat_start;
+    uint32_t cluster_count;
     uint32_t root_dir_start;
     uint32_t root_dir_sectors;
     uint32_t data_start;
@@ -80,7 +81,14 @@ typedef struct {
     uint16_t cluster;
 } fat16_file_t;
 
-partition_fs_type_t detect_fat_type_enum(const int8* buf);
+typedef int (*fat16_cluster_cb)(
+    fat16_fs_t* fs,
+    uint16_t cluster,
+    uint32_t lba,
+    void* user);
+
+
+partition_fs_type_t detect_fat_type_enum(const uint8* buf);
 int fat16_mount(int portno, uint32_t partition_lba, fat16_fs_t* fs) ;
 uint16_t fat16_read_fat_fs(fat16_fs_t* fs, uint16_t cluster);
 int fat16_list_root(fat16_fs_t* fs);
@@ -103,7 +111,7 @@ uint16_t fat16_append_cluster(fat16_fs_t* fs, uint16_t last_cluster);
 void fat16_update_root_entry(fat16_fs_t* fs, fat16_dir_entry_t* entry);
 int fat16_update_dir_entry(fat16_fs_t* fs, uint16_t dir_cluster, fat16_dir_entry_t* entry);
 
-int fat16_unlink_path(fat16_fs_t* fs, int16 parent_cluster, cstring name);
+int fat16_unlink_path(fat16_fs_t* fs, uint16 parent_cluster, cstring name);
 int fat16_find_parent(fat16_fs_t* fs, const char* path, uint16_t* out_cluster, char* out_name);
 int fat16_delete_entry(fat16_fs_t* fs, uint16_t parent_cluster, const char* name);
 int fat16_mkdir(fat16_fs_t* fs, uint16_t parent_cluster, const char* name);

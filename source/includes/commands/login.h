@@ -26,7 +26,7 @@
  * @param name 
  * @param password 
  */
-void create_user(int64 name, int64 password);
+void create_user(uint64 name, uint64 password);
 
 /**
  * @brief Function to create an user with plain string.

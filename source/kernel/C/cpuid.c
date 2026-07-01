@@ -44,7 +44,7 @@ cstring cpu_string(void) {
  * @param ecx Pointer to store the value of ECX register.
  * @param edx Pointer to store the value of EDX register.
  */
-void cpuid(int32 reg, int32 *eax, int32 *ebx, int32 *ecx, int32 *edx) {
+void cpuid(uint32 reg, uint32 *eax, uint32 *ebx, uint32 *ecx, uint32 *edx) {
     #if defined (__x86_64__)
     __asm__ volatile("cpuid"
         : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
@@ -59,9 +59,9 @@ void cpuid(int32 reg, int32 *eax, int32 *ebx, int32 *ecx, int32 *edx) {
  */
 cstring get_cpu_vendor(void) {
     static char vendor[128];
-    cpuid(0x80000002, (int32 *)(vendor +  0), (int32 *)(vendor +  4), (int32 *)(vendor +  8), (int32 *)(vendor + 12));
-    cpuid(0x80000003, (int32 *)(vendor + 16), (int32 *)(vendor + 20), (int32 *)(vendor + 24), (int32 *)(vendor + 28));
-    cpuid(0x80000004, (int32 *)(vendor + 32), (int32 *)(vendor + 36), (int32 *)(vendor + 40), (int32 *)(vendor + 44));
+    cpuid(0x80000002, (uint32 *)(vendor +  0), (uint32 *)(vendor +  4), (uint32 *)(vendor +  8), (uint32 *)(vendor + 12));
+    cpuid(0x80000003, (uint32 *)(vendor + 16), (uint32 *)(vendor + 20), (uint32 *)(vendor + 24), (uint32 *)(vendor + 28));
+    cpuid(0x80000004, (uint32 *)(vendor + 32), (uint32 *)(vendor + 36), (uint32 *)(vendor + 40), (uint32 *)(vendor + 44));
     vendor[127] = 0;
     return vendor;
 }
@@ -78,7 +78,7 @@ void print_cpu_info(void) {
  * @brief Retrieve and print L1 cache information.
  */
 void print_L1_cache_info(void) {
-    int32 eax, ebx, ecx, edx;
+    uint32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
         printf("L1 Cache not present.");
@@ -91,7 +91,7 @@ void print_L1_cache_info(void) {
  * @brief Retrieve and print L2 cache information.
  */
 void print_L2_cache_info(void) {
-    int32 eax, ebx, ecx, edx;
+    uint32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
         printf("L2 Cache not present.");
@@ -104,7 +104,7 @@ void print_L2_cache_info(void) {
  * @brief Retrieve and print L3 cache information.
  */
 void print_L3_cache_info(void) {
-    int32 eax, ebx, ecx, edx;
+    uint32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
         printf("L3 Cache not present.");
@@ -114,7 +114,7 @@ void print_L3_cache_info(void) {
 }
 
 bool is_kvm_supported(void){
-    int32 eax, ebx, ecx, edx;
+    uint32 eax, ebx, ecx, edx;
 
     // Check if CPUID instruction is supported
     cpuid(0, &eax, &ebx, &ecx, &edx);
