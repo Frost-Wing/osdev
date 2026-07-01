@@ -122,4 +122,5 @@ int fat16_resolve_path(
     uint16_t pwd_cluster,      // current working directory cluster
     uint16_t* out_cluster      // result cluster
 );
+void fat16_unformat_name(const fat16_dir_entry_t* e, char* out);
 #endif
