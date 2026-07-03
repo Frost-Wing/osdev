@@ -671,6 +671,34 @@ int ext2_list_dir(ext2_fs_t* fs, uint32_t dir_ino) {
     return EXT2_OK;
 }
 
+typedef struct {
+    ext2_readdir_cb cb;
+    void* user;
+} ext2_readdir_ctx_t;
+
+static int ext2_readdir_trampoline(ext2_fs_t* fs, uint32_t block, uint32_t off,
+                                    ext2_raw_dirent_t* de, const char* name, void* user) {
+    (void)fs; (void)block; (void)off;
+    if (de->inode == 0) return 0; /* skip deleted/empty slots */
+    ext2_readdir_ctx_t* ctx = (ext2_readdir_ctx_t*)user;
+    return ctx->cb(de->inode, de->file_type, name, ctx->user);
+}
+
+int ext2_readdir(ext2_fs_t* fs, uint32_t dir_ino, ext2_readdir_cb cb, void* user) {
+    if (!fs || !cb) return EXT2_ERR_INVAL;
+
+    ext2_inode_t dir;
+    if (ext2_read_inode(fs, dir_ino, &dir) != EXT2_OK)
+        return EXT2_ERR_IO;
+
+    if ((dir.i_mode & EXT2_S_IFMT) != EXT2_S_IFDIR)
+        return EXT2_ERR_NOTDIR;
+
+    ext2_readdir_ctx_t ctx = { .cb = cb, .user = user };
+    ext2_iterate_dir(fs, &dir, ext2_readdir_trampoline, &ctx);
+    return EXT2_OK;
+}
+
 /* Insert a new directory entry (inode, name, type) into dir_ino, growing the
  * directory by one block if no existing entry has enough free space. */
 static int ext2_dir_add_entry(ext2_fs_t* fs, uint32_t dir_ino, ext2_inode_t* dir,

@@ -62,6 +62,8 @@ int rb_empty(const ring_buffer_t* rb);
  */
 int rb_push(ring_buffer_t* rb, const void* data);
 
+int rb_push_overwrite(ring_buffer_t* rb, const void* data);
+
 /**
  * @brief Pop an element from the buffer.
  *

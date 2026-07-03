@@ -63,6 +63,9 @@ static int proc_heap_read(
 ) {
     (void)priv;
 
+    if(alloc_count < 0)
+        alloc_count = 0;
+
     char tmp[128];
     int len = snprintf(tmp, sizeof(tmp),
         "HeapTotal: %u bytes\nHeapUsed: %u bytes\nHeapFree: %u bytes\nAllocCount: %d",
@@ -137,52 +140,6 @@ static int proc_meminfo_read(vfs_file_t* file, uint8_t* buf, uint32_t size, void
     return rem;
 }
 
-extern ring_buffer_t klog_rb;
-
-uint32_t klog_read(uint32_t pos, void* buf, uint32_t len)
-{
-    if (!buf)
-        return 0;
-
-    if (pos >= klog_rb.count)
-        return 0;
-
-    if (len > (klog_rb.count - pos))
-        len = klog_rb.count - pos;
-
-    uint8_t* out = (uint8_t*)buf;
-
-    for (uint32_t i = 0; i < len; i++) {
-        uint32_t idx = (klog_rb.tail + pos + i) % klog_rb.capacity;
-        out[i] = klog_rb.buffer[idx];
-    }
-
-    return len;
-}
-
-int proc_kmsg_read(
-    vfs_file_t* file,
-    uint8_t* buf,
-    uint32_t size,
-    void* priv)
-{
-    (void)priv;
-
-    uint32_t n = klog_read(file->pos, buf, size);
-
-    file->pos += n;
-
-    return n;
-}
-
-static procfs_entry_t proc_kmsg = {
-    .name = "kmsg",
-    .type = PROC_FILE,
-    .read = proc_kmsg_read,
-    .write = NULL,
-    .priv = NULL
-};
-
 static procfs_entry_t proc_meminfo = {
     .name  = "meminfo",
     .read  = proc_meminfo_read,
@@ -217,7 +174,6 @@ void procfs_init(void) {
     procfs_register(&proc_meminfo);
     procfs_register(&proc_pci);
     procfs_register(&proc_pci_devices);
-    procfs_register(&proc_kmsg);
 
     proc_pci_register();
 }

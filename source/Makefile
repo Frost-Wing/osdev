@@ -35,7 +35,8 @@ CFLAGS := -std=gnu11 -ffreestanding \
           -I includes -I src \
           -m64 -march=x86-64 \
           -mno-80387 -mno-mmx -mno-red-zone \
-          -mno-sse -mno-sse2
+          -mno-sse -mno-sse2 \
+		  -msoft-float
 
 CPPFLAGS := -MMD -MP
 LDFLAGS := -nostdlib -static --no-dynamic-linker -z text -z max-page-size=0x1000 -T ./linker/linker.ld -m elf_x86_64

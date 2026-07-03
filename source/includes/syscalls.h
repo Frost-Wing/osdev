@@ -49,9 +49,11 @@
 #define LINUX_SYS_UNAME             63
 #define LINUX_SYS_FCNTL             72
 #define LINUX_SYS_GETCWD            79
+#define LINUX_SYS_MKDIR             83
 #define LINUX_SYS_READLINK          89
 #define LINUX_SYS_UMASK             95
 #define LINUX_SYS_GETUID            102
+#define LINUX_SYS_SYSLOG            103
 #define LINUX_SYS_GETEUID           107
 #define LINUX_SYS_GETGID            104
 #define LINUX_SYS_GETEGID           108
@@ -75,6 +77,7 @@
 #define LINUX_SYS_STATX             332
 #define LINUX_SYS_EXIT_GROUP        231
 #define LINUX_SYS_TGKILL            234
+#define LINUX_SYS_MKDIRAT           258
 
 #define LINUX_EAGAIN 11
 
@@ -95,8 +98,11 @@
 #define LINUX_EFAULT     14
 #define LINUX_EACCES     13
 #define LINUX_EINVAL     22
+#define LINUX_EEXIST     17
 #define LINUX_ENOEXEC    8
 #define LINUX_ENOTTY     25
+#define LINUX_ENOSPC     28
+#define LINUX_EIO        5
 #define LINUX_ENOSYS     38
 #define LINUX_ENFILE     23
 #define LINUX_ENOENT     2
@@ -191,6 +197,18 @@
 #define SIGIO       29
 #define SIGPWR      30
 #define SIGSYS      31
+
+#define LINUX_SYSLOG_ACTION_CLOSE          0
+#define LINUX_SYSLOG_ACTION_OPEN           1
+#define LINUX_SYSLOG_ACTION_READ           2
+#define LINUX_SYSLOG_ACTION_READ_ALL       3
+#define LINUX_SYSLOG_ACTION_READ_CLEAR     4
+#define LINUX_SYSLOG_ACTION_CLEAR          5
+#define LINUX_SYSLOG_ACTION_CONSOLE_OFF    6
+#define LINUX_SYSLOG_ACTION_CONSOLE_ON     7
+#define LINUX_SYSLOG_ACTION_CONSOLE_LEVEL  8
+#define LINUX_SYSLOG_ACTION_SIZE_UNREAD    9
+#define LINUX_SYSLOG_ACTION_SIZE_BUFFER    10
 
 typedef struct syscall_frame {
     uint64_t r9;

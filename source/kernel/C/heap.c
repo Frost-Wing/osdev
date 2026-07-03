@@ -1,3 +1,4 @@
+#include <klog.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <memory.h>
@@ -77,6 +78,7 @@ void* kmalloc(size_t size)
 {
     if (size == 0) {
         warn("kmalloc: Cannot allocate 0 bytes", __FILE__);
+        klog_printf("[heap] kmalloc called with zero size");
         return NULL;
     }
 

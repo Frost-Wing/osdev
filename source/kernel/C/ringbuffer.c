@@ -1,7 +1,7 @@
 /**
  * @file ringbuffer.c
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief The kernel-wide ring buffer mainly for kernel get char.
+ * @brief The kernel-wide ring buffer mainly for kernel get char & klog.
  * @version 0.1
  * @date 2026-03-20
  * 

@@ -11,6 +11,8 @@
 #include <graphics.h>
 #include <opengl/glbackend.h>
 #include <ringbuffer.h>
+#include <klog.h>
+#include <debugger.h>
 
 extern struct flanterm_context* ft_ctx;
 static stream_t printf_stream;
@@ -40,6 +42,8 @@ void warn(cstring message, cstring file) {
     debug_print(file);
     debug_print(reset_color "\n");
 
+    klog_printf("warn : %s (%s)", message, file);
+
     last_filename = file;
 }
 
@@ -60,6 +64,8 @@ void error(cstring message, cstring file) {
     debug_print(" at " blue_color);
     debug_print(file);
     debug_print(reset_color "\n");
+
+    klog_printf("error: %s (%s)", message, file);
 
     last_filename = file;
 }
@@ -82,6 +88,8 @@ void info(cstring message, cstring file) {
     debug_print(file);
     debug_print(reset_color "\n");
 
+    klog_printf("info : %s (%s)", message, file);
+
     last_filename = file;
 }
 
@@ -103,6 +111,8 @@ void done(cstring message, cstring file) {
     debug_print(file);
     debug_print(reset_color "\n");
 
+    klog_printf("done : %s (%s)", message, file);
+
     last_filename = file;
 }
 
@@ -116,10 +126,7 @@ void putc(char c){
     vputc(c);
 }
 
-extern ring_buffer_t klog_rb;
 void vputc(char c) {
-    rb_push_overwrite(&klog_rb, &c);
-
     stream_putc(printf_stream, c);
 }
 
