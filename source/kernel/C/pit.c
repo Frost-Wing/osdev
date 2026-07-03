@@ -10,6 +10,7 @@
  */
 #include <pit.h>
 #include <multitasking.h>
+#include <scheduler/scheduler.h>
 
 volatile uint64_t pit_ticks = 0;
 
@@ -18,6 +19,10 @@ volatile uint64_t pit_ticks = 0;
 void process_pit(InterruptFrame* frame) {
     (void)frame;
     pit_ticks++;
+
+    scheduler_wakeup(pit_ticks);
+    scheduler_tick((trap_frame_t *)frame);
+
     outb(0x20, 0x20);  // Notify the PIC that we've handled the interrupt
 }
 

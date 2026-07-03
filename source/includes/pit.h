@@ -11,6 +11,9 @@
 #include <basics.h>
 #include <isr.h>
 #include <hal.h>
+#include <stdint.h>
+
+extern volatile uint64_t pit_ticks;
 
 /**
  * @brief Interrupt handlers for PIT

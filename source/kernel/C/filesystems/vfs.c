@@ -1075,3 +1075,8 @@ int vfs_sync(void)
     klog_printf("sync has been called!");
     return ret;
 }
+
+int vfs_exec(const char *path, int argc, const char **argv)
+{
+    return userland_exec(path, argc, argv, NULL);
+}
