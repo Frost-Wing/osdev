@@ -21,8 +21,6 @@ static uint8_t klog_storage[KLOG_BUFFER_SIZE];
  * vputc(), so console output and klog_printf() share one buffer. */
 ring_buffer_t klog_rb;
 
-extern uint64_t pit_ticks;
-
 bool is_klog_ready = false;
 
 void klog_init(void)
