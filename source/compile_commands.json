@@ -111,6 +111,16 @@
   },
   {
     "directory": "/home/pradosh/osdev/source",
+    "file": "/home/pradosh/osdev/source/kernel/C/scheduler/process.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -msoft-float -MMD -MP -c /home/pradosh/osdev/source/kernel/C/scheduler/process.c -o /dev/null"
+  },
+  {
+    "directory": "/home/pradosh/osdev/source",
+    "file": "/home/pradosh/osdev/source/kernel/C/scheduler/scheduler.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -msoft-float -MMD -MP -c /home/pradosh/osdev/source/kernel/C/scheduler/scheduler.c -o /dev/null"
+  },
+  {
+    "directory": "/home/pradosh/osdev/source",
     "file": "/home/pradosh/osdev/source/kernel/C/meltdown.c",
     "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -Og -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -msoft-float -MMD -MP -c /home/pradosh/osdev/source/kernel/C/meltdown.c -o /dev/null"
   },

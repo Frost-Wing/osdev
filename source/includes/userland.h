@@ -12,6 +12,7 @@
 #define USERLAND_H
 
 #include <basics.h>
+#include <executables/elf.h>
 #include <syscalls.h>
 
 #define USER_STACK_SIZE  (16 * 1024)
@@ -95,7 +96,14 @@ typedef struct {
 } auxv_pair_t;
 
 void enter_userland_at(uint64_t entry_point);
-int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp);
+void userland_exec_prepare(
+    const char *path,
+    int argc,
+    const char *argv[],
+    elf_image_info_t *out_info,
+    void **out_entry,
+    uint64_t *out_stack);
+
 void userland_heap_init(void);
 uint64_t userland_brk(uint64_t requested_break);
 uint64_t userland_mmap_anon(uint64_t length);
