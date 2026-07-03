@@ -1409,6 +1409,9 @@ static uint64 sys_wait4(int64_t pid, int* status, int options, void* rusage) {
             if (!multitasking_reap_task(info.pid, &info))
                 continue;
 
+            if (!multitasking_reap_task(child, &info))
+                continue;
+
             if (status)
                 *status = (info.exit_code & 0xFF) << 8;
             return (uint64)info.pid;
