@@ -46,6 +46,7 @@ uint32_t multitasking_spawn_userland(const char* name, const user_task_spec_t* s
 
 bool multitasking_exit_task(uint32_t pid, int exit_code);
 bool multitasking_reap_task(uint32_t pid, task_info_t* out_info);
+bool multitasking_find_child(uint32_t parent_pid, int64_t pid_filter, bool exited_only, task_info_t* out_info);
 bool multitasking_current_is_fork_child(void);
 bool multitasking_get_task(uint32_t pid, task_info_t* out_info);
 uint32_t multitasking_current_pid(void);
