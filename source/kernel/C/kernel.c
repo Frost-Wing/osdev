@@ -18,6 +18,7 @@
 #include <executables/elf.h>
 #include <multitasking.h>
 #include <klog.h>
+#include <syslog.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
@@ -181,6 +182,7 @@ void main(void) {
     setup_gdt();
     initIdt();
     klog_init();
+    syslog_init();
     
     RTL8139 = (struct rtl8139*) kmalloc(sizeof(struct rtl8139));
 
