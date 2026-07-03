@@ -1391,12 +1391,17 @@ static uint64 sys_execve(const char* target, char* const* argv, char* const* env
 }
 
 static uint64 sys_fork(void) {
+    if (multitasking_current_is_fork_child())
+        return 0;
+
     if (current_exec_path[0] == '\0')
         return -LINUX_ENOSYS;
 
     user_task_spec_t spec = {0};
     spec.path = current_exec_path;
     spec.argc = current_exec_argc;
+    spec.parent_pid = multitasking_current_pid() ? multitasking_current_pid() : 1;
+    spec.fork_child = true;
     for (int i = 0; i < current_exec_argc && i < 32; ++i)
         spec.argv[i] = current_exec_argv[i];
 
@@ -1433,6 +1438,9 @@ static uint64 sys_wait4(int64_t pid, int* status, int options, void* rusage) {
             }
 
             if (info.state != TASK_STATE_EXITED)
+                continue;
+
+            if (!multitasking_reap_task(child, &info))
                 continue;
 
             if (status)
@@ -1524,6 +1532,9 @@ void syscall_handler(syscall_frame_t* f)
     if (f && (f->rax == LINUX_SYS_EXIT || f->rax == LINUX_SYS_EXIT_GROUP)) {
         if (clear_child_tid)
             *clear_child_tid = 0;
+        uint32_t pid = multitasking_current_pid();
+        if (pid)
+            multitasking_exit_task(pid, (int)f->rdi);
         if (userland_prepare_exit(f, f->rdi))
             return;
     }

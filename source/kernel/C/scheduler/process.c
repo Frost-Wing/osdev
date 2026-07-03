@@ -8,7 +8,6 @@
 static process_t *process_list = NULL;
 static uint32_t next_pid = 1;
 
-process_t *current_process = NULL;
 
 /* -----------------------------
  * INTERNAL HELPERS
@@ -75,8 +74,6 @@ process_t *process_create_user(const char *path,
 {
     process_t *p = alloc_process();
     if (!p) return NULL;
-
-    memset(p, 0, sizeof(process_t));
 
     p->type = PROCESS_USER;
     p->state = PROCESS_READY;
@@ -193,9 +190,10 @@ process_t *process_fork(process_t *parent)
     if (!child)
         return NULL;
 
+    uint32_t child_pid = child->pid;
     memcpy(child, parent, sizeof(process_t));
 
-    child->pid = next_pid++;
+    child->pid = child_pid;
     child->state = PROCESS_READY;
 
     /* copy kernel stack */
@@ -220,4 +218,16 @@ process_t *process_fork(process_t *parent)
     scheduler_add(child);
 
     return child;
+}
+
+void process_destroy(process_t *proc)
+{
+    if (!proc)
+        return;
+    proc->state = PROCESS_DEAD;
+    if (proc->kernel_stack)
+        kfree(proc->kernel_stack);
+    if (proc->user_stack)
+        kfree(proc->user_stack);
+    kfree(proc);
 }
