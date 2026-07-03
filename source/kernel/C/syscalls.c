@@ -66,8 +66,6 @@ static uint64_t* clear_child_tid = NULL;
 static char current_exec_argv_storage[32][128];
 static const char* current_exec_argv[32];
 static int current_exec_argc = 0;
-static uint32_t fork_children[64];
-static int fork_child_count = 0;
 
 #pragma pack(push, 1)
 typedef struct {
@@ -337,24 +335,6 @@ static void record_exec_context(const char* target, char* const* argv) {
         current_exec_argc++;
     }
     current_exec_argv[current_exec_argc] = NULL;
-}
-
-static bool track_fork_child(uint32_t pid) {
-    for (int i = 0; i < fork_child_count; ++i) {
-        if (fork_children[i] == pid)
-            return true;
-    }
-    if (fork_child_count >= (int)(sizeof(fork_children) / sizeof(fork_children[0])))
-        return false;
-    fork_children[fork_child_count++] = pid;
-    return true;
-}
-
-static void untrack_child_at(int idx) {
-    if (idx < 0 || idx >= fork_child_count)
-        return;
-    fork_child_count--;
-    fork_children[idx] = fork_children[fork_child_count];
 }
 
 static int emit_dirent(char* buf, uint64_t buflen, uint64_t* used, uint64_t ino, uint8_t type, const char* name, uint64_t next_off) {
@@ -1391,20 +1371,22 @@ static uint64 sys_execve(const char* target, char* const* argv, char* const* env
 }
 
 static uint64 sys_fork(void) {
+    if (multitasking_current_is_fork_child())
+        return 0;
+
     if (current_exec_path[0] == '\0')
         return -LINUX_ENOSYS;
 
     user_task_spec_t spec = {0};
     spec.path = current_exec_path;
     spec.argc = current_exec_argc;
+    spec.parent_pid = multitasking_current_pid() ? multitasking_current_pid() : 1;
+    spec.fork_child = true;
     for (int i = 0; i < current_exec_argc && i < 32; ++i)
         spec.argv[i] = current_exec_argv[i];
 
     uint32_t child = multitasking_spawn_userland(current_exec_path, &spec);
     if (child == 0)
-        return -LINUX_EAGAIN;
-
-    if (!track_fork_child(child))
         return -LINUX_EAGAIN;
 
     return (uint64)child;
@@ -1417,36 +1399,27 @@ static uint64 sys_wait4(int64_t pid, int* status, int options, void* rusage) {
     if ((options & ~LINUX_WNOHANG) != 0)
         return -LINUX_EINVAL;
 
+    uint32_t parent = multitasking_current_pid();
+    if (parent == 0)
+        parent = 1;
+
     while (1) {
-        int found_any = 0;
-        for (int i = 0; i < fork_child_count; ++i) {
-            uint32_t child = fork_children[i];
-            if (pid > 0 && child != (uint32_t)pid)
-                continue;
-
-            found_any = 1;
-            task_info_t info = {0};
-            if (!multitasking_get_task(child, &info)) {
-                untrack_child_at(i);
-                i--;
-                continue;
-            }
-
-            if (info.state != TASK_STATE_EXITED)
+        task_info_t info = {0};
+        if (multitasking_find_child(parent, pid, true, &info)) {
+            if (!multitasking_reap_task(info.pid, &info))
                 continue;
 
             if (status)
                 *status = (info.exit_code & 0xFF) << 8;
-            untrack_child_at(i);
-            return (uint64)child;
+            return (uint64)info.pid;
         }
 
-        if (!found_any)
+        if (!multitasking_find_child(parent, pid, false, NULL))
             return -LINUX_ECHILD;
         if (options & LINUX_WNOHANG)
             return 0;
 
-        sleep(1);
+        multitasking_pump();
     }
 }
 
@@ -1524,6 +1497,9 @@ void syscall_handler(syscall_frame_t* f)
     if (f && (f->rax == LINUX_SYS_EXIT || f->rax == LINUX_SYS_EXIT_GROUP)) {
         if (clear_child_tid)
             *clear_child_tid = 0;
+        uint32_t pid = multitasking_current_pid();
+        if (pid)
+            multitasking_exit_task(pid, (int)f->rdi);
         if (userland_prepare_exit(f, f->rdi))
             return;
     }
