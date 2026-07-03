@@ -489,6 +489,39 @@ void enter_userland_at(uint64_t code_entry) {
     return;
 }
 
+
+void userland_exec_prepare(
+    const char *path,
+    int argc,
+    const char *argv[],
+    elf_image_info_t *out_info,
+    void **out_entry,
+    uint64_t *out_stack)
+{
+    elf_image_info_t image_info = {0};
+    void *entry = elf_load_from_vfs_ex(path, &image_info);
+    if (!entry) {
+        if (out_entry)
+            *out_entry = NULL;
+        if (out_stack)
+            *out_stack = 0;
+        return;
+    }
+
+    map_user_stack();
+    userland_heap_init();
+
+    if (out_info)
+        *out_info = image_info;
+    if (out_entry)
+        *out_entry = entry;
+    if (out_stack)
+        *out_stack = build_initial_user_stack(path, argc, argv, NULL, &image_info);
+
+    if (image_info.tls_template)
+        kfree(image_info.tls_template);
+}
+
 int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp) {
     elf_image_info_t image_info = {0};
     void* entry = elf_load_from_vfs_ex(path, &image_info);
