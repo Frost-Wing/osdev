@@ -14,6 +14,7 @@
 #include <strings.h>
 #include <cc-asm.h>
 #include <memory.h>
+#include <klog.h>
 
 static uint64_t devfs_rng_state = 0x9E3779B97F4A7C15ULL;
 
@@ -68,7 +69,9 @@ int devfs_open(vfs_file_t* file)
     if (strcmp(file->rel_path, "null") == 0 ||
         strcmp(file->rel_path, "zero") == 0 ||
         strcmp(file->rel_path, "random") == 0 ||
-        strcmp(file->rel_path, "urandom") == 0) {
+        strcmp(file->rel_path, "urandom") == 0 ||
+        strcmp(file->rel_path, "klog") == 0) {
+        
         file->pos = 0;
         return 0;
     }
@@ -100,6 +103,12 @@ int devfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
             buf[i] = devfs_next_rand_u8();
         file->pos += size;
         return (int)size;
+    }
+
+    if (strcmp(file->rel_path, "klog") == 0) {
+        size_t n = klog_read_at((char*)buf, (size_t)file->pos, size);
+        file->pos += n;
+        return (int)n;
     }
 
     int disk_id = devfs_disk_id_from_name(file->rel_path);
@@ -213,6 +222,7 @@ int devfs_ls(void)
     printfnoln(blue_color "zero " reset_color);
     printfnoln(blue_color "random " reset_color);
     printfnoln(blue_color "urandom " reset_color);
+    printfnoln(blue_color "klog " reset_color);
 
     for (int i = 0; i < block_device_count; i++) {
         block_device_info_t* dev = &block_devices[i];

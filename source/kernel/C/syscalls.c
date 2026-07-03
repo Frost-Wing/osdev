@@ -17,6 +17,7 @@
 #include <memory.h>
 #include <stream.h>
 #include <userland.h>
+#include <klog.h>
 
 // Entire filesystems present in the OS.
 #include <filesystems/vfs.h>
@@ -401,6 +402,65 @@ static void fat32_short_name(const fat32_dir_entry_t* e, char* out, size_t out_s
         snprintf(out, out_sz, "%s", name);
 }
 
+static uint8_t ext2_filetype_to_dt(uint8_t ft) {
+    switch (ft) {
+        case EXT2_FT_REG_FILE: return 8;  /* DT_REG  */
+        case EXT2_FT_DIR:      return 4;  /* DT_DIR  */
+        case EXT2_FT_CHRDEV:   return 2;  /* DT_CHR  */
+        case EXT2_FT_BLKDEV:   return 6;  /* DT_BLK  */
+        case EXT2_FT_FIFO:     return 1;  /* DT_FIFO */
+        case EXT2_FT_SOCK:     return 12; /* DT_SOCK */
+        case EXT2_FT_SYMLINK:  return 10; /* DT_LNK  */
+        default:                return 0; /* DT_UNKNOWN */
+    }
+}
+
+typedef struct {
+    char*     buf;
+    uint64_t  buflen;
+    uint64_t* used;
+    uint32_t* pos;
+    uint64_t  entry_index; /* resume point, from *pos */
+    uint64_t  idx;         /* running count of entries seen so far */
+} ext2_getdents_ctx_t;
+
+static int ext2_getdents_cb(uint32_t ino, uint8_t file_type, const char* name, void* user) {
+    ext2_getdents_ctx_t* ctx = (ext2_getdents_ctx_t*)user;
+
+    if (ctx->idx++ < ctx->entry_index)
+        return 0; /* not at resume point yet, keep going */
+
+    if (!emit_dirent(ctx->buf, ctx->buflen, ctx->used, ino,
+                      ext2_filetype_to_dt(file_type), name, ctx->idx))
+        return 1; /* output buffer full, stop iteration */
+
+    *ctx->pos = (uint32_t)ctx->idx;
+    return 0;
+}
+
+static uint64 sys_mkdirat(int dirfd, const char* path, int mode) {
+    (void)mode;
+    if (!path)
+        return -LINUX_EINVAL;
+
+    char resolved_path[256];
+    if (!resolve_path_at(dirfd, path, resolved_path, sizeof(resolved_path)))
+        return -LINUX_EINVAL;
+
+    int rc = vfs_mkdir(resolved_path);
+    if (rc == 0)
+        return 0;
+
+    switch (rc) {
+        case EXT2_ERR_EXISTS:    return -LINUX_EEXIST;
+        case EXT2_ERR_NOSPACE:   return -LINUX_ENOSPC;
+        case EXT2_ERR_NOTDIR:    return -LINUX_ENOTDIR;
+        case EXT2_ERR_NOT_FOUND: return -LINUX_ENOENT;
+        case EXT2_ERR_IO:        return -LINUX_EIO;
+        default:                 return -LINUX_EIO;
+    }
+}
+
 static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
     if (!buf || buflen < sizeof(linux_dirent64_t))
         return -LINUX_EINVAL;
@@ -454,8 +514,8 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
     }
 
     if (file->mnt->type == FS_DEV) {
-        static const char* dev_entries[] = {"null", "zero", "random", "urandom"};
-        const uint64_t fixed = 4;
+        static const char* dev_entries[] = {"null", "zero", "random", "urandom", "klog"};
+        const uint64_t fixed = 5;
         uint64_t total = fixed;
         for (int i = 0; i < block_device_count; i++) {
             if (block_devices[i].present &&
@@ -626,6 +686,25 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
         }
 iso_done:
         kfree(block);
+        return (int)used;
+    }
+
+    if (file->mnt->type == FS_EXT2) {
+        ext2_getdents_ctx_t ctx = {
+            .buf = buf,
+            .buflen = buflen,
+            .used = &used,
+            .pos = pos,
+            .entry_index = entry_index,
+            .idx = 0,
+        };
+
+        int rc = ext2_readdir(file->f.ext2.fs, file->f.ext2.ino, ext2_getdents_cb, &ctx);
+        if (rc == EXT2_ERR_NOTDIR)
+            return -LINUX_ENOTDIR;
+        if (rc != EXT2_OK)
+            return -1;
+
         return (int)used;
     }
 
@@ -823,7 +902,37 @@ static uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
             linux_termios_t* tio = (linux_termios_t*)arg;
             if (!tio)
                 return -LINUX_EINVAL;
+
             memset(tio, 0, sizeof(*tio));
+
+            /* Input flags */
+            tio->c_iflag =
+                LINUX_ICRNL |    // CR -> NL
+                LINUX_IXON;      // Ctrl-S/Ctrl-Q flow control
+
+            /* Output flags */
+            tio->c_oflag =
+                LINUX_OPOST |    // enable output processing
+                LINUX_ONLCR;     // NL -> CRNL
+
+            /* Control flags */
+            tio->c_cflag =
+                LINUX_CREAD |
+                LINUX_CS8;
+
+            /* Local flags */
+            tio->c_lflag =
+                LINUX_ISIG |
+                LINUX_ICANON |
+                LINUX_ECHO |
+                LINUX_ECHOE |
+                LINUX_ECHOK |
+                LINUX_IEXTEN;
+
+            /* Special characters */
+            tio->c_cc[LINUX_VMIN]  = 1;
+            tio->c_cc[LINUX_VTIME] = 0;
+
             return 0;
         }
         case LINUX_TCSETS:
@@ -1049,6 +1158,51 @@ int sys_kill(int pid, int sig)
 
     /* normal process killing */
     return 0; // process_kill(pid, sig)
+}
+
+// Backs dmesg, which opens /dev/kmsg or falls back to the syslog(2) syscall
+// (SYS_syslog == 103 on x86_64) to read the kernel ring buffer.
+uint64 sys_syslog(int type, char* buf, uint64_t len) {
+    klog_printf("[syscall] klog: type -> %d", type);
+    switch (type) {
+        case LINUX_SYSLOG_ACTION_CLOSE:
+        case LINUX_SYSLOG_ACTION_OPEN:
+            return 0;
+
+        case LINUX_SYSLOG_ACTION_READ:
+        case LINUX_SYSLOG_ACTION_READ_ALL:
+        case LINUX_SYSLOG_ACTION_READ_CLEAR: {
+            klog_printf("[syscall] read: buf=%x len=%x", (unsigned)(uintptr_t)buf, len);
+            if (!buf || len <= 0)
+                return -LINUX_EINVAL;
+
+            size_t n = klog_read(buf, len);
+            klog_printf("[syscall] read: n -> %u", (unsigned)n);
+
+            if (type == LINUX_SYSLOG_ACTION_READ_CLEAR)
+                klog_clear();
+
+            return (uint64)n;
+        }
+
+        case LINUX_SYSLOG_ACTION_CLEAR:
+            klog_clear();
+            return 0;
+
+        case LINUX_SYSLOG_ACTION_CONSOLE_OFF:
+        case LINUX_SYSLOG_ACTION_CONSOLE_ON:
+        case LINUX_SYSLOG_ACTION_CONSOLE_LEVEL:
+            return 0;
+
+        case LINUX_SYSLOG_ACTION_SIZE_UNREAD:
+        case LINUX_SYSLOG_ACTION_SIZE_BUFFER:
+            size_t sz = klog_size();
+            debug_printf("[syscall] klog: size -> %u\n", (unsigned)sz);
+            return (uint64)sz;
+
+        default:
+            return -LINUX_EINVAL;
+    }
 }
 
 /**
@@ -1387,6 +1541,34 @@ void syscall_handler(syscall_frame_t* f)
     f->rax = ret;
 }
 
+static const char *names[] = {
+    [0] = "read",
+    [1] = "write",
+    [2] = "open",
+    [3] = "close",
+    [9] = "mmap",
+    [11] = "munmap",
+    [12] = "brk",
+    [13] = "rt_sigaction",
+    [14] = "rt_sigprocmask",
+    [16] = "ioctl",
+    [39] = "getpid",
+    [57] = "fork",
+    [61] = "wait4",
+    [63] = "uname",
+    [72] = "fcntl",
+    [79] = "getcwd",
+    [80] = "chdir",
+    [95] = "umask",
+    [102] = "getuid",
+    [107] = "geteuid",
+    [110] = "getppid",
+    [158] = "arch_prctl",
+    [218] = "set_tid_address",
+    [228] = "clock_gettime",
+    [267] = "readlinkat",
+};
+
 uint64_t syscall_dispatch (
     uint64_t nr,
     uint64_t arg1,
@@ -1396,6 +1578,11 @@ uint64_t syscall_dispatch (
     uint64_t arg5,
     uint64_t arg6
 ) {
+
+    debug_printf("[syscall] %s(%u)\n",
+             names[nr] ? names[nr] : "?",
+             nr);
+
     switch (nr)
     {
         case LINUX_SYS_READ:
@@ -1425,6 +1612,8 @@ uint64_t syscall_dispatch (
             return sys_mprotect(arg1, arg2, arg3);
 
         case LINUX_SYS_RT_SIGACTION:
+            return 0;
+        
         case LINUX_SYS_RT_SIGPROCMASK:
         case LINUX_SYS_SIGALTSTACK:
             return -LINUX_ENOSYS;
@@ -1570,6 +1759,15 @@ uint64_t syscall_dispatch (
                 (void*)arg4
             );
             return 1;
+
+        case LINUX_SYS_SYSLOG: // syslog, this is what dmesg calls
+            return sys_syslog((int)arg1, (char*)arg2, arg3);
+
+        case LINUX_SYS_MKDIR:
+            return sys_mkdirat(LINUX_AT_FDCWD, (const char*)arg1, arg2);
+
+        case LINUX_SYS_MKDIRAT:
+            return sys_mkdirat((int)arg1, (const char*)arg2, arg3);
 
         case PRAD_MAGIC:
             info("Alive from userland", __FILE__);

@@ -21,6 +21,7 @@
 #include <heap.h>
 #include <strings.h>
 #include <memory.h>
+#include <debugger.h>
 
 char vfs_cwd[256] = "/";
 uint16_t vfs_cwd_cluster = 0; 
@@ -583,7 +584,7 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
                 return -6;
         }
 
-        if (out->f.ext2.is_dir) {
+        if (out->f.ext2.is_dir && (flags & (VFS_WRONLY | VFS_TRUNC))) {
             eprintf("open: is a directory");
             return -7;
         }
@@ -1071,6 +1072,6 @@ int vfs_sync(void)
         }
     }
 
-    debug_printf("sync has been called!");
+    klog_printf("sync has been called!");
     return ret;
 }
