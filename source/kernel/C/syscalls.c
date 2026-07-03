@@ -18,6 +18,7 @@
 #include <stream.h>
 #include <userland.h>
 #include <klog.h>
+#include <syslog.h>
 
 // Entire filesystems present in the OS.
 #include <filesystems/vfs.h>
@@ -1143,7 +1144,7 @@ int sys_kill(int pid, int sig)
 // Backs dmesg, which opens /dev/kmsg or falls back to the syslog(2) syscall
 // (SYS_syslog == 103 on x86_64) to read the kernel ring buffer.
 uint64 sys_syslog(int type, char* buf, uint64_t len) {
-    klog_printf("[syscall] klog: type -> %d", type);
+    syslog_printf("[syscall] klog: type -> %d", type);
     switch (type) {
         case LINUX_SYSLOG_ACTION_CLOSE:
         case LINUX_SYSLOG_ACTION_OPEN:
@@ -1152,12 +1153,12 @@ uint64 sys_syslog(int type, char* buf, uint64_t len) {
         case LINUX_SYSLOG_ACTION_READ:
         case LINUX_SYSLOG_ACTION_READ_ALL:
         case LINUX_SYSLOG_ACTION_READ_CLEAR: {
-            klog_printf("[syscall] read: buf=%x len=%x", (unsigned)(uintptr_t)buf, len);
+            syslog_printf("[syscall] klog read: buf=%x len=%x", (unsigned)(uintptr_t)buf, len);
             if (!buf || len <= 0)
                 return -LINUX_EINVAL;
 
             size_t n = klog_read(buf, len);
-            klog_printf("[syscall] read: n -> %u", (unsigned)n);
+            syslog_printf("[syscall] klog read: n -> %u", (unsigned)n);
 
             if (type == LINUX_SYSLOG_ACTION_READ_CLEAR)
                 klog_clear();
@@ -1177,7 +1178,7 @@ uint64 sys_syslog(int type, char* buf, uint64_t len) {
         case LINUX_SYSLOG_ACTION_SIZE_UNREAD:
         case LINUX_SYSLOG_ACTION_SIZE_BUFFER:
             size_t sz = klog_size();
-            debug_printf("[syscall] klog: size -> %u\n", (unsigned)sz);
+            syslog_printf("[syscall] klog: size -> %u", (unsigned)sz);
             return (uint64)sz;
 
         default:
@@ -1558,9 +1559,8 @@ uint64_t syscall_dispatch (
     uint64_t arg6
 ) {
 
-    debug_printf("[syscall] %s(%u)\n",
-             names[nr] ? names[nr] : "?",
-             nr);
+    syslog_printf("[syscall] %s(%u)", names[nr] ? names[nr] : "?", nr);
+    debug_printf("[syscall] %s(%u)\n", names[nr] ? names[nr] : "?", nr);
 
     switch (nr)
     {
