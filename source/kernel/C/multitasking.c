@@ -14,6 +14,8 @@ typedef struct task {
     int exit_code;
     uint64_t created_at_tick;
     uint64_t runtime_ticks;
+    uint32_t parent_pid;
+    bool fork_child;
     char name[64];
 
     kernel_task_fn_t kernel_fn;
@@ -70,6 +72,7 @@ static void fill_info(const task_t* task, task_info_t* info) {
     info->state = task->state;
     info->exit_code = task->exit_code;
     info->runtime_ticks = task->runtime_ticks;
+    info->parent_pid = task->parent_pid;
     info->name = task->name;
 }
 
@@ -106,6 +109,7 @@ uint32_t multitasking_spawn_kernel(const char* name, kernel_task_fn_t fn, void* 
     task->state = TASK_STATE_READY;
     task->exit_code = 0;
     task->created_at_tick = g_last_tick;
+    task->parent_pid = g_current_pid;
     task->kernel_fn = fn;
     task->kernel_ctx = ctx;
     if (name)
@@ -135,6 +139,8 @@ uint32_t multitasking_spawn_userland(const char* name, const user_task_spec_t* s
     task->state = TASK_STATE_READY;
     task->exit_code = 0;
     task->created_at_tick = g_last_tick;
+    task->parent_pid = spec->parent_pid ? spec->parent_pid : g_current_pid;
+    task->fork_child = spec->fork_child;
     if (name)
         snprintf(task->name, sizeof(task->name), "%s", name);
     else
@@ -142,6 +148,8 @@ uint32_t multitasking_spawn_userland(const char* name, const user_task_spec_t* s
 
     task->user_spec.path = spec->path;
     task->user_spec.argc = spec->argc;
+    task->user_spec.parent_pid = task->parent_pid;
+    task->user_spec.fork_child = task->fork_child;
     for (int i = 0; i < spec->argc && i < 32; ++i)
         task->user_spec.argv[i] = spec->argv[i];
 
@@ -180,6 +188,50 @@ bool multitasking_get_task(uint32_t pid, task_info_t* out_info) {
     fill_info(task, out_info);
     irq_restore(flags);
     return true;
+}
+
+
+bool multitasking_reap_task(uint32_t pid, task_info_t* out_info) {
+    uint64_t flags = irq_save_disable();
+    task_t* prev = NULL;
+    task_t* task = g_task_head;
+
+    while (task) {
+        if (task->pid == pid)
+            break;
+        prev = task;
+        task = task->next;
+    }
+
+    if (!task || task->state != TASK_STATE_EXITED) {
+        irq_restore(flags);
+        return false;
+    }
+
+    if (out_info)
+        fill_info(task, out_info);
+
+    if (prev)
+        prev->next = task->next;
+    else
+        g_task_head = task->next;
+
+    if (task == g_task_tail)
+        g_task_tail = prev;
+
+    irq_restore(flags);
+    kfree(task);
+    return true;
+}
+
+bool multitasking_current_is_fork_child(void) {
+    uint64_t flags = irq_save_disable();
+    task_t* task = find_task_locked(g_current_pid);
+    bool is_child = task && task->fork_child;
+    if (task)
+        task->fork_child = false;
+    irq_restore(flags);
+    return is_child;
 }
 
 uint32_t multitasking_count_tasks(void) {
@@ -351,5 +403,6 @@ void multitasking_pump(void) {
         irq_restore(flags);
     }
 
-    sweep_exited_tasks();
+    /* Exited user tasks remain as zombies until wait4() reaps them. */
 }
+

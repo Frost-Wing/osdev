@@ -116,3 +116,55 @@ void scheduler_switch(process_t *next)
 
     context_switch(&old->context, &next->context);
 }
+void scheduler_init(void)
+{
+    ready_head = NULL;
+    ready_tail = NULL;
+    current_process = NULL;
+}
+
+void scheduler_remove(process_t *proc)
+{
+    if (!proc)
+        return;
+
+    process_t *prev = NULL;
+    process_t *cur = ready_head;
+    while (cur) {
+        if (cur == proc)
+            break;
+        prev = cur;
+        cur = cur->next;
+    }
+    if (!cur)
+        return;
+    if (prev)
+        prev->next = cur->next;
+    else
+        ready_head = cur->next;
+    if (ready_tail == cur)
+        ready_tail = prev;
+    cur->next = NULL;
+}
+
+process_t *scheduler_current(void)
+{
+    return current_process;
+}
+
+void scheduler_tick(trap_frame_t *frame)
+{
+    if (current_process && frame) {
+        current_process->trapframe = frame;
+        current_process->context.rax = frame->rax;
+        current_process->context.rip = frame->rip;
+        current_process->context.rsp = frame->rsp;
+        current_process->context.rflags = frame->rflags;
+    }
+
+    process_t *next = scheduler_next();
+    if (!next || next == current_process)
+        return;
+
+    scheduler_switch(next);
+}
