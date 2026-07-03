@@ -191,6 +191,40 @@ bool multitasking_get_task(uint32_t pid, task_info_t* out_info) {
 }
 
 
+
+static bool child_matches_filter(const task_t* task, uint32_t parent_pid, int64_t pid_filter) {
+    if (!task || task->parent_pid != parent_pid)
+        return false;
+
+    if (pid_filter == -1)
+        return true;
+
+    if (pid_filter > 0)
+        return task->pid == (uint32_t)pid_filter;
+
+    /* Process groups are not modelled yet; pid 0 and pid < -1 mean any child. */
+    return true;
+}
+
+bool multitasking_find_child(uint32_t parent_pid, int64_t pid_filter, bool exited_only, task_info_t* out_info) {
+    uint64_t flags = irq_save_disable();
+
+    for (task_t* task = g_task_head; task != NULL; task = task->next) {
+        if (!child_matches_filter(task, parent_pid, pid_filter))
+            continue;
+        if (exited_only && task->state != TASK_STATE_EXITED)
+            continue;
+
+        if (out_info)
+            fill_info(task, out_info);
+        irq_restore(flags);
+        return true;
+    }
+
+    irq_restore(flags);
+    return false;
+}
+
 bool multitasking_reap_task(uint32_t pid, task_info_t* out_info) {
     uint64_t flags = irq_save_disable();
     task_t* prev = NULL;
