@@ -17,6 +17,7 @@
 #include <tty.h>
 #include <executables/elf.h>
 #include <multitasking.h>
+#include <klog.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
@@ -29,9 +30,6 @@ uint64* wm_addr;
 uint64* font_address = null;
 
 extern void ksh_exec(void);
-
-ring_buffer_t klog_rb;
-char klog_storage[65536];
 
 // The Limine requests can be placed anywhere, but it is important that
 // the compiler does not optimise them away, so, usually, they should
@@ -138,7 +136,6 @@ void main(void) {
     stream_init();
     tty_init();
     keyboard_init();
-    rb_init(&klog_rb, klog_storage, sizeof(klog_storage), 1);
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
     memmap = memory_map_request.response;
@@ -183,6 +180,7 @@ void main(void) {
 
     setup_gdt();
     initIdt();
+    klog_init();
     
     RTL8139 = (struct rtl8139*) kmalloc(sizeof(struct rtl8139));
 

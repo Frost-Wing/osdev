@@ -193,4 +193,6 @@ char* trim_inplace(char* s);
 char* strrchr(const char* s, int c);
 char* strdup(const char* str);
 
+char* strchr(const char* s, int c);
+
 int itoa(int num, string str, int len, int base);

@@ -258,4 +258,17 @@ int ext2_find_in_dir(ext2_fs_t* fs, uint32_t dir_ino, const char* name, uint32_t
  */
 int ext2_sync(ext2_fs_t *fs);
 
+/* Directory iteration callback for getdents64-style consumers.
+ * Return non-zero from cb to stop iteration early.
+ * Deleted entries (inode == 0) are filtered out automatically before
+ * cb is invoked; "." and ".." are real on-disk entries in ext2 and
+ * are NOT filtered — callers that don't want them must skip in cb. */
+typedef int (*ext2_readdir_cb)(uint32_t ino, uint8_t file_type, const char* name, void* user);
+
+/**
+ * @brief Iterate every valid entry of a directory inode, in on-disk order.
+ * @return EXT2_OK, EXT2_ERR_NOTDIR, or EXT2_ERR_IO.
+ */
+int ext2_readdir(ext2_fs_t* fs, uint32_t dir_ino, ext2_readdir_cb cb, void* user);
+
 #endif /* EXT2_H */
