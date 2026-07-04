@@ -50,8 +50,6 @@
 extern struct limine_framebuffer *framebuffer;
 extern uint64* font_address;
 
-extern int execute_chain(const char* line);
-
 typedef struct {
     bool exists;
     bool is_dir;
@@ -319,7 +317,7 @@ static uint64 copy_readlink_result(const char* target, char* buf, uint64_t bufsi
     return (uint64)len;
 }
 
-static void record_exec_context(const char* target, char* const* argv) {
+static void record_exec_context(const char* target, const char* const* argv) {
     if (target)
         snprintf(current_exec_path, sizeof(current_exec_path), "%s", target);
 
@@ -336,6 +334,49 @@ static void record_exec_context(const char* target, char* const* argv) {
         current_exec_argc++;
     }
     current_exec_argv[current_exec_argc] = NULL;
+}
+
+
+static bool path_is_loadable_elf(const char* path) {
+    if (!path)
+        return false;
+
+    vfs_file_t file;
+    if (vfs_open(path, VFS_RDONLY, &file) != 0)
+        return false;
+
+    uint8_t ident[4] = {0};
+    int rd = vfs_read(&file, ident, sizeof(ident));
+    vfs_close(&file);
+
+    return rd == (int)sizeof(ident) && ident[0] == 0x7F && ident[1] == 'E' && ident[2] == 'L' && ident[3] == 'F';
+}
+
+static bool should_route_to_toybox(const char* target) {
+    if (!target || target[0] == '\0')
+        return false;
+
+    const char* applet = vfs_basename(target);
+    if (!applet || applet[0] == '\0' || strcmp(applet, "toybox") == 0)
+        return false;
+
+    if (!path_is_loadable_elf("/toybox"))
+        return false;
+
+    return !path_is_loadable_elf(target);
+}
+
+static int build_toybox_argv(const char* target, int argc, char** copied_argv, const char* out_argv[32]) {
+    const char* applet = vfs_basename(target);
+    int out_argc = 0;
+
+    out_argv[out_argc++] = applet;
+
+    for (int i = 1; i < argc && out_argc < 31; ++i)
+        out_argv[out_argc++] = copied_argv[i];
+
+    out_argv[out_argc] = NULL;
+    return out_argc;
 }
 
 static int emit_dirent(char* buf, uint64_t buflen, uint64_t* used, uint64_t ino, uint8_t type, const char* name, uint64_t next_off) {
@@ -1347,8 +1388,6 @@ static uint64 sys_execve(const char* target, char* const* argv, char* const* env
     if (!target)
         return -LINUX_EINVAL;
 
-    record_exec_context(target, argv);
-
     char** copied_argv = NULL;
     char** copied_envp = NULL;
     int argc = copy_user_string_array(argv, &copied_argv);
@@ -1361,14 +1400,23 @@ static uint64 sys_execve(const char* target, char* const* argv, char* const* env
         return envc;
     }
 
+    if (should_route_to_toybox(target)) {
+        const char* toybox_argv[32];
+        int toybox_argc = build_toybox_argv(target, argc, copied_argv, toybox_argv);
+
+        record_exec_context("/toybox", toybox_argv);
+        if (userland_exec("/toybox", toybox_argc, toybox_argv, (const char* const*)copied_envp) == 0)
+            return 0;
+    }
+
+    record_exec_context(target, (const char* const*)copied_argv);
     if (userland_exec(target, argc, (const char* const*)copied_argv, (const char* const*)copied_envp) == 0)
         return 0;
 
     free_copied_string_array(copied_argv, argc);
     free_copied_string_array(copied_envp, envc);
 
-    int rc = execute_chain(target);
-    return rc >= 0 ? rc : -LINUX_ENOEXEC;
+    return -LINUX_ENOEXEC;
 }
 
 static uint64 sys_fork(void) {
