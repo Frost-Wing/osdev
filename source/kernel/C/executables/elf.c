@@ -595,6 +595,8 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
     if (!path)
         return NULL;
 
+        debug_printf("path = %s", path);
+
     vfs_file_t file;
     if (vfs_open(path, VFS_RDONLY, &file) != 0) {
         eprintf("elf: failed to open %s", path);

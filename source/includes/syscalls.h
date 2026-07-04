@@ -45,11 +45,12 @@
 #define LINUX_SYS_KILL              62
 #define LINUX_SYS_EXECVE            59
 #define LINUX_SYS_EXIT              60
-#define LINUX_SYS_CHDIR             80
 #define LINUX_SYS_UNAME             63
 #define LINUX_SYS_FCNTL             72
 #define LINUX_SYS_GETCWD            79
 #define LINUX_SYS_MKDIR             83
+#define LINUX_SYS_CHDIR             80
+#define LINUX_SYS_UNLINK            87
 #define LINUX_SYS_READLINK          89
 #define LINUX_SYS_UMASK             95
 #define LINUX_SYS_GETUID            102

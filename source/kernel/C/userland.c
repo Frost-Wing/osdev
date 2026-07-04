@@ -11,6 +11,11 @@
 #include <debugger.h>
 #include <cc-asm.h>
 
+// Defined in syscalls.c. Keeps sys_fork()'s notion of "what's currently
+// running" accurate - see the call site in userland_exec() below.
+extern void record_exec_context(const char* target, const char* const* argv);
+
+
 static uint64_t user_heap_break = USER_HEAP_VADDR;
 static uint64_t user_heap_mapped_end = USER_HEAP_VADDR;
 
@@ -19,8 +24,6 @@ static uint64_t user_mmap_end = USER_MMAP_VADDR;
 static volatile bool userland_running = false;
 static uint64_t userland_saved_kernel_stack_top = 0;
 static uint64_t userland_saved_tss_rsp0 = 0;
-__attribute__((aligned(16)))
-static uint8_t userland_syscall_stack[0x4000];
 volatile bool userland_should_return_kernel = false;
 volatile uint64_t userland_resume_rip = 0;
 volatile uint64_t userland_resume_rsp = 0;
@@ -33,6 +36,121 @@ volatile uint64_t userland_resume_r15 = 0;
 volatile uint64_t userland_resume_ret_rip = 0;
 volatile uint64_t userland_resume_ret_rsp = 0;
 static volatile int userland_last_exit_code = 0;
+
+/*
+ * Reentrancy support.
+ *
+ * userland_exec() can legitimately be called while an *outer* call to
+ * userland_exec() is still alive further down the C call stack - e.g.
+ * sh (outer) blocks in sys_wait4() -> multitasking_pump(), which calls
+ * userland_exec() again (inner) to actually run a forked child. The
+ * globals above always describe the *currently active* (innermost)
+ * frame - other code (exception handlers, userland_prepare_exit(),
+ * etc.) keeps working unchanged. What's new is:
+ *
+ *   1. Every nesting depth gets its OWN 16KB kernel/syscall stack
+ *      buffer, so an inner frame's syscalls can never grow down through
+ *      memory an outer, still-suspended frame's C stack still occupies.
+ *   2. On entry, the previous (outer) frame's globals are pushed onto
+ *      userland_frame_stack[] before being overwritten with the new
+ *      frame's values. On exit, they are popped back so the outer frame
+ *      resumes with its own resume/exception state intact instead of
+ *      zeroed out from under it.
+ */
+#define USERLAND_MAX_DEPTH 8
+
+typedef struct {
+    uint64_t saved_kernel_stack_top;
+    uint64_t saved_tss_rsp0;
+    uint64_t resume_rip;
+    uint64_t resume_rsp;
+    uint64_t resume_rbx;
+    uint64_t resume_rbp;
+    uint64_t resume_r12;
+    uint64_t resume_r13;
+    uint64_t resume_r14;
+    uint64_t resume_r15;
+    uint64_t resume_ret_rip;
+    uint64_t resume_ret_rsp;
+    int      last_exit_code;
+} userland_saved_frame_t;
+
+static userland_saved_frame_t userland_frame_stack[USERLAND_MAX_DEPTH];
+static int userland_depth = 0; /* number of active (nested) userland_exec frames */
+
+__attribute__((aligned(16)))
+static uint8_t userland_syscall_stacks[USERLAND_MAX_DEPTH][0x4000];
+
+/* Save whatever is currently in the "active frame" globals (the outer
+ * frame we're about to supersede) and reserve a new depth slot. Returns
+ * the index of the new frame's dedicated stack buffer, or -1 if we've
+ * nested deeper than we ever expect to (a real bug elsewhere, not a
+ * resource we should silently corrupt through). */
+static int userland_push_frame(void) {
+    if (userland_depth >= USERLAND_MAX_DEPTH)
+        return -1;
+
+    userland_saved_frame_t* f = &userland_frame_stack[userland_depth];
+    f->saved_kernel_stack_top = userland_saved_kernel_stack_top;
+    f->saved_tss_rsp0         = userland_saved_tss_rsp0;
+    f->resume_rip             = userland_resume_rip;
+    f->resume_rsp             = userland_resume_rsp;
+    f->resume_rbx             = userland_resume_rbx;
+    f->resume_rbp             = userland_resume_rbp;
+    f->resume_r12             = userland_resume_r12;
+    f->resume_r13             = userland_resume_r13;
+    f->resume_r14             = userland_resume_r14;
+    f->resume_r15             = userland_resume_r15;
+    f->resume_ret_rip         = userland_resume_ret_rip;
+    f->resume_ret_rsp         = userland_resume_ret_rsp;
+    f->last_exit_code         = userland_last_exit_code;
+
+    return userland_depth++;
+}
+
+/* Undo userland_push_frame(): pop the outer frame's state back into the
+ * active globals. Returns true if an outer frame is still active (so the
+ * caller should keep userland_running = true), false if this was the
+ * outermost frame (fully unwound, nothing left to resume). */
+static bool userland_pop_frame(void) {
+    if (userland_depth == 0)
+        return false;
+
+    userland_depth--;
+
+    if (userland_depth == 0) {
+        userland_resume_rip = 0;
+        userland_resume_rsp = 0;
+        userland_resume_rbx = 0;
+        userland_resume_rbp = 0;
+        userland_resume_r12 = 0;
+        userland_resume_r13 = 0;
+        userland_resume_r14 = 0;
+        userland_resume_r15 = 0;
+        userland_resume_ret_rip = 0;
+        userland_resume_ret_rsp = 0;
+        userland_saved_kernel_stack_top = 0;
+        userland_saved_tss_rsp0 = 0;
+        userland_last_exit_code = 0;
+        return false;
+    }
+
+    userland_saved_frame_t* f = &userland_frame_stack[userland_depth - 1];
+    userland_saved_kernel_stack_top = f->saved_kernel_stack_top;
+    userland_saved_tss_rsp0         = f->saved_tss_rsp0;
+    userland_resume_rip             = f->resume_rip;
+    userland_resume_rsp             = f->resume_rsp;
+    userland_resume_rbx             = f->resume_rbx;
+    userland_resume_rbp             = f->resume_rbp;
+    userland_resume_r12             = f->resume_r12;
+    userland_resume_r13             = f->resume_r13;
+    userland_resume_r14             = f->resume_r14;
+    userland_resume_r15             = f->resume_r15;
+    userland_resume_ret_rip         = f->resume_ret_rip;
+    userland_resume_ret_rsp         = f->resume_ret_rsp;
+    userland_last_exit_code         = f->last_exit_code;
+    return true;
+}
 static inline void wrmsr64_local(uint32_t msr, uint64_t value);
 static void userland_unmap_all(void);
 void userland_heap_init(void);
@@ -40,28 +158,30 @@ void userland_heap_init(void);
 __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     uint64_t return_rip = userland_resume_ret_rip;
     uint64_t return_rsp = userland_resume_ret_rsp;
+    int exit_code = userland_last_exit_code;
 
-    userland_running = false;
     userland_should_return_kernel = false;
-    userland_resume_rip = 0;
-    userland_resume_rsp = 0;
-    userland_resume_rbx = 0;
-    userland_resume_rbp = 0;
-    userland_resume_r12 = 0;
-    userland_resume_r13 = 0;
-    userland_resume_r14 = 0;
-    userland_resume_r15 = 0;
-    userland_resume_ret_rip = 0;
-    userland_resume_ret_rsp = 0;
+
+    /* Restore the kernel stack pointer this frame overwrote back to
+     * whatever it was before this frame started - the outer frame's own
+     * dedicated buffer (or the true original kernel stack, if this was
+     * the outermost frame). This must happen using *this* frame's saved
+     * values, before we pop and lose them. */
     kernel_stack_top = userland_saved_kernel_stack_top;
     tss.rsp0 = userland_saved_tss_rsp0;
-    userland_saved_kernel_stack_top = 0;
-    userland_saved_tss_rsp0 = 0;
+
+    /* Pop back to the outer frame's resume/exception state (if any). If
+     * there's still an outer frame active, a process is still logically
+     * "running" (blocked mid-syscall) even though nothing is in ring3
+     * right now, so keep userland_running true for it. Only the truly
+     * outermost exit clears it. */
+    userland_running = userland_pop_frame();
+
     wrmsr64_local(IA32_FS_BASE_MSR, 0);
     userland_unmap_all();
     userland_heap_init();
     tty_flush_input();
-    printf(blue_color "\n[process exited with code %d]" reset_color, userland_last_exit_code);
+    printf(blue_color "\n[process exited with code %d]" reset_color, exit_code);
     asm volatile("sti");
     
     asm volatile(
@@ -528,6 +648,17 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
     if (!entry)
         return -1;
 
+    // This is the one place every userland process passes through right
+    // before it actually starts running - whether it got here as the
+    // initial process spawned by kernel init, via sys_execve(), or as a
+    // fork()-spawned child pumped by multitasking_pump(). Recording it
+    // here (rather than only in sys_execve()) guarantees current_exec_path
+    // always reflects the program that is truly executing right now, so a
+    // later fork() from that process always has a valid target to
+    // respawn instead of falling back to the "/" default and failing with
+    // ENOSYS ("fork not implemented").
+    record_exec_context(path, argv);
+
     map_user_stack();
     userland_heap_init();
     if (init_user_tls(&image_info) != 0) {
@@ -551,6 +682,18 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
                  stack_top);
     debug_dump_initial_stack(stack_top);
 
+    /* Save the outer frame's resume/exception state (if any is currently
+     * active) before we overwrite the globals below, and grab this
+     * nesting depth's own dedicated stack buffer. This is what makes it
+     * safe for this call to happen while an outer userland_exec() is
+     * still alive further down the C stack (e.g. sh blocked in
+     * sys_wait4() -> multitasking_pump() running a forked child). */
+    int frame_depth = userland_push_frame();
+    if (frame_depth < 0) {
+        eprintf("[userland] exec nesting too deep (max %d), refusing", USERLAND_MAX_DEPTH);
+        return -1;
+    }
+
     uint64_t kernel_rsp = 0;
     asm volatile("mov %%rsp, %0" : "=r"(kernel_rsp));
     asm volatile("mov %%rbx, %0" : "=r"(userland_resume_rbx));
@@ -569,9 +712,89 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
     userland_running = true;
     userland_saved_kernel_stack_top = kernel_stack_top;
     userland_saved_tss_rsp0 = tss.rsp0;
-    kernel_stack_top = (uint64_t)&userland_syscall_stack[sizeof(userland_syscall_stack)];
+    kernel_stack_top = (uint64_t)&userland_syscall_stacks[frame_depth][sizeof(userland_syscall_stacks[frame_depth])];
     tss.rsp0 = kernel_stack_top;
 
+    asm volatile (
+        "cli\n"
+        "mov %0, %%r11\n"
+        "mov %1, %%r10\n"
+        "xor %%rax, %%rax\n"
+        "xor %%rbx, %%rbx\n"
+        "xor %%rcx, %%rcx\n"
+        "xor %%rdx, %%rdx\n"
+        "xor %%rsi, %%rsi\n"
+        "xor %%rdi, %%rdi\n"
+        "xor %%r8, %%r8\n"
+        "xor %%r9, %%r9\n"
+        "pushq $0x23\n"
+        "pushq %%r11\n"
+        "pushq $0x202\n"
+        "pushq $0x1B\n"
+        "pushq %%r10\n"
+        "iretq\n"
+        :
+        : "r"(stack_top), "r"((uint64_t)entry)
+        : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
+    );
+
+    __builtin_unreachable();
+}
+/**
+ * @brief execve() semantics for a process that is *already running*
+ * (called from sys_execve(), from inside that process's own syscall).
+ *
+ * Unlike userland_exec(), this must NOT push a new reentrancy frame: a
+ * real execve() replaces the current program image in place but keeps
+ * the same "who resumes when this process eventually exits" identity.
+ * If it pushed a new frame like a fresh spawn does, the *next* exit
+ * would unwind into the middle of this now-abandoned sys_execve() call
+ * instead of back to whoever originally started this process (e.g.
+ * multitasking_pump() or the kernel shell's "exec" command) - which
+ * would resume a stale/nonexistent ring3 context and crash.
+ *
+ * So: reuse the current depth's kernel stack buffer and leave the
+ * resume_ret_rip/resume_ret_rsp/resume_rbx.. registers untouched - they
+ * already describe the correct outer unwind target and, per the C ABI,
+ * still hold the same values they had when this frame started (every
+ * function in between must have preserved them as callee-saved regs).
+ * Only the program image, stack, and TLS actually change.
+ */
+int userland_exec_replace(const char* path, int argc, const char* const* argv, const char* const* envp) {
+    if (userland_depth == 0) {
+        /* Not actually running an existing userland process - there's
+         * nothing to "replace in place". Fall back to a fresh exec. */
+        return userland_exec(path, argc, argv, envp);
+    }
+
+    elf_image_info_t image_info = {0};
+    void* entry = elf_load_from_vfs_ex(path, &image_info);
+    if (!entry)
+        return -1;
+
+    record_exec_context(path, argv);
+
+    map_user_stack();
+    userland_heap_init();
+    if (init_user_tls(&image_info) != 0) {
+        if (image_info.tls_template)
+            kfree(image_info.tls_template);
+        return -1;
+    }
+    if (image_info.tls_template)
+        kfree(image_info.tls_template);
+
+    uint64_t stack_top = build_initial_user_stack(path, argc, argv, envp, &image_info);
+
+    debug_printf("userland: exec (replace) path=%s entry=%x stack=%x\n",
+                 path, entry, stack_top);
+    debug_dump_initial_stack(stack_top);
+
+    /* Deliberately NOT touching: userland_depth, userland_frame_stack[],
+     * kernel_stack_top, tss.rsp0, userland_saved_kernel_stack_top,
+     * userland_saved_tss_rsp0, userland_resume_ret_rip/rsp, or
+     * userland_resume_rbx/rbp/r12-r15. Same process, same nesting
+     * depth, same eventual unwind target as before this call. */
     asm volatile (
         "cli\n"
         "mov %0, %%r11\n"

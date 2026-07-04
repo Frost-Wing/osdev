@@ -19,6 +19,7 @@
 
 bool enable_keyboard = yes;
 static ring_buffer_t kb_rb;
+bool is_kbrb_ready = false;
 static uint8_t kb_storage[KB_BUFFER_SIZE];
 
 /**
@@ -70,6 +71,7 @@ char scancode_to_char(int scancode, bool uppercase) {
 
 void keyboard_init(void) {
     rb_init(&kb_rb, kb_storage, KB_BUFFER_SIZE, sizeof(uint8_t));
+    is_kbrb_ready = true;
 }
 
 bool shift = no;
@@ -85,7 +87,8 @@ void process_keyboard(InterruptFrame* frame)
 
     uint8_t scancode = inb(0x60);
 
-    rb_push(&kb_rb, &scancode);
+    if(is_kbrb_ready)
+        rb_push(&kb_rb, &scancode);
 
     int c = handle_char_from_scancode(scancode);
     if (c != 0)
@@ -106,7 +109,7 @@ uint8_t getc(void)
     static uint64_t last_tick = 0;
 
     for (;;) {
-        if (rb_pop(&kb_rb, &sc) == 0) {
+        if (is_kbrb_ready && (rb_pop(&kb_rb, &sc) == 0)) {
             return (uint8_t)handle_char_from_scancode(sc);
         }
 
@@ -122,7 +125,7 @@ uint8_t getc(void)
 int getc_nonblock(void) {
     uint8_t sc;
 
-    if (rb_pop(&kb_rb, &sc) == 0) {
+    if (is_kbrb_ready && (rb_pop(&kb_rb, &sc) == 0)) {
         return handle_char_from_scancode(sc);
     }
 
@@ -130,7 +133,8 @@ int getc_nonblock(void) {
 }
 
 void keyboard_flush_buffer(void) {
-    rb_clear(&kb_rb);
+    if(is_kbrb_ready)
+        rb_clear(&kb_rb);
 }
 
 static bool extended = false;

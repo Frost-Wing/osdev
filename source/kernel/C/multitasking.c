@@ -1,30 +1,10 @@
 #include <multitasking.h>
-
 #include <graphics.h>
 #include <heap.h>
 #include <memory.h>
 #include <strings.h>
 #include <userland.h>
 #include <flanterm/flanterm.h>
-
-typedef struct task {
-    uint32_t pid;
-    task_type_t type;
-    task_state_t state;
-    int exit_code;
-    uint64_t created_at_tick;
-    uint64_t runtime_ticks;
-    uint32_t parent_pid;
-    bool fork_child;
-    char name[64];
-
-    kernel_task_fn_t kernel_fn;
-    void* kernel_ctx;
-
-    user_task_spec_t user_spec;
-
-    struct task* next;
-} task_t;
 
 extern struct flanterm_context* ft_ctx;
 
@@ -439,4 +419,3 @@ void multitasking_pump(void) {
 
     /* Exited user tasks remain as zombies until wait4() reaps them. */
 }
-
