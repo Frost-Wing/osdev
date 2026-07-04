@@ -87,9 +87,9 @@ QEMU_COMMON = \
     -netdev user,hostfwd=tcp::5555-:22,id=eth0 \
     -device ahci,id=ahci \
 	-drive if=none,format=raw,file=disk.img,id=disk \
-    -device ide-hd,drive=disk,bus=ahci.0 \
+    -device ide-hd,drive=disk,bus=ahci.1 \
     -drive if=none,media=cdrom,format=raw,file=$(ISO_FILE),id=cd0 \
-    -device ide-cd,drive=cd0,bus=ahci.1 \
+    -device ide-cd,drive=cd0,bus=ahci.0 \
     -rtc base=localtime,clock=host \
     -boot order=d \
     $(KVM) \

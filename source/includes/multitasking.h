@@ -37,6 +37,25 @@ typedef struct user_task_spec {
 typedef bool (*task_iter_cb_t)(const task_info_t* info, void* ctx);
 typedef bool (*kernel_task_fn_t)(uint32_t pid, uint64_t now_ticks, void* ctx, int* exit_code);
 
+typedef struct task {
+    uint32_t pid;
+    task_type_t type;
+    task_state_t state;
+    int exit_code;
+    uint64_t created_at_tick;
+    uint64_t runtime_ticks;
+    uint32_t parent_pid;
+    bool fork_child;
+    char name[64];
+
+    kernel_task_fn_t kernel_fn;
+    void* kernel_ctx;
+
+    user_task_spec_t user_spec;
+
+    struct task* next;
+} task_t;
+
 void multitasking_init(void);
 void multitasking_on_pit_tick(uint64_t now_ticks);
 void multitasking_pump(void);
