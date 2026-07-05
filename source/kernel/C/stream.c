@@ -208,6 +208,23 @@ int fd_open(const char *path, int flags) {
     return fd;
 }
 
+int fd_create_virtual(const char *path, int flags) {
+    int fd = fd_alloc_slot();
+    if (fd < 0)
+        return -1;
+
+    fd_object_t *object = fd_object_alloc(NULL, false, flags);
+    if (!object)
+        return -1;
+
+    if (path)
+        vfs_normalize_path(path, object->path, sizeof(object->path));
+
+    fd_table[fd].used = true;
+    fd_table[fd].object = object;
+    return fd;
+}
+
 int fd_close(int fd) {
     if (!fd_valid(fd))
         return -1;
