@@ -24,6 +24,7 @@ typedef struct task_info {
     uint64_t runtime_ticks;
     uint32_t parent_pid;
     const char* name;
+    const char* exe_path;
 } task_info_t;
 
 typedef struct user_task_spec {
@@ -36,6 +37,12 @@ typedef struct user_task_spec {
 
 typedef bool (*task_iter_cb_t)(const task_info_t* info, void* ctx);
 typedef bool (*kernel_task_fn_t)(uint32_t pid, uint64_t now_ticks, void* ctx, int* exit_code);
+
+typedef struct {
+    uint64_t rip;
+    uint64_t rsp;
+    int started;
+} user_runtime_t;
 
 typedef struct task {
     uint32_t pid;
@@ -52,13 +59,15 @@ typedef struct task {
     void* kernel_ctx;
 
     user_task_spec_t user_spec;
-
+    user_runtime_t user_runtime;
     struct task* next;
+    
 } task_t;
 
 void multitasking_init(void);
 void multitasking_on_pit_tick(uint64_t now_ticks);
 void multitasking_pump(void);
+task_t* multitasking_find_task(uint32_t pid);
 
 uint32_t multitasking_spawn_kernel(const char* name, kernel_task_fn_t fn, void* ctx);
 uint32_t multitasking_spawn_userland(const char* name, const user_task_spec_t* spec);

@@ -33,6 +33,23 @@ static task_t* find_task_locked(uint32_t pid) {
     return NULL;
 }
 
+task_t* multitasking_find_task(uint32_t pid) {
+    return find_task_locked(pid);
+}
+
+task_t* multitasking_get_current_task(void)
+{
+    uint32_t pid = multitasking_current_pid();
+    if (!pid)
+        return NULL;
+
+    for (task_t* t = g_task_head; t; t = t->next)
+        if (t->pid == pid)
+            return t;
+
+    return NULL;
+}
+
 static void push_task_locked(task_t* task) {
     if (g_task_tail == NULL) {
         g_task_head = g_task_tail = task;
@@ -54,6 +71,7 @@ static void fill_info(const task_t* task, task_info_t* info) {
     info->runtime_ticks = task->runtime_ticks;
     info->parent_pid = task->parent_pid;
     info->name = task->name;
+    info->exe_path = task->user_spec.path;
 }
 
 void multitasking_init(void) {
@@ -103,7 +121,8 @@ uint32_t multitasking_spawn_kernel(const char* name, kernel_task_fn_t fn, void* 
     return task->pid;
 }
 
-uint32_t multitasking_spawn_userland(const char* name, const user_task_spec_t* spec) {
+uint32_t multitasking_spawn_userland(const char* name, const user_task_spec_t* spec)
+{
     if (!spec || !spec->path)
         return 0;
 
@@ -113,7 +132,11 @@ uint32_t multitasking_spawn_userland(const char* name, const user_task_spec_t* s
 
     memset(task, 0, sizeof(*task));
 
+    // ---------------------------
+    // Basic task initialization
+    // ---------------------------
     uint64_t flags = irq_save_disable();
+
     task->pid = g_next_pid++;
     task->type = TASK_TYPE_USERLAND;
     task->state = TASK_STATE_READY;
@@ -121,22 +144,83 @@ uint32_t multitasking_spawn_userland(const char* name, const user_task_spec_t* s
     task->created_at_tick = g_last_tick;
     task->parent_pid = spec->parent_pid ? spec->parent_pid : g_current_pid;
     task->fork_child = spec->fork_child;
+
     if (name)
         snprintf(task->name, sizeof(task->name), "%s", name);
     else
         snprintf(task->name, sizeof(task->name), "%s", spec->path);
 
-    task->user_spec.path = spec->path;
-    task->user_spec.argc = spec->argc;
+    irq_restore(flags);
+
+    // ---------------------------
+    // Deep copy path
+    // ---------------------------
+    task->user_spec.path = strdup(spec->path);
+    if (!task->user_spec.path)
+        goto fail;
+
+    // ---------------------------
+    // Safe argc handling
+    // ---------------------------
+    int argc = spec->argc;
+    if (argc < 0)
+        argc = 0;
+    if (argc > 31)
+        argc = 31;
+
+    task->user_spec.argc = argc;
     task->user_spec.parent_pid = task->parent_pid;
     task->user_spec.fork_child = task->fork_child;
-    for (int i = 0; i < spec->argc && i < 32; ++i)
-        task->user_spec.argv[i] = spec->argv[i];
 
+    // ---------------------------
+    // Deep copy argv safely
+    // ---------------------------
+    for (int i = 0; i < argc; i++)
+    {
+        if (spec->argv[i])
+        {
+            task->user_spec.argv[i] = strdup(spec->argv[i]);
+            if (!task->user_spec.argv[i])
+                goto fail;
+        }
+        else
+        {
+            task->user_spec.argv[i] = NULL;
+        }
+    }
+
+    task->user_spec.argv[argc] = NULL;
+
+    // optional safety padding (prevents garbage reads)
+    for (int i = argc + 1; i < 32; i++)
+        task->user_spec.argv[i] = NULL;
+
+    // ---------------------------
+    // Queue task
+    // ---------------------------
+    irq_save_disable();
     push_task_locked(task);
     irq_restore(flags);
 
     return task->pid;
+
+fail:
+    // ---------------------------
+    // Cleanup on partial failure
+    // ---------------------------
+    for (int i = 0; i < 32; i++)
+    {
+        if (task->user_spec.argv[i])
+            kfree(task->user_spec.argv[i]);
+    }
+
+    if (task->user_spec.path)
+        kfree(task->user_spec.path);
+
+    kfree(task);
+
+    irq_restore(flags);
+    return 0;
 }
 
 bool multitasking_exit_task(uint32_t pid, int exit_code) {
@@ -389,33 +473,66 @@ void multitasking_on_pit_tick(uint64_t now_ticks) {
     irq_restore(flags);
 }
 
-void multitasking_pump(void) {
-    task_t* run_task = NULL;
+void multitasking_pump(void)
+{
+    task_t* task_to_run = NULL;
 
     uint64_t flags = irq_save_disable();
-    for (task_t* task = g_task_head; task != NULL; task = task->next) {
-        if (task->type == TASK_TYPE_USERLAND && task->state == TASK_STATE_READY) {
+
+    for (task_t* task = g_task_head; task; task = task->next)
+    {
+        if (task->type == TASK_TYPE_USERLAND &&
+            task->state == TASK_STATE_READY)
+        {
             task->state = TASK_STATE_RUNNING;
             g_current_pid = task->pid;
-            run_task = task;
+            task_to_run = task;
             break;
         }
     }
+
     irq_restore(flags);
 
-    if (run_task) {
-        int rc = userland_exec(run_task->user_spec.path,
-                               run_task->user_spec.argc,
-                               run_task->user_spec.argv,
-                               NULL);
+    if (!task_to_run)
+        return;
 
-        flags = irq_save_disable();
-        run_task->runtime_ticks += (g_last_tick - run_task->created_at_tick);
-        run_task->state = TASK_STATE_EXITED;
-        run_task->exit_code = rc;
+    // ---------------------------
+    // FIRST TIME RUN ONLY
+    // ---------------------------
+    if (!task_to_run->user_runtime.started)
+    {
+        userland_exec_ctx_t ctx;
+
+        ctx.path = task_to_run->user_spec.path;
+
+        int argc = task_to_run->user_spec.argc;
+        if (argc < 0) argc = 0;
+        if (argc > 31) argc = 31;
+
+        ctx.argc = argc;
+        ctx.envp = NULL;
+
+        for (int i = 0; i < argc; i++)
+            ctx.argv[i] = task_to_run->user_spec.argv[i];
+
+        ctx.argv[argc] = NULL;
+
+        // run ELF ONCE
+        int rc = userland_exec(&ctx);
+
+        task_to_run->state = TASK_STATE_EXITED;
+        task_to_run->exit_code = rc;
+        task_to_run->user_runtime.started = 1;
+
         g_current_pid = 0;
-        irq_restore(flags);
+        return;
     }
 
-    /* Exited user tasks remain as zombies until wait4() reaps them. */
+    // ---------------------------
+    // AFTER FIRST RUN: SHOULD NEVER RELOAD ELF
+    // ---------------------------
+    task_to_run->state = TASK_STATE_EXITED;
+    task_to_run->exit_code = -LINUX_ENOSYS;
+
+    g_current_pid = 0;
 }

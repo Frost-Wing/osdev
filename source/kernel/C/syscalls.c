@@ -59,13 +59,13 @@ typedef struct {
     uint64_t inode;
 } vfs_stat_info_t;
 
-char current_exec_path[256] = "/";
+// char current_exec_path[256] = "/";
 uint64_t current_fs_base = 0;
 uint32_t current_umask = 022;
 uint64_t* clear_child_tid = NULL;
-char current_exec_argv_storage[32][128];
-const char* current_exec_argv[32];
-int current_exec_argc = 0;
+// char current_exec_argv_storage[32][128];
+// const char* current_exec_argv[32];
+// int current_exec_argc = 0;
 
 #pragma pack(push, 1)
 typedef struct {
@@ -318,26 +318,6 @@ static uint64 copy_readlink_result(const char* target, char* buf, uint64_t bufsi
     return (uint64)len;
 }
 
-void record_exec_context(const char* target, const char* const* argv) {
-    if (target)
-        snprintf(current_exec_path, sizeof(current_exec_path), "%s", target);
-
-    current_exec_argc = 0;
-    memset(current_exec_argv_storage, 0, sizeof(current_exec_argv_storage));
-    memset(current_exec_argv, 0, sizeof(current_exec_argv));
-
-    if (!argv)
-        return;
-
-    for (int i = 0; i < 31 && argv[i]; ++i) {
-        snprintf(current_exec_argv_storage[i], sizeof(current_exec_argv_storage[i]), "%s", argv[i]);
-        current_exec_argv[i] = current_exec_argv_storage[i];
-        current_exec_argc++;
-    }
-    current_exec_argv[current_exec_argc] = NULL;
-}
-
-
 static bool path_is_loadable_elf(const char* path) {
     if (!path)
         return false;
@@ -361,7 +341,7 @@ static bool should_route_to_toybox(const char* target) {
     if (!target || target[0] == '\0' || strcmp(target, "/") == 0)
         return false;
 
-    debug_printf("route -> %s", target);
+    debug_printf("route -> %s\n", target);
 
     const char* applet = vfs_basename(target);
     if (!applet || applet[0] == '\0' || strcmp(applet, "toybox") == 0)
@@ -1112,7 +1092,11 @@ static uint64 sys_chdir(const char* path) {
     return 0;
 }
 
-static uint64 sys_readlinkat(int dirfd, const char* path, char* buf, uint64_t bufsiz) {
+static uint64 sys_readlinkat(int dirfd,
+                            const char* path,
+                            char* buf,
+                            uint64_t bufsiz)
+{
     if (!path)
         return -LINUX_EINVAL;
 
@@ -1120,8 +1104,25 @@ static uint64 sys_readlinkat(int dirfd, const char* path, char* buf, uint64_t bu
     if (!resolve_path_at(dirfd, path, resolved_path, sizeof(resolved_path)))
         return -LINUX_EINVAL;
 
-    if (strcmp(resolved_path, "/proc/self/exe") == 0 || strcmp(resolved_path, "self/exe") == 0)
-        return copy_readlink_result(current_exec_path, buf, bufsiz);
+    if (strcmp(resolved_path, "/proc/self/exe") == 0 ||
+        strcmp(resolved_path, "self/exe") == 0)
+    {
+        uint32_t pid = multitasking_current_pid();
+
+        if (pid == 0)
+            return -LINUX_ENOENT;
+
+        // IMPORTANT: use your existing function
+        task_info_t info;
+
+        if (!multitasking_get_task(pid, &info))
+            return -LINUX_ENOENT;
+
+        if (!info.name)
+            return -LINUX_ENOENT;
+
+        return copy_readlink_result(info.name, buf, bufsiz);
+    }
 
     return -LINUX_ENOENT;
 }
@@ -1415,12 +1416,16 @@ static uint64 sys_getrandom(void* buf, uint64_t buflen, uint64_t flags) {
     return (uint64)buflen;
 }
 
-static uint64 sys_execve(const char* target, char* const* argv, char* const* envp) {
+static uint64 sys_execve(const char* target,
+                         char* const* argv,
+                         char* const* envp)
+{
     if (!target)
         return -LINUX_EINVAL;
 
     char** copied_argv = NULL;
     char** copied_envp = NULL;
+
     int argc = copy_user_string_array(argv, &copied_argv);
     if (argc < 0)
         return argc;
@@ -1431,102 +1436,114 @@ static uint64 sys_execve(const char* target, char* const* argv, char* const* env
         return envc;
     }
 
+    userland_exec_ctx_t ctx;
+
+    ctx.path = target;
+    ctx.argc = argc;
+    ctx.envp = (const char* const*)copied_envp;
+
+    for (int i = 0; i < argc && i < 31; i++)
+        ctx.argv[i] = copied_argv[i];
+
+    ctx.argv[argc] = NULL;
+
+    int rc;
+
     if (should_route_to_toybox(target)) {
         const char* toybox_argv[32];
-        int toybox_argc = build_toybox_argv(target, argc, copied_argv, toybox_argv);
+        int toybox_argc = build_toybox_argv(
+            target,
+            argc,
+            (char**)copied_argv,
+            toybox_argv
+        );
 
-        record_exec_context("/bin/toybox", toybox_argv);
-        if (userland_exec_replace("/bin/toybox", toybox_argc, toybox_argv, (const char* const*)copied_envp) == 0)
-            return 0;
+        userland_exec_ctx_t tb_ctx;
+
+        tb_ctx.path = "/bin/toybox";
+        tb_ctx.argc = toybox_argc;
+        tb_ctx.envp = ctx.envp;
+
+        for (int i = 0; i < toybox_argc && i < 32; i++)
+            tb_ctx.argv[i] = toybox_argv[i];
+
+        tb_ctx.argv[toybox_argc] = NULL;
+
+        rc = userland_exec_replace(&tb_ctx);
+    } else {
+        rc = userland_exec_replace(&ctx);
     }
-
-    record_exec_context(target, (const char* const*)copied_argv);
-    if (userland_exec_replace(target, argc, (const char* const*)copied_argv, (const char* const*)copied_envp) == 0)
-        return 0;
 
     free_copied_string_array(copied_argv, argc);
     free_copied_string_array(copied_envp, envc);
 
-    return -LINUX_ENOEXEC;
+    return (rc == 0) ? 0 : -LINUX_ENOEXEC;
 }
 
-static uint64 sys_fork(void) {
+static uint64 sys_fork(void)
+{
     if (multitasking_current_is_fork_child())
         return 0;
 
-    // "/" is the module-level default/unset sentinel for current_exec_path
-    // (see the declaration above). If we ever get here with it still set,
-    // no exec context has been recorded for the calling task yet, so there
-    // is nothing sane to respawn.
-    if (current_exec_path[0] == '\0' || strcmp(current_exec_path, "/") == 0)
+    task_t* cur = multitasking_get_current_task();
+    if (!cur)
         return -LINUX_ENOSYS;
 
-    // Default: respawn whatever the recorded exec context says, i.e. the
-    // program that is actually running right now. This is kept in sync by
-    // record_exec_context(), called both from sys_execve() and from
-    // multitasking_pump() right before it runs a task, so it always
-    // reflects the calling task's own current program - not a stale or
-    // unrelated global left over from something else that last exec'd.
-    const char* spawn_path = current_exec_path;
+    if (!cur->user_spec.path)
+        return -LINUX_ENOSYS;
+
+    const char* spawn_path = cur->user_spec.path;
+
     const char* spawn_argv[32];
-    int spawn_argc = current_exec_argc;
+    int spawn_argc = cur->user_spec.argc;
 
-    for (int i = 0; i < current_exec_argc && i < 32; ++i)
-        spawn_argv[i] = current_exec_argv[i];
+    if (spawn_argc < 0)
+        spawn_argc = 0;
+    if (spawn_argc > 31)
+        spawn_argc = 31;
 
-    // If the recorded target is a toybox applet name (not toybox itself,
-    // and not a standalone ELF on disk), route it the same way execve
-    // does. Without this, a fork that lands here with e.g. "whoami" as
-    // the recorded target tries to load "whoami" as its own ELF file
-    // and fails with "invalid elf" instead of going through /bin/toybox.
-    if (should_route_to_toybox(current_exec_path)) {
+    for (int i = 0; i < spawn_argc; i++)
+        spawn_argv[i] = cur->user_spec.argv[i] ? cur->user_spec.argv[i] : "";
+
+    spawn_argv[spawn_argc] = NULL;
+
+    // toybox routing
+    if (should_route_to_toybox(spawn_path)) {
         const char* toybox_argv[32];
         int toybox_argc = build_toybox_argv(
-            current_exec_path,
-            current_exec_argc,
-            (char**)current_exec_argv,
+            spawn_path,
+            spawn_argc,
+            spawn_argv,
             toybox_argv
         );
 
         spawn_path = "/bin/toybox";
         spawn_argc = toybox_argc;
-        for (int i = 0; i < toybox_argc && i < 32; ++i)
+
+        for (int i = 0; i < toybox_argc && i < 32; i++)
             spawn_argv[i] = toybox_argv[i];
     }
 
-    // Safety net: whatever we resolved above must actually be a loadable
-    // ELF, or the forked child task will die the instant multitasking_pump()
-    // tries to run it ("tries to execve <path>, no such ELF"). Force it
-    // through /bin/toybox as a last resort instead of spawning a task we
-    // already know will fail, and fail the syscall cleanly if even that
-    // isn't possible.
-    if (!path_is_loadable_elf(spawn_path)) {
-        const char* toybox_argv[32];
-        int toybox_argc = build_toybox_argv(spawn_path, spawn_argc, (char**)spawn_argv, toybox_argv);
+    if (!path_is_loadable_elf(spawn_path))
+        return -LINUX_ENOEXEC;
 
-        if (path_is_loadable_elf("/bin/toybox")) {
-            spawn_path = "/bin/toybox";
-            spawn_argc = toybox_argc;
-            for (int i = 0; i < toybox_argc && i < 32; ++i)
-                spawn_argv[i] = toybox_argv[i];
-        } else {
-            return -LINUX_ENOEXEC;
-        }
-    }
+    user_task_spec_t spec;
+    memset(&spec, 0, sizeof(spec));
 
-    user_task_spec_t spec = {0};
     spec.path = spawn_path;
     spec.argc = spawn_argc;
-    spec.parent_pid = multitasking_current_pid() ? multitasking_current_pid() : 1;
+    spec.parent_pid = cur->pid;
     spec.fork_child = true;
-    for (int i = 0; i < spawn_argc && i < 32; ++i)
+
+    for (int i = 0; i < spawn_argc; i++)
         spec.argv[i] = spawn_argv[i];
 
     uint32_t child = multitasking_spawn_userland(spawn_path, &spec);
-    if (child == 0)
+
+    if (!child)
         return -LINUX_EAGAIN;
 
-    return (uint64)child;
+    return child;
 }
 
 static uint64 sys_wait4(int64_t pid, int* status, int options, void* rusage) {

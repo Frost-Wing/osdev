@@ -95,6 +95,13 @@ typedef struct {
     uint64_t value;
 } auxv_pair_t;
 
+typedef struct {
+    const char* path;
+    int argc;
+    const char* argv[32];
+    const char* envp;
+} userland_exec_ctx_t;
+
 void enter_userland_at(uint64_t entry_point);
 void userland_exec_prepare(
     const char *path,
@@ -110,7 +117,7 @@ uint64_t userland_mmap_anon(uint64_t length);
 bool userland_prepare_exit(syscall_frame_t* frame, uint64_t exit_code);
 bool userland_is_running(void);
 void userland_abort_from_exception(uint64_t int_no, uint64_t err_code, uint64_t fault_rip) __attribute__((noreturn));
-int userland_exec_replace(const char* path, int argc, const char* const* argv, const char* const* envp);
+int userland_exec_replace(const userland_exec_ctx_t* ctx);
 void sh_exec(void);
 
 #endif

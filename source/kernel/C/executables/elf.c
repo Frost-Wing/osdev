@@ -17,6 +17,7 @@
 #include <filesystems/vfs.h>
 #include <paging.h>
 #include <userland.h>
+#include <debugger.h>
 
 static uint32_t* elf_vfs_pos_ptr(vfs_file_t* file)
 {
@@ -595,7 +596,7 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
     if (!path)
         return NULL;
 
-        debug_printf("path = %s", path);
+        debug_printf("path = %s\n", path);
 
     vfs_file_t file;
     if (vfs_open(path, VFS_RDONLY, &file) != 0) {

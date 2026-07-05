@@ -471,6 +471,10 @@ void userland_heap_init(void) {
 uint64_t userland_brk(uint64_t requested_break) {
     uint64_t user_heap_end = USER_HEAP_VADDR + USER_HEAP_SIZE;
 
+    debug_printf("enter-> brk request=%x current=%x\n",
+       requested_break,
+       user_heap_break);
+
     if (requested_break == 0) {
         return user_heap_break;
     }
@@ -485,6 +489,9 @@ uint64_t userland_brk(uint64_t requested_break) {
     }
 
     user_heap_break = requested_break;
+    debug_printf("exit-> brk request=%x current=%x\n",
+       requested_break,
+       user_heap_break);
     return user_heap_break;
 }
 
@@ -502,6 +509,12 @@ uint64_t userland_mmap_anon(uint64_t length) {
     map_user_range(mapping_base, mapping_base + aligned_len, USER_DATA_FLAGS);
     user_mmap_cursor += aligned_len;
 
+    debug_printf("mmap len=%x cursor=%x end=%x\n",
+       aligned_len,
+       user_mmap_cursor,
+       user_mmap_end);
+
+    debug_printf("mmap returns %x\n", mapping_base);
     return mapping_base;
 }
 
@@ -642,55 +655,68 @@ void userland_exec_prepare(
         kfree(image_info.tls_template);
 }
 
-int userland_exec(const char* path, int argc, const char* const* argv, const char* const* envp) {
+int userland_exec(const userland_exec_ctx_t* ctx)
+{
+    if (!ctx || !ctx->path)
+        return -1;
+
     elf_image_info_t image_info = {0};
-    void* entry = elf_load_from_vfs_ex(path, &image_info);
+
+    void* entry = elf_load_from_vfs_ex(ctx->path, &image_info);
     if (!entry)
         return -1;
 
-    // This is the one place every userland process passes through right
-    // before it actually starts running - whether it got here as the
-    // initial process spawned by kernel init, via sys_execve(), or as a
-    // fork()-spawned child pumped by multitasking_pump(). Recording it
-    // here (rather than only in sys_execve()) guarantees current_exec_path
-    // always reflects the program that is truly executing right now, so a
-    // later fork() from that process always has a valid target to
-    // respawn instead of falling back to the "/" default and failing with
-    // ENOSYS ("fork not implemented").
-    record_exec_context(path, argv);
+    // ----------------------------------------------------
+    // DO NOT use any global exec context here anymore
+    // ----------------------------------------------------
 
     map_user_stack();
     userland_heap_init();
+
     if (init_user_tls(&image_info) != 0) {
         if (image_info.tls_template)
             kfree(image_info.tls_template);
         return -1;
     }
+
     if (image_info.tls_template)
         kfree(image_info.tls_template);
 
-    uint64_t stack_top = build_initial_user_stack(path, argc, argv, envp, &image_info);
+    // ----------------------------------------------------
+    // SAFE ARGV SNAPSHOT (CRITICAL FIX)
+    // ----------------------------------------------------
+    const char* safe_argv[32];
+    int safe_argc = ctx->argc;
 
-    debug_printf("userland: exec path=%s entry=%x phdr=%x phentsz=%u phnum=%u tls_mem=%u tls_file=%u stack=%x\n",
-                 path,
-                 entry,
-                 image_info.phdr_addr,
-                 image_info.phentsize,
-                 image_info.phnum,
-                 image_info.tls_memsz,
-                 image_info.tls_filesz,
-                 stack_top);
+    if (safe_argc < 0)
+        safe_argc = 0;
+    if (safe_argc > 31)
+        safe_argc = 31;
+
+    for (int i = 0; i < safe_argc; i++) {
+        safe_argv[i] = ctx->argv[i] ? ctx->argv[i] : "";
+    }
+    safe_argv[safe_argc] = NULL;
+
+    const char* safe_envp = ctx->envp;
+
+    // ----------------------------------------------------
+    // BUILD USER STACK
+    // ----------------------------------------------------
+    uint64_t stack_top =
+        build_initial_user_stack(ctx->path, safe_argc, safe_argv, safe_envp, &image_info);
+
+    debug_printf("userland exec: %s entry=%p stack=%p argc=%d\n",
+                 ctx->path, entry, (void*)stack_top, safe_argc);
+
     debug_dump_initial_stack(stack_top);
 
-    /* Save the outer frame's resume/exception state (if any is currently
-     * active) before we overwrite the globals below, and grab this
-     * nesting depth's own dedicated stack buffer. This is what makes it
-     * safe for this call to happen while an outer userland_exec() is
-     * still alive further down the C stack (e.g. sh blocked in
-     * sys_wait4() -> multitasking_pump() running a forked child). */
+    // ----------------------------------------------------
+    // SAVE KERNEL STATE FOR RETURN PATH
+    // ----------------------------------------------------
     int frame_depth = userland_push_frame();
     if (frame_depth < 0) {
-        eprintf("[userland] exec nesting too deep (max %d), refusing", USERLAND_MAX_DEPTH);
+        eprintf("[userland] exec nesting too deep");
         return -1;
     }
 
@@ -702,19 +728,29 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
     asm volatile("mov %%r13, %0" : "=r"(userland_resume_r13));
     asm volatile("mov %%r14, %0" : "=r"(userland_resume_r14));
     asm volatile("mov %%r15, %0" : "=r"(userland_resume_r15));
-    void* frame = __builtin_frame_address(0);
+
     userland_resume_ret_rip = (uint64_t)__builtin_return_address(0);
-    userland_resume_ret_rsp = (uint64_t)frame + 16;
+    userland_resume_ret_rsp = (uint64_t)__builtin_frame_address(0) + 16;
+
     userland_resume_rsp = kernel_rsp;
     userland_resume_rip = (uint64_t)userland_finish_exit;
+
     userland_should_return_kernel = false;
     userland_last_exit_code = 0;
     userland_running = true;
+
     userland_saved_kernel_stack_top = kernel_stack_top;
     userland_saved_tss_rsp0 = tss.rsp0;
-    kernel_stack_top = (uint64_t)&userland_syscall_stacks[frame_depth][sizeof(userland_syscall_stacks[frame_depth])];
+
+    kernel_stack_top =
+        (uint64_t)&userland_syscall_stacks[frame_depth]
+        [sizeof(userland_syscall_stacks[frame_depth])];
+
     tss.rsp0 = kernel_stack_top;
 
+    // ----------------------------------------------------
+    // SWITCH TO USER MODE
+    // ----------------------------------------------------
     asm volatile (
         "cli\n"
         "mov %0, %%r11\n"
@@ -735,7 +771,8 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
         "iretq\n"
         :
         : "r"(stack_top), "r"((uint64_t)entry)
-        : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
+        : "memory", "rax", "rbx", "rcx", "rdx",
+          "rsi", "rdi", "r8", "r9", "r10", "r11"
     );
 
     __builtin_unreachable();
@@ -760,41 +797,71 @@ int userland_exec(const char* path, int argc, const char* const* argv, const cha
  * function in between must have preserved them as callee-saved regs).
  * Only the program image, stack, and TLS actually change.
  */
-int userland_exec_replace(const char* path, int argc, const char* const* argv, const char* const* envp) {
+int userland_exec_replace(const userland_exec_ctx_t* ctx)
+{
+    if (!ctx || !ctx->path)
+        return -1;
+
     if (userland_depth == 0) {
-        /* Not actually running an existing userland process - there's
-         * nothing to "replace in place". Fall back to a fresh exec. */
-        return userland_exec(path, argc, argv, envp);
+        // just forward ctx directly
+        return userland_exec(ctx);
     }
 
     elf_image_info_t image_info = {0};
-    void* entry = elf_load_from_vfs_ex(path, &image_info);
+
+    void* entry = elf_load_from_vfs_ex(ctx->path, &image_info);
     if (!entry)
         return -1;
 
-    record_exec_context(path, argv);
+    // ---------------------------------------------------
+    // SAFE LOCAL COPY (IMPORTANT: NEVER TRUST ctx DIRECTLY)
+    // ---------------------------------------------------
+    userland_exec_ctx_t local;
+
+    local.path = ctx->path;
+
+    int safe_argc = ctx->argc;
+    if (safe_argc < 0) safe_argc = 0;
+    if (safe_argc > 31) safe_argc = 31;
+
+    local.argc = safe_argc;
+    local.envp = ctx->envp;
+
+    for (int i = 0; i < safe_argc; i++)
+        local.argv[i] = ctx->argv[i];
+
+    local.argv[safe_argc] = NULL;
 
     map_user_stack();
     userland_heap_init();
+
     if (init_user_tls(&image_info) != 0) {
         if (image_info.tls_template)
             kfree(image_info.tls_template);
         return -1;
     }
+
     if (image_info.tls_template)
         kfree(image_info.tls_template);
 
-    uint64_t stack_top = build_initial_user_stack(path, argc, argv, envp, &image_info);
+    // ---------------------------------------------------
+    // BUILD STACK FROM SAFE COPY
+    // ---------------------------------------------------
+    uint64_t stack_top =
+        build_initial_user_stack(local.path,
+                                 local.argc,
+                                 local.argv,
+                                 local.envp,
+                                 &image_info);
 
-    debug_printf("userland: exec (replace) path=%s entry=%x stack=%x\n",
-                 path, entry, stack_top);
+    debug_printf("userland: exec (replace ctx) path=%s entry=%p stack=%p\n",
+                 local.path, entry, (void*)stack_top);
+
     debug_dump_initial_stack(stack_top);
 
-    /* Deliberately NOT touching: userland_depth, userland_frame_stack[],
-     * kernel_stack_top, tss.rsp0, userland_saved_kernel_stack_top,
-     * userland_saved_tss_rsp0, userland_resume_ret_rip/rsp, or
-     * userland_resume_rbx/rbp/r12-r15. Same process, same nesting
-     * depth, same eventual unwind target as before this call. */
+    // ---------------------------------------------------
+    // SWITCH TO USER MODE
+    // ---------------------------------------------------
     asm volatile (
         "cli\n"
         "mov %0, %%r11\n"
@@ -815,7 +882,8 @@ int userland_exec_replace(const char* path, int argc, const char* const* argv, c
         "iretq\n"
         :
         : "r"(stack_top), "r"((uint64_t)entry)
-        : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
+        : "memory", "rax", "rbx", "rcx", "rdx",
+          "rsi", "rdi", "r8", "r9", "r10", "r11"
     );
 
     __builtin_unreachable();
