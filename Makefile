@@ -1,3 +1,4 @@
+MAKEFLAGS += --no-print-directory
 SHELL := /bin/bash
 
 ISO_FILE = FrostWing.iso
