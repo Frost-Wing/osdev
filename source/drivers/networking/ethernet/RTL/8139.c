@@ -48,6 +48,7 @@ static uint8 *rx_buffer;
 static uint8 *tx_buffers[RTL8139_TX_DESC_COUNT];
 static uint8 tx_cur;
 static uint16 rx_cur;
+static bool rtl8139_ready;
 
 void read_mac_address() {
     for (int i = 0; i < 6; i++) {
@@ -61,6 +62,7 @@ void rtl8139_init(struct rtl8139 *nic) {
         warn("RTL8139 Card is not detected but tried to initialize it. Skipping...", __FILE__);
         return;
     }
+    rtl8139_ready = false;
     info("Initialization started!", __FILE__);
 
     outb(nic->io_base + RTL8139_REG_CONFIG1, 0x00);
@@ -82,7 +84,8 @@ void rtl8139_init(struct rtl8139 *nic) {
     outl(nic->io_base + RTL8139_REG_RBSTART, (uint32)fast_virt_to_phys(rx_buffer));
 
     for (int i = 0; i < RTL8139_TX_DESC_COUNT; i++) {
-        tx_buffers[i] = kmalloc_aligned(RTL8139_TX_BUFFER_SIZE, 4);
+        /* kmalloc_aligned rejects alignments smaller than sizeof(void *). */
+        tx_buffers[i] = kmalloc_aligned(RTL8139_TX_BUFFER_SIZE, 256);
         if (!tx_buffers[i]) {
             warn("RTL8139 failed to allocate transmit buffer", __FILE__);
             return;
@@ -102,19 +105,23 @@ void rtl8139_init(struct rtl8139 *nic) {
 
     // Enable receive and transmit.
     outb(nic->io_base + RTL8139_REG_COMMAND, RTL8139_CMD_RX_ENABLE | RTL8139_CMD_TX_ENABLE);
+    rtl8139_ready = true;
     done("Successfully Initialized!", __FILE__);
 }
 
 // Transmit a packet
 bool rtl8139_send_packet(const uint8 *data, uint16 length) {
-    if (!RTL8139 || RTL8139->io_base == null || RTL8139->io_base == 0 || !data || length == 0) {
-        warn("RTL8139 Card is not detected but tried to send data to it. Skipping...", __FILE__);
+    if (!rtl8139_ready || !RTL8139 || RTL8139->io_base == null || RTL8139->io_base == 0 || !data || length == 0) {
+        warn("RTL8139 Card is not ready but tried to send data. Skipping...", __FILE__);
         return no;
     }
     if (length > RTL8139_TX_BUFFER_SIZE)
         return no;
 
     uint8 desc = tx_cur;
+    if (!tx_buffers[desc])
+        return no;
+
     uint16 status_port = RTL8139->io_base + RTL8139_REG_TX_STATUS + (desc * 4);
     uint32 status = inl(status_port);
     if (status != 0 && (status & (1U << 13)) == 0 && (status & (1U << 15)) == 0)
@@ -128,7 +135,7 @@ bool rtl8139_send_packet(const uint8 *data, uint16 length) {
 
 // Receives a packet
 bool rtl8139_receive_packet(uint8 *buffer, uint16 *length) {
-    if (!RTL8139 || RTL8139->io_base == null || RTL8139->io_base == 0 || !rx_buffer || !buffer || !length) {
+    if (!rtl8139_ready || !RTL8139 || RTL8139->io_base == null || RTL8139->io_base == 0 || !rx_buffer || !buffer || !length) {
         return no;
     }
     if (inb(RTL8139->io_base + RTL8139_REG_COMMAND) & 0x01)
