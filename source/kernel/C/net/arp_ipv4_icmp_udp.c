@@ -9,6 +9,7 @@
 #define IP_ICMP 1
 #define IP_TCP 6
 #define IP_UDP 17
+
 struct arp_hdr {
     uint16 htype, ptype;
     uint8 hlen, plen;
@@ -18,6 +19,7 @@ struct arp_hdr {
     uint8 tha[6];
     uint32 tpa;
 } __attribute__((packed));
+
 struct ip_hdr {
     uint8 ver_ihl, tos;
     uint16 total_len, id, frag;
@@ -25,13 +27,16 @@ struct ip_hdr {
     uint16 sum;
     uint32 src, dst;
 } __attribute__((packed));
+
 struct icmp_hdr {
     uint8 type, code;
     uint16 sum, id, seq;
 } __attribute__((packed));
+
 struct udp_hdr {
     uint16 src, dst, len, sum;
 } __attribute__((packed));
+
 struct arp_ent {
     net_ipv4_t ip;
     uint8 mac[6];
@@ -41,6 +46,7 @@ struct arp_ent {
 static struct arp_ent arp[NET_ARP_CACHE_SIZE];
 static volatile bool ping_seen;
 static uint16 ping_id, ping_seq;
+
 struct udp_msg {
     bool used;
     net_ipv4_t src;
@@ -50,9 +56,11 @@ struct udp_msg {
 };
 static struct udp_msg udpq[8];
 static uint16 ipid = 1;
+
 void arp_init(void) {
     memset(arp, 0, sizeof(arp));
 }
+
 static void arp_put(net_ipv4_t ip, const uint8 mac[6]) {
     for (int i = 0; i < NET_ARP_CACHE_SIZE; i++)
         if (arp[i].used && arp[i].ip == ip) {
@@ -69,6 +77,7 @@ static void arp_put(net_ipv4_t ip, const uint8 mac[6]) {
             return;
         }
 }
+
 static void arp_request(net_ipv4_t ip) {
     struct arp_hdr h;
     uint8 bc[6] = {255, 255, 255, 255, 255, 255};
@@ -83,6 +92,7 @@ static void arp_request(net_ipv4_t ip) {
     h.tpa = net_htonl(ip);
     ethernet_send(ETH_ARP, bc, &h, sizeof(h));
 }
+
 void arp_input(const uint8 *p, size_t len) {
     if (len < sizeof(struct arp_hdr))
         return;
@@ -101,6 +111,7 @@ void arp_input(const uint8 *p, size_t len) {
         ethernet_send(ETH_ARP, h->sha, &r, sizeof(r));
     }
 }
+
 int arp_resolve(net_ipv4_t ip, uint8 mac[6]) {
     for (int i = 0; i < NET_ARP_CACHE_SIZE; i++)
         if (arp[i].used && arp[i].ip == ip) {
@@ -118,11 +129,13 @@ int arp_resolve(net_ipv4_t ip, uint8 mac[6]) {
     }
     return NET_ETIMEDOUT;
 }
+
 void arp_tick(void) {
     for (int i = 0; i < NET_ARP_CACHE_SIZE; i++)
         if (arp[i].used && arp[i].ttl > 0 && --arp[i].ttl == 0)
             arp[i].used = false;
 }
+
 void ipv4_init(net_ipv4_t ip, net_ipv4_t mask, net_ipv4_t gw, net_ipv4_t dns) {
     net_cfg.ip = ip;
     net_cfg.netmask = mask;
@@ -131,6 +144,7 @@ void ipv4_init(net_ipv4_t ip, net_ipv4_t mask, net_ipv4_t gw, net_ipv4_t dns) {
     netif_init();
     arp_init();
 }
+
 void ipv4_input(const uint8 *p, size_t len) {
     if (len < sizeof(struct ip_hdr))
         return;
@@ -153,6 +167,7 @@ void ipv4_input(const uint8 *p, size_t len) {
     else if (h->proto == IP_TCP)
         tcp_input(src, pl, plen);
 }
+
 int ipv4_send(net_ipv4_t dst, uint8 proto, const void *payload, size_t len) {
     uint8 mac[6];
     net_ipv4_t nh = ((dst & net_cfg.netmask) == (net_cfg.ip & net_cfg.netmask)) ? dst : net_cfg.gateway;
@@ -171,9 +186,10 @@ int ipv4_send(net_ipv4_t dst, uint8 proto, const void *payload, size_t len) {
     h->src = net_htonl(net_cfg.ip);
     h->dst = net_htonl(dst);
     memcpy(buf + 20, payload, len);
-    h->sum = net_checksum(h, 20);
+    h->sum = net_htons(net_checksum(h, 20));
     return ethernet_send(ETH_IP, mac, buf, 20 + len);
 }
+
 void icmp_input(net_ipv4_t src, const uint8 *p, size_t len) {
     if (len < 4)
         return;
@@ -188,11 +204,12 @@ void icmp_input(net_ipv4_t src, const uint8 *p, size_t len) {
         struct icmp_hdr *r = (struct icmp_hdr *)b;
         r->type = 0;
         r->sum = 0;
-        r->sum = net_checksum(b, len);
+        r->sum = net_htons(net_checksum(b, len));
         ipv4_send(src, IP_ICMP, b, len);
     } else if (h->type == 0 && h->id == net_htons(ping_id) && h->seq == net_htons(ping_seq))
         ping_seen = true;
 }
+
 int icmp_ping(net_ipv4_t dst, uint16 id, uint16 seq, uint32 timeout) {
     uint8 b[32];
     struct icmp_hdr *h = (struct icmp_hdr *)b;
@@ -200,7 +217,7 @@ int icmp_ping(net_ipv4_t dst, uint16 id, uint16 seq, uint32 timeout) {
     h->type = 8;
     h->id = net_htons(id);
     h->seq = net_htons(seq);
-    h->sum = net_checksum(b, sizeof(b));
+    h->sum = net_htons(net_checksum(b, sizeof(b)));
     ping_seen = false;
     ping_id = id;
     ping_seq = seq;
@@ -213,6 +230,7 @@ int icmp_ping(net_ipv4_t dst, uint16 id, uint16 seq, uint32 timeout) {
     }
     return NET_ETIMEDOUT;
 }
+
 void udp_input(net_ipv4_t src, const uint8 *p, size_t len) {
     if (len < sizeof(struct udp_hdr))
         return;
@@ -233,6 +251,7 @@ void udp_input(net_ipv4_t src, const uint8 *p, size_t len) {
             break;
         }
 }
+
 int udp_send(net_ipv4_t dst, uint16 sport, uint16 dport, const void *data, size_t len) {
     uint8 b[1500];
     if (len > 1472)
@@ -245,6 +264,7 @@ int udp_send(net_ipv4_t dst, uint16 sport, uint16 dport, const void *data, size_
     memcpy(b + 8, data, len);
     return ipv4_send(dst, IP_UDP, b, len + 8);
 }
+
 int udp_recv(uint16 port, net_ipv4_t *src, uint16 *sport, uint8 *buf, size_t *len, uint32 timeout) {
     for (uint32 t = 0; t < timeout; t++) {
         netif_poll();

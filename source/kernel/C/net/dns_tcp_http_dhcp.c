@@ -4,10 +4,13 @@
 #include <net/net.h>
 #include <strings.h>
 #define IP_TCP 6
+
 struct dns_hdr {
     uint16 id, flags, qd, an, ns, ar;
 } __attribute__((packed));
+
 static uint16 dns_id = 0x1234;
+
 static int encode_name(uint8 *b, const char *h) {
     int n = 0;
     const char *s = h;
@@ -26,6 +29,7 @@ static int encode_name(uint8 *b, const char *h) {
     b[n++] = 0;
     return n;
 }
+
 int dns_resolve(const char *host, net_ipv4_t *out) {
     if (net_parse_ipv4(host, out) == NET_OK)
         return NET_OK;
@@ -77,43 +81,217 @@ int dns_resolve(const char *host, net_ipv4_t *out) {
     }
     return NET_ERR;
 }
+
 struct tcp_hdr {
     uint16 src, dst;
     uint32 seq, ack;
     uint8 off, flags;
     uint16 win, sum, urg;
 } __attribute__((packed));
+
+#define TCP_FIN 0x01
+#define TCP_SYN 0x02
+#define TCP_RST 0x04
+#define TCP_PSH 0x08
+#define TCP_ACK 0x10
+#define TCP_SOCK_UNUSED 0
+#define TCP_SOCK_SYN_SENT 1
+#define TCP_SOCK_ESTABLISHED 2
+#define TCP_SOCK_CLOSING 3
+
+struct tcp_sock {
+    bool used;
+    int state;
+    uint16 sport, dport;
+    net_ipv4_t dst;
+    uint32 seq, ack;
+    uint8 rx[2048];
+    size_t rx_len;
+    bool fin;
+};
+
+static struct tcp_sock tcp_socks[NET_TCP_MAX_SOCKETS];
 static uint16 tcp_port = 40000;
-int tcp_connect(net_ipv4_t dst, uint16 dport) {
-    (void)dst;
-    (void)dport;
-    net_debug("tcp", "TCP state machine scaffold: SYN/SYN-ACK/ACK, retransmission and FIN hooks are module-owned; full wire mode is pending NIC validation");
-    return (int)tcp_port++;
+static uint32 tcp_iss = 0x10000000;
+
+static uint32 tcp_next_iss(void) {
+    tcp_iss += 0x1000;
+    return tcp_iss;
 }
-int tcp_send(int sock, const void *data, size_t len) {
-    (void)sock;
-    (void)data;
-    return (int)len;
+
+static uint16 tcp_checksum(net_ipv4_t src, net_ipv4_t dst, const uint8 *seg, size_t len) {
+    uint32 sum = 0;
+    sum += (src >> 16) & 0xffff;
+    sum += src & 0xffff;
+    sum += (dst >> 16) & 0xffff;
+    sum += dst & 0xffff;
+    sum += IP_TCP;
+    sum += len;
+    for (size_t i = 0; i + 1 < len; i += 2)
+        sum += ((uint16)seg[i] << 8) | seg[i + 1];
+    if (len & 1)
+        sum += ((uint16)seg[len - 1] << 8);
+    while (sum >> 16)
+        sum = (sum & 0xffff) + (sum >> 16);
+    return (uint16)~sum;
 }
-int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout) {
-    (void)sock;
-    (void)buf;
-    (void)timeout;
+
+static int tcp_send_segment(struct tcp_sock *s, uint8 flags, const void *data, size_t len) {
+    uint8 b[20 + 1024];
+    if (!s || len > 1024)
+        return NET_EINVAL;
+    struct tcp_hdr *h = (struct tcp_hdr *)b;
+    memset(b, 0, sizeof(struct tcp_hdr));
+    h->src = net_htons(s->sport);
+    h->dst = net_htons(s->dport);
+    h->seq = net_htonl(s->seq);
+    h->ack = net_htonl(s->ack);
+    h->off = 5 << 4;
+    h->flags = flags;
+    h->win = net_htons(4096);
     if (len)
-        *len = 0;
+        memcpy(b + sizeof(*h), data, len);
+    h->sum = net_htons(tcp_checksum(net_cfg.ip, s->dst, b, sizeof(*h) + len));
+    return ipv4_send(s->dst, IP_TCP, b, sizeof(*h) + len);
+}
+
+static struct tcp_sock *tcp_by_port(uint16 port) {
+    for (int i = 0; i < NET_TCP_MAX_SOCKETS; i++)
+        if (tcp_socks[i].used && tcp_socks[i].sport == port)
+            return &tcp_socks[i];
+    return NULL;
+}
+
+int tcp_connect(net_ipv4_t dst, uint16 dport) {
+    struct tcp_sock *s = NULL;
+    int fd = -1;
+    for (int i = 0; i < NET_TCP_MAX_SOCKETS; i++)
+        if (!tcp_socks[i].used) {
+            s = &tcp_socks[i];
+            fd = i;
+            break;
+        }
+    if (!s)
+        return NET_ENOMEM;
+    memset(s, 0, sizeof(*s));
+    s->used = true;
+    s->state = TCP_SOCK_SYN_SENT;
+    s->sport = tcp_port++;
+    s->dport = dport;
+    s->dst = dst;
+    s->seq = tcp_next_iss();
+    if (tcp_send_segment(s, TCP_SYN, NULL, 0) != NET_OK) {
+        s->used = false;
+        return NET_ERR;
+    }
+    s->seq++;
+    for (uint32 t = 0; t < 500000; t++) {
+        netif_poll();
+        if (s->state == TCP_SOCK_ESTABLISHED)
+            return fd;
+    }
+    s->used = false;
     return NET_ETIMEDOUT;
 }
+
+int tcp_send(int sock, const void *data, size_t len) {
+    if (sock < 0 || sock >= NET_TCP_MAX_SOCKETS || !tcp_socks[sock].used || tcp_socks[sock].state != TCP_SOCK_ESTABLISHED)
+        return NET_ERR;
+    struct tcp_sock *s = &tcp_socks[sock];
+    const uint8 *p = (const uint8 *)data;
+    size_t sent = 0;
+    while (sent < len) {
+        size_t n = len - sent;
+        if (n > 1024)
+            n = 1024;
+        if (tcp_send_segment(s, TCP_ACK | TCP_PSH, p + sent, n) != NET_OK)
+            break;
+        s->seq += n;
+        sent += n;
+    }
+    return (int)sent;
+}
+
+int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout) {
+    if (!len || sock < 0 || sock >= NET_TCP_MAX_SOCKETS || !tcp_socks[sock].used)
+        return NET_ERR;
+    struct tcp_sock *s = &tcp_socks[sock];
+    for (uint32 t = 0; t < timeout; t++) {
+        netif_poll();
+        if (s->rx_len) {
+            size_t n = s->rx_len;
+            if (*len < n)
+                n = *len;
+            memcpy(buf, s->rx, n);
+            if (n < s->rx_len)
+                memmove(s->rx, s->rx + n, s->rx_len - n);
+            s->rx_len -= n;
+            *len = n;
+            return NET_OK;
+        }
+        if (s->fin)
+            break;
+    }
+    *len = 0;
+    return NET_ETIMEDOUT;
+}
+
 void tcp_close(int sock) {
-    (void)sock;
+    if (sock < 0 || sock >= NET_TCP_MAX_SOCKETS || !tcp_socks[sock].used)
+        return;
+    struct tcp_sock *s = &tcp_socks[sock];
+    if (s->state == TCP_SOCK_ESTABLISHED) {
+        tcp_send_segment(s, TCP_ACK | TCP_FIN, NULL, 0);
+        s->seq++;
+    }
+    s->used = false;
 }
+
 void tcp_input(net_ipv4_t src, const uint8 *p, size_t len) {
-    (void)src;
-    (void)p;
-    (void)len;
+    if (len < sizeof(struct tcp_hdr))
+        return;
+    const struct tcp_hdr *h = (const struct tcp_hdr *)p;
+    size_t off = (h->off >> 4) * 4;
+    if (off < sizeof(struct tcp_hdr) || off > len)
+        return;
+    struct tcp_sock *s = tcp_by_port(net_ntohs(h->dst));
+    if (!s || s->dst != src || s->dport != net_ntohs(h->src))
+        return;
+    uint32 seq = net_ntohl(h->seq);
+    uint32 ack = net_ntohl(h->ack);
+    const uint8 *data = p + off;
+    size_t dlen = len - off;
+    if (h->flags & TCP_RST) {
+        s->used = false;
+        return;
+    }
+    if (s->state == TCP_SOCK_SYN_SENT && (h->flags & (TCP_SYN | TCP_ACK)) == (TCP_SYN | TCP_ACK) && ack == s->seq) {
+        s->ack = seq + 1;
+        s->state = TCP_SOCK_ESTABLISHED;
+        tcp_send_segment(s, TCP_ACK, NULL, 0);
+        return;
+    }
+    if (s->state != TCP_SOCK_ESTABLISHED)
+        return;
+    if (dlen && seq == s->ack) {
+        size_t room = sizeof(s->rx) - s->rx_len;
+        size_t n = dlen < room ? dlen : room;
+        memcpy(s->rx + s->rx_len, data, n);
+        s->rx_len += n;
+        s->ack += dlen;
+        tcp_send_segment(s, TCP_ACK, NULL, 0);
+    }
+    if (h->flags & TCP_FIN) {
+        s->ack = seq + dlen + 1;
+        s->fin = true;
+        tcp_send_segment(s, TCP_ACK, NULL, 0);
+    }
 }
+
 static const char *skip_scheme(const char *u) {
     return strncmp(u, "http://", 7) == 0 ? u + 7 : (strncmp(u, "https://", 8) == 0 ? u + 8 : u);
 }
+
 int http_get_to_file(const char *url, const char *path) {
     if (strncmp(url, "https://", 8) == 0) {
         printf("https: TLS is not implemented yet; use http:// fallback");
@@ -134,6 +312,8 @@ int http_get_to_file(const char *url, const char *path) {
     if (dns_resolve(host, &ip) != NET_OK)
         return NET_ETIMEDOUT;
     int s = tcp_connect(ip, 80);
+    if (s < 0)
+        return s;
     char req[512];
     snprintf(req, sizeof(req), "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n", reqpath, host);
     tcp_send(s, req, strlen(req));
@@ -154,6 +334,7 @@ int http_get_to_file(const char *url, const char *path) {
     tcp_close(s);
     return wrote ? NET_OK : NET_ETIMEDOUT;
 }
+
 int dhcp_configure(uint32 timeout_ticks) {
     (void)timeout_ticks;
     return NET_ENOTSUP;
