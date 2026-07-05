@@ -13,6 +13,9 @@
 #include <klog.h>
 #include <opengl/glbackend.h>
 #include <ringbuffer.h>
+#include <stdarg.h>
+
+#define LOG_MSG_MAX 256
 
 extern struct flanterm_context *ft_ctx;
 static stream_t printf_stream;
@@ -24,96 +27,95 @@ uint32 last_print_line = 0;
 
 bool enable_logging = true;
 
-/**
- * @brief Display a warning message.
- *
- * This function displays a warning message on the console with color formatting.
- *
- * @param message The warning message to be displayed.
- * @param file The file name where the warning occurred.
- */
-void warn(cstring message, cstring file) {
-    cstring warn_message = yellow_color "[***] → " reset_color;
-    printf("%s%s at " blue_color "%s" reset_color, warn_message, message, file);
+/* --- Depth tracking --- */
+int log_depth = 0;
 
-    debug_print(warn_message);
-    debug_print(message);
-    debug_print(" at " blue_color);
-    debug_print(file);
-    debug_print(reset_color "\n");
+inline void __log_scope_exit(int *unused) {
+    (void)unused;
+    log_depth--;
+}
 
-    klog_printf("warn : %s (%s)", message, file);
+/* --- Icons (ASCII, safe on any bitmap font) --- */
+#define ICON_INFO  "[i]"
+#define ICON_WARN  "[!]"
+#define ICON_ERROR "[x]"
+#define ICON_DONE  "[+]"
 
+/* --- Tree pieces (CP437 box-drawing; swap to ASCII below if these don't render) --- */
+// #define TREE_TRUNK  "\xB3  "      /* │   */
+// #define TREE_END    "\xC0\xC4 "   /* └─  */
+
+
+#define TREE_END    " └─ "
+#define TREE_BRANCH " ├─ "
+#define TREE_TRUNK  " │  "
+
+static void print_prefix(void) {
+    for (int i = 0; i < log_depth - 1; i++) {
+        printfnoln("%s", TREE_TRUNK);
+        debug_print(TREE_TRUNK);
+    }
+    if (log_depth > 0) {
+        printfnoln("%s", TREE_END);
+        debug_print(TREE_END);
+    }
+}
+
+static cstring strip_path(cstring file) {
+    const char *needle = "kernel/C/";
+    const char *pos = strstr(file, needle);
+    if (pos) {
+        return pos + strlen(needle);
+    }
+    return file;
+}
+
+static void log_tree(cstring icon, cstring color, cstring tag,
+                      cstring file, cstring fmt, va_list args) {
+    char message[LOG_MSG_MAX];
+    vsnprintf(message, sizeof(message), fmt, args);
+
+    file = strip_path(file);
+    
+    print_prefix();
+    printf("%s%s %s" reset_color " " blue_color "%s" reset_color ": %s",
+           color, icon, tag, file, message);
+
+    debug_print(color); debug_print(icon); debug_print(" ");
+    debug_print(tag); debug_print(reset_color " ");
+    debug_print(blue_color); debug_print(file); debug_print(reset_color);
+    debug_print(": "); debug_print(message); debug_print("\n");
+
+    klog_printf("%s: %s (%s)", tag, message, file);
     last_filename = file;
 }
 
-/**
- * @brief Display an error message.
- *
- * This function displays an error message on the console with color formatting.
- *
- * @param message The error message to be displayed.
- * @param file The file name where the error occurred.
- */
-void error(cstring message, cstring file) {
-    cstring err_message = red_color "[***] → " reset_color;
-    eprintf("%s%s at " blue_color "%s" reset_color, err_message, message, file);
-
-    debug_print(err_message);
-    debug_print(message);
-    debug_print(" at " blue_color);
-    debug_print(file);
-    debug_print(reset_color "\n");
-
-    klog_printf("error: %s (%s)", message, file);
-
-    last_filename = file;
+void warn(cstring fmt, cstring file, ...) {
+    va_list args;
+    va_start(args, file);
+    log_tree(ICON_WARN, yellow_color, "warn", file, fmt, args);
+    va_end(args);
 }
 
-/**
- * @brief Display an informational message.
- *
- * This function displays an informational message on the console with color formatting.
- *
- * @param message The informational message to be displayed.
- * @param file The file name where the information is coming from.
- */
-void info(cstring message, cstring file) {
-    cstring info_message = blue_color "[***] → " reset_color;
-    printf("%s%s at " blue_color "%s" reset_color, info_message, message, file);
-
-    debug_print(info_message);
-    debug_print(message);
-    debug_print(" at " blue_color);
-    debug_print(file);
-    debug_print(reset_color "\n");
-
-    klog_printf("info : %s (%s)", message, file);
-
-    last_filename = file;
+void error(cstring fmt, cstring file, ...) {
+    va_list args;
+    va_start(args, file);
+    log_tree(ICON_ERROR, red_color, "error", file, fmt, args);
+    va_end(args);
 }
 
-/**
- * @brief Display a success message.
- *
- * This function displays a success message on the console with color formatting.
- *
- * @param message The success message to be displayed.
- * @param file The file name associated with the success.
- */
-void done(cstring message, cstring file) {
-    cstring done_message = green_color "[***] → " reset_color;
-    printf("%s%s at " blue_color "%s" reset_color, done_message, message, file);
+void info(cstring fmt, cstring file, ...) {
+    va_list args;
+    va_start(args, file);
+    log_tree(ICON_INFO, blue_color, "info", file, fmt, args);
+    va_end(args);
+}
 
-    debug_print(done_message);
-    debug_print(message);
-    debug_print(" at " blue_color);
-    debug_print(file);
-    debug_print(reset_color "\n");
-
-    klog_printf("done : %s (%s)", message, file);
-
-    last_filename = file;
+void done(cstring fmt, cstring file, ...) {
+    va_list args;
+    va_start(args, file);
+    log_tree(ICON_DONE, green_color, "done", file, fmt, args);
+    va_end(args);
 }
 
 void putc(char c) {

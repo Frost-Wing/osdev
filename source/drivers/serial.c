@@ -21,6 +21,7 @@ int select = 0;
  *
  */
 void probe_serial() {
+    LOG_SCOPE();
     info("Probe started!", __FILE__);
     if (!init_serial(COM1))
         select = COM1;
@@ -53,6 +54,7 @@ void probe_serial() {
  * @return int status code [0 - Success] [1 - Port Faulty] [2 - Disabled]
  */
 int init_serial(int port) {
+    LOG_SCOPE();
 #if serial_mode
     outb(port + 1, 0x00); // Disable all interrupts
     outb(port + 3, 0x80); // Enable DLAB (set baud rate divisor)

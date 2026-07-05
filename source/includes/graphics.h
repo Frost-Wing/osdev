@@ -40,6 +40,13 @@ extern string last_print_func;
 extern uint32 last_print_line;
 extern bool enable_logging;
 
+extern int log_depth;
+extern inline void __log_scope_exit(int *unused);
+/* Place at the top of any function you want tracked in the tree.
+ * Auto-decrements log_depth when the function returns, however it returns. */
+#define LOG_SCOPE() \
+    int __log_guard__ __attribute__((cleanup(__log_scope_exit))) = (log_depth++, 0)
+
 #define printf(fmt, ...) \
     printf_internal(__FILE__, __func__, __LINE__, fmt, ##__VA_ARGS__)
 
@@ -57,7 +64,7 @@ extern bool enable_logging;
  * @param message The warning message to be displayed.
  * @param file The file name where the warning occurred.
  */
-void warn(cstring message, cstring file);
+void warn(cstring message, cstring file, ...);
 
 /**
  * @brief Display an error message.
@@ -67,7 +74,7 @@ void warn(cstring message, cstring file);
  * @param message The error message to be displayed.
  * @param file The file name where the error occurred.
  */
-void error(cstring message, cstring file);
+void error(cstring message, cstring file, ...);
 
 /**
  * @brief Display an informational message.
@@ -77,7 +84,7 @@ void error(cstring message, cstring file);
  * @param message The informational message to be displayed.
  * @param file The file name where the information is coming from.
  */
-void info(cstring message, cstring file);
+void info(cstring message, cstring file, ...);
 
 /**
  * @brief Display a success message.
@@ -87,7 +94,7 @@ void info(cstring message, cstring file);
  * @param message The success message to be displayed.
  * @param file The file name associated with the success.
  */
-void done(cstring message, cstring file);
+void done(cstring message, cstring file, ...);
 
 /* Normal Hybrid printing functions ahead */
 

@@ -18,6 +18,7 @@
 #include <multitasking.h>
 #include <net/net.h>
 #include <ringbuffer.h>
+#include <graphics.h>
 #include <syslog.h>
 #include <tty.h>
 
@@ -198,7 +199,7 @@ void main(void) {
 
     printf(public_key);
 
-    printf("Display Resolution: %dx%d (%d) pixels. Pitch: %d", framebuffer->width, framebuffer->height, framebuffer->width * framebuffer->height, framebuffer->pitch);
+    info("Display Resolution: %dx%d (%d) pixels. Pitch: %d", __FILE__ , framebuffer->width, framebuffer->height, framebuffer->width * framebuffer->height, framebuffer->pitch);
 
     info("Memory Values begin! ===", __FILE__);
     display_memory_formatted(limine_memory_ctx);
@@ -218,8 +219,7 @@ void main(void) {
 
             __atomic_store_n(&smp_request.response->cpus[i]->goto_address, ap_entry, __ATOMIC_SEQ_CST);
 
-            while (__atomic_load_n(&ctr, __ATOMIC_SEQ_CST) == old_ctr)
-                ;
+            while (__atomic_load_n(&ctr, __ATOMIC_SEQ_CST) == old_ctr);
         }
     }
     print_cpu_info();

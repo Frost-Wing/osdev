@@ -10,6 +10,7 @@
  */
 
 #include <commands/login.h>
+#include <graphics.h>
 #include <keyboard.h>
 
 uint64 usernames_total[MAX_USERS_ALLOWED];
@@ -17,6 +18,7 @@ uint64 passwords_total[MAX_USERS_ALLOWED];
 int users_index = 0;
 
 void create_user(uint64 name_hash, uint64 password_hash) {
+    LOG_SCOPE();
     if (users_index >= MAX_USERS_ALLOWED) {
         error("Too many user accounts!", __FILE__);
         return;
@@ -33,14 +35,17 @@ void create_user(uint64 name_hash, uint64 password_hash) {
     usernames_total[users_index] = name_hash;
     passwords_total[users_index] = password_hash;
     users_index++;
-    printf("Created a user with id → 0x%X", (uint64)name_hash);
+    done("Created a user with id → 0x%X", __FILE__, (uint64)name_hash);
     info("Done creating an user!", __FILE__);
 }
 
 void create_user_str(cstring name, cstring password) {
+    LOG_SCOPE();
+    info("Hashing given data", __FILE__);
     uint64 name_hash = baranium_hash(name);
     uint64 password_hash = baranium_hash(password);
 
+    info("Creating user (%s)", __FILE__, name);
     create_user(name_hash, password_hash);
 }
 

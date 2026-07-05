@@ -11,6 +11,7 @@
 
 #include <cc-asm.h>
 #include <executables/fwde.h>
+#include <graphics.h>
 #include <idt.h>
 #include <isr.h>
 #include <keyboard.h>
@@ -64,6 +65,8 @@ void remap_pic(void) {
 }
 
 void init_syscall(void) {
+    LOG_SCOPE();
+    info("Initializing syscalls instruction", __FILE__);
     wrmsr64(IA32_EFER, rdmsr64(IA32_EFER) | EFER_SCE);
 
     // kernel CS = 0x08
@@ -73,9 +76,11 @@ void init_syscall(void) {
 
     wrmsr64(IA32_LSTAR, (uint64_t)syscall_entry);
     wrmsr64(IA32_FMASK, 0);
+    done("Initialized syscalls instruction", __FILE__);
 }
 
 void initIdt(void) {
+    LOG_SCOPE();
     info("Started initialization!", __FILE__);
 
     // interrupt number of keyboard is 0x21, for pit it's 0x20 and for mouse it's 0x2C

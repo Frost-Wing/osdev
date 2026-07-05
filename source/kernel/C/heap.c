@@ -54,6 +54,7 @@ static alloc_t *heap_alloc_from_user_ptr(void *ptr) {
 }
 
 void mm_init(uintptr_t kernel_end, uint64 heap_size) {
+    LOG_SCOPE();
     info("Initializing heap", __FILE__);
 
     heap_begin = ALIGN_UP(kernel_end, 8);
@@ -74,6 +75,7 @@ void mm_init(uintptr_t kernel_end, uint64 heap_size) {
 
 void *kmalloc(size_t size) {
     if (size == 0) {
+        LOG_SCOPE();
         warn("kmalloc: Cannot allocate 0 bytes", __FILE__);
         klog_printf("[heap] kmalloc called with zero size");
         return NULL;
@@ -129,6 +131,7 @@ void *kmalloc(size_t size) {
 
 void kfree(void *ptr) {
     if (!ptr) {
+        LOG_SCOPE();
         warn("kfree: Cannot free null pointer", __FILE__);
         return;
     }
@@ -203,10 +206,8 @@ void *kmalloc_aligned(size_t size, size_t align) {
 }
 
 void mm_print_out(void) {
-    printf("%sMemory used :%s %u KiB", yellow_color, reset_color, memory_used / (1 KiB));
-    printf("%sMemory free :%s %u KiB", yellow_color, reset_color, (heap_end - last_alloc) / (1 KiB));
-    printf("%sHeap size   :%s %u KiB", yellow_color, reset_color, (heap_end - heap_begin) / (1 KiB));
-    debug_printf("%sMemory used :%s %u KiB\n", yellow_color, reset_color, memory_used / (1 KiB));
-    debug_printf("%sMemory free :%s %u KiB\n", yellow_color, reset_color, (heap_end - last_alloc) / (1 KiB));
-    debug_printf("%sHeap size   :%s %u KiB\n", yellow_color, reset_color, (heap_end - heap_begin) / (1 KiB));
+    LOG_SCOPE();
+    info("%sMemory used :%s %u KiB", __FILE__, yellow_color, reset_color, memory_used / (1 KiB));
+    info("%sMemory free :%s %u KiB", __FILE__, yellow_color, reset_color, (heap_end - last_alloc) / (1 KiB));
+    info("%sHeap size   :%s %u KiB", __FILE__, yellow_color, reset_color, (heap_end - heap_begin) / (1 KiB));
 }

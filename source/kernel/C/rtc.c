@@ -9,6 +9,7 @@
  *
  */
 
+#include <graphics.h>
 #include <rtc.h>
 
 // --- Helpers ---
@@ -38,6 +39,7 @@ uint8 rtc_read_stable(uint8 reg) {
 }
 
 void init_rtc(void) {
+    LOG_SCOPE();
     info("Initializing RTC", __FILE__);
     // Enable periodic interrupts if desired, not strictly necessary
     uint8 prev = read_rtc_register(0x0B);

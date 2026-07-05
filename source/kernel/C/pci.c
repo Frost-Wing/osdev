@@ -210,6 +210,7 @@ int proc_pci_device_read(
  *
  */
 void probe_pci(void) {
+    LOG_SCOPE();
     info("Probe has been started!", __FILE__);
     int i = 0;
     for (uint32 bus = 0; bus < 256; bus++) {
