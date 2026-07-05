@@ -35,6 +35,7 @@
 #include <executables/elf.h>
 #include <heap.h>
 #include <multitasking.h>
+#include <net/net.h>
 #include <rtc.h>
 #include <tty.h>
 
@@ -58,6 +59,37 @@ typedef struct {
     uint32_t mode;
     uint64_t inode;
 } vfs_stat_info_t;
+
+#define LINUX_AF_INET 2
+#define LINUX_SOCK_RAW 3
+#define LINUX_IPPROTO_ICMP 1
+
+typedef struct {
+    uint16_t family;
+    uint16_t port;
+    uint32_t addr;
+    uint8_t zero[8];
+} linux_sockaddr_in_t;
+
+typedef struct {
+    bool used;
+    int fd;
+    int domain;
+    int type;
+    int protocol;
+    uint8_t reply[128];
+    size_t reply_len;
+    net_ipv4_t reply_addr;
+} linux_socket_t;
+
+static linux_socket_t linux_sockets[16];
+
+static linux_socket_t *linux_socket_by_fd(int fd) {
+    for (int i = 0; i < (int)(sizeof(linux_sockets) / sizeof(linux_sockets[0])); i++)
+        if (linux_sockets[i].used && linux_sockets[i].fd == fd)
+            return &linux_sockets[i];
+    return NULL;
+}
 
 // char current_exec_path[256] = "/";
 uint64_t current_fs_base = 0;
@@ -781,6 +813,10 @@ static uint64 sys_close(uint64_t fd) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
+    linux_socket_t *sock = linux_socket_by_fd((int)fd);
+    if (sock)
+        memset(sock, 0, sizeof(*sock));
+
     return fd_close((int)fd) == 0 ? 0 : -LINUX_EBADF;
 }
 
@@ -909,14 +945,32 @@ static uint64 sys_writev(uint64_t fd, const linux_iovec_t *iov, uint64_t iovcnt)
 }
 
 static uint64 sys_socket(uint64_t domain, uint64_t type, uint64_t protocol) {
-    (void)type;
-    (void)protocol;
-
-    // Networking stack is not exposed through Linux sockets yet.
-    // Return Linux-like "address family not supported" instead of a fake fd.
-    if (domain == 1 || domain == 2 || domain == 10)
+    if (domain != LINUX_AF_INET)
         return -LINUX_EAFNOSUPPORT;
-    return -LINUX_EAFNOSUPPORT;
+    if (type != LINUX_SOCK_RAW || protocol != LINUX_IPPROTO_ICMP)
+        return -LINUX_EPROTONOSUPPORT;
+
+    linux_socket_t *sock = NULL;
+    for (int i = 0; i < (int)(sizeof(linux_sockets) / sizeof(linux_sockets[0])); i++) {
+        if (!linux_sockets[i].used) {
+            sock = &linux_sockets[i];
+            break;
+        }
+    }
+    if (!sock)
+        return -LINUX_ENFILE;
+
+    int fd = fd_create_virtual("/dev/socket/icmp", VFS_RDWR);
+    if (fd < 0)
+        return -LINUX_ENFILE;
+
+    memset(sock, 0, sizeof(*sock));
+    sock->used = true;
+    sock->fd = fd;
+    sock->domain = (int)domain;
+    sock->type = (int)type;
+    sock->protocol = (int)protocol;
+    return fd;
 }
 
 static uint64 sys_connect(uint64_t fd, const void *addr, uint64_t addrlen) {
@@ -926,6 +980,84 @@ static uint64 sys_connect(uint64_t fd, const void *addr, uint64_t addrlen) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
     return -LINUX_ENOTSOCK;
+}
+
+static uint64 sys_sendto(uint64_t fd, const void *buf, uint64_t len, uint64_t flags,
+                         const void *addr, uint64_t addrlen) {
+    (void)flags;
+    linux_socket_t *sock = linux_socket_by_fd((int)fd);
+    if (!sock)
+        return fd_valid((int)fd) ? -LINUX_ENOTSOCK : -LINUX_EBADF;
+    if (!buf || !addr || addrlen < sizeof(linux_sockaddr_in_t))
+        return -LINUX_EINVAL;
+
+    const linux_sockaddr_in_t *in = (const linux_sockaddr_in_t *)addr;
+    if (in->family != LINUX_AF_INET)
+        return -LINUX_EAFNOSUPPORT;
+
+    net_ipv4_t dst = net_ntohl(in->addr);
+    uint16_t id = 0x4242;
+    uint16_t seq = 0;
+    if (len >= 8) {
+        const uint8_t *icmp = (const uint8_t *)buf;
+        id = ((uint16_t)icmp[4] << 8) | icmp[5];
+        seq = ((uint16_t)icmp[6] << 8) | icmp[7];
+    }
+
+    int r = icmp_ping(dst, id, seq, 500000);
+    if (r != NET_OK)
+        return -LINUX_ETIMEDOUT;
+
+    sock->reply_addr = dst;
+    sock->reply_len = len < sizeof(sock->reply) ? len : sizeof(sock->reply);
+    memcpy(sock->reply, buf, sock->reply_len);
+    if (sock->reply_len >= 1)
+        sock->reply[0] = 0; /* echo reply */
+    if (sock->reply_len >= 4) {
+        sock->reply[2] = 0;
+        sock->reply[3] = 0;
+        uint16_t sum = net_checksum(sock->reply, sock->reply_len);
+        sock->reply[2] = (uint8_t)(sum >> 8);
+        sock->reply[3] = (uint8_t)sum;
+    }
+    return len;
+}
+
+static uint64 sys_recvfrom(uint64_t fd, void *buf, uint64_t len, uint64_t flags,
+                           void *addr, uint64_t *addrlen) {
+    (void)flags;
+    linux_socket_t *sock = linux_socket_by_fd((int)fd);
+    if (!sock)
+        return fd_valid((int)fd) ? -LINUX_ENOTSOCK : -LINUX_EBADF;
+    if (!buf)
+        return -LINUX_EINVAL;
+    if (!sock->reply_len)
+        return -LINUX_EAGAIN;
+
+    size_t n = sock->reply_len < len ? sock->reply_len : len;
+    memcpy(buf, sock->reply, n);
+    sock->reply_len = 0;
+
+    if (addr && addrlen && *addrlen >= sizeof(linux_sockaddr_in_t)) {
+        linux_sockaddr_in_t *in = (linux_sockaddr_in_t *)addr;
+        memset(in, 0, sizeof(*in));
+        in->family = LINUX_AF_INET;
+        in->addr = net_htonl(sock->reply_addr);
+        *addrlen = sizeof(*in);
+    }
+    return n;
+}
+
+static uint64 sys_setsockopt(uint64_t fd, uint64_t level, uint64_t optname,
+                             const void *optval, uint64_t optlen) {
+    (void)level;
+    (void)optname;
+    (void)optval;
+    (void)optlen;
+    linux_socket_t *sock = linux_socket_by_fd((int)fd);
+    if (!sock)
+        return fd_valid((int)fd) ? -LINUX_ENOTSOCK : -LINUX_EBADF;
+    return 0;
 }
 
 static uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
@@ -1679,6 +1811,11 @@ static const char *names[] = {
     [1] = "write",
     [2] = "open",
     [3] = "close",
+    [41] = "socket",
+    [42] = "connect",
+    [44] = "sendto",
+    [45] = "recvfrom",
+    [54] = "setsockopt",
     [9] = "mmap",
     [11] = "munmap",
     [12] = "brk",
@@ -1791,6 +1928,15 @@ uint64_t syscall_dispatch(
 
         case LINUX_SYS_CONNECT:
             return sys_connect(arg1, (const void *)arg2, arg3);
+
+        case LINUX_SYS_SENDTO:
+            return sys_sendto(arg1, (const void *)arg2, arg3, arg4, (const void *)arg5, arg6);
+
+        case LINUX_SYS_RECVFROM:
+            return sys_recvfrom(arg1, (void *)arg2, arg3, arg4, (void *)arg5, (uint64_t *)arg6);
+
+        case LINUX_SYS_SETSOCKOPT:
+            return sys_setsockopt(arg1, arg2, arg3, (const void *)arg4, arg5);
 
         case LINUX_SYS_CLONE:
             return sys_fork();
