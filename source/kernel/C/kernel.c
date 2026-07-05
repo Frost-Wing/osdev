@@ -209,10 +209,9 @@ void main(void) {
         warn("Bad blocks of memory found, it is recommended to replace your RAM.", __FILE__);
     }
 
-    printf("Total CPU(s): %d", smp_request.response->cpu_count);
+    info("Total CPU(s): %d", __FILE__,smp_request.response->cpu_count);
     for (uint64_t i = 0; i < smp_request.response->cpu_count; i++) {
-        printf("Processor  ID [%d] : 0x%X", (int)(i + 1U), smp_request.response->cpus[i]->processor_id);
-        printf("Local APIC ID [%d] : 0x%X", (int)(i + 1U), smp_request.response->cpus[i]->lapic_id);
+        print_processor_id(i, smp_request.response->cpus[i]->processor_id, smp_request.response->cpus[i]->lapic_id);
 
         if (smp_request.response->cpus[i]->lapic_id != smp_request.response->bsp_lapic_id) {
             uint32_t old_ctr = __atomic_load_n(&ctr, __ATOMIC_SEQ_CST);
@@ -241,8 +240,6 @@ void main(void) {
         net_ipv4_from_octets(10, 0, 2, 2),
         net_ipv4_from_octets(10, 0, 2, 3));
 
-    frost_compilation_information();
-
     init_hashing();
 
     mm_print_out();
@@ -252,16 +249,10 @@ void main(void) {
 
     enable_fpu();
 
-    info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
+    info("Welcome to FrostWing Operating System! %s", __FILE__, "(https://github.com/Frost-Wing)");
+    frost_compilation_information();
 
     ksh_exec();
-    // void* entry = elf_load_from_vfs("/init.elf");
-    // if (!entry) {
-    //     error("Failed to load /init.elf for userspace startup", __FILE__);
-    //     hcf2();
-    // }
-
-    // enter_userland_at((uint64_t)entry);
 }
 
 void shutdown(void) {

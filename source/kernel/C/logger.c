@@ -62,12 +62,8 @@ static void print_prefix(void) {
 }
 
 static cstring strip_path(cstring file) {
-    const char *needle = "kernel/C/";
-    const char *pos = strstr(file, needle);
-    if (pos) {
-        return pos + strlen(needle);
-    }
-    return file;
+    const char *slash = strrchr(file, '/');
+    return slash ? slash + 1 : file;
 }
 
 static void log_tree(cstring icon, cstring color, cstring tag,
@@ -76,7 +72,7 @@ static void log_tree(cstring icon, cstring color, cstring tag,
     vsnprintf(message, sizeof(message), fmt, args);
 
     file = strip_path(file);
-    
+
     print_prefix();
     printf("%s%s %s" reset_color " " blue_color "%s" reset_color ": %s",
            color, icon, tag, file, message);
