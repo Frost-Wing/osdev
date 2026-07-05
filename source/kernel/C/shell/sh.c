@@ -420,7 +420,9 @@ static command_t commands[] = {
     { "mv", cmd_mv },
     { "umount", cmd_umount },
     { "exec", cmd_exec },
-    { "tasks", cmd_tasks }
+    { "tasks", cmd_tasks },
+    { "ping", cmd_ping },
+    { "wget", cmd_wget }
     // { "fwfetch", cmd_fwfetch },
     // { "help", cmd_help },
 };
