@@ -100,6 +100,7 @@ uint64_t *clear_child_tid = NULL;
 // int current_exec_argc = 0;
 
 #pragma pack(push, 1)
+
 typedef struct {
     uint8_t length;
     uint8_t ext_attr_length;
@@ -116,6 +117,7 @@ typedef struct {
     uint8_t name_len;
     char name[1];
 } linux_iso9660_dir_record_t;
+
 #pragma pack(pop)
 
 static void iso_name_to_vfs_local(const char *in, uint8_t in_len, char *out, size_t out_sz) {
@@ -983,7 +985,7 @@ static uint64 sys_connect(uint64_t fd, const void *addr, uint64_t addrlen) {
 }
 
 static uint64 sys_sendto(uint64_t fd, const void *buf, uint64_t len, uint64_t flags,
-                         const void *addr, uint64_t addrlen) {
+    const void *addr, uint64_t addrlen) {
     (void)flags;
     linux_socket_t *sock = linux_socket_by_fd((int)fd);
     if (!sock)
@@ -1024,7 +1026,7 @@ static uint64 sys_sendto(uint64_t fd, const void *buf, uint64_t len, uint64_t fl
 }
 
 static uint64 sys_recvfrom(uint64_t fd, void *buf, uint64_t len, uint64_t flags,
-                           void *addr, uint64_t *addrlen) {
+    void *addr, uint64_t *addrlen) {
     (void)flags;
     linux_socket_t *sock = linux_socket_by_fd((int)fd);
     if (!sock)
@@ -1049,7 +1051,7 @@ static uint64 sys_recvfrom(uint64_t fd, void *buf, uint64_t len, uint64_t flags,
 }
 
 static uint64 sys_setsockopt(uint64_t fd, uint64_t level, uint64_t optname,
-                             const void *optval, uint64_t optlen) {
+    const void *optval, uint64_t optlen) {
     (void)level;
     (void)optname;
     (void)optval;

@@ -22,6 +22,7 @@ struct utmpx {
     char ut_id[4];
     char ut_user[32];
     char ut_host[256];
+
     struct {
         short __e_termination;
         short __e_exit;

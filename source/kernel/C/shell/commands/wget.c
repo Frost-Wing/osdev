@@ -26,10 +26,10 @@ static void wget_progress(uint64 downloaded, uint64 total, void *ctx) {
             line[pos++] = c;
         }
         pos += snprintf(line + pos, sizeof(line) - pos, "] %3d%%  %d/%d bytes",
-                         pct, (int)downloaded, (int)total);
+            pct, (int)downloaded, (int)total);
     } else {
         pos += snprintf(line + pos, sizeof(line) - pos,
-                         "%d bytes downloaded...", (int)downloaded);
+            "%d bytes downloaded...", (int)downloaded);
     }
 
     printfnoln("%s", line);

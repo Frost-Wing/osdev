@@ -14,6 +14,7 @@ extern "C" {
 #include <bits/alltypes.h>
 
 typedef int mqd_t;
+
 struct mq_attr {
     long mq_flags, mq_maxmsg, mq_msgsize, mq_curmsgs, __unused[4];
 };

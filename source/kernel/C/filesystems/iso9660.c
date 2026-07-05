@@ -5,6 +5,7 @@
 #include <strings.h>
 
 #pragma pack(push, 1)
+
 typedef struct {
     uint8_t length;
     uint8_t ext_attr_length;
@@ -21,6 +22,7 @@ typedef struct {
     uint8_t name_len;
     char name[1];
 } iso9660_dir_record_t;
+
 #pragma pack(pop)
 
 static int iso_read_block(iso9660_fs_t *fs, uint32_t block, uint8_t *out) {

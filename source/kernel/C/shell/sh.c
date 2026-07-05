@@ -287,6 +287,7 @@ static void apply_redirection(redir_t *r,
         stream_set_file(STDERR, &file_handle);
     }
 }
+
 static void parse_redirection(int *argc, char **argv, redir_t *r) {
     memset(r, 0, sizeof(redir_t));
 

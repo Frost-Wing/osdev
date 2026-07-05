@@ -157,6 +157,7 @@ static procfs_entry_t proc_pci_devices = {
     .name = "pci/devices",
     .type = PROC_FILE,
     .read = proc_pci_devices_read};
+
 /* END */
 
 void procfs_init(void) {

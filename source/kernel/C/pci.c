@@ -160,6 +160,7 @@ uint16 subclasses[MAX_PCI_DEVICES];
 uint8 revisions[MAX_PCI_DEVICES];
 
 pci_location_t pciLocations[MAX_PCI_DEVICES];
+
 // PROCFS PCI
 int proc_pci_device_read(
     vfs_file_t *file,

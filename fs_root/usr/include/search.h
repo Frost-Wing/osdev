@@ -12,6 +12,7 @@ extern "C" {
 
 typedef enum { FIND,
     ENTER } ACTION;
+
 typedef enum { preorder,
     postorder,
     endorder,

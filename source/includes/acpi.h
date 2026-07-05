@@ -11,9 +11,9 @@
 #ifndef __ACPI_H_
 #define __ACPI_H_ 1
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 extern const char *oem_name;
 

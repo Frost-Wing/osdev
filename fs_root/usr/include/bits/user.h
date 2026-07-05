@@ -10,6 +10,7 @@ struct user_regs_struct {
     unsigned long rax, rcx, rdx, rsi, rdi, orig_rax, rip;
     unsigned long cs, eflags, rsp, ss, fs_base, gs_base, ds, es, fs, gs;
 };
+
 #define ELF_NGREG 27
 typedef unsigned long long elf_greg_t, elf_gregset_t[ELF_NGREG];
 

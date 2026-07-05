@@ -38,17 +38,21 @@ typedef struct __res_state {
     unsigned nsort : 4;
     unsigned ipv6_unavail : 1;
     unsigned unused : 23;
+
     struct {
         struct in_addr addr;
         uint32_t mask;
     } sort_list[MAXRESOLVSORT];
+
     void *qhook;
     void *rhook;
     int res_h_errno;
     int _vcsock;
     unsigned _flags;
+
     union {
         char pad[52];
+
         struct {
             uint16_t nscount;
             uint16_t nsmap[MAXNS];

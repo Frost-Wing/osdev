@@ -164,15 +164,18 @@ int lockf(int, int, off_t);
 #define F_OWNER_PID 1
 #define F_OWNER_PGRP 2
 #define F_OWNER_GID 2
+
 struct file_handle {
     unsigned handle_bytes;
     int handle_type;
     unsigned char f_handle[];
 };
+
 struct f_owner_ex {
     int type;
     pid_t pid;
 };
+
 #define FALLOC_FL_KEEP_SIZE 1
 #define FALLOC_FL_PUNCH_HOLE 2
 #define MAX_HANDLE_SZ 128

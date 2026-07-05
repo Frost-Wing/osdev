@@ -239,9 +239,11 @@ static int ext2_write_inode(ext2_fs_t *fs, uint32_t ino, ext2_inode_t *in) {
 static inline int bit_test(uint8_t *map, uint32_t bit) {
     return (map[bit / 8] >> (bit % 8)) & 1;
 }
+
 static inline void bit_set(uint8_t *map, uint32_t bit) {
     map[bit / 8] |= (uint8_t)(1u << (bit % 8));
 }
+
 static inline void bit_clear(uint8_t *map, uint32_t bit) {
     map[bit / 8] &= (uint8_t)~(1u << (bit % 8));
 }

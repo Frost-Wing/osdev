@@ -110,6 +110,7 @@ void tty_input_char(char c) {
 }
 
 extern volatile uint64_t pit_ticks;
+
 int tty_read(char *buf, uint64_t count) {
     if (!buf || count == 0)
         return 0;

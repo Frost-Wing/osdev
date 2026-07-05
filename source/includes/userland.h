@@ -55,6 +55,7 @@ typedef struct {
 
 typedef union {
     uint64_t counter;
+
     struct {
         void *val;
         void *to_free;

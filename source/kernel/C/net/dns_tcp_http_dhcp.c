@@ -2,8 +2,8 @@
 #include <graphics.h>
 #include <memory.h>
 #include <net/net.h>
-#include <strings.h>
 #include <pit.h>
+#include <strings.h>
 #define IP_TCP 6
 
 extern volatile uint64_t pit_ticks;
@@ -329,7 +329,7 @@ static const char *skip_scheme(const char *u) {
 }
 
 int http_get_to_file(const char *url, const char *path,
-                      wget_progress_cb cb, void *ctx) {
+    wget_progress_cb cb, void *ctx) {
     if (strncmp(url, "https://", 8) == 0) {
         printf("https: TLS is not implemented yet; use http:// fallback\n");
         return NET_ENOTSUP;
@@ -405,8 +405,8 @@ int http_get_to_file(const char *url, const char *path,
                 hdrbuf[hdrlen++] = (char)b[k];
 
             if (hdrlen >= 4 &&
-                hdrbuf[hdrlen-4] == '\r' && hdrbuf[hdrlen-3] == '\n' &&
-                hdrbuf[hdrlen-2] == '\r' && hdrbuf[hdrlen-1] == '\n') {
+                hdrbuf[hdrlen - 4] == '\r' && hdrbuf[hdrlen - 3] == '\n' &&
+                hdrbuf[hdrlen - 2] == '\r' && hdrbuf[hdrlen - 1] == '\n') {
                 header_done = 1;
                 body_start_in_b = k + 1; // remainder of this chunk is body
                 body_start_n = n;
@@ -418,10 +418,12 @@ int http_get_to_file(const char *url, const char *path,
 
     // pull Content-Length out of the raw header text (case-sensitive scan is fine for this)
     char *cl = strstr(hdrbuf, "Content-Length:");
-    if (!cl) cl = strstr(hdrbuf, "content-length:");
+    if (!cl)
+        cl = strstr(hdrbuf, "content-length:");
     if (cl) {
         cl += 15;
-        while (*cl == ' ') cl++;
+        while (*cl == ' ')
+            cl++;
         content_length = 0;
         have_length = 1;
         while (*cl >= '0' && *cl <= '9') {
@@ -436,7 +438,8 @@ int http_get_to_file(const char *url, const char *path,
         size_t leftover = body_start_n - body_start_in_b;
         vfs_write(&f, b + body_start_in_b, leftover);
         downloaded += leftover;
-        if (cb) cb(downloaded, content_length, ctx);
+        if (cb)
+            cb(downloaded, content_length, ctx);
     }
 
     // --- stream the rest of the body ---
@@ -449,7 +452,8 @@ int http_get_to_file(const char *url, const char *path,
             timeouts_in_a_row = 0;
             vfs_write(&f, b, n);
             downloaded += n;
-            if (cb) cb(downloaded, have_length ? content_length : 0, ctx);
+            if (cb)
+                cb(downloaded, have_length ? content_length : 0, ctx);
 
             // if we already know the total and we've got it all, we're done
             if (have_length && downloaded >= content_length)
