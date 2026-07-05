@@ -4,16 +4,16 @@
  * @brief Contains helper code for syscalls.
  * @version 0.1
  * @date 2026-04-03
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 #ifndef SYS_HELPER_H
 #define SYS_HELPER_H
 
 #include <heap.h>
-#include <syscalls.h>
 #include <memory.h>
+#include <syscalls.h>
 
 /**
  * @brief Frees a dynamically allocated array of strings.
@@ -28,12 +28,12 @@
  * @note If @p arr is NULL, the function does nothing.
  * @warning Each element in @p arr must be individually allocated.
  */
-static void free_copied_string_array(char** arr, int count) {
+static void free_copied_string_array(char **arr, int count) {
     if (!arr)
         return;
 
     for (int i = 0; i < count; ++i) {
-        if (arr[i])   // safety check
+        if (arr[i]) // safety check
             kfree(arr[i]);
     }
 
@@ -64,19 +64,19 @@ static void free_copied_string_array(char** arr, int count) {
  * @warning The function copies at most 32 strings; additional entries
  *          in @p user_arr are ignored.
  */
-static int copy_user_string_array(char* const* user_arr, char*** out_arr) {
+static int copy_user_string_array(char *const *user_arr, char ***out_arr) {
     if (!user_arr) {
         *out_arr = NULL;
         return 0;
     }
 
-    char** copied = kmalloc(sizeof(char*) * 33);
+    char **copied = kmalloc(sizeof(char *) * 33);
     if (!copied)
         return -LINUX_ENOMEM;
 
     int count = 0;
     for (; count < 32; ++count) {
-        const char* src = user_arr[count];
+        const char *src = user_arr[count];
         if (!src) {
             copied[count] = NULL;
             *out_arr = copied;
@@ -115,12 +115,12 @@ static int copy_user_string_array(char* const* user_arr, char*** out_arr) {
  * @warning The input @p path must be a valid null-terminated string.
  *          Passing NULL results in undefined behavior.
  */
-static uint32_t path_inode_hash(const char* path) {
+static uint32_t path_inode_hash(const char *path) {
     if (!path)
         return 1;
 
     uint32_t hash = 2166136261u;
-    for (const unsigned char* p = (const unsigned char*)path; p && *p; ++p) {
+    for (const unsigned char *p = (const unsigned char *)path; p && *p; ++p) {
         hash ^= *p;
         hash *= 16777619u;
     }

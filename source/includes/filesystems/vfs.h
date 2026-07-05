@@ -4,7 +4,7 @@
  * @brief Frostwing Virtual File System (VFS) header
  * @version 0.1
  * @date 2025-12-31
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
  */
 
@@ -12,13 +12,13 @@
 #define VFS_H
 
 #include <filesystems/ext2.h>
-#include <stddef.h>
 #include <filesystems/fat16.h>
 #include <filesystems/fat32.h>
 #include <filesystems/iso9660.h>
+#include <stddef.h>
 
 typedef struct vfs_file {
-    mount_entry_t* mnt;
+    mount_entry_t *mnt;
     union {
         fat16_file_t fat16;
         fat32_file_t fat32;
@@ -32,21 +32,20 @@ typedef struct vfs_file {
 } vfs_file_t;
 
 typedef struct {
-    mount_entry_t* mnt;
-    const char*    rel_path;
+    mount_entry_t *mnt;
+    const char *rel_path;
 } vfs_mount_res_t;
 
 /* Open flags */
-#define VFS_RDONLY  0x0001
-#define VFS_WRONLY  0x0002
-#define VFS_RDWR    0x0003
+#define VFS_RDONLY 0x0001
+#define VFS_WRONLY 0x0002
+#define VFS_RDWR 0x0003
 
-#define VFS_CREATE  0x0100
-#define VFS_TRUNC   0x0200
-#define VFS_APPEND  0x0400
+#define VFS_CREATE 0x0100
+#define VFS_TRUNC 0x0200
+#define VFS_APPEND 0x0400
 
 #define VFS_FILE_ROOT_DIR (1 << 0)
-
 
 // Current working directory
 extern char vfs_cwd[256];
@@ -57,7 +56,7 @@ extern char vfs_cwd[256];
  * @param out_file Pointer to vfs_file_t to receive file handle
  * @return 0 on success, negative on error
  */
-int vfs_open(const char* path, int flags, vfs_file_t* out_file);
+int vfs_open(const char *path, int flags, vfs_file_t *out_file);
 
 /**
  * @brief Read from an open file
@@ -66,7 +65,7 @@ int vfs_open(const char* path, int flags, vfs_file_t* out_file);
  * @param size Number of bytes to read
  * @return Number of bytes read or negative on error
  */
-int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size);
+int vfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size);
 
 /**
  * @brief Write to an open file
@@ -75,14 +74,14 @@ int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size);
  * @param size Number of bytes to write
  * @return Number of bytes written or negative on error
  */
-int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size);
+int vfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size);
 
 /**
  * @brief Close an open file
  *
  * @param file Pointer to file
  */
-void vfs_close(vfs_file_t* file);
+void vfs_close(vfs_file_t *file);
 
 /**
  * @brief Checks whether a given path exists and is a directory,
@@ -92,7 +91,8 @@ void vfs_close(vfs_file_t* file);
  * @return 1 if it exists and is a directory, 0 if it doesn't exist
  *         or isn't a directory, negative on error.
  */
-int vfs_path_is_dir(const char* path);;
+int vfs_path_is_dir(const char *path);
+;
 
 /**
  * @brief List files and directories at path
@@ -100,7 +100,7 @@ int vfs_path_is_dir(const char* path);;
  * @param path Path to directory
  * @return 0 on success, negative on error
  */
-int vfs_ls(const char* path);
+int vfs_ls(const char *path);
 
 /**
  * @brief Create a directory at path
@@ -108,7 +108,7 @@ int vfs_ls(const char* path);
  * @param path Full path to directory
  * @return 0 on success, negative on error
  */
-int vfs_mkdir(const char* path);
+int vfs_mkdir(const char *path);
 
 /**
  * @brief Remove a directory at path
@@ -116,7 +116,7 @@ int vfs_mkdir(const char* path);
  * @param path Full path to directory
  * @return 0 on success, negative on error
  */
-int vfs_rmdir(const char* path);
+int vfs_rmdir(const char *path);
 
 /**
  * @brief Delete a file at path
@@ -124,7 +124,7 @@ int vfs_rmdir(const char* path);
  * @param path Full path to file
  * @return 0 on success, negative on error
  */
-int vfs_unlink(const char* path);
+int vfs_unlink(const char *path);
 
 /**
  * @brief Change the current working directory
@@ -132,26 +132,26 @@ int vfs_unlink(const char* path);
  * @param path Path to change to (absolute or relative)
  * @return 0 on success, negative on error
  */
-int vfs_cd(const char* path);
+int vfs_cd(const char *path);
 
 /**
- * @brief 
- * 
- * @param path 
- * @return int 
+ * @brief
+ *
+ * @param path
+ * @return int
  */
-int vfs_unlink(const char* path);
+int vfs_unlink(const char *path);
 
 /**
  * @brief Get the current working directory
  * @return Pointer to CWD string
  */
-const char* vfs_getcwd(void);
+const char *vfs_getcwd(void);
 
-const char* vfs_basename(const char* path);
-int vfs_normalize_path(const char* in, char* out, size_t out_sz);
+const char *vfs_basename(const char *path);
+int vfs_normalize_path(const char *in, char *out, size_t out_sz);
 
-int vfs_resolve_mount(const char* path, vfs_mount_res_t* out);
+int vfs_resolve_mount(const char *path, vfs_mount_res_t *out);
 
 int vfs_sync(void);
 

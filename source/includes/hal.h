@@ -9,8 +9,8 @@
  *
  */
 
-#include <stdint.h>
 #include <basics.h>
+#include <stdint.h>
 
 #define pic1_command 0x20
 #define pic1_data 0x21

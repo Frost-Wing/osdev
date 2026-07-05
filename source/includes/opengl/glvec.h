@@ -4,7 +4,7 @@
  * @brief Vector types for use with OpenGL functions
  * @version 0.1
  * @date 2023-10-24
- * 
+ *
  * @copyright Copyright (c) Pradosh & GAMINGNOOBdev 2023
  */
 #ifndef __OPENGL__GLVEC_H_
@@ -14,7 +14,7 @@
 
 /**
  * @brief 2D Integer Vector
- * 
+ *
  * @note To create a new `ivec2`: @code (ivec2){X, Y} @endcode
  */
 typedef struct
@@ -25,7 +25,7 @@ typedef struct
 
 /**
  * @brief 2D Unsigned Integer Vector
- * 
+ *
  * @note To create a new `uvec2`: @code (uvec2){X, Y} @endcode
  */
 typedef struct
@@ -36,7 +36,7 @@ typedef struct
 
 /**
  * @brief 2D Vector
- * 
+ *
  * @note To create a new `vec2`: @code (vec2){X, Y} @endcode
  */
 typedef struct
@@ -47,7 +47,7 @@ typedef struct
 
 /**
  * @brief 3D Integer Vector
- * 
+ *
  * @note To create a new `ivec3`: @code (ivec3){X, Y, Z} @endcode
  */
 typedef struct
@@ -59,7 +59,7 @@ typedef struct
 
 /**
  * @brief 3D Unsigned Integer Vector
- * 
+ *
  * @note To create a new `uvec3`: @code (uvec3){X, Y, Z} @endcode
  */
 typedef struct
@@ -71,7 +71,7 @@ typedef struct
 
 /**
  * @brief 3D Vector
- * 
+ *
  * @note To create a new `vec3`: @code (vec3){X, Y, Z} @endcode
  */
 typedef struct
@@ -83,7 +83,7 @@ typedef struct
 
 /**
  * @brief 4D Integer Vector
- * 
+ *
  * @note To create a new `ivec4`: @code (ivec4){X, Y, Z, W} @endcode
  */
 typedef struct
@@ -96,7 +96,7 @@ typedef struct
 
 /**
  * @brief 4D Unsigned Integer Vector
- * 
+ *
  * @note To create a new `uvec4`: @code (uvec4){X, Y, Z, W} @endcode
  */
 typedef struct
@@ -109,7 +109,7 @@ typedef struct
 
 /**
  * @brief 4D Vector
- * 
+ *
  * @note To create a new `vec4`: @code (vec4){X, Y, Z, W} @endcode
  */
 typedef struct

@@ -4,66 +4,68 @@
  * @brief An completely self-made RAMFS.
  * @version 0.1
  * @date 2025-10-07
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
+#include <basics.h>
 #include <filesystems/fwrfs.h>
 #include <heap.h>
-#include <basics.h>
 #include <strings.h>
 
-struct fwrfs_folder* current_folder = NULL; // Points to current working folder
+struct fwrfs_folder *current_folder = NULL; // Points to current working folder
 
 bool asciifilename(char c) {
-    if ((c >= 'a' && c <= 'z') || 
-        (c >= 'A' && c <= 'Z') || 
+    if ((c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') ||
         (c >= '0' && c <= '9') ||
-        (c == '.')|| c == '_') {
+        (c == '.') || c == '_') {
         return true;
     } else {
         return false;
     }
 }
 
-bool is_valid_filename(struct fwrfs_folder* parent, const char* filename) {
+bool is_valid_filename(struct fwrfs_folder *parent, const char *filename) {
     if (strlen(filename) == 0) {
-        return false; 
+        return false;
     }
 
     // check for naming scheme
     for (int i = 0; filename[i] != '\0'; i++) {
         if (!asciifilename(filename[i])) {
-            return false; 
+            return false;
         }
     }
 
-    //check for existing files with same name.
+    // check for existing files with same name.
     for (int i = 0; i < current_folder->nfiles; i++) {
         if (strcmp(current_folder->files[i].name, filename) == 0) {
             return false; // already an file exsists with the name.
         }
     }
 
-    //check for exisiting folders with same name
-    if(find_folder(parent, filename) != NULL)
+    // check for exisiting folders with same name
+    if (find_folder(parent, filename) != NULL)
         return false; // folder already exists.
 
     return true; // Valid filename
 }
 
-struct fwrfs_folder* find_folder(struct fwrfs_folder* parent, const char* name) {
-    if (!parent) return NULL;
+struct fwrfs_folder *find_folder(struct fwrfs_folder *parent, const char *name) {
+    if (!parent)
+        return NULL;
     for (int i = 0; i < parent->nfiles + 100; i++) { // crude max
-        struct fwrfs_folder* f = &parent->folders[i];
-        if (strcmp(f->name, name) == 0) return f;
+        struct fwrfs_folder *f = &parent->folders[i];
+        if (strcmp(f->name, name) == 0)
+            return f;
     }
     return NULL;
 }
 
-void init_fs(struct fwrfs* fs) {
-    fs = (struct fwrfs*)kmalloc(sizeof(struct fwrfs));
+void init_fs(struct fwrfs *fs) {
+    fs = (struct fwrfs *)kmalloc(sizeof(struct fwrfs));
     fs->nfiles = 0;
     fs->nfolders = 0;
 
@@ -77,15 +79,16 @@ void init_fs(struct fwrfs* fs) {
     current_folder = &fs->folders[0];
 }
 
-int create_folder(struct fwrfs* fs, const char* foldername) {
-    if (!current_folder) return -1;
+int create_folder(struct fwrfs *fs, const char *foldername) {
+    if (!current_folder)
+        return -1;
 
-    if(!is_valid_filename(fs, foldername)){
+    if (!is_valid_filename(fs, foldername)) {
         printf("mkdir: file/folder already exists.");
         return 1;
     }
 
-    struct fwrfs_folder* new_folder = kmalloc(sizeof(struct fwrfs_folder));
+    struct fwrfs_folder *new_folder = kmalloc(sizeof(struct fwrfs_folder));
     strcpy(new_folder->name, foldername);
     new_folder->folders = NULL;
     new_folder->files = NULL;
@@ -103,7 +106,7 @@ int create_folder(struct fwrfs* fs, const char* foldername) {
 }
 
 // cd .. now works
-int cd(struct fwrfs* fs, const char* path) {
+int cd(struct fwrfs *fs, const char *path) {
     if (strcmp(path, "/") == 0) {
         current_folder = &fs->folders[0];
         return 0;
@@ -121,7 +124,7 @@ int cd(struct fwrfs* fs, const char* path) {
 
     // search in current folder
     for (int i = 0; i < current_folder->nfiles; i++) {
-        struct fwrfs_folder* f = &current_folder->folders[i];
+        struct fwrfs_folder *f = &current_folder->folders[i];
         if (strcmp(f->name, path) == 0) {
             current_folder = f;
             return 0;
@@ -131,17 +134,18 @@ int cd(struct fwrfs* fs, const char* path) {
     return 1;
 }
 
-void pwd(struct fwrfs* fs) {
+void pwd(struct fwrfs *fs) {
     printf("%s", get_pwd(fs));
 }
 
-char* get_pwd(struct fwrfs* fs) {
-    if (!current_folder) return "/";
+char *get_pwd(struct fwrfs *fs) {
+    if (!current_folder)
+        return "/";
 
-    char* path = (char*)kmalloc(256);
+    char *path = (char *)kmalloc(256);
     path[0] = '\0';
 
-    struct fwrfs_folder* f = current_folder;
+    struct fwrfs_folder *f = current_folder;
 
     // Collect segments backwards
     while (f && f->parent) { // stop before root (root->parent == NULL)
@@ -161,18 +165,17 @@ char* get_pwd(struct fwrfs* fs) {
     return path;
 }
 
-
-
 // Create file in current folder
-int create_file(struct fwrfs* fs, const char* filename, const char* data) {
-    if (!current_folder) return -1;
+int create_file(struct fwrfs *fs, const char *filename, const char *data) {
+    if (!current_folder)
+        return -1;
 
     if (!is_valid_filename(fs, filename)) {
         printf("Error: Invalid filename or file/folder already exists.");
         return -1;
     }
 
-    struct fwrfs_file* file = kmalloc(sizeof(struct fwrfs_file));
+    struct fwrfs_file *file = kmalloc(sizeof(struct fwrfs_file));
     strcpy(file->name, filename);
     file->data = kmalloc(strlen(data) + 1);
     strcpy(file->data, data);
@@ -187,8 +190,9 @@ int create_file(struct fwrfs* fs, const char* filename, const char* data) {
 }
 
 // Read file in current folder
-char* read_file(struct fwrfs* fs, const char* filename) {
-    if (!current_folder) return NULL;
+char *read_file(struct fwrfs *fs, const char *filename) {
+    if (!current_folder)
+        return NULL;
     for (int i = 0; i < current_folder->nfiles; i++) {
         if (strcmp(current_folder->files[i].name, filename) == 0) {
             return current_folder->files[i].data;
@@ -198,8 +202,9 @@ char* read_file(struct fwrfs* fs, const char* filename) {
 }
 
 // Write file in current folder
-int write_file(struct fwrfs* fs, const char* filename, const char* data) {
-    if (!current_folder) return -1;
+int write_file(struct fwrfs *fs, const char *filename, const char *data) {
+    if (!current_folder)
+        return -1;
     for (int i = 0; i < current_folder->nfiles; i++) {
         if (strcmp(current_folder->files[i].name, filename) == 0) {
             kfree(current_folder->files[i].data);
@@ -212,8 +217,9 @@ int write_file(struct fwrfs* fs, const char* filename, const char* data) {
 }
 
 // Delete file in current folder
-int delete_file(struct fwrfs* fs, const char* filename) {
-    if (!current_folder) return -1;
+int delete_file(struct fwrfs *fs, const char *filename) {
+    if (!current_folder)
+        return -1;
     for (int i = 0; i < current_folder->nfiles; i++) {
         if (strcmp(current_folder->files[i].name, filename) == 0) {
             kfree(current_folder->files[i].data);
@@ -230,15 +236,16 @@ int delete_file(struct fwrfs* fs, const char* filename) {
 }
 
 // List current folder contents
-void list_contents(struct fwrfs* fs) {
-    if (!current_folder) return;
+void list_contents(struct fwrfs *fs) {
+    if (!current_folder)
+        return;
 
     if (current_folder->folders) {
         for (int i = 0; i < current_folder->nfiles; i++) {
             printf("%s%s%s", yellow_color, current_folder->folders[i].name, reset_color);
         }
     }
-    if(current_folder->files){
+    if (current_folder->files) {
         for (int i = 0; i < current_folder->nfiles; i++) {
             printf("%s%s%s", green_color, current_folder->files[i].name, reset_color);
         }

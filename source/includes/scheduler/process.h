@@ -14,17 +14,16 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
-#define PROCESS_NAME_MAX        64
-#define PROCESS_KERNEL_STACK    0x4000
-#define PROCESS_USER_STACK      0x4000
+#define PROCESS_NAME_MAX 64
+#define PROCESS_KERNEL_STACK 0x4000
+#define PROCESS_USER_STACK 0x4000
 
-#define PROCESS_MAX_ARGUMENTS   32
+#define PROCESS_MAX_ARGUMENTS 32
 
-typedef enum
-{
+typedef enum {
     PROCESS_READY = 0,
     PROCESS_RUNNING,
     PROCESS_BLOCKED,
@@ -33,12 +32,10 @@ typedef enum
     PROCESS_DEAD
 } process_state_t;
 
-typedef enum
-{
+typedef enum {
     PROCESS_KERNEL = 0,
     PROCESS_USER
 } process_type_t;
-
 
 /*
  * Saved CPU state.
@@ -48,8 +45,7 @@ typedef enum
  * When a process is not running, these contain the
  * exact register values needed to resume it.
  */
-typedef struct cpu_context
-{
+typedef struct cpu_context {
     uint64_t r15;
     uint64_t r14;
     uint64_t r13;
@@ -66,7 +62,6 @@ typedef struct cpu_context
     uint64_t rflags;
 } cpu_context_t;
 
-
 /*
  * Trap frame pushed by interrupts/syscalls.
  *
@@ -74,8 +69,7 @@ typedef struct cpu_context
  *
  * scheduler receives a pointer to this.
  */
-typedef struct trap_frame
-{
+typedef struct trap_frame {
     uint64_t r15;
     uint64_t r14;
     uint64_t r13;
@@ -105,17 +99,14 @@ typedef struct trap_frame
 
 } trap_frame_t;
 
-
 struct process;
 
 typedef struct process process_t;
 
-
 /*
  * Main process descriptor.
  */
-struct process
-{
+struct process {
     uint32_t pid;
 
     process_type_t type;
@@ -162,12 +153,10 @@ struct process
     const char *argv[PROCESS_MAX_ARGUMENTS];
 };
 
-
 /*
  * Current process.
  */
 extern process_t *current_process;
-
 
 /* Creation */
 
@@ -180,28 +169,22 @@ process_t *process_create_user(
     int argc,
     const char *argv[]);
 
-
 /* Destroy */
 void process_destroy(process_t *proc);
-
 
 /* Exit */
 void process_exit(int code);
 
-
 /* Lookup */
 process_t *process_find(uint32_t pid);
 
-
 /* Sleep */
 void process_sleep(uint64_t ticks);
-
 
 /* Ready queue */
 void process_enqueue(process_t *proc);
 
 process_t *process_dequeue(void);
-
 
 /* Init */
 void process_init(void);

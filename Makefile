@@ -93,6 +93,7 @@ QEMU_COMMON = \
     -rtc base=localtime,clock=host \
     -boot order=d \
     $(KVM) \
+	-object filter-dump,id=f1,netdev=eth0,file=/tmp/dump.pcap \
     -m 512
 
 run-x86-bios:

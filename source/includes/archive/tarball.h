@@ -4,12 +4,11 @@
  * @brief The header for tarball.
  * @version 0.1
  * @date 2023-12-30
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 #include <basics.h>
-
 
 /**
  * @brief Size of a tar block in bytes.
@@ -49,4 +48,4 @@ struct tarball_header {
  *
  * @param tarball_addr Pointer to the memory location where the TAR archive is stored.
  */
-void extract_tarball(uint64* tarball_addr);
+void extract_tarball(uint64 *tarball_addr);

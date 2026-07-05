@@ -4,27 +4,27 @@
  * @brief Contains all the print functions.
  * @version 0.1
  * @date 2023-10-21
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 #ifndef __GRAPHICS_H_
 #define __GRAPHICS_H_
 
-#include <stdint.h>
-#include <stddef.h>
+#include <basics.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <basics.h>
-#include <strings.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stream.h>
+#include <strings.h>
 
 // ANSI color codes for text formatting
-#define reset_color  "\033[37m"
-#define red_color    "\x1b[91m"
+#define reset_color "\033[37m"
+#define red_color "\x1b[91m"
 #define yellow_color "\x1b[93m"
-#define blue_color   "\x1b[36m"
-#define green_color  "\x1b[32m"
+#define blue_color "\x1b[36m"
+#define green_color "\x1b[32m"
 #define orange_color "\x1b[38;5;208m"
 
 // #define reset_color  "\x1b[38;5;248m"
@@ -33,7 +33,6 @@
 // #define blue_color   "\x1b[38;5;75m"
 // #define green_color  "\x1b[38;5;71m"
 // #define orange_color "\x1b[38;5;172m"
-
 
 extern string last_filename; // for warn, info, err, done
 extern string last_print_file;
@@ -50,7 +49,6 @@ extern bool enable_logging;
 #define eprintf(fmt, ...) \
     eprintf_internal(__FILE__, __func__, __LINE__, fmt, ##__VA_ARGS__)
 
-
 /**
  * @brief Display a warning message.
  *
@@ -59,7 +57,7 @@ extern bool enable_logging;
  * @param message The warning message to be displayed.
  * @param file The file name where the warning occurred.
  */
-void warn(cstring message, cstring  file);
+void warn(cstring message, cstring file);
 
 /**
  * @brief Display an error message.
@@ -69,7 +67,7 @@ void warn(cstring message, cstring  file);
  * @param message The error message to be displayed.
  * @param file The file name where the error occurred.
  */
-void error(cstring message, cstring  file);
+void error(cstring message, cstring file);
 
 /**
  * @brief Display an informational message.
@@ -79,7 +77,7 @@ void error(cstring message, cstring  file);
  * @param message The informational message to be displayed.
  * @param file The file name where the information is coming from.
  */
-void info(cstring message, cstring  file);
+void info(cstring message, cstring file);
 
 /**
  * @brief Display a success message.
@@ -89,27 +87,27 @@ void info(cstring message, cstring  file);
  * @param message The success message to be displayed.
  * @param file The file name associated with the success.
  */
-void done(cstring message, cstring  file);
+void done(cstring message, cstring file);
 
 /* Normal Hybrid printing functions ahead */
 
 /**
  * @brief Prints a char, using vput(char c); Replaces '\b' with "\b \b"
- * 
+ *
  * @param c char to print
  */
 void putc(char c);
 
 /**
  * @brief Prints a char though the standard streams.
- * 
+ *
  * @param c The charecter to be printed.
  */
 void vputc(char c);
 
 /**
  * @brief Prints a value in binary format
- * 
+ *
  * @param value The value that will be printed
  */
 void printbin(uint8_t value);
@@ -120,42 +118,41 @@ int format_number(
     int base,
     int width,
     bool zero,
-    bool upper
-);
+    bool upper);
 
 /**
  * @brief Prints with formatting supported.
- * 
+ *
  * @param file Filename where the function is called.
  * @param func The function name.
  * @param line The line.
  * @param format String.
- * @param ... 
+ * @param ...
  */
 void printf_internal(cstring file, cstring func, uint64 line, cstring format, ...);
 
 /**
  * @brief Prints with formatting supported (does not add an new line).
- * 
+ *
  * @param file Filename where the function is called.
  * @param func The function name.
  * @param line The line.
  * @param format String.
- * @param ... 
+ * @param ...
  */
 void printfnoln_internal(cstring file, cstring func, uint64 line, cstring format, ...);
 void eprintf_internal(cstring file, cstring func, uint64 line, cstring format, ...);
 
 /**
  * @brief Core printf implementation used internally by both printf_internal and printfnoln_internal.
- * 
+ *
  * This function handles all formatted output processing, including support for
  * format specifiers such as %b, %x, %X, %u, %d, %s, and %c. It also interprets
- * escape characters like '\n', '\r', and '\t'. 
- * 
+ * escape characters like '\n', '\r', and '\t'.
+ *
  * The newline flag controls whether a newline character ('\n') is printed
  * automatically at the end of the output.
- * 
+ *
  * @param stream  The unix like STDOUT, STDERR.
  * @param file    The source file name of the caller (for logging context)
  * @param func    The function name of the caller (for logging context)
@@ -189,28 +186,28 @@ int snprintf(char *buf, size_t size, const char *fmt, ...);
 
 /**
  * @brief RAW kernel print function for plain strings. (No Formatter & No Streams)
- * 
+ *
  * @param msg The string.
  */
 void kprint(cstring msg);
 
 /**
  * @brief Plain print function, goes through the stream.
- * 
+ *
  * @param s Normal string to be displayed
  */
 void print(cstring s);
 
 /**
- * @brief 
- * 
- * @param x 
- * @param y 
- * @param w 
- * @param h 
- * @param pixels 
- * @param color 
+ * @brief
+ *
+ * @param x
+ * @param y
+ * @param w
+ * @param h
+ * @param pixels
+ * @param color
  */
-void print_bitmap(int x, int y, int w, int h, const bool* pixels, uint32 color);
+void print_bitmap(int x, int y, int w, int h, const bool *pixels, uint32 color);
 
 #endif

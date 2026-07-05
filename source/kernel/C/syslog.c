@@ -7,9 +7,9 @@
  * @copyright Copyright (c) 2026
  */
 #include <ahci.h>
-#include <syslog.h>
 #include <pit.h>
 #include <stdbool.h>
+#include <syslog.h>
 
 /* Reuses the integer-only number formatter already defined in logger.c,
  * so syslog needs no floating point of its own. */
@@ -23,19 +23,16 @@ ring_buffer_t syslog_rb;
 
 bool is_syslog_ready = false;
 
-void syslog_init(void)
-{
+void syslog_init(void) {
     rb_init(&syslog_rb, syslog_storage, SYSLOG_BUFFER_SIZE, sizeof(char));
     is_syslog_ready = true;
 }
 
-void syslog_putc(char c)
-{
+void syslog_putc(char c) {
     rb_push_overwrite(&syslog_rb, &c);
 }
 
-static void syslog_puts(cstring s)
-{
+static void syslog_puts(cstring s) {
     while (*s) {
         syslog_putc(*s);
         s++;
@@ -45,12 +42,11 @@ static void syslog_puts(cstring s)
 /**
  * @brief Write "[secs.fraction] " straight off pit_ticks, integer math only.
  */
-static void syslog_write_timestamp(void)
-{
+static void syslog_write_timestamp(void) {
     uint64_t ticks = pit_ticks;
 
     uint64_t secs = ticks / SYSLOG_TICKS_PER_SEC;
-    uint64_t rem  = ticks % SYSLOG_TICKS_PER_SEC;
+    uint64_t rem = ticks % SYSLOG_TICKS_PER_SEC;
 
     uint64_t scale = 1;
     for (int i = 0; i < SYSLOG_TS_FRAC_DIGITS; i++)
@@ -74,10 +70,10 @@ static void syslog_write_timestamp(void)
     syslog_putc(' ');
 }
 
-void syslog_printf(cstring format, ...)
-{
-    if(!is_syslog_ready) return;
-    
+void syslog_printf(cstring format, ...) {
+    if (!is_syslog_ready)
+        return;
+
     va_list argp;
     va_start(argp, format);
 
@@ -130,8 +126,9 @@ void syslog_printf(cstring format, ...)
                 }
 
                 case 's': {
-                    const char *s = va_arg(argp, char*);
-                    if (!s) s = "(null)";
+                    const char *s = va_arg(argp, char *);
+                    if (!s)
+                        s = "(null)";
                     syslog_puts(s);
                     break;
                 }
@@ -149,8 +146,7 @@ void syslog_printf(cstring format, ...)
                     syslog_putc(*format);
                     break;
             }
-        }
-        else {
+        } else {
             syslog_putc(*format);
         }
 
@@ -162,13 +158,11 @@ void syslog_printf(cstring format, ...)
     va_end(argp);
 }
 
-size_t syslog_read(char* out, size_t max_len)
-{
+size_t syslog_read(char *out, size_t max_len) {
     return syslog_read_at(out, 0, max_len);
 }
 
-size_t syslog_read_at(char* out, size_t offset, size_t max_len)
-{
+size_t syslog_read_at(char *out, size_t offset, size_t max_len) {
     size_t total = rb_size(&syslog_rb);
     if (offset >= total)
         return 0;
@@ -185,12 +179,10 @@ size_t syslog_read_at(char* out, size_t offset, size_t max_len)
     return n;
 }
 
-size_t syslog_size(void)
-{
+size_t syslog_size(void) {
     return rb_size(&syslog_rb);
 }
 
-void syslog_clear(void)
-{
+void syslog_clear(void) {
     rb_clear(&syslog_rb);
 }

@@ -1,12 +1,11 @@
+#include <kernel.h>
+#include <memory.h>
 #include <opengl/glbackend.h>
 #include <opengl/glcontext.h>
-#include <memory.h>
-#include <kernel.h>
 
 uint32_t g_glClearColor = 0;
 
-void glWritePixel(uvec2 pixel, uint32_t color)
-{
+void glWritePixel(uvec2 pixel, uint32_t color) {
     if (!glContextInitialized())
         return;
 
@@ -18,8 +17,7 @@ void glWritePixel(uvec2 pixel, uint32_t color)
     context->ColorBuffer[pixel.y * context->ColorBufferWidth + pixel.x] = color;
 }
 
-uint32_t glReadPixel(uvec2 pixel)
-{
+uint32_t glReadPixel(uvec2 pixel) {
     if (!glContextInitialized())
         return 0;
 
@@ -31,35 +29,31 @@ uint32_t glReadPixel(uvec2 pixel)
     return context->ColorBuffer[pixel.y * context->ColorBufferWidth + pixel.x];
 }
 
-void glClearColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
-{
+void glClearColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     if (!glContextInitialized())
         return;
-    
+
     g_glClearColor = (a << 24) | (r << 16) | (g << 8) | b;
 }
 
-void glClear(GLenum mask)
-{
+void glClear(GLenum mask) {
     if (!glContextInitialized())
         return;
-    
+
     GET_CURRENT_GL_CONTEXT(context);
 
     if (mask & GL_COLOR_BUFFER_BIT)
         memset(context->ColorBuffer, g_glClearColor, context->ColorBufferWidth * context->ColorBufferHeight * sizeof(uint32_t));
 }
 
-static int abs(int value)
-{
+static int abs(int value) {
     if (value < 0)
         return -value;
-    
+
     return value;
 }
 
-void glDrawRect(uvec2 start, uvec2 size, uint32_t col)
-{
+void glDrawRect(uvec2 start, uvec2 size, uint32_t col) {
     if (!glContextInitialized())
         return;
 
@@ -70,8 +64,7 @@ void glDrawRect(uvec2 start, uvec2 size, uint32_t col)
             glWritePixel((uvec2){x, y}, col);
 }
 
-void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col)
-{
+void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col) {
     if (!glContextInitialized())
         return;
 
@@ -106,7 +99,7 @@ void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col)
             if (p.x < 0) {
                 p.x = p.x + 2 * absoluteDistance.y;
             } else {
-                if ( (distance.x < 0 && distance.y < 0) || (distance.x > 0 && distance.y > 0) ) {
+                if ((distance.x < 0 && distance.y < 0) || (distance.x > 0 && distance.y > 0)) {
                     pdraw.y++;
                 } else {
                     pdraw.y--;
@@ -115,17 +108,12 @@ void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col)
             }
             glWritePixel(pdraw, col);
         }
-    }
-    else
-    {
-        if (distance.y >= 0)
-        {
+    } else {
+        if (distance.y >= 0) {
             pdraw.x = p1.x;
             pdraw.y = p1.y;
             e.y = p2.y;
-        }
-        else
-        {
+        } else {
             pdraw.x = p2.x;
             pdraw.y = p2.y;
             e.y = p1.y;
@@ -137,7 +125,7 @@ void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col)
             if (p.y <= 0) {
                 p.y = p.y + 2 * absoluteDistance.x;
             } else {
-                if ( (distance.x < 0 && distance.y < 0) || (distance.x > 0 && distance.y > 0) ) {
+                if ((distance.x < 0 && distance.y < 0) || (distance.x > 0 && distance.y > 0)) {
                     pdraw.x++;
                 } else {
                     pdraw.x--;
@@ -149,18 +137,16 @@ void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col)
     }
 }
 
-#define SWAP(type,var1,var2)    \
-            type tmp = var2;    \
-            var2 = var1;        \
-            var1 = tmp;
+#define SWAP(type, var1, var2) \
+    type tmp = var2;           \
+    var2 = var1;               \
+    var1 = tmp;
 
-void glDrawTriangle(uvec2 t0, uvec2 t1, uvec2 t2, uint32_t col, bool fill)
-{
+void glDrawTriangle(uvec2 t0, uvec2 t1, uvec2 t2, uint32_t col, bool fill) {
     if (!glContextInitialized())
         return;
 
-    if (!fill)
-    {
+    if (!fill) {
         glDrawLine(t0, t1, col);
         glDrawLine(t1, t2, col);
         glDrawLine(t2, t0, col);
@@ -173,94 +159,79 @@ void glDrawTriangle(uvec2 t0, uvec2 t1, uvec2 t2, uint32_t col, bool fill)
     bool change1 = false;
     int sign_x1, sign_x2, e1, e2;
 
-    if ( t0.y > t1.y )
-    {
+    if (t0.y > t1.y) {
         int temp;
         temp = t1.y;
         t1.y = t0.y;
         t0.y = temp;
-        SWAP( int, t0.x, t1.x )
+        SWAP(int, t0.x, t1.x)
     }
-    if ( t0.y > t2.y )
-    {
+    if (t0.y > t2.y) {
         int temp;
         temp = t2.y;
         t2.y = t0.y;
         t0.y = temp;
-        SWAP( int, t0.x, t2.x )
+        SWAP(int, t0.x, t2.x)
     }
-    if ( t1.y > t2.y )
-    {
+    if (t1.y > t2.y) {
         int temp;
         temp = t2.y;
         t2.y = t1.y;
         t1.y = temp;
-        SWAP( int, t1.x, t2.x )
+        SWAP(int, t1.x, t2.x)
     }
 
     t.x = t.y = t0.x;
     y = t0.y;
-    d1.x = (int)( t1.x - t0.x );
-    if (d1.x < 0)
-    {
+    d1.x = (int)(t1.x - t0.x);
+    if (d1.x < 0) {
         d1.x = -d1.x;
         sign_x1 = -1;
-    }
-    else
+    } else
         sign_x1 = 1;
 
-    d1.y = (int)( t1.y - t0.y );
+    d1.y = (int)(t1.y - t0.y);
 
-    d2.x = (int)( t2.x - t0.x );
-    if (d2.x < 0)
-    {
+    d2.x = (int)(t2.x - t0.x);
+    if (d2.x < 0) {
         d2.x = -d2.x;
         sign_x2 = -1;
-    }
-    else
+    } else
         sign_x2 = 1;
 
-    d2.y = (int)( t2.y - t0.y );
+    d2.y = (int)(t2.y - t0.y);
 
-    if (d1.y > d1.x)
-    {
-        SWAP( int, d1.x, d1.y )
+    if (d1.y > d1.x) {
+        SWAP(int, d1.x, d1.y)
         change0 = true;
     }
-    
-    if (d2.y > d2.x)
-    {
-        SWAP( int, d2.x, d2.y )
+
+    if (d2.y > d2.x) {
+        SWAP(int, d2.x, d2.y)
         change1 = true;
     }
 
-    e2 = (int) ( (int)d2.x >> 1 );
-    if ( t0.y == t1.y )
+    e2 = (int)((int)d2.x >> 1);
+    if (t0.y == t1.y)
         goto nextHalf;
 
-    e1 = (int) ( (int)d1.x >> 1 );
+    e1 = (int)((int)d1.x >> 1);
 
-    for (int i = 0; i < d1.x; )
-    {
+    for (int i = 0; i < d1.x;) {
         tp.x = 0;
         tp.y = 0;
-        if (t.x < t.y)
-        {
+        if (t.x < t.y) {
             minx = t.x;
             maxx = t.y;
-        }
-        else
-        {
+        } else {
             minx = t.y;
             maxx = t.x;
         }
 
-        while (i < d1.x)
-        {
+        while (i < d1.x) {
             i++;
             e1 += d1.y;
-            while (e1 >= d1.x)
-            {
+            while (e1 >= d1.x) {
                 e1 -= d1.x;
                 if (change0)
                     tp.x = sign_x1;
@@ -270,7 +241,7 @@ void glDrawTriangle(uvec2 t0, uvec2 t1, uvec2 t2, uint32_t col, bool fill)
 
             if (change1)
                 break;
-            
+
             t.x += sign_x1;
         }
 
@@ -278,8 +249,7 @@ void glDrawTriangle(uvec2 t0, uvec2 t1, uvec2 t2, uint32_t col, bool fill)
 
         while (1) {
             e2 += d2.y;
-            while (e2 >= d2.x) 
-            {
+            while (e2 >= d2.x) {
                 e2 -= d2.x;
                 if (change1)
                     tp.y = sign_x2;
@@ -287,7 +257,7 @@ void glDrawTriangle(uvec2 t0, uvec2 t1, uvec2 t2, uint32_t col, bool fill)
                     goto next1;
             }
 
-            if (change1) 
+            if (change1)
                 break;
 
             t.y = sign_x2;
@@ -327,61 +297,50 @@ void glDrawTriangle(uvec2 t0, uvec2 t1, uvec2 t2, uint32_t col, bool fill)
 nextHalf:
 
     d1.x = (int)(t2.x - t1.x);
-    if (d1.x < 0)
-    {
+    if (d1.x < 0) {
         d1.x = -d1.x;
         sign_x1 = -1;
-    }
-    else
+    } else
         sign_x1 = 1;
 
-    d1.y = (int)( t2.y - t1.y );
+    d1.y = (int)(t2.y - t1.y);
     t.x = t1.x;
 
-    if (d1.y > d1.x)
-    {
-        SWAP( int, d1.y, d1.x )
+    if (d1.y > d1.x) {
+        SWAP(int, d1.y, d1.x)
         change0 = true;
-    }
-    else
+    } else
         change0 = false;
 
-    e1 = (int)( (int)d1.x >> 1 );
+    e1 = (int)((int)d1.x >> 1);
 
-    for (int i = 0; i <= d1.x; i++)
-    {
+    for (int i = 0; i <= d1.x; i++) {
         tp.x = 0;
         tp.y = 0;
-        if (t.x < t.y)
-        {
+        if (t.x < t.y) {
             minx = t.x;
             maxx = t.y;
-        }
-        else
-        {
+        } else {
             minx = t.y;
             maxx = t.x;
         }
 
-        while (i < d1.x)
-        {
+        while (i < d1.x) {
             e1 += d1.y;
 
-            while (e1 >= d1.x)
-            {
+            while (e1 >= d1.x) {
                 e1 -= d1.x;
-                if (change0)
-                {
+                if (change0) {
                     tp.x = sign_x1;
                     break;
                 }
-                
+
                 goto next2;
             }
 
             if (change0)
                 break;
-            
+
             t.x += sign_x1;
 
             if (i < d1.x)
@@ -390,11 +349,9 @@ nextHalf:
 
     next2:
 
-        while (t.y != t2.x)
-        {
+        while (t.y != t2.x) {
             e2 += d2.y;
-            while (e2 >= d2.x)
-            {
+            while (e2 >= d2.x) {
                 e2 -= d2.x;
                 if (change1)
                     tp.y = sign_x2;

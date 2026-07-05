@@ -4,40 +4,40 @@
  * @brief Interrupts handler code.
  * @version 0.1
  * @date 2025-02-03
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
+#include <cc-asm.h>
+#include <debugger.h>
+#include <drivers/rtl8139.h>
 #include <isr.h>
 #include <keyboard.h>
-#include <memory.h>
-#include <drivers/rtl8139.h>
-#include <syscalls.h>
-#include <debugger.h>
 #include <meltdown.h>
+#include <memory.h>
+#include <syscalls.h>
 #include <userland.h>
-#include <cc-asm.h>
 
 irq_handler interrupt_handlers[256];
 
-static void log_page_fault_details(InterruptFrame* frame) {
+static void log_page_fault_details(InterruptFrame *frame) {
     if (!frame || frame->int_no != 14)
         return;
 
     uint64_t err = frame->err_code;
     eprintf("pagefault: rip=0x%X addr=0x%X err=0x%X present=%d write=%d user=%d reserved=%d fetch=%d",
-            frame->rip,
-            getCR2(),
-            err,
-            (int)(err & 0x1),
-            (int)((err >> 1) & 0x1),
-            (int)((err >> 2) & 0x1),
-            (int)((err >> 3) & 0x1),
-            (int)((err >> 4) & 0x1));
+        frame->rip,
+        getCR2(),
+        err,
+        (int)(err & 0x1),
+        (int)((err >> 1) & 0x1),
+        (int)((err >> 2) & 0x1),
+        (int)((err >> 3) & 0x1),
+        (int)((err >> 4) & 0x1));
 }
 
-void exceptionHandler(InterruptFrame* frame) {
+void exceptionHandler(InterruptFrame *frame) {
     enable_logging = false; // disables logger as fast as it can to get the last instance of panic.
     log_page_fault_details(frame);
 
@@ -45,62 +45,60 @@ void exceptionHandler(InterruptFrame* frame) {
         printf("Userland process trapped and will be terminated (frame -> err:%02u,cr2:%02u,int:%02u)", frame->err_code, getCR2(), frame->int_no);
         userland_abort_from_exception(frame->int_no, frame->err_code, frame->rip);
     }
-    
-	switch (frame->int_no) {
+
+    switch (frame->int_no) {
         case 0:
             meltdown_screen("Arithmetical operation with division of zero detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
-			break;
+            break;
         case 5:
             meltdown_screen("Bound Range exceeded!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
-			break;
+            break;
         case 6:
             meltdown_screen("Invalid opcode detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
-			break;
+            break;
         case 8:
             meltdown_screen("Double fault detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
-			break;
+            break;
         case 10:
             meltdown_screen("Invalid TSS detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
-			break;
+            break;
         case 13:
             meltdown_screen("General protection violation detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
-			break;
-		case 14:
+            break;
+        case 14:
             meltdown_screen("Page protection violation detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
-			break;
+            break;
         case 16:
             meltdown_screen("x87 Floating-Point violation detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
-			break;
+            break;
         case 19:
             meltdown_screen("SIMD Floating-Point violation detected! (SSE Related issue)", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
-			break;
+            break;
         default:
             meltdown_screen("Unknown exception detected!", __FILE__, __LINE__, frame->err_code, getCR2(), frame->int_no, frame);
-	}
-    
+    }
+
     hcf2();
 }
 
-void registerInterruptHandler(uint8_t interrupt, irq_handler handler)
-{
+void registerInterruptHandler(uint8_t interrupt, irq_handler handler) {
     interrupt_handlers[interrupt] = handler;
 }
 
-void irqHandler(InterruptFrame* frame)
-{
+void irqHandler(InterruptFrame *frame) {
     irq_handler handler = (irq_handler)interrupt_handlers[frame->int_no];
     if (handler != NULL)
         handler(frame);
 }
 
-void rtl8139_handler(InterruptFrame* frame) {
+void rtl8139_handler(InterruptFrame *frame) {
     (void)frame;
-	uint16_t status = inw(RTL8139->io_base + 0x3e);
-	outw(RTL8139->io_base + 0x3E, 0x05);
-	if(status & TOK) {
-		info("Successfully sent a packet!", __FILE__);
-	}
-	if (status & ROK) {
-		info("Successfully recieved a packet!", __FILE__);
-	}
+    uint16_t status = inw(RTL8139->io_base + 0x3e);
+    outw(RTL8139->io_base + 0x3E, 0x05);
+    if (status & TOK) {
+        info("Successfully sent a packet!", __FILE__);
+    }
+    if (status & ROK) {
+        info("Successfully recieved a packet!", __FILE__);
+    }
 }

@@ -8,34 +8,34 @@ extern "C" {
 #include <sys/statfs.h>
 
 struct fanotify_event_metadata {
-	unsigned event_len;
-	unsigned char vers;
-	unsigned char reserved;
-	unsigned short metadata_len;
-	unsigned long long mask
+    unsigned event_len;
+    unsigned char vers;
+    unsigned char reserved;
+    unsigned short metadata_len;
+    unsigned long long mask
 #ifdef __GNUC__
-	__attribute__((__aligned__(8)))
+        __attribute__((__aligned__(8)))
 #endif
-	;
-	int fd;
-	int pid;
+        ;
+    int fd;
+    int pid;
 };
 
 struct fanotify_event_info_header {
-	unsigned char info_type;
-	unsigned char pad;
-	unsigned short len;
+    unsigned char info_type;
+    unsigned char pad;
+    unsigned short len;
 };
 
 struct fanotify_event_info_fid {
-	struct fanotify_event_info_header hdr;
-	fsid_t fsid;
-	unsigned char handle[];
+    struct fanotify_event_info_header hdr;
+    fsid_t fsid;
+    unsigned char handle[];
 };
 
 struct fanotify_response {
-	int fd;
-	unsigned response;
+    int fd;
+    unsigned response;
 };
 
 #define FAN_ACCESS 0x01
@@ -99,7 +99,7 @@ struct fanotify_response {
 #define FAN_AUDIT 0x10
 #define FAN_NOFD -1
 #define FAN_EVENT_METADATA_LEN (sizeof(struct fanotify_event_metadata))
-#define FAN_EVENT_NEXT(meta, len) ((len) -= (meta)->event_len, (struct fanotify_event_metadata*)(((char *)(meta)) + (meta)->event_len))
+#define FAN_EVENT_NEXT(meta, len) ((len) -= (meta)->event_len, (struct fanotify_event_metadata *)(((char *)(meta)) + (meta)->event_len))
 #define FAN_EVENT_OK(meta, len) ((long)(len) >= (long)FAN_EVENT_METADATA_LEN && (long)(meta)->event_len >= (long)FAN_EVENT_METADATA_LEN && (long)(meta)->event_len <= (long)(len))
 
 int fanotify_init(unsigned, unsigned);

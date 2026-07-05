@@ -4,35 +4,34 @@
  * @brief Executes an ELF from VFS under userland
  * @version 0.1
  * @date 2025-10-07
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
 #include <commands/commands.h>
 #include <executables/elf.h>
-#include <userland.h>
 #include <graphics.h>
-#include <tty.h>
 #include <keyboard.h>
+#include <tty.h>
+#include <userland.h>
 
-extern char* global_envp[];
+extern char *global_envp[];
 
-int cmd_exec(int argc, char** argv)
-{
+int cmd_exec(int argc, char **argv) {
     if (argc < 2) {
         eprintf("exec: missing program");
         eprintf("usage: exec <program> [args]");
         return 1;
     }
 
-    const char* path = argv[1];
+    const char *path = argv[1];
 
-    const char* user_argv[34];
+    const char *user_argv[34];
     int user_argc = 0;
 
     // argv[0] should be the program name (basename)
-    const char* basename = vfs_basename(path);
+    const char *basename = vfs_basename(path);
     // user_argv[user_argc++] = basename;
 
     // copy actual arguments AFTER the program path

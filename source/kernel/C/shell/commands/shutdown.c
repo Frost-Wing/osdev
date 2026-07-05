@@ -4,15 +4,14 @@
  * @brief The basic Linux shutdown command.
  * @version 0.1
  * @date 2025-10-08
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
 #include <commands/commands.h>
 
-int cmd_shutdown(int argc, char** argv)
-{
+int cmd_shutdown(int argc, char **argv) {
     if (argc < 2) {
         printf("shutdown: missing operand (try 'shutdown -h now' or 'shutdown -r now')");
         return 1;

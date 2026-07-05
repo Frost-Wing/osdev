@@ -1,48 +1,48 @@
 /**
  * @file pc-speaker.c
  * @author Pradosh (pradoshgame@gmail.com) & OS Dev WIKI (https://wiki.osdev.org/PC_Speaker)
- * @brief The Code for PC Speaker 
+ * @brief The Code for PC Speaker
  * @version 0.1
  * @date 2023-11-11
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 #include <drivers/pc-speaker.h>
 
 /**
  * @brief Plays a specific frequency
- * 
+ *
  * @param frequency in Hz
  */
 void play_sound(uint32 frequency) {
- 	uint32 div;
- 	uint8 tmp;
+    uint32 div;
+    uint8 tmp;
 
- 	div = 1193180 / frequency;
- 	outb(0x43, 0xb6);
- 	outb(0x42, (uint8) (div) );
- 	outb(0x42, (uint8) (div >> 8));
+    div = 1193180 / frequency;
+    outb(0x43, 0xb6);
+    outb(0x42, (uint8)(div));
+    outb(0x42, (uint8)(div >> 8));
 
- 	tmp = (uint8)inb(0x61);
-  	if (tmp != (tmp | 3)) {
- 		outb(0x61, tmp | 3);
- 	}
- }
- 
+    tmp = (uint8)inb(0x61);
+    if (tmp != (tmp | 3)) {
+        outb(0x61, tmp | 3);
+    }
+}
+
 /**
- * @brief Mutes the PC Speaker temporaily 
- * 
+ * @brief Mutes the PC Speaker temporaily
+ *
  */
- void mute() {
- 	uint8 tmp = (uint8)inb(0x61) & 0xFC;
- 
- 	outb(0x61, tmp);
- }
- 
+void mute() {
+    uint8 tmp = (uint8)inb(0x61) & 0xFC;
+
+    outb(0x61, tmp);
+}
+
 /**
  * @brief Does a BEEP in PC Speaker
- * 
+ *
  * @param frequency in Hz
  * @param time in Seconds
  */

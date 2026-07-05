@@ -23,11 +23,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
-#include <flanterm/flanterm.h>
 #include <fb.h>
+#include <flanterm/flanterm.h>
 
 void *memset(void *, int, size_t);
 void *memcpy(void *, const void *, size_t);
@@ -35,7 +35,7 @@ void *memcpy(void *, const void *, size_t);
 #ifndef FLANTERM_FB_DISABLE_BUMP_ALLOC
 
 #ifndef FLANTERM_FB_BUMP_ALLOC_POOL_SIZE
-#define FLANTERM_FB_BUMP_ALLOC_POOL_SIZE (64*1024*1024)
+#define FLANTERM_FB_BUMP_ALLOC_POOL_SIZE (64 * 1024 * 1024)
 #endif
 
 static uint8_t bump_alloc_pool[FLANTERM_FB_BUMP_ALLOC_POOL_SIZE];
@@ -191,7 +191,7 @@ static void flanterm_fb_revscroll(struct flanterm_context *_ctx) {
     struct flanterm_fb_context *ctx = (void *)_ctx;
 
     for (size_t i = (_ctx->scroll_bottom_margin - 1) * _ctx->cols - 1;
-         i >= _ctx->scroll_top_margin * _ctx->cols; i--) {
+        i >= _ctx->scroll_top_margin * _ctx->cols; i--) {
         if (i == (size_t)-1) {
             break;
         }
@@ -207,7 +207,7 @@ static void flanterm_fb_revscroll(struct flanterm_context *_ctx) {
 
     // Clear the first line of the screen.
     struct flanterm_fb_char empty;
-    empty.c  = ' ';
+    empty.c = ' ';
     empty.fg = ctx->text_fg;
     empty.bg = ctx->text_bg;
     for (size_t i = 0; i < _ctx->cols; i++) {
@@ -219,7 +219,7 @@ static void flanterm_fb_scroll(struct flanterm_context *_ctx) {
     struct flanterm_fb_context *ctx = (void *)_ctx;
 
     for (size_t i = (_ctx->scroll_top_margin + 1) * _ctx->cols;
-         i < _ctx->scroll_bottom_margin * _ctx->cols; i++) {
+        i < _ctx->scroll_bottom_margin * _ctx->cols; i++) {
         struct flanterm_fb_char *c;
         struct flanterm_fb_queue_item *q = ctx->map[i];
         if (q != NULL) {
@@ -232,7 +232,7 @@ static void flanterm_fb_scroll(struct flanterm_context *_ctx) {
 
     // Clear the last line of the screen.
     struct flanterm_fb_char empty;
-    empty.c  = ' ';
+    empty.c = ' ';
     empty.fg = ctx->text_fg;
     empty.bg = ctx->text_bg;
     for (size_t i = 0; i < _ctx->cols; i++) {
@@ -244,7 +244,7 @@ static void flanterm_fb_clear(struct flanterm_context *_ctx, bool move) {
     struct flanterm_fb_context *ctx = (void *)_ctx;
 
     struct flanterm_fb_char empty;
-    empty.c  = ' ';
+    empty.c = ' ';
     empty.fg = ctx->text_fg;
     empty.bg = ctx->text_bg;
     for (size_t i = 0; i < _ctx->rows * _ctx->cols; i++) {
@@ -288,8 +288,7 @@ static void flanterm_fb_get_cursor_pos(struct flanterm_context *_ctx, size_t *x,
 static void flanterm_fb_move_character(struct flanterm_context *_ctx, size_t new_x, size_t new_y, size_t old_x, size_t old_y) {
     struct flanterm_fb_context *ctx = (void *)_ctx;
 
-    if (old_x >= _ctx->cols || old_y >= _ctx->rows
-     || new_x >= _ctx->cols || new_y >= _ctx->rows) {
+    if (old_x >= _ctx->cols || old_y >= _ctx->rows || new_x >= _ctx->cols || new_y >= _ctx->rows) {
         return;
     }
 
@@ -443,7 +442,7 @@ static void flanterm_fb_raw_putchar(struct flanterm_context *_ctx, uint8_t c) {
     }
 
     struct flanterm_fb_char ch;
-    ch.c  = c;
+    ch.c = c;
     ch.fg = ctx->text_fg;
     ch.bg = ctx->text_bg;
     push_to_queue(_ctx, &ch, ctx->cursor_x++, ctx->cursor_y);
@@ -510,8 +509,7 @@ struct flanterm_context *flanterm_fb_init(
     uint32_t *default_bg_bright, uint32_t *default_fg_bright,
     void *font, size_t font_width, size_t font_height, size_t font_spacing,
     size_t font_scale_x, size_t font_scale_y,
-    size_t margin
-) {
+    size_t margin) {
 #ifndef FLANTERM_FB_DISABLE_BUMP_ALLOC
     size_t orig_bump_alloc_ptr = bump_alloc_ptr;
 #endif

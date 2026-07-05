@@ -10,8 +10,8 @@
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /*
  * --------------------------------------------------------------------------
@@ -23,18 +23,17 @@
  * Matches x86-64 register names exactly.
  */
 
-typedef struct cpu_context
-{
-    uint64_t r15;   // +0
-    uint64_t r14;   // +8
-    uint64_t r13;   // +16
-    uint64_t r12;   // +24
-    uint64_t rbx;   // +32
-    uint64_t rbp;   // +40
+typedef struct cpu_context {
+    uint64_t r15; // +0
+    uint64_t r14; // +8
+    uint64_t r13; // +16
+    uint64_t r12; // +24
+    uint64_t rbx; // +32
+    uint64_t rbp; // +40
 
-    uint64_t rsp;   // +48
-    uint64_t rflags;// +56
-    uint64_t rip;   // +64
+    uint64_t rsp;    // +48
+    uint64_t rflags; // +56
+    uint64_t rip;    // +64
 } cpu_context_t;
 
 /*

@@ -49,8 +49,8 @@ typedef struct __attribute__((packed)) {
 } nvme_completion_t;
 
 typedef struct {
-    nvme_command_t* sq;
-    nvme_completion_t* cq;
+    nvme_command_t *sq;
+    nvme_completion_t *cq;
     uint16_t qid;
     uint16_t depth;
     uint16_t sq_tail;
@@ -59,13 +59,13 @@ typedef struct {
 } nvme_queue_t;
 
 typedef struct {
-    nvme_regs_t* regs;
+    nvme_regs_t *regs;
     uint32_t doorbell_stride;
     uint32_t controller_id;
     uint32_t nn;
     nvme_queue_t adminq;
     nvme_queue_t ioq;
-    void* bounce_buffer;
+    void *bounce_buffer;
     int present;
 } nvme_controller_t;
 
@@ -84,7 +84,7 @@ extern nvme_namespace_t nvme_namespaces[NVME_MAX_NAMESPACES];
 extern int nvme_namespace_count;
 
 void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function);
-int nvme_read_sector(int namespace_index, uint64_t lba, void* buffer, uint32_t count);
-int nvme_write_sector(int namespace_index, uint64_t lba, void* buffer, uint32_t count);
+int nvme_read_sector(int namespace_index, uint64_t lba, void *buffer, uint32_t count);
+int nvme_write_sector(int namespace_index, uint64_t lba, void *buffer, uint32_t count);
 
 #endif

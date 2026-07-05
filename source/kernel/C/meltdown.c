@@ -4,25 +4,25 @@
  * @brief The code to print the Meltdown (Panic) message
  * @version 0.1
  * @date 2023-10-29
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 #include <graphics.h>
-#include <meltdown.h>
 #include <isr.h> // For InterruptFrame
+#include <meltdown.h>
 
 #define clean_mode
 
-void meltdown_screen(cstring message, cstring file, int line, uint64 error_code, uint64 cr2, uint64 int_no, InterruptFrame* frame){
-#ifndef clean_mode    
+void meltdown_screen(cstring message, cstring file, int line, uint64 error_code, uint64 cr2, uint64 int_no, InterruptFrame *frame) {
+#ifndef clean_mode
     print("\x1b[2J");
     print("\x1b[H");
 
     debug_println(message);
 
     print("\x1b[48;2;26;17;14m");
-    for(int x=0;x<=terminal_columns*terminal_rows;x++){
+    for (int x = 0; x <= terminal_columns * terminal_rows; x++) {
         print(" ");
     }
 
@@ -59,7 +59,7 @@ void meltdown_screen(cstring message, cstring file, int line, uint64 error_code,
     frost_compilation_information();
 #endif
 #ifdef clean_mode
-eprintf("[MELTDOWN] %s (%s:%d) (int=%d err=0x%X cr2=0x%X rip=0x%X cs=0x%X rsp=0x%X rflags=0x%X)",
+    eprintf("[MELTDOWN] %s (%s:%d) (int=%d err=0x%X cr2=0x%X rip=0x%X cs=0x%X rsp=0x%X rflags=0x%X)",
         message,
         file,
         line,
@@ -71,8 +71,8 @@ eprintf("[MELTDOWN] %s (%s:%d) (int=%d err=0x%X cr2=0x%X rip=0x%X cs=0x%X rsp=0x
         frame ? frame->rsp : 0,
         frame ? frame->rflags : 0);
 
-if (frame) {
-    eprintf("[MELTDOWN] regs rax=0x%X rcx=0x%X rdx=0x%X rsi=0x%X rdi=0x%X r8=0x%X r9=0x%X r10=0x%X r11=0x%X",
+    if (frame) {
+        eprintf("[MELTDOWN] regs rax=0x%X rcx=0x%X rdx=0x%X rsi=0x%X rdi=0x%X r8=0x%X r9=0x%X r10=0x%X r11=0x%X",
             frame->rax,
             frame->rcx,
             frame->rdx,
@@ -82,12 +82,12 @@ if (frame) {
             frame->r9,
             frame->r10,
             frame->r11);
-    eprintf("[MELTDOWN] regs SS = 0x%X", frame->ss);
-}
+        eprintf("[MELTDOWN] regs SS = 0x%X", frame->ss);
+    }
 #endif
 }
 
-void interrupt_frame_dump(InterruptFrame* frame) {
+void interrupt_frame_dump(InterruptFrame *frame) {
     printf("===[ Interrupt Frame Dump ]===");
 
     printf(" General Purpose Registers:");

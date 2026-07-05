@@ -1,12 +1,12 @@
 /**
  * @file scheduler.c
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-07-03
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 #include <scheduler/scheduler.h>
 
@@ -18,12 +18,10 @@ static process_t *ready_tail = NULL;
 
 process_t *current_process = NULL;
 
-void scheduler_add(process_t *proc)
-{
+void scheduler_add(process_t *proc) {
     proc->next = NULL;
 
-    if (!ready_tail)
-    {
+    if (!ready_tail) {
         ready_head = proc;
         ready_tail = proc;
         return;
@@ -33,12 +31,10 @@ void scheduler_add(process_t *proc)
     ready_tail = proc;
 }
 
-process_t *scheduler_next(void)
-{
+process_t *scheduler_next(void) {
     process_t *p = ready_head;
 
-    while (p)
-    {
+    while (p) {
         if (p->state == PROCESS_READY)
             return p;
 
@@ -48,16 +44,14 @@ process_t *scheduler_next(void)
     return NULL;
 }
 
-void scheduler_yield(void)
-{
+void scheduler_yield(void) {
     if (!current_process)
         return;
 
     if (current_process->state == PROCESS_RUNNING)
         current_process->state = PROCESS_READY;
 
-    if (ready_head == current_process)
-    {
+    if (ready_head == current_process) {
         ready_head = current_process->next;
 
         if (!ready_head)
@@ -68,21 +62,17 @@ void scheduler_yield(void)
     }
 }
 
-void scheduler_sleep(process_t *proc, uint64_t ticks)
-{
+void scheduler_sleep(process_t *proc, uint64_t ticks) {
     proc->state = PROCESS_SLEEPING;
     proc->wakeup_tick = pit_ticks + ticks;
 }
 
-void scheduler_wakeup(uint64_t now)
-{
+void scheduler_wakeup(uint64_t now) {
     process_t *p = ready_head;
 
-    while (p)
-    {
+    while (p) {
         if (p->state == PROCESS_SLEEPING &&
-            p->wakeup_tick <= now)
-        {
+            p->wakeup_tick <= now) {
             p->state = PROCESS_READY;
         }
 
@@ -91,10 +81,9 @@ void scheduler_wakeup(uint64_t now)
 }
 
 extern void context_switch(cpu_context_t *old,
-                           cpu_context_t *new);
+    cpu_context_t *new);
 
-void scheduler_switch(process_t *next)
-{
+void scheduler_switch(process_t *next) {
     if (!next)
         return;
 
@@ -103,28 +92,25 @@ void scheduler_switch(process_t *next)
 
     next->state = PROCESS_RUNNING;
 
-    if (!old)
-    {
+    if (!old) {
         asm volatile(
             "mov %0, %%rsp\n"
             "jmp *%1\n"
             :
             : "r"(next->context.rsp),
-              "r"(next->context.rip)
+            "r"(next->context.rip)
             : "memory");
     }
 
     context_switch(&old->context, &next->context);
 }
-void scheduler_init(void)
-{
+void scheduler_init(void) {
     ready_head = NULL;
     ready_tail = NULL;
     current_process = NULL;
 }
 
-void scheduler_remove(process_t *proc)
-{
+void scheduler_remove(process_t *proc) {
     if (!proc)
         return;
 
@@ -147,13 +133,11 @@ void scheduler_remove(process_t *proc)
     cur->next = NULL;
 }
 
-process_t *scheduler_current(void)
-{
+process_t *scheduler_current(void) {
     return current_process;
 }
 
-void scheduler_tick(trap_frame_t *frame)
-{
+void scheduler_tick(trap_frame_t *frame) {
     if (current_process && frame) {
         current_process->trapframe = frame;
         current_process->context.rax = frame->rax;

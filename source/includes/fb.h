@@ -37,9 +37,9 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #include <flanterm/flanterm.h>
 
@@ -55,7 +55,7 @@ extern const uint8_t thin_font[];
  * @brief Represents a character with its foreground and background colors.
  */
 struct flanterm_fb_char {
-    uint32_t c; /**< The character code. */
+    uint32_t c;  /**< The character code. */
     uint32_t fg; /**< The foreground color. */
     uint32_t bg; /**< The background color. */
 };
@@ -65,7 +65,7 @@ struct flanterm_fb_char {
  * @brief Represents an item in the rendering queue.
  */
 struct flanterm_fb_queue_item {
-    size_t x, y; /**< The position of the character in the framebuffer. */
+    size_t x, y;               /**< The position of the character in the framebuffer. */
     struct flanterm_fb_char c; /**< The character and its colors. */
 };
 
@@ -76,9 +76,9 @@ struct flanterm_fb_queue_item {
 struct flanterm_fb_context {
     struct flanterm_context term; /**< The terminal context. */
 
-    size_t font_width; /**< The width of the font. */
-    size_t font_height; /**< The height of the font. */
-    size_t glyph_width; /**< The width of a font glyph. */
+    size_t font_width;   /**< The width of the font. */
+    size_t font_height;  /**< The height of the font. */
+    size_t glyph_width;  /**< The width of a font glyph. */
     size_t glyph_height; /**< The height of a font glyph. */
 
     size_t font_scale_x; /**< The horizontal scaling factor for the font. */
@@ -87,46 +87,46 @@ struct flanterm_fb_context {
     size_t offset_x, offset_y; /**< The offset for rendering. */
 
     volatile uint32_t *framebuffer; /**< The framebuffer to render on. */
-    size_t pitch; /**< The pitch of the framebuffer. */
-    size_t width; /**< The width of the framebuffer. */
-    size_t height; /**< The height of the framebuffer. */
-    size_t bpp; /**< Bits per pixel. */
+    size_t pitch;                   /**< The pitch of the framebuffer. */
+    size_t width;                   /**< The width of the framebuffer. */
+    size_t height;                  /**< The height of the framebuffer. */
+    size_t bpp;                     /**< Bits per pixel. */
 
     size_t font_bits_size; /**< The size of font bits. */
-    uint8_t *font_bits; /**< The font bits data. */
+    uint8_t *font_bits;    /**< The font bits data. */
     size_t font_bool_size; /**< The size of font boolean data. */
-    bool *font_bool; /**< The font boolean data. */
+    bool *font_bool;       /**< The font boolean data. */
 
-    uint32_t ansi_colours[8]; /**< ANSI color palette. */
-    uint32_t ansi_bright_colours[8]; /**< ANSI bright color palette. */
-    uint32_t default_fg, default_bg; /**< Default foreground and background colors. */
+    uint32_t ansi_colours[8];                      /**< ANSI color palette. */
+    uint32_t ansi_bright_colours[8];               /**< ANSI bright color palette. */
+    uint32_t default_fg, default_bg;               /**< Default foreground and background colors. */
     uint32_t default_fg_bright, default_bg_bright; /**< Default bright foreground and background colors. */
 
 #ifndef FLANTERM_FB_DISABLE_CANVAS
     size_t canvas_size; /**< The size of the canvas. */
-    uint32_t *canvas; /**< The canvas for rendering. */
+    uint32_t *canvas;   /**< The canvas for rendering. */
 #endif
 
-    size_t grid_size; /**< The size of the grid. */
+    size_t grid_size;  /**< The size of the grid. */
     size_t queue_size; /**< The size of the rendering queue. */
-    size_t map_size; /**< The size of the mapping structure. */
+    size_t map_size;   /**< The size of the mapping structure. */
 
     struct flanterm_fb_char *grid; /**< The grid for rendering. */
 
     struct flanterm_fb_queue_item *queue; /**< The rendering queue. */
-    size_t queue_i; /**< The current index in the queue. */
+    size_t queue_i;                       /**< The current index in the queue. */
 
     struct flanterm_fb_queue_item **map; /**< The mapping structure. */
 
     uint32_t text_fg; /**< The foreground color for text. */
     uint32_t text_bg; /**< The background color for text. */
-    size_t cursor_x; /**< The current cursor X position. */
-    size_t cursor_y; /**< The current cursor Y position. */
+    size_t cursor_x;  /**< The current cursor X position. */
+    size_t cursor_y;  /**< The current cursor Y position. */
 
     uint32_t saved_state_text_fg; /**< Saved state of text foreground color. */
     uint32_t saved_state_text_bg; /**< Saved state of text background color. */
-    size_t saved_state_cursor_x; /**< Saved state of cursor X position. */
-    size_t saved_state_cursor_y; /**< Saved state of cursor Y position. */
+    size_t saved_state_cursor_x;  /**< Saved state of cursor X position. */
+    size_t saved_state_cursor_y;  /**< Saved state of cursor Y position. */
 
     size_t old_cursor_x; /**< Old cursor X position. */
     size_t old_cursor_y; /**< Old cursor Y position. */
@@ -170,8 +170,7 @@ struct flanterm_context *flanterm_fb_init(
     uint32_t *default_bg_bright, uint32_t *default_fg_bright,
     void *font, size_t font_width, size_t font_height, size_t font_spacing,
     size_t font_scale_x, size_t font_scale_y,
-    size_t margin
-);
+    size_t margin);
 
 #ifndef FLANTERM_FB_DISABLE_BUMP_ALLOC
 /**
@@ -185,8 +184,7 @@ struct flanterm_context *flanterm_fb_init(
  * @return A pointer to the initialized framebuffer-based terminal context.
  */
 static inline struct flanterm_context *flanterm_fb_simple_init(
-    uint32_t *framebuffer, size_t width, size_t height, size_t pitch
-) {
+    uint32_t *framebuffer, size_t width, size_t height, size_t pitch) {
     return flanterm_fb_init(
         NULL,
         NULL,
@@ -199,8 +197,7 @@ static inline struct flanterm_context *flanterm_fb_simple_init(
         NULL, NULL,
         NULL, 0, 0, 1,
         1, 1,
-        0
-    );
+        0);
 }
 #endif
 

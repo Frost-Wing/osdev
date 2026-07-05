@@ -5,8 +5,7 @@ struct GLContext g_gl_context;
 
 extern struct limine_framebuffer *framebuffer;
 
-struct GLContext* glCreateContext(void)
-{
+struct GLContext *glCreateContext(void) {
     if (g_gl_context.Initialized)
         return &g_gl_context;
 
@@ -18,11 +17,10 @@ struct GLContext* glCreateContext(void)
     return &g_gl_context;
 }
 
-struct GLContext* glCreateContextCustom(uint32_t* buffer, uint32_t width, uint32_t height)
-{
+struct GLContext *glCreateContextCustom(uint32_t *buffer, uint32_t width, uint32_t height) {
     if (g_gl_context.Initialized)
         return &g_gl_context;
-    
+
     g_gl_context.ColorBuffer = buffer;
     g_gl_context.ColorBufferWidth = width;
     g_gl_context.ColorBufferHeight = height;
@@ -31,21 +29,17 @@ struct GLContext* glCreateContextCustom(uint32_t* buffer, uint32_t width, uint32
     return &g_gl_context;
 }
 
-struct GLContext* glGetCurrentContext(void)
-{
+struct GLContext *glGetCurrentContext(void) {
     if (g_gl_context.Initialized)
         return &g_gl_context;
 }
 
-bool glContextInitialized(void)
-{
+bool glContextInitialized(void) {
     return g_gl_context.Initialized && g_gl_context.ColorBuffer != NULL;
 }
 
-void glDestroyContext(struct GLContext* context)
-{
-    if (context == NULL)
-    {
+void glDestroyContext(struct GLContext *context) {
+    if (context == NULL) {
         g_gl_context.ColorBuffer = NULL;
         g_gl_context.Initialized = false;
         return;
