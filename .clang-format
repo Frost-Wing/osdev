@@ -12,3 +12,4 @@ AlignAfterOpenBracket: DontAlign
 PointerAlignment: Right
 SpaceBeforeParens: ControlStatements
 IndentCaseLabels: true
+SeparateDefinitionBlocks: Always
