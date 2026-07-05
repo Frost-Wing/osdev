@@ -2,6 +2,7 @@
 #include <memory.h>
 #include <net/net.h>
 #include <strings.h>
+#include <pit.h>
 #define ETH_ARP 0x0806
 #define ETH_IP 0x0800
 #define ARP_REQUEST 1
@@ -9,6 +10,15 @@
 #define IP_ICMP 1
 #define IP_TCP 6
 #define IP_UDP 17
+
+extern volatile uint64_t pit_ticks;
+#define PIT_MS_PER_TICK 10 // 1000 / pit_freq(100) -- keep in sync with pit.c / net.c
+
+// convert a millisecond duration into a target pit_ticks value
+static inline uint64_t ms_to_ticks(uint32 ms) {
+    uint64_t t = ms / PIT_MS_PER_TICK;
+    return t ? t : 1; // always wait at least 1 tick if any timeout was requested
+}
 
 struct arp_hdr {
     uint16 htype, ptype;
@@ -119,13 +129,18 @@ int arp_resolve(net_ipv4_t ip, uint8 mac[6]) {
             return NET_OK;
         }
     arp_request(ip);
-    for (int t = 0; t < 2000; t++) {
+
+    // was: for (int t = 0; t < 2000; t++) -- raw spin count, no real time bound.
+    // now: real 2 second timeout via pit_ticks.
+    uint64_t deadline = pit_ticks + ms_to_ticks(2000);
+    while (pit_ticks < deadline) {
         netif_poll();
         for (int i = 0; i < NET_ARP_CACHE_SIZE; i++)
             if (arp[i].used && arp[i].ip == ip) {
                 memcpy(mac, arp[i].mac, 6);
                 return NET_OK;
             }
+        asm volatile("hlt");
     }
     return NET_ETIMEDOUT;
 }
@@ -210,6 +225,10 @@ void icmp_input(net_ipv4_t src, const uint8 *p, size_t len) {
         ping_seen = true;
 }
 
+// `timeout` is now a millisecond duration, measured against real pit_ticks.
+// IMPORTANT: callers (e.g. cmd_ping) previously passed raw spin-iteration
+// counts like 500000 -- that must be updated to a real ms value like 1000
+// (1 second) now, or pings will each wait ~500 seconds before timing out.
 int icmp_ping(net_ipv4_t dst, uint16 id, uint16 seq, uint32 timeout) {
     uint8 b[32];
     struct icmp_hdr *h = (struct icmp_hdr *)b;
@@ -223,10 +242,13 @@ int icmp_ping(net_ipv4_t dst, uint16 id, uint16 seq, uint32 timeout) {
     ping_seq = seq;
     if (ipv4_send(dst, IP_ICMP, b, sizeof(b)) != NET_OK)
         return NET_ERR;
-    for (uint32 t = 0; t < timeout; t++) {
+
+    uint64_t deadline = pit_ticks + ms_to_ticks(timeout);
+    while (pit_ticks < deadline) {
         netif_poll();
         if (ping_seen)
             return NET_OK;
+        asm volatile("hlt");
     }
     return NET_ETIMEDOUT;
 }
@@ -265,8 +287,13 @@ int udp_send(net_ipv4_t dst, uint16 sport, uint16 dport, const void *data, size_
     return ipv4_send(dst, IP_UDP, b, len + 8);
 }
 
+// `timeout` is now a millisecond duration, measured against real pit_ticks.
+// IMPORTANT: dns_resolve() in net.c calls this -- make sure that call site
+// passes a real ms value (e.g. 400) rather than the old raw spin count
+// (400000), or DNS lookups will time out almost instantly.
 int udp_recv(uint16 port, net_ipv4_t *src, uint16 *sport, uint8 *buf, size_t *len, uint32 timeout) {
-    for (uint32 t = 0; t < timeout; t++) {
+    uint64_t deadline = pit_ticks + ms_to_ticks(timeout);
+    while (pit_ticks < deadline) {
         netif_poll();
         for (int i = 0; i < 8; i++)
             if (udpq[i].used && udpq[i].dport == port) {
@@ -282,6 +309,7 @@ int udp_recv(uint16 port, net_ipv4_t *src, uint16 *sport, uint8 *buf, size_t *le
                 udpq[i].used = false;
                 return NET_OK;
             }
+        asm volatile("hlt");
     }
     return NET_ETIMEDOUT;
 }

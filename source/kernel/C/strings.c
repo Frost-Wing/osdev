@@ -81,6 +81,26 @@ char toupper(char c) {
     return (c >= 97 && c <= 122) ? (c - 32) : c;
 }
 
+char *strstr(const char *haystack, const char *needle) {
+    if (!*needle)
+        return (char *)haystack; // empty needle matches immediately
+
+    for (; *haystack; haystack++) {
+        const char *h = haystack;
+        const char *n = needle;
+
+        while (*h && *n && *h == *n) {
+            h++;
+            n++;
+        }
+
+        if (!*n) // reached end of needle -> full match
+            return (char *)haystack;
+    }
+
+    return NULL;
+}
+
 /**
  * @brief The OEM itoa function from C
  *

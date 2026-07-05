@@ -19,6 +19,7 @@
 #define NET_ENOMEM (-3)
 #define NET_ETIMEDOUT (-4)
 #define NET_ENOTSUP (-5)
+#define NET_EOF 1000
 
 typedef uint32 net_ipv4_t;
 
@@ -40,6 +41,8 @@ struct net_config {
 };
 
 extern struct net_config net_cfg;
+
+typedef void (*wget_progress_cb)(uint64 downloaded, uint64 total, void *ctx);
 
 uint16 net_htons(uint16 v);
 uint16 net_ntohs(uint16 v);
@@ -88,7 +91,8 @@ int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout_ticks);
 void tcp_close(int sock);
 void tcp_input(net_ipv4_t src, const uint8 *payload, size_t len);
 
-int http_get_to_file(const char *url, const char *path);
+int http_get_to_file(const char *url, const char *path,
+                      wget_progress_cb cb, void *ctx);
 int dhcp_configure(uint32 timeout_ticks);
 
 #endif
