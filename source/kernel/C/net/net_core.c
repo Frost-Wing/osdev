@@ -5,7 +5,7 @@
 #include <strings.h>
 
 struct net_config net_cfg;
-static net_rx_callback_t rx_cb;
+net_rx_callback_t rx_cb;
 
 uint16 net_htons(uint16 v) {
     return (uint16)((v << 8) | (v >> 8));
