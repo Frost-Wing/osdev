@@ -149,6 +149,7 @@ static bool userland_pop_frame(void) {
     userland_last_exit_code = f->last_exit_code;
     return true;
 }
+
 static inline void wrmsr64_local(uint32_t msr, uint64_t value);
 static void userland_unmap_all(void);
 void userland_heap_init(void);
@@ -767,6 +768,7 @@ int userland_exec(const userland_exec_ctx_t *ctx) {
 
     __builtin_unreachable();
 }
+
 /**
  * @brief execve() semantics for a process that is *already running*
  * (called from sys_execve(), from inside that process's own syscall).

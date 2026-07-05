@@ -689,6 +689,7 @@ typedef struct {
 
 typedef struct {
     Elf32_Sword d_tag;
+
     union {
         Elf32_Word d_val;
         Elf32_Addr d_ptr;
@@ -697,6 +698,7 @@ typedef struct {
 
 typedef struct {
     Elf64_Sxword d_tag;
+
     union {
         Elf64_Xword d_val;
         Elf64_Addr d_ptr;
@@ -924,6 +926,7 @@ typedef struct {
 
 typedef struct {
     uint32_t a_type;
+
     union {
         uint32_t a_val;
     } a_un;
@@ -931,6 +934,7 @@ typedef struct {
 
 typedef struct {
     uint64_t a_type;
+
     union {
         uint64_t a_val;
     } a_un;
@@ -1347,6 +1351,7 @@ typedef union {
         Elf32_Word gt_current_g_value;
         Elf32_Word gt_unused;
     } gt_header;
+
     struct {
         Elf32_Word gt_g_value;
         Elf32_Word gt_bytes;

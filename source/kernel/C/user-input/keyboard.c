@@ -209,6 +209,7 @@ uint8_t getmodifiers(void) {
 }
 
 extern volatile uint64_t pit_ticks;
+
 uint8_t getc(void) {
     uint8_t sc;
     static uint64_t last_tick = 0;
@@ -243,6 +244,7 @@ void keyboard_flush_buffer(void) {
 }
 
 static bool extended = false;
+
 int handle_char_from_scancode(uint8_t data) {
     // -------- Extended scancode handling --------
     if (data == 0xE0) {

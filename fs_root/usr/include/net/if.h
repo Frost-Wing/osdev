@@ -47,6 +47,7 @@ void if_freenameindex(struct if_nameindex *);
 
 struct ifaddr {
     struct sockaddr ifa_addr;
+
     union {
         struct sockaddr ifu_broadaddr;
         struct sockaddr ifu_dstaddr;
@@ -74,6 +75,7 @@ struct ifreq {
     union {
         char ifrn_name[IFNAMSIZ];
     } ifr_ifrn;
+
     union {
         struct sockaddr ifru_addr;
         struct sockaddr ifru_dstaddr;
@@ -112,6 +114,7 @@ struct ifreq {
 
 struct ifconf {
     int ifc_len;
+
     union {
         char *ifcu_buf;
         struct ifreq *ifcu_req;

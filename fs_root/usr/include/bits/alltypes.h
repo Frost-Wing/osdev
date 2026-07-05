@@ -42,6 +42,7 @@ typedef struct {
     long long __ll;
     long double __ld;
 } max_align_t;
+
 #define __DEFINED_max_align_t
 #endif
 
@@ -224,6 +225,7 @@ struct timeval {
     time_t tv_sec;
     suseconds_t tv_usec;
 };
+
 #define __DEFINED_struct_timeval
 #endif
 
@@ -234,6 +236,7 @@ struct timespec {
     long tv_nsec;
     int : 8 * (sizeof(time_t) - sizeof(long)) * (__BYTE_ORDER != 4321);
 };
+
 #define __DEFINED_struct_timespec
 #endif
 
@@ -299,6 +302,7 @@ typedef int pthread_spinlock_t;
 typedef struct {
     unsigned __attr;
 } pthread_mutexattr_t;
+
 #define __DEFINED_pthread_mutexattr_t
 #endif
 
@@ -306,6 +310,7 @@ typedef struct {
 typedef struct {
     unsigned __attr;
 } pthread_condattr_t;
+
 #define __DEFINED_pthread_condattr_t
 #endif
 
@@ -313,6 +318,7 @@ typedef struct {
 typedef struct {
     unsigned __attr;
 } pthread_barrierattr_t;
+
 #define __DEFINED_pthread_barrierattr_t
 #endif
 
@@ -320,6 +326,7 @@ typedef struct {
 typedef struct {
     unsigned __attr[2];
 } pthread_rwlockattr_t;
+
 #define __DEFINED_pthread_rwlockattr_t
 #endif
 
@@ -327,6 +334,7 @@ typedef struct {
 struct _IO_FILE {
     char __x;
 };
+
 #define __DEFINED_struct__IO_FILE
 #endif
 
@@ -349,6 +357,7 @@ typedef __builtin_va_list __isoc_va_list;
 typedef struct __mbstate_t {
     unsigned __opaque1, __opaque2;
 } mbstate_t;
+
 #define __DEFINED_mbstate_t
 #endif
 
@@ -361,6 +370,7 @@ typedef struct __locale_struct *locale_t;
 typedef struct __sigset_t {
     unsigned long __bits[128 / sizeof(long)];
 } sigset_t;
+
 #define __DEFINED_sigset_t
 #endif
 
@@ -369,6 +379,7 @@ struct iovec {
     void *iov_base;
     size_t iov_len;
 };
+
 #define __DEFINED_struct_iovec
 #endif
 
@@ -376,6 +387,7 @@ struct iovec {
 struct winsize {
     unsigned short ws_row, ws_col, ws_xpixel, ws_ypixel;
 };
+
 #define __DEFINED_struct_winsize
 #endif
 
@@ -397,6 +409,7 @@ typedef struct {
         unsigned long __s[sizeof(long) == 8 ? 7 : 9];
     } __u;
 } pthread_attr_t;
+
 #define __DEFINED_pthread_attr_t
 #endif
 
@@ -408,6 +421,7 @@ typedef struct {
         volatile void *volatile __p[sizeof(long) == 8 ? 5 : 6];
     } __u;
 } pthread_mutex_t;
+
 #define __DEFINED_pthread_mutex_t
 #endif
 
@@ -419,6 +433,7 @@ typedef struct {
         volatile void *volatile __p[sizeof(long) == 8 ? 5 : 6];
     } __u;
 } mtx_t;
+
 #define __DEFINED_mtx_t
 #endif
 
@@ -430,6 +445,7 @@ typedef struct {
         void *__p[12 * sizeof(int) / sizeof(void *)];
     } __u;
 } pthread_cond_t;
+
 #define __DEFINED_pthread_cond_t
 #endif
 
@@ -441,6 +457,7 @@ typedef struct {
         void *__p[12 * sizeof(int) / sizeof(void *)];
     } __u;
 } cnd_t;
+
 #define __DEFINED_cnd_t
 #endif
 
@@ -452,6 +469,7 @@ typedef struct {
         void *__p[sizeof(long) == 8 ? 7 : 8];
     } __u;
 } pthread_rwlock_t;
+
 #define __DEFINED_pthread_rwlock_t
 #endif
 
@@ -463,6 +481,7 @@ typedef struct {
         void *__p[sizeof(long) == 8 ? 4 : 5];
     } __u;
 } pthread_barrier_t;
+
 #define __DEFINED_pthread_barrier_t
 #endif
 

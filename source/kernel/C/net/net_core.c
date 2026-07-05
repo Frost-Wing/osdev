@@ -10,15 +10,19 @@ static net_rx_callback_t rx_cb;
 uint16 net_htons(uint16 v) {
     return (uint16)((v << 8) | (v >> 8));
 }
+
 uint16 net_ntohs(uint16 v) {
     return net_htons(v);
 }
+
 uint32 net_htonl(uint32 v) {
     return ((v & 0xff) << 24) | ((v & 0xff00) << 8) | ((v & 0xff0000) >> 8) | ((v >> 24) & 0xff);
 }
+
 uint32 net_ntohl(uint32 v) {
     return net_htonl(v);
 }
+
 net_ipv4_t net_ipv4_from_octets(uint8 a, uint8 b, uint8 c, uint8 d) {
     return ((uint32)a << 24) | ((uint32)b << 16) | ((uint32)c << 8) | d;
 }
@@ -74,6 +78,7 @@ uint16 net_checksum(const void *data, size_t len) {
         sum = (sum & 0xffff) + (sum >> 16);
     return (uint16)~sum;
 }
+
 void net_debug(const char *layer, const char *msg) {
     if (NET_DEBUG) {
         printf("[net:%s] %s", layer, msg);
@@ -85,6 +90,7 @@ void net_packet_init(net_packet_t *pkt) {
     pkt->data = pkt->storage + NET_PKT_HEADROOM;
     pkt->capacity = NET_PKT_STORAGE - NET_PKT_HEADROOM;
 }
+
 int net_packet_prepend(net_packet_t *pkt, size_t len, void **hdr) {
     if (!pkt || pkt->data < pkt->storage + len)
         return NET_EINVAL;
@@ -94,6 +100,7 @@ int net_packet_prepend(net_packet_t *pkt, size_t len, void **hdr) {
         *hdr = pkt->data;
     return NET_OK;
 }
+
 int net_packet_append(net_packet_t *pkt, const void *data, size_t len) {
     if (!pkt || pkt->len + len > pkt->capacity)
         return NET_EINVAL;
@@ -104,6 +111,7 @@ int net_packet_append(net_packet_t *pkt, const void *data, size_t len) {
     pkt->len += len;
     return NET_OK;
 }
+
 int net_packet_pull(net_packet_t *pkt, size_t len, void **hdr) {
     if (!pkt || len > pkt->len)
         return NET_EINVAL;
@@ -118,11 +126,13 @@ void netif_init(void) {
     netif_get_mac(net_cfg.mac);
     netif_set_rx_callback(ethernet_input);
 }
+
 int netif_send(const void *frame, size_t len) {
     if (!frame || len > NET_FRAME_MAX)
         return NET_EINVAL;
     return rtl8139_send_packet((const uint8 *)frame, (uint16)len) ? NET_OK : NET_ERR;
 }
+
 void netif_poll(void) {
     uint8 buf[NET_FRAME_MAX];
     uint16 len = 0;
@@ -132,9 +142,11 @@ void netif_poll(void) {
         len = 0;
     }
 }
+
 void netif_set_rx_callback(net_rx_callback_t cb) {
     rx_cb = cb;
 }
+
 void netif_get_mac(uint8 mac[6]) {
     if (!mac)
         return;

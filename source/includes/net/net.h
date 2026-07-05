@@ -92,7 +92,7 @@ void tcp_close(int sock);
 void tcp_input(net_ipv4_t src, const uint8 *payload, size_t len);
 
 int http_get_to_file(const char *url, const char *path,
-                      wget_progress_cb cb, void *ctx);
+    wget_progress_cb cb, void *ctx);
 int dhcp_configure(uint32 timeout_ticks);
 
 #endif

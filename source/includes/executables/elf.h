@@ -179,6 +179,7 @@ typedef struct {
 
 typedef struct {
     int64_t d_tag;
+
     union {
         uint64_t d_val;
         uint64_t d_ptr;

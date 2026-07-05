@@ -72,6 +72,7 @@ struct hostent {
     int h_length;
     char **h_addr_list;
 };
+
 #define h_addr h_addr_list[0]
 
 struct servent {

@@ -13,16 +13,20 @@ struct icmphdr {
     uint8_t type;
     uint8_t code;
     uint16_t checksum;
+
     union {
         struct {
             uint16_t id;
             uint16_t sequence;
         } echo;
+
         uint32_t gateway;
+
         struct {
             uint16_t __unused;
             uint16_t mtu;
         } frag;
+
         uint8_t reserved[4];
     } un;
 };
@@ -77,13 +81,16 @@ struct icmp {
     uint8_t icmp_type;
     uint8_t icmp_code;
     uint16_t icmp_cksum;
+
     union {
         uint8_t ih_pptr;
         struct in_addr ih_gwaddr;
+
         struct ih_idseq {
             uint16_t icd_id;
             uint16_t icd_seq;
         } ih_idseq;
+
         uint32_t ih_void;
 
         struct ih_pmtu {
@@ -97,12 +104,14 @@ struct icmp {
             uint16_t irt_lifetime;
         } ih_rtradv;
     } icmp_hun;
+
     union {
         struct {
             uint32_t its_otime;
             uint32_t its_rtime;
             uint32_t its_ttime;
         } id_ts;
+
         struct {
             struct ip idi_ip;
         } id_ip;
