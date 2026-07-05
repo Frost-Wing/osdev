@@ -259,6 +259,10 @@ void probe_ahci(uint8_t bus, uint8_t slot, uint8_t function) {
 }
 
 void probe_rtl8139(uint8_t bus, uint8_t slot, uint8_t function) {
+    uint32_t command = pci_config_read_dword(bus, slot, function, 0x04);
+    command |= 0x00000005U; /* I/O space + bus mastering for RTL8139 DMA. */
+    pci_config_write_dword(bus, slot, function, 0x04, command);
+
     RTL8139->io_base = (uint16_t)(pci_read_word(bus, slot, function, RTL8139_IOADDR1) & 0xFFFC);
 
     uint8_t irq = (uint8_t)(pci_read_word(bus, slot, function, RTL8139_IRQ_LINE) & 0xFFU);
