@@ -49,6 +49,7 @@ static uint8 *tx_buffers[RTL8139_TX_DESC_COUNT];
 static uint8 tx_cur;
 static uint16 rx_cur;
 static bool rtl8139_ready;
+static bool rtl8139_irq_driven = false;
 
 void read_mac_address() {
     for (int i = 0; i < 6; i++) {
@@ -63,6 +64,7 @@ void rtl8139_init(struct rtl8139 *nic) {
         return;
     }
     rtl8139_ready = false;
+    rtl8139_irq_driven = false;
     info("Initialization started!", __FILE__);
 
     outb(nic->io_base + RTL8139_REG_CONFIG1, 0x00);
@@ -100,6 +102,8 @@ void rtl8139_init(struct rtl8139 *nic) {
         RTL8139_RCR_APM | RTL8139_RCR_AM | RTL8139_RCR_AB |
             RTL8139_RCR_WRAP | RTL8139_RCR_MXDMA_UNLIMITED | RTL8139_RCR_RBLEN_8K);
     outl(nic->io_base + RTL8139_REG_TCR, 0x00000700);
+    
+    // Enable interrupts for RX ready, TX OK, RX overflow, TX error, RX error
     outw(nic->io_base + RTL8139_REG_IMR, RTL8139_ISR_ROK | RTL8139_ISR_TOK | RTL8139_ISR_RXOVW | RTL8139_ISR_TER | RTL8139_ISR_RER);
     outw(nic->io_base + RTL8139_REG_ISR, 0xFFFF);
 
@@ -133,7 +137,7 @@ bool rtl8139_send_packet(const uint8 *data, uint16 length) {
     return yes;
 }
 
-// Receives a packet
+// Receives a packet (polling mode)
 bool rtl8139_receive_packet(uint8 *buffer, uint16 *length) {
     if (!rtl8139_ready || !RTL8139 || RTL8139->io_base == null || RTL8139->io_base == 0 || !rx_buffer || !buffer || !length) {
         return no;
@@ -159,4 +163,68 @@ bool rtl8139_receive_packet(uint8 *buffer, uint16 *length) {
     outw(RTL8139->io_base + RTL8139_REG_CAPR, (rx_cur - RTL8139_RX_READ_POINTER_GAP) % RTL8139_RX_BUFFER_SIZE);
     outw(RTL8139->io_base + RTL8139_REG_ISR, RTL8139_ISR_ROK | RTL8139_ISR_RER | RTL8139_ISR_RXOVW);
     return yes;
+}
+
+/**
+ * @brief Process all available packets in the RX buffer and call the receive callback
+ * Used by both polling and interrupt-driven modes
+ */
+static void rtl8139_process_packets(void) {
+    uint8 buf[NET_FRAME_MAX];
+    uint16 len = 0;
+    while (rtl8139_receive_packet(buf, &len)) {
+        // rx_cb is set by the net_core module to ethernet_input
+        extern net_rx_callback_t rx_cb;
+        if (len >= 14 && len <= NET_FRAME_MAX) {
+            if (rx_cb)
+                rx_cb(buf, len);
+        }
+        len = 0;
+    }
+}
+
+/**
+ * @brief Interrupt handler for RTL8139 NIC
+ * Called when hardware raises IRQ with ROK (receive ok) or other status bits
+ * Processes packets directly in interrupt context for low latency
+ */
+void rtl8139_interrupt_handler(void) {
+    if (!rtl8139_ready || !RTL8139 || RTL8139->io_base == null)
+        return;
+
+    uint16_t status = inw(RTL8139->io_base + RTL8139_REG_ISR);
+    
+    // Clear interrupt status bits immediately
+    outw(RTL8139->io_base + RTL8139_REG_ISR, status);
+
+    // Process RX packets if ROK (Receive OK) is set
+    if (status & RTL8139_ISR_ROK) {
+        rtl8139_process_packets();
+    }
+
+    // Handle TX completion
+    if (status & RTL8139_ISR_TOK) {
+        // Transmit successful - could log or update stats here if needed
+    }
+
+    // Handle errors
+    if (status & (RTL8139_ISR_RXOVW | RTL8139_ISR_TER | RTL8139_ISR_RER)) {
+        // RX overflow, TX error, or RX error occurred
+        // The driver continues - retransmit logic is in TCP layer
+    }
+}
+
+void rtl8139_irq_enable(void) {
+    if (!RTL8139 || RTL8139->io_base == null)
+        return;
+    rtl8139_irq_driven = true;
+    // IMR already set in rtl8139_init, just mark as active
+}
+
+void rtl8139_irq_disable(void) {
+    rtl8139_irq_driven = false;
+}
+
+bool rtl8139_is_irq_driven(void) {
+    return rtl8139_irq_driven;
 }

@@ -125,6 +125,8 @@ int net_packet_pull(net_packet_t *pkt, size_t len, void **hdr) {
 void netif_init(void) {
     netif_get_mac(net_cfg.mac);
     netif_set_rx_callback(ethernet_input);
+    // Enable interrupt-driven mode for RTL8139 if available
+    rtl8139_irq_enable();
 }
 
 int netif_send(const void *frame, size_t len) {
@@ -133,9 +135,20 @@ int netif_send(const void *frame, size_t len) {
     return rtl8139_send_packet((const uint8 *)frame, (uint16)len) ? NET_OK : NET_ERR;
 }
 
+/**
+ * @brief Poll for network packets
+ * 
+ * If RTL8139 is in interrupt-driven mode, polling is largely a no-op since packets
+ * are processed in the IRQ handler. However, we keep this for:
+ * 1. Compatibility with existing code
+ * 2. Fallback if interrupts are temporarily disabled
+ * 3. Safety margin to catch any missed packets
+ */
 void netif_poll(void) {
     uint8 buf[NET_FRAME_MAX];
     uint16 len = 0;
+    // Keep polling loop for backward compatibility and as safety fallback
+    // In interrupt-driven mode, most packets are handled by rtl8139_interrupt_handler
     while (rtl8139_receive_packet(buf, &len)) {
         if (rx_cb && len >= 14 && len <= NET_FRAME_MAX)
             rx_cb(buf, len);

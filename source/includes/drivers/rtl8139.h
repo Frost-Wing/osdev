@@ -59,7 +59,7 @@ extern struct rtl8139 *RTL8139;
 void read_mac_address(void);
 
 /**
- * @brief Initialize RTL8139 NIC
+ * @brief Initialize RTL8139 NIC with interrupt support
  *
  * @param nic the pointer to RTL structure
  */
@@ -76,7 +76,7 @@ void rtl8139_init(struct rtl8139 *nic);
 bool rtl8139_send_packet(const uint8 *data, uint16 length);
 
 /**
- * @brief Receives a packet
+ * @brief Receives a packet (polling mode - for manual retrieval if needed)
  *
  * @param buffer the received data
  * @param length the length of buffer
@@ -84,5 +84,27 @@ bool rtl8139_send_packet(const uint8 *data, uint16 length);
  * @return [false] Return false if a packet was not received
  */
 bool rtl8139_receive_packet(uint8 *buffer, uint16 *length);
+
+/**
+ * @brief Interrupt handler for RTL8139 - processes incoming packets
+ * Called from ISR context when hardware raises interrupt
+ */
+void rtl8139_interrupt_handler(void);
+
+/**
+ * @brief Enable interrupt-driven packet processing for RTL8139
+ * Allows packets to be processed when hardware IRQ fires instead of polling
+ */
+void rtl8139_irq_enable(void);
+
+/**
+ * @brief Disable interrupt-driven packet processing
+ */
+void rtl8139_irq_disable(void);
+
+/**
+ * @brief Check if interrupt-driven mode is active
+ */
+bool rtl8139_is_irq_driven(void);
 
 #endif

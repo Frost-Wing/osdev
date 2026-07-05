@@ -91,14 +91,17 @@ void irqHandler(InterruptFrame *frame) {
         handler(frame);
 }
 
+/**
+ * @brief RTL8139 interrupt handler - called when the NIC raises an interrupt
+ * 
+ * This handler is registered for the RTL8139 IRQ line and processes:
+ * - ROK (Receive OK): incoming packets are processed and passed to the network stack
+ * - TOK (Transmit OK): transmit completion is acknowledged
+ * - Error conditions: overflow, transmit errors, receive errors
+ * 
+ * Packets are processed in interrupt context for minimum latency.
+ */
 void rtl8139_handler(InterruptFrame *frame) {
-    (void)frame;
-    uint16_t status = inw(RTL8139->io_base + 0x3e);
-    outw(RTL8139->io_base + 0x3E, 0x05);
-    if (status & TOK) {
-        info("Successfully sent a packet!", __FILE__);
-    }
-    if (status & ROK) {
-        info("Successfully recieved a packet!", __FILE__);
-    }
+    (void)frame;  // unused in this context
+    rtl8139_interrupt_handler();
 }
