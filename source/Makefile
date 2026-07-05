@@ -2,8 +2,26 @@
 # FrostWing OS Makefile (x86_64 only)
 # ===================================
 
+SHELL := /bin/bash
+
 # Nuke built-in rules and variables
 override MAKEFLAGS += -rR
+
+# ================================================================
+#  FrostWing colour palette (kept consistent with the top-level Makefile)
+# ================================================================
+BLUE    := \033[1;34m
+CYAN    := \033[1;36m
+WHITE   := \033[1;37m
+GRAY    := \033[0;90m
+RED     := \033[1;31m
+BOLD    := \033[1m
+RESET   := \033[0m
+
+# Status prefixes
+INFO := $(BLUE)❄$(RESET)
+OK   := $(CYAN)✓$(RESET)
+WARN := $(RED)!$(RESET)
 
 # Final kernel output
 KERNEL := wing_kernel.elf
@@ -15,8 +33,8 @@ NASM := nasm
 
 ifeq ($(CC),gcc)
 $(warning =====================================)
-$(warning FrostWing toolchain NOT found)
-$(warning Using system GCC — this may break OS!)
+$(warning ❄  FrostWing toolchain NOT found)
+$(warning ❄  Using system GCC — this may break OS!)
 $(warning =====================================)
 endif
 
@@ -26,7 +44,7 @@ OBJ_DIR := obj
 
 # Flags
 CFLAGS := -std=gnu11 -ffreestanding \
-		  -w \
+          -w \
           -fno-common \
           -fno-stack-protector -fno-stack-check \
           -fno-lto -fno-builtin \
@@ -36,7 +54,7 @@ CFLAGS := -std=gnu11 -ffreestanding \
           -m64 -march=x86-64 \
           -mno-80387 -mno-mmx -mno-red-zone \
           -mno-sse -mno-sse2 \
-		  -msoft-float
+          -msoft-float
 
 CPPFLAGS := -MMD -MP
 LDFLAGS := -nostdlib -static --no-dynamic-linker -z text -z max-page-size=0x1000 -T ./linker/linker.ld -m elf_x86_64
@@ -54,52 +72,55 @@ DEPS := $(OBJ:.o=.d)
 # ============================
 # Targets
 # ============================
-
 .PHONY: all clean deep-clean version_info compile-commands
 
 all: version_info compile-commands $(KERNEL)
+	@echo -e "$(BLUE)────────────────────────────────────────────$(RESET)"
+	@echo -e "$(OK) $(CYAN)FrostWing kernel build complete:$(RESET) $(BOLD)$(KERNEL)$(RESET)"
 
 # Final kernel link
 $(KERNEL): $(OBJ) linker/linker.ld
-	@echo -e "\033[1;32m[LD]\033[0m $@"
+	@echo -e "$(CYAN)[LD]$(RESET) $(WHITE)$@$(RESET)"
 	@$(LD) $(OBJ) $(LDFLAGS) -o $@
 
 # C source compile
 $(OBJ_DIR)/%.c.o: %.c includes/limine.h
 	@mkdir -p $(@D)
-	@echo -e "\033[1;34m[CC]\033[0m $<"
+	@echo -e "$(BLUE)[CC]$(RESET) $(GRAY)$<$(RESET)"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 # Assembly source (.S) compile
 $(OBJ_DIR)/%.S.o: %.S
 	@mkdir -p $(@D)
-	@echo -e "\033[1;34m[AS]\033[0m $<"
+	@echo -e "$(BLUE)[AS]$(RESET) $(GRAY)$<$(RESET)"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 # NASM source (.asm) assemble
 $(OBJ_DIR)/%.asm.o: %.asm
 	@mkdir -p $(@D)
-	@echo -e "\033[1;34m[NASM]\033[0m $<"
+	@echo -e "$(BLUE)[NASM]$(RESET) $(GRAY)$<$(RESET)"
 	@$(NASM) $(NASMFLAGS) $< -o $@
 
 # Include dependency files
 -include $(DEPS)
 
 compile-commands:
-	@echo -e "\033[1;32m[CCDB]\033[0m Generating compile_commands.json for clangd"
+	@echo -e "$(CYAN)[CCDB]$(RESET) $(WHITE)Generating compile_commands.json for clangd$(RESET)"
 	@SRC_ROOT=$(CURDIR) CFILES='$(CFILES)' CFLAGS='$(CFLAGS)' CPPFLAGS='$(CPPFLAGS)' OUT_PATH='$(CURDIR)/compile_commands.json' \
-		python3 ./scripts/gen_compile_commands.py
+        python3 ./scripts/gen_compile_commands.py
 
 # Cleaning
 clean:
-	@echo -e "\033[1;31m[RM]\033[0m Object files"
+	@echo -e "$(RED)[RM]$(RESET) $(WHITE)Object files$(RESET)"
 	@rm -rf $(OBJ) $(DEPS)
+	@echo -e "$(OK) $(CYAN)Objects cleaned.$(RESET)"
 
 deep-clean:
-	@echo -e "\033[1;31m[RM]\033[0m All build outputs"
+	@echo -e "$(RED)[RM]$(RESET) $(WHITE)All build outputs$(RESET)"
 	@rm -rf $(OBJ_DIR) $(KERNEL)
+	@echo -e "$(OK) $(CYAN)Deep clean complete.$(RESET)"
 
 # Handling Debugging Infos
 version_info:
-	@echo -e "\033[1;32m[SH]\033[0m Fetching the versions of toolchains..."
+	@echo -e "$(CYAN)[SH]$(RESET) $(WHITE)Fetching the versions of toolchains...$(RESET)"
 	@./versions.sh

@@ -13,6 +13,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 extern const char *oem_name;
 
