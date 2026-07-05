@@ -25,6 +25,7 @@ static void gdt_set_entry(int i, uint32_t base, uint32_t limit, uint8_t access, 
 }
 
 void setup_gdt(void) {
+    LOG_SCOPE();
     info("Setting up GDT...", __FILE__);
 
     /* Null descriptor */

@@ -9,6 +9,7 @@
  *
  */
 #include <cc-asm.h>
+#include <graphics.h>
 #include <memory.h>
 #include <paging.h>
 
@@ -34,6 +35,7 @@ static inline uint64_t *phys_to_virt_ptr(uint64_t phys_addr) {
 
 uintptr_t allocate_page(void) {
     if (!memmap) {
+        LOG_SCOPE();
         error("Limine failed to give the memory map", __FILE__);
         hcf2();
     }

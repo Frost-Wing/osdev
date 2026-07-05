@@ -68,7 +68,10 @@ static struct udp_msg udpq[8];
 static uint16 ipid = 1;
 
 void arp_init(void) {
+    LOG_SCOPE();
+    info("Initializing ARP", __FILE__);
     memset(arp, 0, sizeof(arp));
+    done("Initalized ARP", __FILE__);
 }
 
 static void arp_put(net_ipv4_t ip, const uint8 mac[6]) {
@@ -152,12 +155,15 @@ void arp_tick(void) {
 }
 
 void ipv4_init(net_ipv4_t ip, net_ipv4_t mask, net_ipv4_t gw, net_ipv4_t dns) {
+    LOG_SCOPE();
+    info("Initializing IPv4 with given info", __FILE__);
     net_cfg.ip = ip;
     net_cfg.netmask = mask;
     net_cfg.gateway = gw;
     net_cfg.dns = dns;
     netif_init();
     arp_init();
+    done("Initalized IPv4", __FILE__);
 }
 
 void ipv4_input(const uint8 *p, size_t len) {

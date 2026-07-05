@@ -123,10 +123,13 @@ int net_packet_pull(net_packet_t *pkt, size_t len, void **hdr) {
 }
 
 void netif_init(void) {
+    LOG_SCOPE();
+    info("Initializing netif", __FILE__);
     netif_get_mac(net_cfg.mac);
     netif_set_rx_callback(ethernet_input);
     // Enable interrupt-driven mode for RTL8139 if available
     rtl8139_irq_enable();
+    done("Initialized netif", __FILE__);
 }
 
 int netif_send(const void *frame, size_t len) {

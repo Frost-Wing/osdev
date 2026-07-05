@@ -10,6 +10,7 @@
  */
 
 #include <acpi.h>
+#include <graphics.h>
 #include <kernel.h>
 #include <limine.h>
 #include <memory.h>
@@ -78,6 +79,7 @@ static volatile struct limine_rsdp_request rsdp_req = {
     LIMINE_RSDP_REQUEST, 0, NULL};
 
 void acpi_init(void) {
+    LOG_SCOPE();
     struct rsdp *rsdp = rsdp_req.response->address;
     info("Found RSDP address!", __FILE__);
 
@@ -93,7 +95,7 @@ void acpi_init(void) {
 
     done("Successfully loaded!", __FILE__);
     oem_name = rsdp->oem_id;
-    printf("OEM Name: %s", oem_name);
+    info("OEM Name: %s", __FILE__, oem_name);
     if (contains(oem_name, "BOCHS") || contains(oem_name, "VBOX") || contains(oem_name, "QEMU") || contains(oem_name, "VMWARE")) {
         warn("Currently running in a virtualized environment.", __FILE__);
         virtualized = true;

@@ -169,7 +169,7 @@ static int tcp_send_segment(struct tcp_sock *s, uint8 flags, const void *data, s
     h->off = 5 << 4;
     h->flags = flags;
     // Advertise our full receive buffer size to allow sender to pump data efficiently
-    h->win = net_htons(TCP_RX_BUF_SIZE);
+    h->win = net_htons(4096);
     if (len)
         memcpy(b + sizeof(*h), data, len);
     h->sum = net_htons(tcp_checksum(net_cfg.ip, s->dst, b, sizeof(*h) + len));
@@ -374,7 +374,8 @@ int http_get_to_file(const char *url, const char *path,
     // --- parse headers first, so body writing starts clean ---
     char hdrbuf[2048];
     size_t hdrlen = 0;
-    uint8 b[TCP_MAX_PAYLOAD];
+
+    uint8 b[32 KiB]; // bigger the value, more content per time.
     int header_done = 0;
     uint64 content_length = 0; // 0 = unknown
     int have_length = 0;

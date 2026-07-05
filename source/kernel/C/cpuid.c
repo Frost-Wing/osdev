@@ -1,4 +1,5 @@
 #include <cpuid2.h>
+#include <graphics.h>
 
 /**
  * @brief Executes the CPUID instruction with the given code and stores the results.
@@ -70,50 +71,55 @@ cstring get_cpu_vendor(void) {
  * @brief Print CPU information, including the vendor and CPU string.
  */
 void print_cpu_info(void) {
-    printf("CPU Vendor: %s", get_cpu_vendor());
-    printf("CPU String: %s", cpu_string());
+    LOG_SCOPE();
+    info("CPU Vendor: %s", __FILE__, get_cpu_vendor());
+    info("CPU String: %s", __FILE__, cpu_string());
 }
 
 /**
  * @brief Retrieve and print L1 cache information.
  */
 void print_L1_cache_info(void) {
+    LOG_SCOPE();
     uint32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
-        printf("L1 Cache not present.");
+        warn("L1 Cache not present.", __FILE__);
         return;
     }
-    printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L1 INFO)", ecx & 0xff, (ecx >> 12) & 0x07, (ecx >> 16) & 0xffff);
+    info("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L1 INFO)", __FILE__, ecx & 0xff, (ecx >> 12) & 0x07, (ecx >> 16) & 0xffff);
 }
 
 /**
  * @brief Retrieve and print L2 cache information.
  */
 void print_L2_cache_info(void) {
+    LOG_SCOPE();
     uint32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
-        printf("L2 Cache not present.");
+        warn("L2 Cache not present.", __FILE__);
         return;
     }
-    printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L2 INFO)", ecx & 0xff, (ecx >> 12) & 0x0F, (ecx >> 16) & 0xFFFF);
+    info("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L2 INFO)", __FILE__, ecx & 0xff, (ecx >> 12) & 0x0F, (ecx >> 16) & 0xFFFF);
 }
 
 /**
  * @brief Retrieve and print L3 cache information.
  */
 void print_L3_cache_info(void) {
+    LOG_SCOPE();
     uint32 eax, ebx, ecx, edx;
     cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
     if ((edx & 0xFF) == 0) {
-        printf("L3 Cache not present.");
+        warn("L3 Cache not present.", __FILE__);
         return;
     }
-    printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L3 INFO)", edx & 0xff, (edx >> 12) & 0x0F, (edx >> 16) & 0xFFFF);
+    info("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L3 INFO)", __FILE__, edx & 0xff, (edx >> 12) & 0x0F, (edx >> 16) & 0xFFFF);
 }
 
 bool is_kvm_supported(void) {
+    LOG_SCOPE();
     uint32 eax, ebx, ecx, edx;
 
     // Check if CPUID instruction is supported

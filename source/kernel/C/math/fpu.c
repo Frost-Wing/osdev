@@ -11,6 +11,7 @@
  */
 
 #include <math/fpu.h>
+#include <graphics.h>
 
 /**
  * @brief Set the FPU Control Word
@@ -26,6 +27,7 @@ void set_fpu_cw(const uint16_t cw) {
  *
  */
 void enable_fpu(void) {
+    LOG_SCOPE();
     info("Enabling floating-point arithmetic unit!", __FILE__);
     size_t cr4;
     asm volatile("mov %%cr4, %0" : "=r"(cr4));

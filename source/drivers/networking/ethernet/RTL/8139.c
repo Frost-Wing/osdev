@@ -59,6 +59,7 @@ void read_mac_address() {
 
 // Initialize RTL8139 NIC
 void rtl8139_init(struct rtl8139 *nic) {
+    LOG_SCOPE();
     if (!nic || nic->io_base == null || nic->io_base == 0) {
         warn("RTL8139 Card is not detected but tried to initialize it. Skipping...", __FILE__);
         return;
@@ -75,7 +76,7 @@ void rtl8139_init(struct rtl8139 *nic) {
         ;
 
     read_mac_address();
-    printf("Mac Address : %x:%x:%x:%x:%x:%x", nic->mac_address[0], nic->mac_address[1], nic->mac_address[2], nic->mac_address[3], nic->mac_address[4], nic->mac_address[5]);
+    info("Mac Address : %x:%x:%x:%x:%x:%x", __FILE__ , nic->mac_address[0], nic->mac_address[1], nic->mac_address[2], nic->mac_address[3], nic->mac_address[4], nic->mac_address[5]);
 
     rx_buffer = kmalloc_aligned(RTL8139_RX_BUFFER_SIZE + 16 + 1500, 256);
     if (!rx_buffer) {

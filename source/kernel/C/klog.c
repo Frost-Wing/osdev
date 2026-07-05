@@ -7,6 +7,7 @@
  * @copyright Copyright (c) 2026
  */
 #include <ahci.h>
+#include <graphics.h>
 #include <klog.h>
 #include <pit.h>
 #include <stdbool.h>
@@ -24,8 +25,11 @@ ring_buffer_t klog_rb;
 bool is_klog_ready = false;
 
 void klog_init(void) {
+    LOG_SCOPE();
+    info("Initializing /dev/klog", __FILE__);
     rb_init(&klog_rb, klog_storage, KLOG_BUFFER_SIZE, sizeof(char));
     is_klog_ready = true;
+    done("Initialized /dev/klog", __FILE__);
 }
 
 void klog_putc(char c) {
