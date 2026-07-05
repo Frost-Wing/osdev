@@ -1486,11 +1486,17 @@ static uint64 sys_fork(void)
         return 0;
 
     task_t* cur = multitasking_get_current_task();
-    if (!cur)
+    if (!cur) {
+        debug_printf("[syscall] failed, could not get the current task! (fork())\n");
+        syslog_printf("[syscall] failed, could not get the current task! (fork())");
         return -LINUX_ENOSYS;
+    }
 
-    if (!cur->user_spec.path)
+    if (!cur->user_spec.path){
+        debug_printf("[syscall] user_spec.path is null!\n");
+        syslog_printf("[syscall] user_spec.path is null!");
         return -LINUX_ENOSYS;
+    }
 
     const char* spawn_path = cur->user_spec.path;
 

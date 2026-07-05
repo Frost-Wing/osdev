@@ -40,13 +40,16 @@ task_t* multitasking_find_task(uint32_t pid) {
 task_t* multitasking_get_current_task(void)
 {
     uint32_t pid = multitasking_current_pid();
-    if (!pid)
+    if (!pid){
+        debug_printf("\t[multitasking] invalid pid.\n");
         return NULL;
+    }
 
     for (task_t* t = g_task_head; t; t = t->next)
         if (t->pid == pid)
             return t;
 
+    debug_printf("\t[multitasking] concluded failure.\n");
     return NULL;
 }
 
