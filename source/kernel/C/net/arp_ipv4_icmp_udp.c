@@ -157,10 +157,27 @@ void arp_tick(void) {
 void ipv4_init(net_ipv4_t ip, net_ipv4_t mask, net_ipv4_t gw, net_ipv4_t dns) {
     LOG_SCOPE();
     info("Initializing IPv4 with given info", __FILE__);
+
     net_cfg.ip = ip;
+    char ip_str[16]; // enough for "255.255.255.255\0"
+    net_format_ipv4(ip, ip_str, sizeof(ip_str));
+    done("ip : %s", __FILE__, ip_str);
+
     net_cfg.netmask = mask;
+    char mask_str[16];
+    net_format_ipv4(mask, mask_str, sizeof(mask_str));
+    done("mask : %s", __FILE__, mask_str);
+
     net_cfg.gateway = gw;
+    char gw_str[16];
+    net_format_ipv4(gw, gw_str, sizeof(gw_str));
+    done("gateway : %s", __FILE__, gw_str);
+
     net_cfg.dns = dns;
+    char dns_str[16];
+    net_format_ipv4(dns, dns_str, sizeof(dns_str));
+    done("dns : %s", __FILE__, gw_str);
+
     netif_init();
     arp_init();
     done("Initalized IPv4", __FILE__);

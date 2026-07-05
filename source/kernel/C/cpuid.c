@@ -1,5 +1,6 @@
 #include <cpuid2.h>
 #include <graphics.h>
+#include <stdint.h>
 
 /**
  * @brief Executes the CPUID instruction with the given code and stores the results.
@@ -140,4 +141,10 @@ bool is_kvm_supported(void) {
         warn("CPUID instruction is not supported on this processor.", __FILE__);
         return no;
     }
+}
+
+void print_processor_id(uint64_t i, uint32_t processor_id, uint32_t lapic_id) {
+    LOG_SCOPE();
+    info("Processor  ID [%d] : 0x%X", __FILE__, (int)(i + 1U), processor_id);
+    info("Local APIC ID [%d] : 0x%X", __FILE__, (int)(i + 1U), lapic_id);
 }

@@ -81,3 +81,4 @@ void print_L2_cache_info(void);
  */
 void print_L3_cache_info(void);
 bool is_kvm_supported(void);
+void print_processor_id(uint64_t i, uint32_t processor_id, uint32_t lapic_id);
