@@ -20,12 +20,12 @@
 #include <strings.h>
 
 // ANSI color codes for text formatting
-#define reset_color "\033[37m"
-#define red_color "\x1b[91m"
-#define yellow_color "\x1b[93m"
-#define blue_color "\x1b[36m"
-#define green_color "\x1b[32m"
-#define orange_color "\x1b[38;5;208m"
+#define reset_color  "\x1b[38;2;248;248;242m" // Dracula foreground — warm off-white
+#define red_color    "\x1b[38;2;255;85;85m"   // Dracula red
+#define yellow_color "\x1b[38;2;241;250;140m" // Dracula yellow — pale lemon (very signature)
+#define blue_color   "\x1b[38;2;189;147;249m" // Dracula purple standing in as your "blue" slot
+#define green_color  "\x1b[38;2;80;250;123m"  // Dracula green — vivid mint
+#define orange_color "\x1b[38;2;255;184;108m" // Dracula orange
 
 // #define reset_color  "\x1b[38;5;248m"
 // #define red_color    "\x1b[38;5;167m"
