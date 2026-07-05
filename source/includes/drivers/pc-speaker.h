@@ -4,29 +4,29 @@
  * @brief Headers for PC Speaker drivers.
  * @version 0.1
  * @date 2023-11-11
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 #include <basics.h>
 #include <rtc.h>
 
 /**
  * @brief Plays a specific frequency
- * 
+ *
  * @param frequency in Hz
  */
 void play_sound(uint32 frequency);
 
 /**
- * @brief Mutes the PC Speaker temporaily 
- * 
+ * @brief Mutes the PC Speaker temporaily
+ *
  */
 void mute(void);
 
 /**
  * @brief Does a BEEP in PC Speaker
- * 
+ *
  * @param frequency in Hz
  * @param time in Seconds
  */

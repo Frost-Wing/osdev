@@ -4,15 +4,14 @@
  * @brief Basic linux touch command.
  * @version 0.1
  * @date 2025-10-07
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
 #include <commands/commands.h>
 
-int cmd_touch(int argc, char** argv)
-{
+int cmd_touch(int argc, char **argv) {
     if (argc < 2) {
         printf("touch: missing file operand");
         return 1;

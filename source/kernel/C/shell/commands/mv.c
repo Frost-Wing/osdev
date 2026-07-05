@@ -8,8 +8,7 @@
 
 #include <commands/commands.h>
 
-int cmd_mv(int argc, char** argv)
-{
+int cmd_mv(int argc, char **argv) {
     if (argc < 3) {
         printf("mv: missing file operand");
         return 1;
@@ -20,8 +19,8 @@ int cmd_mv(int argc, char** argv)
         return 1;
     }
 
-    const char* src = argv[1];
-    const char* dst = argv[2];
+    const char *src = argv[1];
+    const char *dst = argv[2];
 
     int ret = vfs_mv(src, dst);
     if (ret != 0) {

@@ -4,48 +4,48 @@
  * @brief The headers files for E9 hack.
  * @version 0.1
  * @date 2023-10-31
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
-#include <stdint.h>
-#include <stddef.h>
 #include <basics.h>
 #include <hal.h>
+#include <stddef.h>
+#include <stdint.h>
 
 /**
  * @brief Enables or disables the debugger.
  * [1 - Enable]
  * [0 - Disable]
- * 
+ *
  */
 #define debugger_mode 1
 
 /**
  * @brief Puts a character to the address 0xE9 using x86_64 outb
- * 
+ *
  * @param c The single character that you want to print.
  */
 void debug_putc(char c);
 
 /**
  * @brief Puts a string to the address 0xE9 using debug_putc()
- * 
- * @param msg 
+ *
+ * @param msg
  */
 void debug_print(cstring msg);
 
 /**
  * @brief Puts a string to the address 0xE9 using debug_putc() and prints a new line
- * 
- * @param msg 
+ *
+ * @param msg
  */
 void debug_println(cstring msg);
 
 /**
  * @brief printf implemented to debug.
- * 
- * @param format 
- * @param ... 
+ *
+ * @param format
+ * @param ...
  */
- void debug_printf(cstring format, ...);
+void debug_printf(cstring format, ...);

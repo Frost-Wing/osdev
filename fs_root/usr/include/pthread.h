@@ -54,12 +54,19 @@ extern "C" {
 #define PTHREAD_PROCESS_PRIVATE 0
 #define PTHREAD_PROCESS_SHARED 1
 
-
-#define PTHREAD_MUTEX_INITIALIZER {{{0}}}
-#define PTHREAD_RWLOCK_INITIALIZER {{{0}}}
-#define PTHREAD_COND_INITIALIZER {{{0}}}
+#define PTHREAD_MUTEX_INITIALIZER        \
+    {                                    \
+        {{0}} \
+    }
+#define PTHREAD_RWLOCK_INITIALIZER        \
+    {                                     \
+        {{0}} \
+    }
+#define PTHREAD_COND_INITIALIZER        \
+    {                                   \
+        {{0}} \
+    }
 #define PTHREAD_ONCE_INIT 0
-
 
 #define PTHREAD_CANCEL_ENABLE 0
 #define PTHREAD_CANCEL_DISABLE 1
@@ -70,12 +77,9 @@ extern "C" {
 
 #define PTHREAD_CANCELED ((void *)-1)
 
-
 #define PTHREAD_BARRIER_SERIAL_THREAD (-1)
 
-
 #define PTHREAD_NULL ((pthread_t)0)
-
 
 int pthread_create(pthread_t *__restrict, const pthread_attr_t *__restrict, void *(*)(void *), void *__restrict);
 int pthread_detach(pthread_t);
@@ -89,7 +93,7 @@ pthread_t pthread_self(void);
 
 int pthread_equal(pthread_t, pthread_t);
 #ifndef __cplusplus
-#define pthread_equal(x,y) ((x)==(y))
+#define pthread_equal(x, y) ((x) == (y))
 #endif
 
 int pthread_setcancelstate(int, int *);
@@ -204,16 +208,22 @@ int pthread_setconcurrency(int);
 int pthread_getcpuclockid(pthread_t, clockid_t *);
 
 struct __ptcb {
-	void (*__f)(void *);
-	void *__x;
-	struct __ptcb *__next;
+    void (*__f)(void *);
+    void *__x;
+    struct __ptcb *__next;
 };
 
 void _pthread_cleanup_push(struct __ptcb *, void (*)(void *), void *);
 void _pthread_cleanup_pop(struct __ptcb *, int);
 
-#define pthread_cleanup_push(f, x) do { struct __ptcb __cb; _pthread_cleanup_push(&__cb, f, x);
-#define pthread_cleanup_pop(r) _pthread_cleanup_pop(&__cb, (r)); } while(0)
+#define pthread_cleanup_push(f, x) \
+    do {                           \
+        struct __ptcb __cb;        \
+        _pthread_cleanup_push(&__cb, f, x);
+#define pthread_cleanup_pop(r)        \
+    _pthread_cleanup_pop(&__cb, (r)); \
+    }                                 \
+    while (0)
 
 #ifdef _GNU_SOURCE
 struct cpu_set_t;

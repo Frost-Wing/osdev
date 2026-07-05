@@ -1,18 +1,18 @@
 /**
  * @file mbr.h
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief  The header to read the LBA0 and check whether the disk is MBR. 
+ * @brief  The header to read the LBA0 and check whether the disk is MBR.
  * @version 0.1
  * @date 2025-12-28
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 #ifndef MBR_H
 #define MBR_H
 #include <basics.h>
 
-#define MBR_PART_BOOTABLE   0x80
+#define MBR_PART_BOOTABLE 0x80
 
 typedef struct {
     uint8_t boot_flag;
@@ -43,6 +43,6 @@ extern mbr_disk_t mbr_disks[10];
 extern int mbr_disks_count;
 
 int check_mbr(int portno);
-void parse_mbr_partitions(uint8* mbr, int portno);
+void parse_mbr_partitions(uint8 *mbr, int portno);
 
 #endif

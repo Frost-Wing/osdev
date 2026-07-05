@@ -4,9 +4,9 @@
  * @brief The general header which applies to any FAT file system.
  * @version 0.1
  * @date 2026-01-07
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 
 #ifndef FAT_H

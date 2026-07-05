@@ -4,9 +4,9 @@
  * @brief Basic linux whoami command.
  * @version 0.1
  * @date 2025-10-08
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
 #include <commands/commands.h>
@@ -14,8 +14,7 @@
 
 extern string current_user;
 
-int cmd_whoami(int argc, char** argv)
-{
+int cmd_whoami(int argc, char **argv) {
     if (!current_user) {
         printf("unknown");
         return 0;

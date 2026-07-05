@@ -4,13 +4,13 @@
  * @brief The main code for GPT AHCI Disks.
  * @version 0.1
  * @date 2025-12-29
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
-#include <disk/gpt.h>
 #include <ahci.h>
+#include <disk/gpt.h>
 #include <filesystems/fat16.h>
 #include <filesystems/iso9660.h>
 #include <heap.h>
@@ -20,15 +20,14 @@ int gpt_disks_count = 0;
 gpt_disk_t gpt_disks[10];
 
 static const uint8_t GPT_ESP_GUID[16] = {
-    0x28,0x73,0x2A,0xC1,
-    0x1F,0xF8,
-    0xD2,0x11,
-    0xBA,0x4B,
-    0x00,0xA0,0xC9,0x3E,0xC9,0x3B
-};
+    0x28, 0x73, 0x2A, 0xC1,
+    0x1F, 0xF8,
+    0xD2, 0x11,
+    0xBA, 0x4B,
+    0x00, 0xA0, 0xC9, 0x3E, 0xC9, 0x3B};
 
 int check_gpt(int portno) {
-    uint8_t* buf = kmalloc_aligned(512, 512);
+    uint8_t *buf = kmalloc_aligned(512, 512);
     if (!buf) {
         error("[AHCI/GPT] kmalloc failed", __FILE__);
         return -1;
@@ -45,7 +44,7 @@ int check_gpt(int portno) {
         return -3;
     }
 
-    mbr_partition_t* pmbr = (mbr_partition_t*)&buf[446];
+    mbr_partition_t *pmbr = (mbr_partition_t *)&buf[446];
     if (pmbr[0].partition_type != 0xEE) {
         info("[GPT] Not a GPT disk (no 0xEE PMBR)", __FILE__);
         kfree(buf);
@@ -56,7 +55,7 @@ int check_gpt(int portno) {
         kfree(buf);
         return -5;
     }
-    struct GPT_PartTableHeader* hdr = (struct GPT_PartTableHeader*)buf;
+    struct GPT_PartTableHeader *hdr = (struct GPT_PartTableHeader *)buf;
 
     if (memcmp(hdr->Signature, "EFI PART", 8) != 0) {
         error("[GPT] Invalid GPT signature", __FILE__);
@@ -70,17 +69,17 @@ int check_gpt(int portno) {
     return 0;
 }
 
-void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
+void parse_gpt_partitions(int portno, struct GPT_PartTableHeader *hdr) {
     uint32_t entry_size = hdr->PartitionEntrySize;
     uint32_t count = hdr->NumEntries;
     uint64_t lba = hdr->StartLBA_GUID_Entries;
 
     uint32_t total_bytes = entry_size * count;
     uint32_t sectors = (total_bytes + 511) / 512;
-    block_device_info_t* dev = block_get_device(portno);
-    const char* dev_name = block_get_device_name(portno);
+    block_device_info_t *dev = block_get_device(portno);
+    const char *dev_name = block_get_device_name(portno);
 
-    uint8_t* buf = kmalloc_aligned(sectors * 512, 512);
+    uint8_t *buf = kmalloc_aligned(sectors * 512, 512);
     if (!buf)
         return;
 
@@ -89,14 +88,14 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
         return;
     }
 
-    gpt_disk_t* disk = &gpt_disks[gpt_disks_count];
+    gpt_disk_t *disk = &gpt_disks[gpt_disks_count];
     disk->port = portno;
     disk->sectors = dev ? dev->total_sectors : 0;
     disk->partition_count = 0;
 
     for (uint32_t i = 0; i < count; i++) {
-        struct GPT_PartitionEntry* p =
-            (struct GPT_PartitionEntry*)(buf + i * entry_size);
+        struct GPT_PartitionEntry *p =
+            (struct GPT_PartitionEntry *)(buf + i * entry_size);
 
         /* Unused entry */
         if (memcmp(p->PartitionTypeGUID, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) == 0)
@@ -109,10 +108,9 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
             disk->partition_count,
             start,
             end,
-            end - start + 1
-        );
+            end - start + 1);
 
-        gpt_partition_t* out = &disk->partitions[disk->partition_count++];
+        gpt_partition_t *out = &disk->partitions[disk->partition_count++];
         out->port = portno;
         out->start_lba = start;
         out->end_lba = end;
@@ -132,8 +130,7 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
         if (fs_type == FS_UNKNOWN)
             fs_type = detect_ext2_type_enum(portno, start);
 
-        if (fs_type == FS_UNKNOWN)
-        {
+        if (fs_type == FS_UNKNOWN) {
             if (start <= 0xFFFFFFFFULL &&
                 iso9660_detect_at_lba(portno, (uint32_t)start))
                 fs_type = FS_ISO9660;
@@ -152,8 +149,7 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
             fs_type,
             part_name,
             0,
-            p->PartitionTypeGUID
-        );
+            p->PartitionTypeGUID);
 
         printf("[AHCI/GPT] identified disk %s", part_name);
     }
@@ -162,6 +158,6 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader* hdr) {
     kfree(buf);
 }
 
-bool gpt_is_uefi_bootable(const struct GPT_PartitionEntry* p) {
+bool gpt_is_uefi_bootable(const struct GPT_PartitionEntry *p) {
     return memcmp(p->PartitionTypeGUID, GPT_ESP_GUID, 16) == 0;
 }

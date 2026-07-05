@@ -4,25 +4,26 @@
  * @brief The string handling function
  * @version 0.1
  * @date 2023-10-21
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
-#include <strings.h>
 #include <stdarg.h>
+#include <strings.h>
 
 const char hex_digits[] = "0123456789abcdef";
 const char caps_hex_digits[] = "0123456789ABCDEF";
 
 /**
  * @brief The same strlen function from OEM
- * 
+ *
  * @param s (char[]) The string to know the length of.
- * @return int 
+ * @return int
  */
 int strlen(cstring s) {
     int i = 0;
-    while (s[i] != '\0') ++i;
+    while (s[i] != '\0')
+        ++i;
     return i;
 }
 
@@ -42,18 +43,17 @@ char *strncpy(char *dest, const char *src, size_t n) {
 
     for (i = 0; i < n && src[i]; i++)
         dest[i] = src[i];
-    for ( ; i < n; i++)
+    for (; i < n; i++)
         dest[i] = 0;
 
     return dest;
 }
 
-int strcmp(const char *s1, const char *s2)
-{
+int strcmp(const char *s1, const char *s2) {
     if (s1 == NULL || s2 == NULL)
         return -1;
 
-    for (size_t i = 0; ; i++) {
+    for (size_t i = 0;; i++) {
         char c1 = s1[i], c2 = s2[i];
         if (c1 != c2)
             return c1 - c2;
@@ -62,8 +62,7 @@ int strcmp(const char *s1, const char *s2)
     }
 }
 
-int strncmp(const char *s1, const char *s2, size_t n)
-{
+int strncmp(const char *s1, const char *s2, size_t n) {
     if (s1 == NULL || s2 == NULL)
         return -1;
 
@@ -82,18 +81,16 @@ char toupper(char c) {
     return (c >= 97 && c <= 122) ? (c - 32) : c;
 }
 
-
 /**
  * @brief The OEM itoa function from C
- * 
- * @param num 
+ *
+ * @param num
  * @param str
  * @param len
  * @param base Base of the numbers (eg. 16, 10, 8, 2)
- * @return int 
+ * @return int
  */
-int itoa(int num, string str, int len, int base)
-{
+int itoa(int num, string str, int len, int base) {
     if (!str || len <= 0 || base < 2 || base > 36)
         return -1;
 
@@ -128,11 +125,10 @@ int itoa(int num, string str, int len, int base)
 
 /**
  * @brief The OEM strrev in C
- * 
- * @param str 
+ *
+ * @param str
  */
-void strrev(unsigned char *str)
-{
+void strrev(unsigned char *str) {
     int i;
     int j;
     unsigned char a;
@@ -141,8 +137,7 @@ void strrev(unsigned char *str)
     if (len == 0)
         return;
 
-    for (i = 0, j = (int)len - 1; i < j; i++, j--)
-    {
+    for (i = 0, j = (int)len - 1; i < j; i++, j--) {
         a = str[i];
         str[i] = str[j];
         str[j] = a;
@@ -160,23 +155,23 @@ void strrev(unsigned char *str)
  */
 bool contains(const char *str, const char *substr) {
     if (str == NULL || substr == NULL) {
-        return false;  // Handle invalid input.
+        return false; // Handle invalid input.
     }
 
     size_t str_len = strlen(str);
     size_t substr_len = strlen(substr);
 
     if (substr_len > str_len) {
-        return false;  // Substring is longer than the string, so it can't be found.
+        return false; // Substring is longer than the string, so it can't be found.
     }
 
     for (size_t i = 0; i <= str_len - substr_len; i++) {
         if (strncmp(str + i, substr, substr_len) == 0) {
-            return true;  // Substring found.
+            return true; // Substring found.
         }
     }
 
-    return false;  // Substring not found in the string.
+    return false; // Substring not found in the string.
 }
 
 /**
@@ -332,36 +327,36 @@ bool starts_with(const char *str, const char *prefix) {
 /**
  * strdup - Duplicate a string.
  *
- * This function creates a new string in dynamically allocated memory 
+ * This function creates a new string in dynamically allocated memory
  * that is a duplicate of the given string.
  *
  * @param str The string to be duplicated.
  *
- * @return A pointer to the newly allocated duplicate string, 
+ * @return A pointer to the newly allocated duplicate string,
  *         or NULL if memory allocation fails.
  */
- char* strdup(const char* str) {
+char *strdup(const char *str) {
     if (str == NULL) {
         return NULL;
     }
 
     size_t len = strlen(str) + 1; // Include space for null terminator
-    char* dup = (char*)kmalloc(len);
+    char *dup = (char *)kmalloc(len);
     if (dup == NULL) {
         return NULL;
     }
 
-    memcpy(dup, str, len); 
+    memcpy(dup, str, len);
     return dup;
 }
 
 /**
  * @brief Removes the leading and trailing spaces.
- * 
- * @param str 
- * @return char* 
+ *
+ * @param str
+ * @return char*
  */
-char* leading_trailing_trim(const char *str) {
+char *leading_trailing_trim(const char *str) {
     if (str == NULL) {
         return NULL;
     }
@@ -381,29 +376,29 @@ char* leading_trailing_trim(const char *str) {
 
     if (start > end) {
         // Empty string after trimming
-        return strdup(""); 
+        return strdup("");
     }
 
     // Allocate memory for the trimmed string
-    char* trimmed = (char*)kmalloc(end - start + 2); 
+    char *trimmed = (char *)kmalloc(end - start + 2);
     if (trimmed == NULL) {
         return NULL;
     }
 
     // Copy the trimmed portion of the string
     strncpy(trimmed, str + start, end - start + 1);
-    trimmed[end - start + 1] = '\0'; 
+    trimmed[end - start + 1] = '\0';
 
     return trimmed;
 }
 
 /**
  * @brief Converts an uint to string
- * 
- * @param num 
- * @return char* 
+ *
+ * @param num
+ * @return char*
  */
-char* uint_to_string(unsigned int num) {
+char *uint_to_string(unsigned int num) {
     if (num == 0) {
         return "0";
     }
@@ -420,7 +415,7 @@ char* uint_to_string(unsigned int num) {
     return &buf[i];
 }
 
-char* uint64_to_hex(uint64_t num) {
+char *uint64_to_hex(uint64_t num) {
     static char buf[19]; // "0x" + 16 hex digits + '\0'
     buf[0] = '0';
     buf[1] = 'x';
@@ -428,8 +423,10 @@ char* uint64_to_hex(uint64_t num) {
 
     for (int i = 0; i < 16; i++) {
         uint8_t nibble = (num >> (60 - i * 4)) & 0xF;
-        if (nibble < 10) buf[2 + i] = '0' + nibble;
-        else buf[2 + i] = 'A' + (nibble - 10);
+        if (nibble < 10)
+            buf[2 + i] = '0' + nibble;
+        else
+            buf[2 + i] = 'A' + (nibble - 10);
     }
 
     return buf;
@@ -440,10 +437,10 @@ extern const char caps_hex_digits[];
 
 /**
  * @brief Prints Hexadecimal number
- * 
+ *
  * @param hex the hexadecimal number to be printed.
  */
-char* hex_to_string(signed int num, bool caps) {
+char *hex_to_string(signed int num, bool caps) {
     static char buf[21];
     int i;
     signed int n = num;
@@ -472,7 +469,7 @@ char* hex_to_string(signed int num, bool caps) {
     return &buf[i + 1];
 }
 
-void split(const char* str, char words[][MAX_WORD_LEN], int* num_words) {
+void split(const char *str, char words[][MAX_WORD_LEN], int *num_words) {
     *num_words = 0;
     int i, j, k;
     for (i = 0; str[i] != '\0'; i++) {
@@ -496,7 +493,7 @@ void split(const char* str, char words[][MAX_WORD_LEN], int* num_words) {
     }
 }
 
-void splitw(const char* str, char words[][MAX_WORD_LEN], int* num_words, char delimiter) {
+void splitw(const char *str, char words[][MAX_WORD_LEN], int *num_words, char delimiter) {
     *num_words = 0;
     int i, j, k;
     for (i = 0; str[i] != '\0'; i++) {
@@ -524,44 +521,49 @@ int isspace(char c) {
     return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
 }
 
-char* trim_inplace(char* s)
-{
-    if(!s) return s;
-    char* start = s;
-    while(*start && isspace((unsigned char)*start)) start++;
-    if(start != s) memmove(s, start, strlen(start) + 1);
+char *trim_inplace(char *s) {
+    if (!s)
+        return s;
+    char *start = s;
+    while (*start && isspace((unsigned char)*start))
+        start++;
+    if (start != s)
+        memmove(s, start, strlen(start) + 1);
 
     /* trim trailing */
-    char* end = s + strlen(s);
-    while(end > s && isspace((unsigned char)*(end-1))) end--;
+    char *end = s + strlen(s);
+    while (end > s && isspace((unsigned char)*(end - 1)))
+        end--;
     *end = '\0';
     return s;
 }
 
-char* strrchr(const char* s, int c) {
-    char* last = NULL;
+char *strrchr(const char *s, int c) {
+    char *last = NULL;
     while (*s) {
-        if (*s == (char)c) last = (char*)s;
+        if (*s == (char)c)
+            last = (char *)s;
         s++;
     }
-    if (c == 0) return (char*)s; // null terminator
+    if (c == 0)
+        return (char *)s; // null terminator
     return last;
 }
 
 /* Find first occurrence of character c in string s */
-char* strchr(const char* s, int c) {
+char *strchr(const char *s, int c) {
     while (*s) {
         if (*s == (char)c)
-            return (char*)s;  // cast away const
+            return (char *)s; // cast away const
         s++;
     }
-    if (c == '\0')  // special case: searching for null terminator
-        return (char*)s;
+    if (c == '\0') // special case: searching for null terminator
+        return (char *)s;
     return NULL;
 }
 
 // Compare strings case-insensitively
-int strcasecmp(const char* a, const char* b) {
+int strcasecmp(const char *a, const char *b) {
     while (*a && *b) {
         char ca = (*a >= 'A' && *a <= 'Z') ? *a + 32 : *a;
         char cb = (*b >= 'A' && *b <= 'Z') ? *b + 32 : *b;
@@ -574,8 +576,8 @@ int strcasecmp(const char* a, const char* b) {
 }
 
 // Simple strtok replacement (modifies input)
-char* strtok_r(char* str, const char* delim, char** saveptr) {
-    char* start;
+char *strtok_r(char *str, const char *delim, char **saveptr) {
+    char *start;
 
     if (str)
         *saveptr = str;
@@ -592,7 +594,7 @@ char* strtok_r(char* str, const char* delim, char** saveptr) {
         return NULL;
     }
 
-    char* end = start;
+    char *end = start;
     while (*end && !strchr(delim, *end))
         end++;
 
@@ -607,35 +609,37 @@ char* strtok_r(char* str, const char* delim, char** saveptr) {
 }
 
 // strtok wrapper to match standard usage
-char* strtok(char* str, const char* delim) {
-    static char* saveptr;
+char *strtok(char *str, const char *delim) {
+    static char *saveptr;
     return strtok_r(str, delim, &saveptr);
 }
 
-char* str_concat_impl(int count, ...)
-{
+char *str_concat_impl(int count, ...) {
     va_list args;
     size_t total_len = 0;
 
     // First pass: calculate total length
     va_start(args, count);
     for (int i = 0; i < count; i++) {
-        const char* s = va_arg(args, const char*);
-        if (s) total_len += strlen(s);
+        const char *s = va_arg(args, const char *);
+        if (s)
+            total_len += strlen(s);
     }
     va_end(args);
 
     // Allocate result
-    char* result = (char*)kmalloc(total_len + 1);
-    if (!result) return NULL;
+    char *result = (char *)kmalloc(total_len + 1);
+    if (!result)
+        return NULL;
 
     result[0] = '\0';
 
     // Second pass: concatenate
     va_start(args, count);
     for (int i = 0; i < count; i++) {
-        const char* s = va_arg(args, const char*);
-        if (s) strcat(result, s);
+        const char *s = va_arg(args, const char *);
+        if (s)
+            strcat(result, s);
     }
     va_end(args);
 

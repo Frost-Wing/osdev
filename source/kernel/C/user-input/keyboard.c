@@ -4,18 +4,18 @@
  * @brief The code for keyboard handlers
  * @version 0.1
  * @date 2023-11-14
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 
 #include <graphics.h>
 #include <heap.h>
 #include <keyboard.h>
-#include <stdint.h>
-#include <ringbuffer.h>
-#include <tty.h>
 #include <multitasking.h>
+#include <ringbuffer.h>
+#include <stdint.h>
+#include <tty.h>
 
 bool enable_keyboard = yes;
 static ring_buffer_t kb_rb;
@@ -24,48 +24,156 @@ static uint8_t kb_storage[KB_BUFFER_SIZE];
 
 /**
  * @brief All the chars for specific scan codes
- * 
+ *
  */
 char scancode_to_char_mapping[] = {
-    0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 0, 0, // 0-15
-    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', 0, 0, 'a', 's', // 16-31
-    'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\', 'z', 'x', 'c', 'v', // 32-47
-    'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' ', // 48-57
+    0,
+    0,
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '0',
+    '-',
+    '=',
+    0,
+    0, // 0-15
+    'q',
+    'w',
+    'e',
+    'r',
+    't',
+    'y',
+    'u',
+    'i',
+    'o',
+    'p',
+    '[',
+    ']',
+    0,
+    0,
+    'a',
+    's', // 16-31
+    'd',
+    'f',
+    'g',
+    'h',
+    'j',
+    'k',
+    'l',
+    ';',
+    '\'',
+    '`',
+    0,
+    '\\',
+    'z',
+    'x',
+    'c',
+    'v', // 32-47
+    'b',
+    'n',
+    'm',
+    ',',
+    '.',
+    '/',
+    0,
+    '*',
+    0,
+    ' ', // 48-57
 };
 
 char shifted_scancode_to_char_mapping[] = {
-    0, 0, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', 0, 0, // 0-15
-    'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', 0, 0, 'A', 'S', // 16-31
-    'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '\"', '~', 0, '|', 'Z', 'X', 'C', 'V', // 32-47
-    'B', 'N', 'M', '<', '>', '\?', 0, '*', 0, ' ', // 48-57
+    0,
+    0,
+    '!',
+    '@',
+    '#',
+    '$',
+    '%',
+    '^',
+    '&',
+    '*',
+    '(',
+    ')',
+    '_',
+    '+',
+    0,
+    0, // 0-15
+    'Q',
+    'W',
+    'E',
+    'R',
+    'T',
+    'Y',
+    'U',
+    'I',
+    'O',
+    'P',
+    '{',
+    '}',
+    0,
+    0,
+    'A',
+    'S', // 16-31
+    'D',
+    'F',
+    'G',
+    'H',
+    'J',
+    'K',
+    'L',
+    ':',
+    '\"',
+    '~',
+    0,
+    '|',
+    'Z',
+    'X',
+    'C',
+    'V', // 32-47
+    'B',
+    'N',
+    'M',
+    '<',
+    '>',
+    '\?',
+    0,
+    '*',
+    0,
+    ' ', // 48-57
 };
-
 
 /**
  * @brief Converts the scancode to character
- * 
+ *
  * @param scancode usually inb(0x60);
  * @return [char] Appropriate character to be displayed
  */
 char scancode_to_char(int scancode, bool uppercase) {
-    if(scancode > 58) return '\0';
-    
-    if(uppercase){
+    if (scancode > 58)
+        return '\0';
+
+    if (uppercase) {
         char to_send = shifted_scancode_to_char_mapping[scancode];
-        if((int)to_send == (int)0){
+        if ((int)to_send == (int)0) {
             return '\0';
-        }else{
+        } else {
             return to_send;
         }
-    }else{
+    } else {
         char to_send = scancode_to_char_mapping[scancode];
-        if((int)to_send == (int)0){
+        if ((int)to_send == (int)0) {
             return '\0';
-        }else{
+        } else {
             return to_send;
         }
     }
-    
+
     return '\0';
 }
 
@@ -77,8 +185,7 @@ void keyboard_init(void) {
 bool shift = no;
 uint8_t modifiers = 0;
 
-void process_keyboard(InterruptFrame* frame)
-{
+void process_keyboard(InterruptFrame *frame) {
     (void)frame;
     if (!enable_keyboard) {
         outb(0x20, 0x20);
@@ -87,7 +194,7 @@ void process_keyboard(InterruptFrame* frame)
 
     uint8_t scancode = inb(0x60);
 
-    if(is_kbrb_ready)
+    if (is_kbrb_ready)
         rb_push(&kb_rb, &scancode);
 
     int c = handle_char_from_scancode(scancode);
@@ -97,14 +204,12 @@ void process_keyboard(InterruptFrame* frame)
     outb(0x20, 0x20);
 }
 
-uint8_t getmodifiers(void)
-{
+uint8_t getmodifiers(void) {
     return modifiers;
 }
 
 extern volatile uint64_t pit_ticks;
-uint8_t getc(void)
-{
+uint8_t getc(void) {
     uint8_t sc;
     static uint64_t last_tick = 0;
 
@@ -133,13 +238,12 @@ int getc_nonblock(void) {
 }
 
 void keyboard_flush_buffer(void) {
-    if(is_kbrb_ready)
+    if (is_kbrb_ready)
         rb_clear(&kb_rb);
 }
 
 static bool extended = false;
-int handle_char_from_scancode(uint8_t data)
-{
+int handle_char_from_scancode(uint8_t data) {
     // -------- Extended scancode handling --------
     if (data == 0xE0) {
         extended = true;
@@ -183,7 +287,7 @@ int handle_char_from_scancode(uint8_t data)
                 modifiers |= MOD_RALT;
                 return 0;
 
-            // You can extend more extended keys here (arrows, etc.)
+                // You can extend more extended keys here (arrows, etc.)
         }
 
         return 0;

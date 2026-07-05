@@ -56,11 +56,12 @@ void syslog_putc(char c);
  */
 void syslog_printf(cstring format, ...);
 
-size_t syslog_read(char* out, size_t max_len);
+size_t syslog_read(char *out, size_t max_len);
 
-size_t syslog_read_at(char* out, size_t offset, size_t max_len);
+size_t syslog_read_at(char *out, size_t offset, size_t max_len);
 
-size_t syslog_size(void);;
+size_t syslog_size(void);
+;
 
 /**
  * @brief Clear the syslog ring buffer, discarding all buffered log entries.

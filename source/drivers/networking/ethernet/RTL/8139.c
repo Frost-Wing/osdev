@@ -4,13 +4,13 @@
  * @brief The driver for RTL8139 Networking Card.
  * @version 0.1
  * @date 2023-12-05
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 #include <drivers/rtl8139.h>
 
-struct rtl8139* RTL8139 = NULL;
+struct rtl8139 *RTL8139 = NULL;
 
 void read_mac_address() {
     for (int i = 0; i < 6; i++) {
@@ -19,8 +19,8 @@ void read_mac_address() {
 }
 
 // Initialize RTL8139 NIC
-void rtl8139_init(struct rtl8139* nic) {
-    if(RTL8139->io_base == null || RTL8139->io_base == 0){
+void rtl8139_init(struct rtl8139 *nic) {
+    if (RTL8139->io_base == null || RTL8139->io_base == 0) {
         warn("RTL8139 Card is not detected but tried to initialize it. Skipping...", __FILE__);
         return;
     }
@@ -42,8 +42,8 @@ void rtl8139_init(struct rtl8139* nic) {
 }
 
 // Transmit a packet
-bool rtl8139_send_packet(const uint8* data, uint16 length) {
-    if(RTL8139->io_base == null || RTL8139->io_base == 0){
+bool rtl8139_send_packet(const uint8 *data, uint16 length) {
+    if (RTL8139->io_base == null || RTL8139->io_base == 0) {
         warn("RTL8139 Card is not detected but tried to send data to it. Skipping...", __FILE__);
         return no;
     }
@@ -68,8 +68,8 @@ bool rtl8139_send_packet(const uint8* data, uint16 length) {
 }
 
 // Receives a packet
-bool rtl8139_receive_packet(uint8* buffer, uint16* length) {
-    if(RTL8139->io_base == null || RTL8139->io_base == 0){
+bool rtl8139_receive_packet(uint8 *buffer, uint16 *length) {
+    if (RTL8139->io_base == null || RTL8139->io_base == 0) {
         warn("RTL8139 Card is not detected but tried to receive data. Skipping...", __FILE__);
         return no;
     }

@@ -1,12 +1,12 @@
 /**
  * @file stat.h
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-04-03
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 #ifndef SYS_STAT_H
 #define SYS_STAT_H

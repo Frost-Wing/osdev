@@ -4,19 +4,18 @@
  * @brief Basic linux cat command.
  * @version 0.1
  * @date 2025-10-07
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
+#include <basics.h>
 #include <commands/commands.h>
 #include <filesystems/vfs.h>
-#include <basics.h>
 
 #define CAT_BUF_SIZE 512
 
-int cmd_cat(int argc, char** argv)
-{
+int cmd_cat(int argc, char **argv) {
     if (argc < 2) {
         printf("cat: missing file operand");
         return 1;
@@ -50,12 +49,12 @@ int cmd_cat(int argc, char** argv)
                 printfnoln("%c", buf[j]);
         }
 
-        if(j != 0 && buf != null)
-            if(buf[j-1] != '\n')
+        if (j != 0 && buf != null)
+            if (buf[j - 1] != '\n')
                 print("\n");
 
         vfs_close(&file);
     }
-    
+
     return 0;
 }

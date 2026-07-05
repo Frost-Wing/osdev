@@ -4,23 +4,23 @@
  * @brief Unix like standard streams.
  * @version 0.1
  * @date 2026-01-03
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 
-#include <stream.h>
-#include <graphics.h>   // flanterm
 #include <basics.h>
-#include <memory.h>
-#include <flanterm/flanterm.h>
 #include <filesystems/vfs.h>
+#include <flanterm/flanterm.h>
+#include <graphics.h> // flanterm
+#include <memory.h>
+#include <stream.h>
 
-extern struct flanterm_context* ft_ctx;
+extern struct flanterm_context *ft_ctx;
 
 typedef struct {
     int index;
-    vfs_file_t* file;   // NULL → terminal
+    vfs_file_t *file; // NULL → terminal
 } stream_impl_t;
 
 typedef struct {
@@ -28,14 +28,14 @@ typedef struct {
     int ref_count;
     bool owns_file;
     int flags;
-    vfs_file_t* file;
+    vfs_file_t *file;
     vfs_file_t storage;
     char path[256];
 } fd_object_t;
 
 typedef struct {
     bool used;
-    fd_object_t* object;
+    fd_object_t *object;
 } fd_entry_t;
 
 static stream_impl_t streams[3];
@@ -43,8 +43,7 @@ static fd_entry_t fd_table[STREAM_MAX_FDS];
 static fd_object_t fd_objects[STREAM_MAX_FDS];
 static bool fd_initialized = false;
 
-static fd_object_t* fd_object_alloc(vfs_file_t* file, bool owns_file, int flags)
-{
+static fd_object_t *fd_object_alloc(vfs_file_t *file, bool owns_file, int flags) {
     for (int i = 0; i < STREAM_MAX_FDS; ++i) {
         if (!fd_objects[i].used) {
             fd_objects[i].used = true;
@@ -64,14 +63,12 @@ static fd_object_t* fd_object_alloc(vfs_file_t* file, bool owns_file, int flags)
     return NULL;
 }
 
-static void fd_object_retain(fd_object_t* object)
-{
+static void fd_object_retain(fd_object_t *object) {
     if (object)
         object->ref_count++;
 }
 
-static void fd_object_release(fd_object_t* object)
-{
+static void fd_object_release(fd_object_t *object) {
     if (!object || !object->used)
         return;
 
@@ -85,8 +82,7 @@ static void fd_object_release(fd_object_t* object)
     memset(object, 0, sizeof(*object));
 }
 
-static int fd_alloc_slot(void)
-{
+static int fd_alloc_slot(void) {
     for (int fd = 3; fd < STREAM_MAX_FDS; ++fd) {
         if (!fd_table[fd].used)
             return fd;
@@ -95,8 +91,7 @@ static int fd_alloc_slot(void)
     return -1;
 }
 
-static void fd_assign_slot(int fd, fd_object_t* object)
-{
+static void fd_assign_slot(int fd, fd_object_t *object) {
     if (fd < 0 || fd >= STREAM_MAX_FDS)
         return;
 
@@ -108,18 +103,16 @@ static void fd_assign_slot(int fd, fd_object_t* object)
     fd_object_retain(object);
 }
 
-void stream_init(void)
-{
+void stream_init(void) {
     fd_table_init();
 }
 
-int stream_set_file(stream_t s, vfs_file_t* file)
-{
+int stream_set_file(stream_t s, vfs_file_t *file) {
     streams[s].file = file;
     streams[s].index = s;
 
     int flags = (s == STDIN) ? VFS_RDONLY : VFS_WRONLY;
-    fd_object_t* object = fd_object_alloc(file, false, flags);
+    fd_object_t *object = fd_object_alloc(file, false, flags);
     if (!object)
         return -1;
 
@@ -129,34 +122,31 @@ int stream_set_file(stream_t s, vfs_file_t* file)
     return (int)s;
 }
 
-vfs_file_t* stream_get_file(stream_t s)
-{
+vfs_file_t *stream_get_file(stream_t s) {
     return streams[s].file;
 }
 
-void stream_write(stream_t s, const char* buf, size_t len)
-{
-    if (!buf || len == 0) return;
+void stream_write(stream_t s, const char *buf, size_t len) {
+    if (!buf || len == 0)
+        return;
 
-    stream_impl_t* st = &streams[s];
+    stream_impl_t *st = &streams[s];
 
     if (st->file) {
-        vfs_write(st->file, (const uint8_t*)buf, len);
+        vfs_write(st->file, (const uint8_t *)buf, len);
     } else {
         flanterm_write(ft_ctx, buf, len);
     }
 }
 
-void stream_putc(stream_t s, char c)
-{
+void stream_putc(stream_t s, char c) {
     char str[2];
     str[0] = c;
     str[1] = '\0';
     stream_write(s, str, 1);
 }
 
-void fd_table_init(void)
-{
+void fd_table_init(void) {
     if (fd_initialized)
         return;
 
@@ -169,7 +159,7 @@ void fd_table_init(void)
         streams[i].file = NULL;
 
         int flags = (i == STDIN) ? VFS_RDONLY : VFS_WRONLY;
-        fd_object_t* object = fd_object_alloc(NULL, false, flags);
+        fd_object_t *object = fd_object_alloc(NULL, false, flags);
         if (!object)
             return;
 
@@ -180,13 +170,11 @@ void fd_table_init(void)
     fd_initialized = true;
 }
 
-bool fd_valid(int fd)
-{
+bool fd_valid(int fd) {
     return fd >= 0 && fd < STREAM_MAX_FDS && fd_table[fd].used;
 }
 
-vfs_file_t* fd_get_file(int fd)
-{
+vfs_file_t *fd_get_file(int fd) {
     if (!fd_valid(fd))
         return NULL;
 
@@ -196,13 +184,12 @@ vfs_file_t* fd_get_file(int fd)
     return fd_table[fd].object->file;
 }
 
-int fd_open(const char* path, int flags)
-{
+int fd_open(const char *path, int flags) {
     int fd = fd_alloc_slot();
     if (fd < 0)
         return -1;
 
-    fd_object_t* object = fd_object_alloc(NULL, true, flags);
+    fd_object_t *object = fd_object_alloc(NULL, true, flags);
     if (!object)
         return -1;
 
@@ -221,8 +208,7 @@ int fd_open(const char* path, int flags)
     return fd;
 }
 
-int fd_close(int fd)
-{
+int fd_close(int fd) {
     if (!fd_valid(fd))
         return -1;
 
@@ -233,8 +219,7 @@ int fd_close(int fd)
     return 0;
 }
 
-int fd_dup2(int oldfd, int newfd)
-{
+int fd_dup2(int oldfd, int newfd) {
     if (!fd_valid(oldfd) || newfd < 0 || newfd >= STREAM_MAX_FDS)
         return -1;
 
@@ -248,8 +233,7 @@ int fd_dup2(int oldfd, int newfd)
     return newfd;
 }
 
-int fd_dup(int oldfd)
-{
+int fd_dup(int oldfd) {
     if (!fd_valid(oldfd))
         return -1;
 
@@ -261,16 +245,14 @@ int fd_dup(int oldfd)
     return newfd;
 }
 
-int fd_flags(int fd)
-{
+int fd_flags(int fd) {
     if (!fd_valid(fd) || !fd_table[fd].object)
         return 0;
 
     return fd_table[fd].object->flags;
 }
 
-const char* fd_get_path(int fd)
-{
+const char *fd_get_path(int fd) {
     if (!fd_valid(fd) || !fd_table[fd].object)
         return NULL;
 
@@ -280,9 +262,8 @@ const char* fd_get_path(int fd)
     return fd_table[fd].object->path;
 }
 
-uint32_t fd_file_size(int fd)
-{
-    vfs_file_t* file = fd_get_file(fd);
+uint32_t fd_file_size(int fd) {
+    vfs_file_t *file = fd_get_file(fd);
     if (!file || !file->mnt)
         return 0;
 
@@ -300,9 +281,8 @@ uint32_t fd_file_size(int fd)
     }
 }
 
-uint32_t* fd_pos_ptr(int fd)
-{
-    vfs_file_t* file = fd_get_file(fd);
+uint32_t *fd_pos_ptr(int fd) {
+    vfs_file_t *file = fd_get_file(fd);
     if (!file || !file->mnt)
         return NULL;
 

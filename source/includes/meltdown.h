@@ -4,9 +4,9 @@
  * @brief The headers for meltdown.c
  * @version 0.1
  * @date 2023-11-10
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 
 #ifndef MELTDOWN_H
@@ -16,11 +16,11 @@
 #include <graphics.h>
 
 struct InterruptFrame;
-void interrupt_frame_dump(struct InterruptFrame* frame);
+void interrupt_frame_dump(struct InterruptFrame *frame);
 
 /**
  * @brief The Meltdown (Panic) Screen
- * 
+ *
  * @param message The Reason to cause a panic
  * @param file Handler's file
  * @param line Handler's line
@@ -28,6 +28,6 @@ void interrupt_frame_dump(struct InterruptFrame* frame);
  * @param cr2
  * @param int_no
  */
-void meltdown_screen(cstring message, cstring file, int line, uint64 error_code, uint64 cr2, uint64 int_no, struct InterruptFrame* frame);
+void meltdown_screen(cstring message, cstring file, int line, uint64 error_code, uint64 cr2, uint64 int_no, struct InterruptFrame *frame);
 
 #endif

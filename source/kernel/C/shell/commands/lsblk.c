@@ -4,11 +4,10 @@
  * @brief List block devices in tree format
  */
 
-#include <commands/commands.h>
 #include <ahci.h>
+#include <commands/commands.h>
 
-void print_size(uint64_t sectors)
-{
+void print_size(uint64_t sectors) {
     uint64_t bytes = sectors * 512;
 
     if (bytes >= (1 GiB)) {
@@ -22,32 +21,39 @@ void print_size(uint64_t sectors)
     }
 }
 
-const char* fs_name(partition_fs_type_t fs)
-{
+const char *fs_name(partition_fs_type_t fs) {
     switch (fs) {
-        case FS_FAT16:   return "fat16";
-        case FS_FAT32:   return "fat32";
-        case FS_ISO9660: return "iso9660";
-        case FS_PROC:    return "proc";
-        case FS_DEV:     return "dev";
-        case FS_EXT2:    return "ext2";
-        default:         return "unknown";
+        case FS_FAT16:
+            return "fat16";
+        case FS_FAT32:
+            return "fat32";
+        case FS_ISO9660:
+            return "iso9660";
+        case FS_PROC:
+            return "proc";
+        case FS_DEV:
+            return "dev";
+        case FS_EXT2:
+            return "ext2";
+        default:
+            return "unknown";
     }
 }
 
-static const char* device_type_name(block_device_type_t type)
-{
+static const char *device_type_name(block_device_type_t type) {
     switch (type) {
-        case BLOCK_DEVICE_AHCI: return "disk";
-        case BLOCK_DEVICE_NVME: return "nvme";
-        default: return "block";
+        case BLOCK_DEVICE_AHCI:
+            return "disk";
+        case BLOCK_DEVICE_NVME:
+            return "nvme";
+        default:
+            return "block";
     }
 }
 
-static const char* mount_point_for_partition(const char* part_name)
-{
+static const char *mount_point_for_partition(const char *part_name) {
     for (int i = 0; i < mounted_partition_count; i++) {
-        mount_entry_t* mount = &mounted_partitions[i];
+        mount_entry_t *mount = &mounted_partitions[i];
         if (strcmp(mount->part_name, part_name) == 0)
             return mount->mount_point;
     }
@@ -55,8 +61,7 @@ static const char* mount_point_for_partition(const char* part_name)
     return "-";
 }
 
-static const char* ro_flag_for_filesystem(partition_fs_type_t fs)
-{
+static const char *ro_flag_for_filesystem(partition_fs_type_t fs) {
     switch (fs) {
         case FS_ISO9660:
         case FS_DEV:
@@ -66,15 +71,14 @@ static const char* ro_flag_for_filesystem(partition_fs_type_t fs)
     }
 }
 
-int cmd_lsblk(int argc, char** argv)
-{
+int cmd_lsblk(int argc, char **argv) {
     (void)argc;
     (void)argv;
 
     printf("Name           Size     Type     Filesystem RO Mountpoint");
 
     for (int dev_id = 0; dev_id < block_device_count; dev_id++) {
-        block_device_info_t* dev = &block_devices[dev_id];
+        block_device_info_t *dev = &block_devices[dev_id];
         if (!dev->present)
             continue;
 
@@ -94,15 +98,17 @@ int cmd_lsblk(int argc, char** argv)
 
         int seen = 0;
         for (int i = 0; i < general_partition_count; i++) {
-            general_partition_t* p = &ahci_partitions[i];
+            general_partition_t *p = &ahci_partitions[i];
             if (p->ahci_port != (uint64)dev_id)
                 continue;
 
             seen++;
             int last = (seen == part_count);
 
-            if (last) printfnoln("└─");
-            else      printfnoln("├─");
+            if (last)
+                printfnoln("└─");
+            else
+                printfnoln("├─");
 
             printfnoln("%s      ", p->name);
             print_size((uint64_t)p->sector_count);

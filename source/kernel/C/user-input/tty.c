@@ -4,16 +4,16 @@
  * @brief Source code for kernel's terminal output management. (TTY)
  * @version 0.1
  * @date 2026-04-02
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 
-#include <tty.h>
 #include <graphics.h>
-#include <ringbuffer.h>
 #include <multitasking.h>
+#include <ringbuffer.h>
 #include <sys/termios.h>
+#include <tty.h>
 
 static ring_buffer_t cooked_rb;
 static char cooked_storage[TTY_COOKED_MAX];
@@ -30,8 +30,8 @@ void tty_init(void) {
         .c_oflag = LINUX_OPOST | LINUX_ONLCR,
         .c_cflag = LINUX_CREAD | LINUX_CS8,
         .c_lflag = LINUX_ISIG | LINUX_ICANON |
-                LINUX_ECHO | LINUX_ECHOE |
-                LINUX_ECHOK | LINUX_IEXTEN,
+                   LINUX_ECHO | LINUX_ECHOE |
+                   LINUX_ECHOK | LINUX_IEXTEN,
     };
 
     tty_termios.c_cc[LINUX_VMIN] = 1;
@@ -47,8 +47,7 @@ static void tty_push_cooked(char c) {
     }
 }
 
-void tty_input_char(char c)
-{
+void tty_input_char(char c) {
     if (c == '\0')
         return;
 
@@ -111,7 +110,7 @@ void tty_input_char(char c)
 }
 
 extern volatile uint64_t pit_ticks;
-int tty_read(char* buf, uint64_t count) {
+int tty_read(char *buf, uint64_t count) {
     if (!buf || count == 0)
         return 0;
 

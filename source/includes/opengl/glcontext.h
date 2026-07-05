@@ -4,7 +4,7 @@
  * @brief Contains the opengl context specific functions/data structures
  * @version 0.1
  * @date 2023-10-24
- * 
+ *
  * @copyright Copyright (c) Pradosh & GAMINGNOOBdev 2023
  */
 #ifndef __OPENGL__GLCONTEXT_H_
@@ -14,61 +14,60 @@
 #include <limine.h>
 #include <stdbool.h>
 
-struct GLContext
-{
-    uint32_t* ColorBuffer;
+struct GLContext {
+    uint32_t *ColorBuffer;
     uint32_t ColorBufferWidth;
     uint32_t ColorBufferHeight;
     bool Initialized;
 };
 
-#define GET_CURRENT_GL_CONTEXT(name) struct GLContext* name = glGetCurrentContext()
+#define GET_CURRENT_GL_CONTEXT(name) struct GLContext *name = glGetCurrentContext()
 
 /**
  * @brief Initializes an "OpenGL" context
- * 
+ *
  * Initializes an "OpenGL" context, if there isn't an active one it will create one.
  * In case there is an active context, the active context will be returned instead.
- * 
+ *
  * @returns The current active "OpenGL" context
  */
-GLAPI struct GLContext* glCreateContext(void);
+GLAPI struct GLContext *glCreateContext(void);
 
 /**
  * @brief Initializes an "OpenGL" context
- * 
+ *
  * Initializes an "OpenGL" context, if there isn't an active one it will create one.
  * In case there is an active context, the active context will be returned instead.
- * 
+ *
  * @param buffer Pointer to the Framebuffer
  * @param width Width of the framebuffer
  * @param height Height of the framebuffer
- * 
+ *
  * @returns The current active "OpenGL" context
  */
-GLAPI struct GLContext* glCreateContextCustom(uint32_t* buffer, uint32_t width, uint32_t height);
+GLAPI struct GLContext *glCreateContextCustom(uint32_t *buffer, uint32_t width, uint32_t height);
 
 /**
  * @brief Gets the current active "OpenGL" context
- * 
- * @returns The current "OpenGL" context 
+ *
+ * @returns The current "OpenGL" context
  */
-GLAPI struct GLContext* glGetCurrentContext(void);
+GLAPI struct GLContext *glGetCurrentContext(void);
 
 /**
  * @brief Checks if the current context (if existent) is initialized
- * 
- * @returns `true` if the context is initialized, otherwise `false` 
+ *
+ * @returns `true` if the context is initialized, otherwise `false`
  */
 GLAPI bool glContextInitialized(void);
 
 /**
  * @brief Destroys a given "OpenGL" context
- * 
+ *
  * @param context Pointer to an active "OpenGL" context
- * 
+ *
  * @note To destroy the current context, pass `NULL` as value for `context`
  */
-GLAPI void glDestroyContext(struct GLContext* context);
+GLAPI void glDestroyContext(struct GLContext *context);
 
 #endif

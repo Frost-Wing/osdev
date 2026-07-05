@@ -1,26 +1,25 @@
 /**
  * @file elf.c
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2024-01-02
- * 
+ *
  * @copyright Copyright (c) Pradosh 2024
- * 
+ *
  */
+#include <debugger.h>
 #include <executables/elf.h>
 #include <fdlfcn.h>
-#include <graphics.h>
-#include <memory.h>
-#include <stdint.h>
-#include <heap.h>
 #include <filesystems/vfs.h>
+#include <graphics.h>
+#include <heap.h>
+#include <memory.h>
 #include <paging.h>
+#include <stdint.h>
 #include <userland.h>
-#include <debugger.h>
 
-static uint32_t* elf_vfs_pos_ptr(vfs_file_t* file)
-{
+static uint32_t *elf_vfs_pos_ptr(vfs_file_t *file) {
     if (!file || !file->mnt)
         return NULL;
 
@@ -49,14 +48,13 @@ static uint32_t* elf_vfs_pos_ptr(vfs_file_t* file)
     }
 }
 
-static int elf_vfs_seek(vfs_file_t* file, uint32_t offset)
-{
-    uint32_t* pos = elf_vfs_pos_ptr(file);
+static int elf_vfs_seek(vfs_file_t *file, uint32_t offset) {
+    uint32_t *pos = elf_vfs_pos_ptr(file);
     if (!pos)
         return -1;
 
     if (file->mnt->type == FS_FAT32) {
-        fat32_file_t* fat32 = &file->f.fat32;
+        fat32_file_t *fat32 = &file->f.fat32;
         uint32_t cluster_size = fat32->fs->sectors_per_cluster * FAT32_SECTOR_SIZE;
         uint32_t cluster = fat32->start_cluster;
         uint32_t steps = cluster_size ? (offset / cluster_size) : 0;
@@ -73,17 +71,15 @@ static int elf_vfs_seek(vfs_file_t* file, uint32_t offset)
     return 0;
 }
 
-static int elf_vfs_read_exact(vfs_file_t* file, uint32_t offset, void* buf, uint32_t size)
-{
+static int elf_vfs_read_exact(vfs_file_t *file, uint32_t offset, void *buf, uint32_t size) {
     if (elf_vfs_seek(file, offset) != 0)
         return -1;
 
-    int rd = vfs_read(file, (uint8_t*)buf, size);
+    int rd = vfs_read(file, (uint8_t *)buf, size);
     return (rd >= 0 && (uint32_t)rd == size) ? 0 : -1;
 }
 
-static int elf_vfs_read_exact_path(const char* path, uint32_t offset, void* buf, uint32_t size)
-{
+static int elf_vfs_read_exact_path(const char *path, uint32_t offset, void *buf, uint32_t size) {
     vfs_file_t file;
     if (vfs_open(path, VFS_RDONLY, &file) != 0)
         return -1;
@@ -93,8 +89,7 @@ static int elf_vfs_read_exact_path(const char* path, uint32_t offset, void* buf,
     return rc;
 }
 
-static void elf_record_tls_segment(const Elf64_Phdr* ph, elf_image_info_t* info)
-{
+static void elf_record_tls_segment(const Elf64_Phdr *ph, elf_image_info_t *info) {
     if (!info || !ph || ph->p_type != PT_TLS)
         return;
 
@@ -104,8 +99,7 @@ static void elf_record_tls_segment(const Elf64_Phdr* ph, elf_image_info_t* info)
     info->tls_align = ph->p_align;
 }
 
-static int elf_load_tls_template_from_memory(void* file_base_address, uint64_t file_size, elf_image_info_t* info)
-{
+static int elf_load_tls_template_from_memory(void *file_base_address, uint64_t file_size, elf_image_info_t *info) {
     if (!info || info->tls_filesz == 0)
         return 0;
 
@@ -120,12 +114,11 @@ static int elf_load_tls_template_from_memory(void* file_base_address, uint64_t f
         return -1;
     }
 
-    memcpy(info->tls_template, (uint8_t*)file_base_address + info->tls_offset, info->tls_filesz);
+    memcpy(info->tls_template, (uint8_t *)file_base_address + info->tls_offset, info->tls_filesz);
     return 0;
 }
 
-__attribute__((unused)) static int elf_load_tls_template_from_vfs(const char* path, elf_image_info_t* info)
-{
+__attribute__((unused)) static int elf_load_tls_template_from_vfs(const char *path, elf_image_info_t *info) {
     if (!info || info->tls_filesz == 0)
         return 0;
 
@@ -147,35 +140,33 @@ __attribute__((unused)) static int elf_load_tls_template_from_vfs(const char* pa
 
 typedef uint64_t (*elf_ifunc_resolver_t)(void);
 
-static uint64_t elf_symbol_runtime_value(const Elf64_Sym* symtab, uint64_t sym_count, uint32_t sym_index, uint64_t load_bias)
-{
+static uint64_t elf_symbol_runtime_value(const Elf64_Sym *symtab, uint64_t sym_count, uint32_t sym_index, uint64_t load_bias) {
     if (!symtab || sym_count == 0 || sym_index >= sym_count)
         return 0;
 
-    const Elf64_Sym* sym = &symtab[sym_index];
+    const Elf64_Sym *sym = &symtab[sym_index];
     if (sym->st_shndx == SHN_UNDEF)
         return 0;
 
     return load_bias + sym->st_value;
 }
 
-static int elf_apply_relocation_entries(const Elf64_Rela* relocs,
-                                        uint64_t reloc_count,
-                                        const Elf64_Sym* symtab,
-                                        uint64_t sym_count,
-                                        uint64_t load_bias)
-{
+static int elf_apply_relocation_entries(const Elf64_Rela *relocs,
+    uint64_t reloc_count,
+    const Elf64_Sym *symtab,
+    uint64_t sym_count,
+    uint64_t load_bias) {
     if (!relocs || reloc_count == 0)
         return 0;
 
     for (uint64_t i = 0; i < reloc_count; ++i) {
-        const Elf64_Rela* reloc = &relocs[i];
+        const Elf64_Rela *reloc = &relocs[i];
         uint32_t reloc_type = ELF64_R_TYPE(reloc->r_info);
 
         if (reloc_type != R_X86_64_RELATIVE)
             continue;
 
-        uint64_t* target = (uint64_t*)(load_bias + reloc->r_offset);
+        uint64_t *target = (uint64_t *)(load_bias + reloc->r_offset);
         if (!target) {
             eprintf("elf: invalid relocation target");
             return -1;
@@ -185,10 +176,10 @@ static int elf_apply_relocation_entries(const Elf64_Rela* relocs,
     }
 
     for (uint64_t i = 0; i < reloc_count; ++i) {
-        const Elf64_Rela* reloc = &relocs[i];
+        const Elf64_Rela *reloc = &relocs[i];
         uint32_t reloc_type = ELF64_R_TYPE(reloc->r_info);
         uint32_t sym_index = ELF64_R_SYM(reloc->r_info);
-        uint64_t* target = (uint64_t*)(load_bias + reloc->r_offset);
+        uint64_t *target = (uint64_t *)(load_bias + reloc->r_offset);
         uint64_t sym_value = elf_symbol_runtime_value(symtab, sym_count, sym_index, load_bias);
 
         if (!target) {
@@ -217,10 +208,10 @@ static int elf_apply_relocation_entries(const Elf64_Rela* relocs,
 
             default:
                 eprintf("elf: unsupported reloc type=%u sym=%u off=%x add=%x",
-                        reloc_type,
-                        sym_index,
-                        reloc->r_offset,
-                        reloc->r_addend);
+                    reloc_type,
+                    sym_index,
+                    reloc->r_offset,
+                    reloc->r_addend);
                 return -1;
         }
     }
@@ -228,14 +219,13 @@ static int elf_apply_relocation_entries(const Elf64_Rela* relocs,
     return 0;
 }
 
-static uint64_t elf_compute_load_bias(const Elf64_Ehdr* header, const Elf64_Phdr* headers)
-{
+static uint64_t elf_compute_load_bias(const Elf64_Ehdr *header, const Elf64_Phdr *headers) {
     if (!header || !headers)
         return 0;
 
     uint64_t lowest_vaddr = UINT64_MAX;
     for (uint16_t i = 0; i < header->e_phnum; ++i) {
-        const Elf64_Phdr* ph = &headers[i];
+        const Elf64_Phdr *ph = &headers[i];
         if (ph->p_type != PT_LOAD)
             continue;
         if (ph->p_vaddr < lowest_vaddr)
@@ -254,22 +244,21 @@ static uint64_t elf_compute_load_bias(const Elf64_Ehdr* header, const Elf64_Phdr
 }
 
 static int elf_parse_dynamic_relocations(uint64_t load_bias,
-                                         const Elf64_Phdr* headers,
-                                         uint16_t phnum,
-                                         const Elf64_Rela** relocs,
-                                         uint64_t* reloc_count,
-                                         const Elf64_Sym** symtab,
-                                         uint64_t* sym_count)
-{
+    const Elf64_Phdr *headers,
+    uint16_t phnum,
+    const Elf64_Rela **relocs,
+    uint64_t *reloc_count,
+    const Elf64_Sym **symtab,
+    uint64_t *sym_count) {
     if (!headers || !relocs || !reloc_count || !symtab || !sym_count)
         return -1;
 
-    const Elf64_Dyn* dynamic = NULL;
+    const Elf64_Dyn *dynamic = NULL;
     uint64_t dynamic_count = 0;
     for (uint16_t i = 0; i < phnum; ++i) {
         if (headers[i].p_type != PT_DYNAMIC)
             continue;
-        dynamic = (const Elf64_Dyn*)(load_bias + headers[i].p_vaddr);
+        dynamic = (const Elf64_Dyn *)(load_bias + headers[i].p_vaddr);
         dynamic_count = headers[i].p_memsz / sizeof(Elf64_Dyn);
         break;
     }
@@ -285,7 +274,7 @@ static int elf_parse_dynamic_relocations(uint64_t load_bias,
     uint64_t hash_ptr = 0;
 
     for (uint64_t i = 0; i < dynamic_count; ++i) {
-        const Elf64_Dyn* dyn = &dynamic[i];
+        const Elf64_Dyn *dyn = &dynamic[i];
         if (dyn->d_tag == DT_NULL)
             break;
         switch (dyn->d_tag) {
@@ -323,24 +312,23 @@ static int elf_parse_dynamic_relocations(uint64_t load_bias,
         return -1;
     }
 
-    *relocs = (const Elf64_Rela*)(load_bias + rela_ptr);
+    *relocs = (const Elf64_Rela *)(load_bias + rela_ptr);
     *reloc_count = rela_sz / rela_ent;
-    *symtab = (const Elf64_Sym*)(sym_ptr ? (load_bias + sym_ptr) : 0);
+    *symtab = (const Elf64_Sym *)(sym_ptr ? (load_bias + sym_ptr) : 0);
     *sym_count = 0;
 
     if (hash_ptr) {
-        const uint32_t* hash = (const uint32_t*)(load_bias + hash_ptr);
+        const uint32_t *hash = (const uint32_t *)(load_bias + hash_ptr);
         *sym_count = hash[1];
     }
 
     return 0;
 }
 
-static int elf_apply_runtime_relocations(uint64_t load_bias, const Elf64_Phdr* headers, uint16_t phnum)
-{
-    const Elf64_Rela* relocs = NULL;
+static int elf_apply_runtime_relocations(uint64_t load_bias, const Elf64_Phdr *headers, uint16_t phnum) {
+    const Elf64_Rela *relocs = NULL;
     uint64_t reloc_count = 0;
-    const Elf64_Sym* symtab = NULL;
+    const Elf64_Sym *symtab = NULL;
     uint64_t sym_count = 0;
 
     if (elf_parse_dynamic_relocations(load_bias, headers, phnum, &relocs, &reloc_count, &symtab, &sym_count) != 0)
@@ -349,10 +337,9 @@ static int elf_apply_runtime_relocations(uint64_t load_bias, const Elf64_Phdr* h
     return elf_apply_relocation_entries(relocs, reloc_count, symtab, sym_count, load_bias);
 }
 
-static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum, uint64_t file_offset, uint64_t load_bias)
-{
+static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr *headers, uint16_t phnum, uint64_t file_offset, uint64_t load_bias) {
     for (uint16_t i = 0; i < phnum; ++i) {
-        Elf64_Phdr* ph = &headers[i];
+        Elf64_Phdr *ph = &headers[i];
         if (ph->p_type != PT_LOAD || ph->p_filesz == 0)
             continue;
 
@@ -365,8 +352,7 @@ static uint64_t elf_runtime_addr_for_offset(Elf64_Phdr* headers, uint16_t phnum,
     return 0;
 }
 
-__attribute__((unused)) static void elf_log_load_progress(uint16_t current, uint16_t total, Elf64_Phdr* ph)
-{
+__attribute__((unused)) static void elf_log_load_progress(uint16_t current, uint16_t total, Elf64_Phdr *ph) {
     if (!total)
         return;
 
@@ -378,19 +364,17 @@ __attribute__((unused)) static void elf_log_load_progress(uint16_t current, uint
         bar[i] = (i < filled) ? '#' : '-';
     bar[20] = '\0';
 
-    printfnoln( "\r" blue_color "elf: [%s] %u% (%02u/%02u) type=%u vaddr=%x off=%x" reset_color,
-           bar,
-           pct,
-           (uint32_t)(current + 1),
-           (uint32_t)total,
-           ph ? ph->p_type : 0,
-           ph ? ph->p_vaddr : 0,
-           ph ? ph->p_offset : 0);
+    printfnoln("\r" blue_color "elf: [%s] %u% (%02u/%02u) type=%u vaddr=%x off=%x" reset_color,
+        bar,
+        pct,
+        (uint32_t)(current + 1),
+        (uint32_t)total,
+        ph ? ph->p_type : 0,
+        ph ? ph->p_vaddr : 0,
+        ph ? ph->p_offset : 0);
 }
 
-
-static uint64_t elf_stage_phdrs_for_user(Elf64_Phdr* headers, uint64_t phdr_bytes)
-{
+static uint64_t elf_stage_phdrs_for_user(Elf64_Phdr *headers, uint64_t phdr_bytes) {
     if (!headers || phdr_bytes == 0)
         return 0;
 
@@ -402,17 +386,15 @@ static uint64_t elf_stage_phdrs_for_user(Elf64_Phdr* headers, uint64_t phdr_byte
         map_user_page(base + off, phys, USER_DATA_FLAGS);
     }
 
-    memset((void*)base, 0, aligned);
-    memcpy((void*)base, headers, phdr_bytes);
+    memset((void *)base, 0, aligned);
+    memcpy((void *)base, headers, phdr_bytes);
     return base;
 }
 
-static int elf_validate_header(const Elf64_Ehdr* header, uint64_t file_size)
-{
+static int elf_validate_header(const Elf64_Ehdr *header, uint64_t file_size) {
     if (memcmp(&header->e_ident[EI_MAG0], ELFMAG, SELFMAG) != 0 || header->e_ident[EI_CLASS] != ELFCLASS64 ||
         header->e_ident[EI_DATA] != ELFDATA2LSB || (header->e_type != ET_EXEC && header->e_type != ET_DYN) ||
-        header->e_machine != EM_X86_64 || header->e_version != EV_CURRENT)
-    {
+        header->e_machine != EM_X86_64 || header->e_version != EV_CURRENT) {
         error("Not a valid ELF file to load!", __FILE__);
         return -1;
     }
@@ -426,8 +408,7 @@ static int elf_validate_header(const Elf64_Ehdr* header, uint64_t file_size)
     return 0;
 }
 
-static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file_size, uint64_t load_bias)
-{
+static int elf_map_program_header(Elf64_Phdr *ph, void *file_base, uint64_t file_size, uint64_t load_bias) {
     if (ph->p_type != PT_LOAD)
         return 0;
 
@@ -450,20 +431,19 @@ static int elf_map_program_header(Elf64_Phdr* ph, void* file_base, uint64_t file
         map_user_page(page, phys, page_flags);
     }
 
-    void* segment = (void*)(load_bias + ph->p_vaddr);
+    void *segment = (void *)(load_bias + ph->p_vaddr);
 
-    memcpy(segment, (uint8_t*)file_base + ph->p_offset, ph->p_filesz);
+    memcpy(segment, (uint8_t *)file_base + ph->p_offset, ph->p_filesz);
 
     if (ph->p_memsz > ph->p_filesz) {
-        memset((uint8_t*)segment + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
+        memset((uint8_t *)segment + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
     }
 
     // printf("Loaded user segment -> vaddr=%x size=%u flags=%x", segment, ph->p_memsz, ph->p_flags);
     return 0;
 }
 
-__attribute__((unused)) static int elf_map_program_header_from_vfs(Elf64_Phdr* ph, const char* path, uint64_t file_size, uint16_t seg_index, uint64_t load_bias)
-{
+__attribute__((unused)) static int elf_map_program_header_from_vfs(Elf64_Phdr *ph, const char *path, uint64_t file_size, uint16_t seg_index, uint64_t load_bias) {
     if (ph->p_type != PT_LOAD)
         return 0;
 
@@ -510,41 +490,40 @@ __attribute__((unused)) static int elf_map_program_header_from_vfs(Elf64_Phdr* p
             if (rd < 0 || (uint32_t)rd != want) {
                 vfs_close(&file);
                 eprintf("elf: seg %u short read off=%x want=%u got=%d copied=%u/%u",
-                        seg_index,
-                        ph->p_offset + copied,
-                        want,
-                        rd,
-                        copied,
-                        ph->p_filesz);
+                    seg_index,
+                    ph->p_offset + copied,
+                    want,
+                    rd,
+                    copied,
+                    ph->p_filesz);
                 return -1;
             }
 
-            memcpy((void*)(load_bias + ph->p_vaddr + copied), chunk, want);
+            memcpy((void *)(load_bias + ph->p_vaddr + copied), chunk, want);
             copied += want;
         }
 
         vfs_close(&file);
         if (copied != ph->p_filesz) {
             eprintf("elf: seg %u copy mismatch copied=%u expected=%u",
-                    seg_index,
-                    copied,
-                    ph->p_filesz);
+                seg_index,
+                copied,
+                ph->p_filesz);
             return -1;
         }
     }
 
     if (ph->p_memsz > ph->p_filesz)
-        memset((uint8_t*)(load_bias + ph->p_vaddr) + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
+        memset((uint8_t *)(load_bias + ph->p_vaddr) + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
 
     return 0;
 }
 
-void* elf_load_from_memory_ex(void* file_base_address, uint64_t file_size, elf_image_info_t* info)
-{
+void *elf_load_from_memory_ex(void *file_base_address, uint64_t file_size, elf_image_info_t *info) {
     if (file_base_address == NULL || file_size < sizeof(Elf64_Ehdr))
         return NULL;
 
-    uint8_t* file_ptr = file_base_address;
+    uint8_t *file_ptr = file_base_address;
     Elf64_Ehdr header = {0};
     memcpy(&header, file_ptr, sizeof(Elf64_Ehdr));
 
@@ -553,14 +532,14 @@ void* elf_load_from_memory_ex(void* file_base_address, uint64_t file_size, elf_i
 
     // printf("Parsing ELF64 file with %d PHDRs\n", header.e_phnum);
 
-    Elf64_Phdr* program_headers_start = (Elf64_Phdr*)((uint8_t*)file_base_address + header.e_phoff);
+    Elf64_Phdr *program_headers_start = (Elf64_Phdr *)((uint8_t *)file_base_address + header.e_phoff);
     uint64_t load_bias = elf_compute_load_bias(&header, program_headers_start);
 
     if (info)
         memset(info, 0, sizeof(*info));
 
     for (uint16_t i = 0; i < header.e_phnum; i++) {
-        Elf64_Phdr* prog_header = (Elf64_Phdr*)((uint8_t*)program_headers_start + ((uint64_t)i * header.e_phentsize));
+        Elf64_Phdr *prog_header = (Elf64_Phdr *)((uint8_t *)program_headers_start + ((uint64_t)i * header.e_phentsize));
         if (info)
             elf_record_tls_segment(prog_header, info);
         if (elf_map_program_header(prog_header, file_base_address, file_size, load_bias) != 0) {
@@ -571,7 +550,7 @@ void* elf_load_from_memory_ex(void* file_base_address, uint64_t file_size, elf_i
     if (info) {
         info->entry = load_bias + header.e_entry;
         info->phdr_addr = elf_stage_phdrs_for_user(program_headers_start,
-                                                   (uint64_t)header.e_phnum * header.e_phentsize);
+            (uint64_t)header.e_phnum * header.e_phentsize);
         if (info->phdr_addr == 0)
             info->phdr_addr = elf_runtime_addr_for_offset(program_headers_start, header.e_phnum, header.e_phoff, load_bias);
         info->phentsize = header.e_phentsize;
@@ -583,20 +562,18 @@ void* elf_load_from_memory_ex(void* file_base_address, uint64_t file_size, elf_i
     if (elf_apply_runtime_relocations(load_bias, program_headers_start, header.e_phnum) != 0)
         return NULL;
 
-    return (void*)(load_bias + header.e_entry);
+    return (void *)(load_bias + header.e_entry);
 }
 
-void* elf_load_from_memory(void* file_base_address, uint64_t file_size)
-{
+void *elf_load_from_memory(void *file_base_address, uint64_t file_size) {
     return elf_load_from_memory_ex(file_base_address, file_size, NULL);
 }
 
-void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
-{
+void *elf_load_from_vfs_ex(const char *path, elf_image_info_t *info) {
     if (!path)
         return NULL;
 
-        debug_printf("path = %s\n", path);
+    debug_printf("path = %s\n", path);
 
     vfs_file_t file;
     if (vfs_open(path, VFS_RDONLY, &file) != 0) {
@@ -651,7 +628,7 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
         return NULL;
     }
 
-    uint8_t* file_image = kmalloc(size);
+    uint8_t *file_image = kmalloc(size);
     if (!file_image) {
         vfs_close(&file);
         eprintf("elf: failed to allocate file image");
@@ -666,12 +643,11 @@ void* elf_load_from_vfs_ex(const char* path, elf_image_info_t* info)
     }
     vfs_close(&file);
 
-    void* entry = elf_load_from_memory_ex(file_image, size, info);
+    void *entry = elf_load_from_memory_ex(file_image, size, info);
     kfree(file_image);
     return entry;
 }
 
-void* elf_load_from_vfs(const char* path)
-{
+void *elf_load_from_vfs(const char *path) {
     return elf_load_from_vfs_ex(path, NULL);
 }

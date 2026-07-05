@@ -4,22 +4,22 @@
  * @brief AHCI Drivers for FrostWing OS
  * @version 0.1
  * @date 2023-12-15
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 #include <ahci.h>
-#include <heap.h>
 #include <basics.h>
-#include <graphics.h>
-#include <filesystems/iso9660.h>
-#include <nvme.h>
-#include <memory.h>
 #include <disk/gpt.h>
 #include <disk/mbr.h>
+#include <filesystems/iso9660.h>
+#include <graphics.h>
+#include <heap.h>
+#include <memory.h>
+#include <nvme.h>
 
 ahci_port_mem_t port_mem[32];
-ahci_hba_mem_t* global_ahci_ctrl;
+ahci_hba_mem_t *global_ahci_ctrl;
 ahci_disk_info_t ahci_disks[32];
 general_partition_t ahci_partitions[MAX_PARTITIONS];
 mount_entry_t mounted_partitions[MAX_PARTITIONS];
@@ -29,20 +29,17 @@ int mounted_partition_count = 0;
 int block_device_count = 0;
 static volatile int ahci_port_io_lock[32];
 
-static inline void ahci_lock_port_io(int portno)
-{
+static inline void ahci_lock_port_io(int portno) {
     while (__sync_lock_test_and_set(&ahci_port_io_lock[portno], 1)) {
         __asm__ __volatile__("pause");
     }
 }
 
-static inline void ahci_unlock_port_io(int portno)
-{
+static inline void ahci_unlock_port_io(int portno) {
     __sync_lock_release(&ahci_port_io_lock[portno]);
 }
 
-static int ahci_find_free_slot(ahci_port_t* port)
-{
+static int ahci_find_free_slot(ahci_port_t *port) {
     uint32_t slots = port->sact | port->ci;
 
     for (int i = 0; i < 32; i++) {
@@ -53,23 +50,22 @@ static int ahci_find_free_slot(ahci_port_t* port)
     return -1; // no free slot
 }
 
-static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count);
-static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count);
-static int ahci_read_satapi_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count);
-static int ahci_satapi_read_capacity(int portno, uint32_t* out_last_lba, uint32_t* out_block_size);
+static int ahci_read_sector_raw(int portno, uint64_t lba, void *buffer, uint32_t count);
+static int ahci_write_sector_raw(int portno, uint64_t lba, void *buffer, uint32_t count);
+static int ahci_read_satapi_sector_raw(int portno, uint64_t lba, void *buffer, uint32_t count);
+static int ahci_satapi_read_capacity(int portno, uint32_t *out_last_lba, uint32_t *out_block_size);
 
 int block_register_device(
     block_device_type_t type,
     int backend_index,
     uint64_t total_sectors,
     uint32_t sector_size,
-    const char* name
-) {
+    const char *name) {
     if (block_device_count >= MAX_BLOCK_DEVICES)
         return -1;
 
     int id = block_device_count++;
-    block_device_info_t* dev = &block_devices[id];
+    block_device_info_t *dev = &block_devices[id];
     memset(dev, 0, sizeof(*dev));
 
     dev->type = type;
@@ -88,8 +84,7 @@ int block_register_device(
     return id;
 }
 
-block_device_info_t* block_get_device(int device_id)
-{
+block_device_info_t *block_get_device(int device_id) {
     if (device_id < 0 || device_id >= block_device_count)
         return NULL;
 
@@ -99,18 +94,16 @@ block_device_info_t* block_get_device(int device_id)
     return &block_devices[device_id];
 }
 
-const char* block_get_device_name(int device_id)
-{
-    block_device_info_t* dev = block_get_device(device_id);
+const char *block_get_device_name(int device_id) {
+    block_device_info_t *dev = block_get_device(device_id);
     if (!dev)
         return NULL;
 
     return dev->name;
 }
 
-int block_read_sector(int device_id, uint64_t lba, void* buffer, uint32_t count)
-{
-    block_device_info_t* dev = block_get_device(device_id);
+int block_read_sector(int device_id, uint64_t lba, void *buffer, uint32_t count) {
+    block_device_info_t *dev = block_get_device(device_id);
     if (!dev || !buffer || count == 0)
         return -1;
 
@@ -124,9 +117,8 @@ int block_read_sector(int device_id, uint64_t lba, void* buffer, uint32_t count)
     }
 }
 
-int block_write_sector(int device_id, uint64_t lba, void* buffer, uint32_t count)
-{
-    block_device_info_t* dev = block_get_device(device_id);
+int block_write_sector(int device_id, uint64_t lba, void *buffer, uint32_t count) {
+    block_device_info_t *dev = block_get_device(device_id);
     if (!dev || !buffer || count == 0)
         return -1;
 
@@ -140,7 +132,7 @@ int block_write_sector(int device_id, uint64_t lba, void* buffer, uint32_t count
     }
 }
 
-void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
+void detect_ahci_devices(ahci_hba_mem_t *ahci_ctrl) {
     global_ahci_ctrl = ahci_ctrl;
 
     uint32_t ports_implemented = (uint32_t)(ahci_ctrl->pi);
@@ -149,11 +141,11 @@ void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
         if (!(ports_implemented & (1 << i)))
             continue;
 
-        ahci_port_t* port = &ahci_ctrl->ports[i];
+        ahci_port_t *port = &ahci_ctrl->ports[i];
         uint32_t ssts = port->ssts;
 
-        uint8_t det = (uint8_t)(ssts & 0x0F);         // device detection
-        uint8_t ipm = (uint8_t)((ssts >> 8) & 0x0F);  // interface power management
+        uint8_t det = (uint8_t)(ssts & 0x0F);        // device detection
+        uint8_t ipm = (uint8_t)((ssts >> 8) & 0x0F); // interface power management
 
         if (det != AHCI_PORT_DET_PRESENT || ipm != AHCI_PORT_IPM_ACTIVE)
             continue;
@@ -184,7 +176,6 @@ void detect_ahci_devices(ahci_hba_mem_t* ahci_ctrl) {
     }
 }
 
-
 void handle_satapi_disk(int portno) {
     ahci_init_port(portno);
 
@@ -204,12 +195,11 @@ void handle_satapi_disk(int portno) {
         portno,
         total_sectors_512,
         SECTOR_SIZE,
-        NULL
-    );
+        NULL);
 
     if (iso9660_detect_at_lba(portno, 0)) {
         char part_name[64];
-        const char* dev_name = block_get_device_name(ahci_disks[portno].logical_device);
+        const char *dev_name = block_get_device_name(ahci_disks[portno].logical_device);
         snprintf(part_name, sizeof(part_name), "%sp1", dev_name ? dev_name : "disk");
 
         add_general_partition(
@@ -222,8 +212,7 @@ void handle_satapi_disk(int portno) {
             FS_ISO9660,
             part_name,
             0,
-            null
-        );
+            null);
 
         printf("[AHCI] ISO9660 media detected on SATAPI port %d", portno);
     }
@@ -232,7 +221,7 @@ void handle_satapi_disk(int portno) {
 void handle_sata_disk(int portno) {
     ahci_init_port(portno);
 
-    uint16* id = kmalloc_aligned(512, 4096);
+    uint16 *id = kmalloc_aligned(512, 4096);
 
     if (!id) {
         error("[AHCI] Allocation failed!", __FILE__);
@@ -253,15 +242,15 @@ void handle_sata_disk(int portno) {
         portno,
         sectors,
         SECTOR_SIZE,
-        NULL
-    );
+        NULL);
 
     if (ahci_disks[portno].logical_device < 0) {
         error("[AHCI] Failed to register block device", __FILE__);
         return;
     }
 
-    if(check_gpt(ahci_disks[portno].logical_device) == 0) return;
+    if (check_gpt(ahci_disks[portno].logical_device) == 0)
+        return;
     check_mbr(ahci_disks[portno].logical_device);
 
     // char* msg = "FROSTWING WAS HERE";
@@ -286,7 +275,7 @@ void handle_sata_disk(int portno) {
     // print("\n");
 }
 
-general_partition_t* add_general_partition(
+general_partition_t *add_general_partition(
     partition_table_type_t table_type,
     uint64 lba_start,
     uint64 lba_end,
@@ -296,21 +285,21 @@ general_partition_t* add_general_partition(
     partition_fs_type_t fs_type,
     cstring name,
     uint8_t mbr_type,
-    const uint8_t* gpt_guid   // must be 16 bytes
+    const uint8_t *gpt_guid // must be 16 bytes
 ) {
     if (general_partition_count >= MAX_PARTITIONS)
         return NULL;
 
-    general_partition_t* p = &ahci_partitions[general_partition_count++];
+    general_partition_t *p = &ahci_partitions[general_partition_count++];
     memset(p, 0, sizeof(general_partition_t));
 
-    p->table_type   = table_type;
-    p->lba_start    = lba_start;
-    p->lba_end      = lba_end;
+    p->table_type = table_type;
+    p->lba_start = lba_start;
+    p->lba_end = lba_end;
     p->sector_count = sector_count;
-    p->ahci_port    = ahci_port;
-    p->bootable     = bootable;
-    p->fs_type      = fs_type;
+    p->ahci_port = ahci_port;
+    p->bootable = bootable;
+    p->fs_type = fs_type;
 
     switch (table_type) {
         case PART_TABLE_MBR:
@@ -333,7 +322,7 @@ general_partition_t* add_general_partition(
     return p;
 }
 
-general_partition_t* search_general_partition(cstring partition_name) {
+general_partition_t *search_general_partition(cstring partition_name) {
     if (!partition_name)
         return NULL;
 
@@ -343,12 +332,12 @@ general_partition_t* search_general_partition(cstring partition_name) {
         }
     }
 
-    return NULL;  // not found
+    return NULL; // not found
 }
 
-mount_entry_t* add_mount(const char* mount_point, const char* part_name, partition_fs_type_t type, void* fs_ptr)
-{
-    if (!mount_point || !part_name) return NULL;
+mount_entry_t *add_mount(const char *mount_point, const char *part_name, partition_fs_type_t type, void *fs_ptr) {
+    if (!mount_point || !part_name)
+        return NULL;
 
     for (int i = 0; i < mounted_partition_count; i++) {
         if (strcmp(mounted_partitions[i].mount_point, mount_point) == 0) {
@@ -366,8 +355,9 @@ mount_entry_t* add_mount(const char* mount_point, const char* part_name, partiti
         return NULL;
     }
 
-    mount_entry_t* new_mount = &mounted_partitions[mounted_partition_count];
-    if(!new_mount) return NULL;
+    mount_entry_t *new_mount = &mounted_partitions[mounted_partition_count];
+    if (!new_mount)
+        return NULL;
 
     new_mount->mount_point = strdup(mount_point);
     new_mount->part_name = strdup(part_name);
@@ -377,18 +367,17 @@ mount_entry_t* add_mount(const char* mount_point, const char* part_name, partiti
     // store it in the global array
     mounted_partitions[mounted_partition_count] = *new_mount;
 
-    mounted_partition_count++;    // track number of mounts
+    mounted_partition_count++; // track number of mounts
 
     return new_mount;
 }
 
-int remove_mount(const char* mount_point)
-{
+int remove_mount(const char *mount_point) {
     if (!mount_point)
         return -1;
 
     for (int i = 0; i < mounted_partition_count; i++) {
-        mount_entry_t* m = &mounted_partitions[i];
+        mount_entry_t *m = &mounted_partitions[i];
 
         if (strcmp(m->mount_point, mount_point) == 0) {
 
@@ -407,7 +396,7 @@ int remove_mount(const char* mount_point)
 
             /* Clear last slot (debug safety) */
             memset(&mounted_partitions[mounted_partition_count], 0,
-                   sizeof(mount_entry_t));
+                sizeof(mount_entry_t));
 
             return 0;
         }
@@ -417,44 +406,43 @@ int remove_mount(const char* mount_point)
     return -2;
 }
 
-
-mount_entry_t* find_mount_by_point(const char* mount_point)
-{
-    for(int i = 0; i < mounted_partition_count; i++){
-        if(strcmp(mounted_partitions[i].mount_point, mount_point) == 0){
+mount_entry_t *find_mount_by_point(const char *mount_point) {
+    for (int i = 0; i < mounted_partition_count; i++) {
+        if (strcmp(mounted_partitions[i].mount_point, mount_point) == 0) {
             return &mounted_partitions[i];
         }
     }
     return NULL; // not found
 }
 
-void list_all_mounts(void)
-{
-    if(mounted_partition_count == 0){
+void list_all_mounts(void) {
+    if (mounted_partition_count == 0) {
         printf("no mounted partitions.");
         return;
     }
 
     printf(yellow_color "mounted partitions :" reset_color);
-    for(int i = 0; i < mounted_partition_count; i++){
-        mount_entry_t* mnt = &mounted_partitions[i];
+    for (int i = 0; i < mounted_partition_count; i++) {
+        mount_entry_t *mnt = &mounted_partitions[i];
         printf("  [%d] %s -> %s (FS Type: %d)", i, mnt->part_name, mnt->mount_point, mnt->type);
     }
 }
 
 void ahci_init_port(int portno) {
-    ahci_port_t* port = &global_ahci_ctrl->ports[portno];
-    ahci_port_mem_t* mem = &port_mem[portno];
+    ahci_port_t *port = &global_ahci_ctrl->ports[portno];
+    ahci_port_mem_t *mem = &port_mem[portno];
 
     port->cmd &= (uint32_t)~AHCI_PORT_CMD_ST;
-    while (port->cmd & AHCI_PORT_CMD_CR);
+    while (port->cmd & AHCI_PORT_CMD_CR)
+        ;
 
     port->cmd &= (uint32_t)~AHCI_PORT_CMD_FRE;
-    while (port->cmd & AHCI_PORT_CMD_FR);
+    while (port->cmd & AHCI_PORT_CMD_FR)
+        ;
 
     mem->cmd_list = kmalloc_aligned(1024, 1024);
     memset(mem->cmd_list, 0, 1024);
-    port->clb  = (uint32_t)(uintptr_t)mem->cmd_list;
+    port->clb = (uint32_t)(uintptr_t)mem->cmd_list;
     port->clbu = 0;
 
     mem->fis = kmalloc_aligned(256, 256);
@@ -470,13 +458,12 @@ void ahci_init_port(int portno) {
     }
 
     port->serr = 0xFFFFFFFF;
-    port->is   = 0xFFFFFFFF;
+    port->is = 0xFFFFFFFF;
 
     port->cmd |= AHCI_PORT_CMD_FRE | AHCI_PORT_CMD_ST;
 }
 
-static int __attribute__((unused)) ahci_wait_slot0_ready(ahci_port_t* port)
-{
+static int __attribute__((unused)) ahci_wait_slot0_ready(ahci_port_t *port) {
     uint32_t spins = 1000000;
     while (spins--) {
         if (((port->ci | port->sact) & 1U) == 0)
@@ -486,16 +473,16 @@ static int __attribute__((unused)) ahci_wait_slot0_ready(ahci_port_t* port)
     return -1;
 }
 
-static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count)
-{
+static int ahci_read_sector_raw(int portno, uint64_t lba, void *buffer, uint32_t count) {
     int rc = 0;
-    void* dma_buf = NULL;
-    ahci_port_t* port = &global_ahci_ctrl->ports[portno];
-    ahci_port_mem_t* mem = &port_mem[portno];
+    void *dma_buf = NULL;
+    ahci_port_t *port = &global_ahci_ctrl->ports[portno];
+    ahci_port_mem_t *mem = &port_mem[portno];
 
     ahci_lock_port_io(portno);
 
-    while (port->tfd & (0x80 | 0x08)); // BSY | DRQ
+    while (port->tfd & (0x80 | 0x08))
+        ; // BSY | DRQ
 
     int slot = ahci_find_free_slot(port);
     if (slot < 0) {
@@ -503,14 +490,14 @@ static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t
         goto out;
     }
 
-    ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
+    ahci_cmd_header_t *hdr = &mem->cmd_list[slot];
     memset(hdr, 0, sizeof(*hdr));
     hdr->flags = (5 & AHCI_CMD_HDR_CFL_MASK); // CFL = 5 DWORDS
     hdr->prdtl = 1;
     hdr->ctba = (uint32_t)(uintptr_t)mem->cmd_tables[slot];
     hdr->ctbau = 0;
 
-    ahci_cmd_table_t* tbl = mem->cmd_tables[slot];
+    ahci_cmd_table_t *tbl = mem->cmd_tables[slot];
     memset(tbl->cfis, 0, 64);
     memset(tbl->prdt, 0, sizeof(tbl->prdt));
 
@@ -520,28 +507,28 @@ static int ahci_read_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t
         goto out;
     }
 
-    tbl->prdt[0].dba  = (uint32_t)(uintptr_t)dma_buf;
+    tbl->prdt[0].dba = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
-    tbl->prdt[0].dbc  = (count * 512 - 1) | (1U << 31);
+    tbl->prdt[0].dbc = (count * 512 - 1) | (1U << 31);
 
-    uint8_t* cfis = tbl->cfis;
+    uint8_t *cfis = tbl->cfis;
     cfis[0] = 0x27;
     cfis[1] = 1 << 7;
     cfis[2] = READ_DMA_EXT;
 
-    cfis[4]  = (uint8_t)lba;
-    cfis[5]  = (uint8_t)(lba >> 8);
-    cfis[6]  = (uint8_t)(lba >> 16);
-    cfis[7]  = 0x40;
-    cfis[8]  = (uint8_t)(lba >> 24);
-    cfis[9]  = (uint8_t)(lba >> 32);
+    cfis[4] = (uint8_t)lba;
+    cfis[5] = (uint8_t)(lba >> 8);
+    cfis[6] = (uint8_t)(lba >> 16);
+    cfis[7] = 0x40;
+    cfis[8] = (uint8_t)(lba >> 24);
+    cfis[9] = (uint8_t)(lba >> 32);
     cfis[10] = (uint8_t)(lba >> 40);
 
     cfis[12] = count & 0xFF;
     cfis[13] = (count >> 8) & 0xFF;
 
     port->serr = 0xFFFFFFFF;
-    port->is   = 0xFFFFFFFF;
+    port->is = 0xFFFFFFFF;
 
     __sync_synchronize();
     port->ci = 1 << slot;
@@ -565,16 +552,16 @@ out:
     return rc;
 }
 
-static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count)
-{
+static int ahci_write_sector_raw(int portno, uint64_t lba, void *buffer, uint32_t count) {
     int rc = 0;
-    void* dma_buf = NULL;
-    ahci_port_t* port = &global_ahci_ctrl->ports[portno];
-    ahci_port_mem_t* mem = &port_mem[portno];
+    void *dma_buf = NULL;
+    ahci_port_t *port = &global_ahci_ctrl->ports[portno];
+    ahci_port_mem_t *mem = &port_mem[portno];
 
     ahci_lock_port_io(portno);
 
-    while (port->tfd & (0x80 | 0x08)); // BSY | DRQ
+    while (port->tfd & (0x80 | 0x08))
+        ; // BSY | DRQ
 
     int slot = ahci_find_free_slot(port);
     if (slot < 0) {
@@ -582,14 +569,14 @@ static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_
         goto out;
     }
 
-    ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
+    ahci_cmd_header_t *hdr = &mem->cmd_list[slot];
     memset(hdr, 0, sizeof(*hdr));
     hdr->flags = (5 & AHCI_CMD_HDR_CFL_MASK) | AHCI_CMD_HDR_W_BIT;
     hdr->prdtl = 1;
     hdr->ctba = (uint32_t)(uintptr_t)mem->cmd_tables[slot];
     hdr->ctbau = 0;
 
-    ahci_cmd_table_t* tbl = mem->cmd_tables[slot];
+    ahci_cmd_table_t *tbl = mem->cmd_tables[slot];
     memset(tbl->cfis, 0, 64);
     memset(tbl->prdt, 0, sizeof(tbl->prdt));
 
@@ -600,28 +587,28 @@ static int ahci_write_sector_raw(int portno, uint64_t lba, void* buffer, uint32_
     }
     memcpy(dma_buf, buffer, count * 512);
 
-    tbl->prdt[0].dba  = (uint32_t)(uintptr_t)dma_buf;
+    tbl->prdt[0].dba = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
-    tbl->prdt[0].dbc  = (count * 512 - 1) | (1U << 31);
+    tbl->prdt[0].dbc = (count * 512 - 1) | (1U << 31);
 
-    uint8_t* cfis = tbl->cfis;
+    uint8_t *cfis = tbl->cfis;
     cfis[0] = 0x27;
     cfis[1] = 1 << 7;
     cfis[2] = ATA_CMD_WRITE_DMA_EXT;
 
-    cfis[4]  = (uint8_t)lba;
-    cfis[5]  = (uint8_t)(lba >> 8);
-    cfis[6]  = (uint8_t)(lba >> 16);
-    cfis[7]  = 0x40;
-    cfis[8]  = (uint8_t)(lba >> 24);
-    cfis[9]  = (uint8_t)(lba >> 32);
+    cfis[4] = (uint8_t)lba;
+    cfis[5] = (uint8_t)(lba >> 8);
+    cfis[6] = (uint8_t)(lba >> 16);
+    cfis[7] = 0x40;
+    cfis[8] = (uint8_t)(lba >> 24);
+    cfis[9] = (uint8_t)(lba >> 32);
     cfis[10] = (uint8_t)(lba >> 40);
 
     cfis[12] = count & 0xFF;
     cfis[13] = (count >> 8) & 0xFF;
 
     port->serr = 0xFFFFFFFF;
-    port->is   = 0xFFFFFFFF;
+    port->is = 0xFFFFFFFF;
 
     __sync_synchronize();
     port->ci = 1 << slot;
@@ -642,16 +629,16 @@ out:
     return rc;
 }
 
-int ahci_identify(int portno, void* buffer)
-{
+int ahci_identify(int portno, void *buffer) {
     int rc = 0;
-    void* dma_buf = NULL;
-    ahci_port_t* port = &global_ahci_ctrl->ports[portno];
-    ahci_port_mem_t* mem = &port_mem[portno];
+    void *dma_buf = NULL;
+    ahci_port_t *port = &global_ahci_ctrl->ports[portno];
+    ahci_port_mem_t *mem = &port_mem[portno];
 
     ahci_lock_port_io(portno);
 
-    while (port->tfd & (0x80 | 0x08));
+    while (port->tfd & (0x80 | 0x08))
+        ;
 
     int slot = ahci_find_free_slot(port);
     if (slot < 0) {
@@ -659,14 +646,14 @@ int ahci_identify(int portno, void* buffer)
         goto out;
     }
 
-    ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
+    ahci_cmd_header_t *hdr = &mem->cmd_list[slot];
     memset(hdr, 0, sizeof(*hdr));
     hdr->flags = (5 & AHCI_CMD_HDR_CFL_MASK); // CFL = 5 DWORDS
     hdr->prdtl = 1;
     hdr->ctba = (uint32_t)(uintptr_t)mem->cmd_tables[slot];
     hdr->ctbau = 0;
 
-    ahci_cmd_table_t* tbl = mem->cmd_tables[slot];
+    ahci_cmd_table_t *tbl = mem->cmd_tables[slot];
     memset(tbl->cfis, 0, 64);
     memset(tbl->prdt, 0, sizeof(tbl->prdt));
 
@@ -676,17 +663,17 @@ int ahci_identify(int portno, void* buffer)
         goto out;
     }
 
-    tbl->prdt[0].dba  = (uint32_t)(uintptr_t)dma_buf;
+    tbl->prdt[0].dba = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
-    tbl->prdt[0].dbc  = (512 - 1) | (1U << 31);
+    tbl->prdt[0].dbc = (512 - 1) | (1U << 31);
 
-    uint8_t* cfis = tbl->cfis;
+    uint8_t *cfis = tbl->cfis;
     cfis[0] = 0x27;
     cfis[1] = 1 << 7;
     cfis[2] = ATA_CMD_IDENTIFY;
 
     port->serr = 0xFFFFFFFF;
-    port->is   = 0xFFFFFFFF;
+    port->is = 0xFFFFFFFF;
 
     __sync_synchronize();
     port->ci = 1 << slot;
@@ -710,40 +697,38 @@ out:
     return rc;
 }
 
-int ahci_read_sector(int portno, uint64_t lba, void* buffer, uint32_t count)
-{   
+int ahci_read_sector(int portno, uint64_t lba, void *buffer, uint32_t count) {
     if (!global_ahci_ctrl || portno < 0 || portno >= 32)
         return -1;
 
     if (global_ahci_ctrl->ports[portno].sig == satapi_disk)
         return ahci_read_satapi_sector_raw(portno, lba, buffer, count);
-    
+
     return block_read_sector(portno, lba, buffer, count);
 }
 
-int ahci_write_sector(int portno, uint64_t lba, void* buffer, uint32_t count)
-{
+int ahci_write_sector(int portno, uint64_t lba, void *buffer, uint32_t count) {
     return block_write_sector(portno, lba, buffer, count);
 }
 
 static int ahci_issue_packet_command(
     int portno,
     const uint8_t packet[12],
-    void* dma_buf,
+    void *dma_buf,
     uint32_t byte_count,
-    bool write
-) {
+    bool write) {
     int rc = 0;
-    ahci_port_t* port = &global_ahci_ctrl->ports[portno];
-    ahci_port_mem_t* mem = &port_mem[portno];
+    ahci_port_t *port = &global_ahci_ctrl->ports[portno];
+    ahci_port_mem_t *mem = &port_mem[portno];
 
-    while (port->tfd & (0x80 | 0x08));
+    while (port->tfd & (0x80 | 0x08))
+        ;
 
     int slot = ahci_find_free_slot(port);
     if (slot < 0)
         return -1;
 
-    ahci_cmd_header_t* hdr = &mem->cmd_list[slot];
+    ahci_cmd_header_t *hdr = &mem->cmd_list[slot];
     memset(hdr, 0, sizeof(*hdr));
     hdr->flags = (5 & AHCI_CMD_HDR_CFL_MASK) | AHCI_CMD_HDR_A_BIT;
     if (write)
@@ -752,7 +737,7 @@ static int ahci_issue_packet_command(
     hdr->ctba = (uint32_t)(uintptr_t)mem->cmd_tables[slot];
     hdr->ctbau = 0;
 
-    ahci_cmd_table_t* tbl = mem->cmd_tables[slot];
+    ahci_cmd_table_t *tbl = mem->cmd_tables[slot];
     memset(tbl->cfis, 0, sizeof(tbl->cfis));
     memset(tbl->acmd, 0, sizeof(tbl->acmd));
     memset(tbl->prdt, 0, sizeof(tbl->prdt));
@@ -762,7 +747,7 @@ static int ahci_issue_packet_command(
     tbl->prdt[0].dbc = (byte_count - 1) | (1U << 31);
     memcpy(tbl->acmd, packet, 12);
 
-    uint8_t* cfis = tbl->cfis;
+    uint8_t *cfis = tbl->cfis;
     cfis[0] = 0x27;
     cfis[1] = 1 << 7;
     cfis[2] = 0xA0; // ATA PACKET command
@@ -784,8 +769,7 @@ static int ahci_issue_packet_command(
     return rc;
 }
 
-static int ahci_read_satapi_sector_raw(int portno, uint64_t lba, void* buffer, uint32_t count)
-{
+static int ahci_read_satapi_sector_raw(int portno, uint64_t lba, void *buffer, uint32_t count) {
     if (!buffer || count == 0)
         return -1;
 
@@ -797,7 +781,7 @@ static int ahci_read_satapi_sector_raw(int portno, uint64_t lba, void* buffer, u
     uint32_t atapi_blocks = count / (ISO9660_SECTOR_SIZE / SECTOR_SIZE);
     uint32_t bytes = count * SECTOR_SIZE;
 
-    uint8_t* dma_buf = kmalloc_aligned(bytes, 4096);
+    uint8_t *dma_buf = kmalloc_aligned(bytes, 4096);
     if (!dma_buf)
         return -3;
 
@@ -823,12 +807,11 @@ static int ahci_read_satapi_sector_raw(int portno, uint64_t lba, void* buffer, u
     return rc;
 }
 
-static int ahci_satapi_read_capacity(int portno, uint32_t* out_last_lba, uint32_t* out_block_size)
-{
+static int ahci_satapi_read_capacity(int portno, uint32_t *out_last_lba, uint32_t *out_block_size) {
     if (!out_last_lba || !out_block_size)
         return -1;
 
-    uint8_t* dma_buf = kmalloc_aligned(8, 4096);
+    uint8_t *dma_buf = kmalloc_aligned(8, 4096);
     if (!dma_buf)
         return -2;
     memset(dma_buf, 0, 8);

@@ -4,30 +4,31 @@
  * @brief The VFS code for FrostWing.
  * @version 0.1
  * @date 2025-12-31
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
 #include <ahci.h>
-#include <filesystems/ext2.h>
-#include <filesystems/vfs.h>
 #include <basics.h>
-#include <graphics.h>
+#include <debugger.h>
+#include <filesystems/ext2.h>
 #include <filesystems/fat16.h>
 #include <filesystems/iso9660.h>
-#include <filesystems/layers/proc.h>
 #include <filesystems/layers/dev.h>
+#include <filesystems/layers/proc.h>
+#include <filesystems/vfs.h>
+#include <graphics.h>
 #include <heap.h>
-#include <strings.h>
 #include <memory.h>
-#include <debugger.h>
+#include <strings.h>
 
 char vfs_cwd[256] = "/";
-uint16_t vfs_cwd_cluster = 0; 
+uint16_t vfs_cwd_cluster = 0;
 
-static int path_matches_mount(const char* path, const char* mount) {
-    if (!path || !mount) return 0;
+static int path_matches_mount(const char *path, const char *mount) {
+    if (!path || !mount)
+        return 0;
 
     /* Root mount matches everything absolute */
     if (strcmp(mount, "/") == 0)
@@ -40,17 +41,17 @@ static int path_matches_mount(const char* path, const char* mount) {
     return path[mlen] == '\0' || path[mlen] == '/';
 }
 
-int vfs_resolve_mount(const char* path, vfs_mount_res_t* out) {
+int vfs_resolve_mount(const char *path, vfs_mount_res_t *out) {
     if (!path || !out) {
         eprintf("resolve_mount: invalid arguments");
         return -1;
     }
 
-    mount_entry_t* best = NULL;
+    mount_entry_t *best = NULL;
     int best_len = -1;
 
     for (int i = 0; i < mounted_partition_count; i++) {
-        mount_entry_t* m = &mounted_partitions[i];
+        mount_entry_t *m = &mounted_partitions[i];
         int len = strlen(m->mount_point);
 
         if (path_matches_mount(path, m->mount_point)) {
@@ -62,22 +63,23 @@ int vfs_resolve_mount(const char* path, vfs_mount_res_t* out) {
     }
 
     if (!best) {
-        if(path)
+        if (path)
             eprintf("resolve_mount: no mount matches path: %s", path);
         else
             eprintf("resolve_mount: no mount matches the given path.");
         return -2;
     }
 
-    const char* rel = path + best_len;
-    if (*rel == '/') rel++;
+    const char *rel = path + best_len;
+    if (*rel == '/')
+        rel++;
 
     out->mnt = best;
     out->rel_path = rel;
     return 0;
 }
 
-int vfs_normalize_path(const char* in, char* out, size_t out_sz) {
+int vfs_normalize_path(const char *in, char *out, size_t out_sz) {
     if (!in || !out || out_sz < 2)
         return -1;
 
@@ -92,14 +94,15 @@ int vfs_normalize_path(const char* in, char* out, size_t out_sz) {
         tmp[sizeof(tmp) - 1] = '\0';
     }
 
-
     int oi = 0;
-    const char* p = tmp;
+    const char *p = tmp;
 
     while (*p) {
         // Skip extra '/'
-        while (*p == '/') p++;
-        if (!*p) break;
+        while (*p == '/')
+            p++;
+        if (!*p)
+            break;
 
         // Handle '.'
         if (!strncmp(p, ".", 1) && (p[1] == '/' || p[1] == '\0')) {
@@ -110,15 +113,19 @@ int vfs_normalize_path(const char* in, char* out, size_t out_sz) {
         // Handle '..'
         if (!strncmp(p, "..", 2) && (p[2] == '/' || p[2] == '\0')) {
             // Remove last directory from 'out'
-            if (oi > 1) oi--;           // step back from trailing '/'
-            while (oi > 0 && out[oi - 1] != '/') oi--;
-            if (oi == 0) oi = 1;        // always keep leading '/'
+            if (oi > 1)
+                oi--; // step back from trailing '/'
+            while (oi > 0 && out[oi - 1] != '/')
+                oi--;
+            if (oi == 0)
+                oi = 1; // always keep leading '/'
             p += 2;
             continue;
         }
 
         // Add '/' before next component
-        if (oi == 0 || out[oi - 1] != '/') out[oi++] = '/';
+        if (oi == 0 || out[oi - 1] != '/')
+            out[oi++] = '/';
 
         // Copy next component
         while (*p && *p != '/') {
@@ -130,13 +137,13 @@ int vfs_normalize_path(const char* in, char* out, size_t out_sz) {
         }
     }
 
-    if (oi == 0) out[oi++] = '/';
+    if (oi == 0)
+        out[oi++] = '/';
     out[oi] = '\0';
     return 0;
 }
 
-int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
-{
+int vfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
     if (!file || !buf)
         return -1;
 
@@ -146,7 +153,7 @@ int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
         return -2;
     }
 
-    switch(file->mnt->type){
+    switch (file->mnt->type) {
         case FS_PROC:
             return procfs_read(file, buf, size);
         case FS_DEV:
@@ -167,9 +174,7 @@ int vfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
     return -3;
 }
 
-
-int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size)
-{
+int vfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
     if (!file || !buf)
         return -1;
 
@@ -179,7 +184,7 @@ int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size)
         return -2;
     }
 
-    switch(file->mnt->type){
+    switch (file->mnt->type) {
         case FS_PROC:
             return -10; // not implemented
         case FS_DEV:
@@ -201,14 +206,13 @@ int vfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size)
     return -3;
 }
 
-
-void vfs_close(vfs_file_t* file) {
+void vfs_close(vfs_file_t *file) {
     if (!file || !file->mnt) {
         eprintf("close: invalid file pointer");
         return;
     }
 
-    switch(file->mnt->type){
+    switch (file->mnt->type) {
         case FS_PROC:
             return; // not implemented
         case FS_DEV:
@@ -228,8 +232,7 @@ void vfs_close(vfs_file_t* file) {
     }
 }
 
-int vfs_path_is_dir(const char* path)
-{
+int vfs_path_is_dir(const char *path) {
     if (!path || !*path) {
         eprintf("path_is_dir: path is null or undefined");
         return -1;
@@ -253,7 +256,7 @@ int vfs_path_is_dir(const char* path)
 
     switch (res.mnt->type) {
         case FS_FAT16: {
-            fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
+            fat16_fs_t *fs = (fat16_fs_t *)res.mnt->fs;
             fat16_dir_entry_t e;
             if (fat16_find_path(fs, res.rel_path, &e) != 0)
                 return 0;
@@ -261,7 +264,7 @@ int vfs_path_is_dir(const char* path)
         }
 
         case FS_FAT32: {
-            fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+            fat32_fs_t *fs = (fat32_fs_t *)res.mnt->fs;
             fat32_dir_entry_t e;
             if (fat32_find_path(fs, res.rel_path, &e) != FAT_OK)
                 return 0;
@@ -269,7 +272,7 @@ int vfs_path_is_dir(const char* path)
         }
 
         case FS_ISO9660: {
-            iso9660_fs_t* fs = (iso9660_fs_t*)res.mnt->fs;
+            iso9660_fs_t *fs = (iso9660_fs_t *)res.mnt->fs;
             iso9660_dirent_t e;
             if (iso9660_find_path(fs, res.rel_path, &e) != 0)
                 return 0;
@@ -277,7 +280,7 @@ int vfs_path_is_dir(const char* path)
         }
 
         case FS_EXT2: {
-            ext2_fs_t* fs = (ext2_fs_t*)res.mnt->fs;
+            ext2_fs_t *fs = (ext2_fs_t *)res.mnt->fs;
             uint32_t ino;
             ext2_inode_t inode;
             if (ext2_find_path(fs, res.rel_path, &ino, &inode) != EXT2_OK)
@@ -295,8 +298,7 @@ int vfs_path_is_dir(const char* path)
     }
 }
 
-int vfs_ls(const char* path)
-{
+int vfs_ls(const char *path) {
     if (!path) {
         eprintf("ls: invalid path");
         return -1;
@@ -311,7 +313,7 @@ int vfs_ls(const char* path)
         return -1;
 
     bool entries = false;
-    
+
     // for (int i = 1; i < mounted_partition_count; i++) { // i = 1; to ignore the root mount
     //     mount_entry_t* m = &mounted_partitions[i];
 
@@ -326,7 +328,7 @@ int vfs_ls(const char* path)
         procfs_ls(res.rel_path);
         entries = true;
     }
-    if(res.mnt->type == FS_DEV) {
+    if (res.mnt->type == FS_DEV) {
         if (res.rel_path[0] == '\0') {
             devfs_ls();
             entries = true;
@@ -334,7 +336,7 @@ int vfs_ls(const char* path)
     }
 
     if (res.mnt->type == FS_FAT16) {
-        fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
+        fat16_fs_t *fs = (fat16_fs_t *)res.mnt->fs;
 
         if (*res.rel_path == '\0') {
             if (fat16_list_root(fs) != 0)
@@ -358,7 +360,7 @@ int vfs_ls(const char* path)
     }
 
     if (res.mnt->type == FS_FAT32) {
-        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        fat32_fs_t *fs = (fat32_fs_t *)res.mnt->fs;
 
         if (*res.rel_path == '\0') {
             fat32_list_root(fs);
@@ -380,7 +382,7 @@ int vfs_ls(const char* path)
     }
 
     if (res.mnt->type == FS_ISO9660) {
-        iso9660_fs_t* fs = (iso9660_fs_t*)res.mnt->fs;
+        iso9660_fs_t *fs = (iso9660_fs_t *)res.mnt->fs;
 
         if (*res.rel_path == '\0') {
             if (iso9660_list_root(fs) == 0)
@@ -403,7 +405,7 @@ int vfs_ls(const char* path)
     }
 
     if (res.mnt->type == FS_EXT2) {
-        ext2_fs_t* fs = (ext2_fs_t*)res.mnt->fs;
+        ext2_fs_t *fs = (ext2_fs_t *)res.mnt->fs;
         uint32_t dir_ino;
 
         if (*res.rel_path == '\0') {
@@ -419,13 +421,12 @@ int vfs_ls(const char* path)
             entries = true;
     }
 
-    if(entries)
+    if (entries)
         print("\n");
     return 0;
 }
 
-int vfs_open(const char* path, int flags, vfs_file_t* out)
-{
+int vfs_open(const char *path, int flags, vfs_file_t *out) {
     if (!path || !out) {
         eprintf("open: invalid parameters");
         return -1;
@@ -441,13 +442,12 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
     if (vfs_resolve_mount(norm, &res) != 0)
         return -2;
 
-    
     if (res.mnt->type == FS_PROC) {
         strncpy(out->rel_path, res.rel_path, sizeof(out->rel_path));
         out->mnt = res.mnt;
         out->flags = flags;
-        
-        if (procfs_open(out) != 0)  // if file not found
+
+        if (procfs_open(out) != 0) // if file not found
             return -1;
 
         return 0;
@@ -465,9 +465,9 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
     }
 
     if (res.mnt->type == FS_FAT16) {
-        fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
+        fat16_fs_t *fs = (fat16_fs_t *)res.mnt->fs;
         int ret;
-    
+
         /* ---------- CREATE ---------- */
         if (flags & VFS_CREATE) {
             /* create if missing */
@@ -475,11 +475,11 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
             if (ret != 0) {
                 /* create new file */
                 ret = fat16_create_path(fs, res.rel_path,
-                                        FAT16_ROOT_CLUSTER,
-                                        0x20); /* archive */
+                    FAT16_ROOT_CLUSTER,
+                    0x20); /* archive */
                 if (ret != 0)
                     return -4;
-    
+
                 ret = fat16_open(fs, res.rel_path, &out->f.fat16);
                 if (ret != 0)
                     return -5;
@@ -489,18 +489,18 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
             if (ret != 0)
                 return -6;
         }
-    
+
         /* ---------- TRUNC ---------- */
         if (flags & VFS_TRUNC) {
             fat16_truncate(&out->f.fat16, 0);
         }
-    
+
         /* ---------- APPEND ---------- */
         if (flags & VFS_APPEND) {
             out->f.fat16.pos = out->f.fat16.entry.filesize;
         }
-    
-        out->mnt   = res.mnt;
+
+        out->mnt = res.mnt;
         out->flags = flags;
         if (flags & VFS_APPEND) {
             out->f.fat16.pos = out->f.fat16.entry.filesize;
@@ -510,7 +510,7 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
 
         return 0;
     } else if (res.mnt->type == FS_FAT32) {
-        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        fat32_fs_t *fs = (fat32_fs_t *)res.mnt->fs;
         int ret;
 
         /* ---------- CREATE ---------- */
@@ -518,14 +518,17 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
             ret = fat32_open(fs, res.rel_path, &out->f.fat32);
             if (ret != 0) {
                 ret = fat32_create_path(fs, res.rel_path, 0x20); // archive
-                if (ret != 0) return -4;
+                if (ret != 0)
+                    return -4;
 
                 ret = fat32_open(fs, res.rel_path, &out->f.fat32);
-                if (ret != 0) return -5;
+                if (ret != 0)
+                    return -5;
             }
         } else {
             ret = fat32_open(fs, res.rel_path, &out->f.fat32);
-            if (ret != 0) return -6;
+            if (ret != 0)
+                return -6;
         }
 
         /* ---------- TRUNC ---------- */
@@ -549,14 +552,13 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
         return 0;
     }
 
-
     if (res.mnt->type == FS_ISO9660) {
         if (flags & (VFS_CREATE | VFS_TRUNC | VFS_APPEND | VFS_WRONLY | VFS_RDWR)) {
             eprintf("open: iso9660 is read-only");
             return -7;
         }
 
-        iso9660_fs_t* fs = (iso9660_fs_t*)res.mnt->fs;
+        iso9660_fs_t *fs = (iso9660_fs_t *)res.mnt->fs;
         int ret = iso9660_open(fs, res.rel_path, &out->f.iso9660);
         if (ret != 0)
             return -6;
@@ -567,7 +569,7 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
     }
 
     if (res.mnt->type == FS_EXT2) {
-        ext2_fs_t* fs = (ext2_fs_t*)res.mnt->fs;
+        ext2_fs_t *fs = (ext2_fs_t *)res.mnt->fs;
         int ret;
 
         /* ---------- CREATE ---------- */
@@ -594,7 +596,7 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
             ext2_truncate(fs, &out->f.ext2);
         }
 
-        out->mnt   = res.mnt;
+        out->mnt = res.mnt;
         out->flags = flags;
 
         /* ---------- APPEND ---------- */
@@ -610,8 +612,8 @@ int vfs_open(const char* path, int flags, vfs_file_t* out)
     return -3;
 }
 
-int vfs_mkdir(const char* path) {
-    if (!path){
+int vfs_mkdir(const char *path) {
+    if (!path) {
         eprintf("mkdir: path is null or undefined");
         return -1;
     }
@@ -621,21 +623,22 @@ int vfs_mkdir(const char* path) {
         return -1;
 
     vfs_mount_res_t res;
-    if (vfs_resolve_mount(norm, &res) != 0) return -1;
+    if (vfs_resolve_mount(norm, &res) != 0)
+        return -1;
 
     if (res.mnt->type == FS_FAT16) {
-        fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
+        fat16_fs_t *fs = (fat16_fs_t *)res.mnt->fs;
         uint16_t parent_cluster = FAT16_ROOT_CLUSTER;
         return fat16_create_path(fs, res.rel_path, parent_cluster, 0x10);
     }
 
     if (res.mnt->type == FS_FAT32) {
-        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        fat32_fs_t *fs = (fat32_fs_t *)res.mnt->fs;
         return fat32_create_path(fs, res.rel_path, 0x10);
     }
 
     if (res.mnt->type == FS_EXT2) {
-        ext2_fs_t* fs = (ext2_fs_t*)res.mnt->fs;
+        ext2_fs_t *fs = (ext2_fs_t *)res.mnt->fs;
         return ext2_mkdir(fs, res.rel_path);
     }
 
@@ -643,8 +646,7 @@ int vfs_mkdir(const char* path) {
     return -2;
 }
 
-int vfs_rm_recursive(const char* path)
-{
+int vfs_rm_recursive(const char *path) {
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
         return -1;
@@ -654,20 +656,19 @@ int vfs_rm_recursive(const char* path)
         return -1;
 
     if (res.mnt->type == FS_FAT32) {
-        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        fat32_fs_t *fs = (fat32_fs_t *)res.mnt->fs;
         return fat32_rm_recursive(fs, res.rel_path);
     }
 
     if (res.mnt->type == FS_EXT2) {
-        ext2_fs_t* fs = (ext2_fs_t*)res.mnt->fs;
+        ext2_fs_t *fs = (ext2_fs_t *)res.mnt->fs;
         return ext2_rm_recursive(fs, res.rel_path);
     }
-
 
     if (res.mnt->type != FS_FAT16)
         return -1;
 
-    fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
+    fat16_fs_t *fs = (fat16_fs_t *)res.mnt->fs;
 
     uint16_t parent = FAT16_ROOT_CLUSTER;
     char name[13] = {0};
@@ -675,9 +676,9 @@ int vfs_rm_recursive(const char* path)
     /* split parent + name */
     char tmp[256];
     strncpy(tmp, res.rel_path, sizeof(tmp));
-    tmp[sizeof(tmp)-1] = 0;
+    tmp[sizeof(tmp) - 1] = 0;
 
-    char* slash = strrchr(tmp, '/');
+    char *slash = strrchr(tmp, '/');
     if (slash) {
         *slash = 0;
         strncpy(name, slash + 1, sizeof(name));
@@ -701,7 +702,7 @@ int vfs_rm_recursive(const char* path)
     fat16_dir_entry_t e;
     if (fat16_find_in_dir(fs, parent, name, &e) != 0)
         return -1;
-    
+
     if (e.attr & 0x10) {
         fat16_rmdir(fs, e.first_cluster);
     } else {
@@ -712,8 +713,7 @@ int vfs_rm_recursive(const char* path)
     return 0;
 }
 
-int vfs_cd(const char* path)
-{
+int vfs_cd(const char *path) {
     if (!path || !*path) {
         eprintf("cd: path is null or undefined");
         return -1;
@@ -746,7 +746,7 @@ int vfs_cd(const char* path)
     }
 
     if (res.mnt->type == FS_FAT32) {
-        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        fat32_fs_t *fs = (fat32_fs_t *)res.mnt->fs;
         uint32_t new_cluster = fs->root_cluster;
 
         if (*res.rel_path) {
@@ -765,9 +765,8 @@ int vfs_cd(const char* path)
         return 0;
     }
 
-
     if (res.mnt->type == FS_ISO9660) {
-        iso9660_fs_t* fs = (iso9660_fs_t*)res.mnt->fs;
+        iso9660_fs_t *fs = (iso9660_fs_t *)res.mnt->fs;
 
         if (*res.rel_path) {
             iso9660_dirent_t e;
@@ -785,7 +784,7 @@ int vfs_cd(const char* path)
     }
 
     if (res.mnt->type == FS_EXT2) {
-        ext2_fs_t* fs = (ext2_fs_t*)res.mnt->fs;
+        ext2_fs_t *fs = (ext2_fs_t *)res.mnt->fs;
         uint32_t new_ino = EXT2_ROOT_INO;
 
         if (*res.rel_path) {
@@ -808,7 +807,7 @@ int vfs_cd(const char* path)
         return -2;
     }
 
-    fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
+    fat16_fs_t *fs = (fat16_fs_t *)res.mnt->fs;
     uint16_t new_cluster = FAT16_ROOT_CLUSTER;
 
     if (*res.rel_path) {
@@ -828,9 +827,7 @@ int vfs_cd(const char* path)
     return 0;
 }
 
-
-
-int vfs_create_path(const char* path, uint8_t attr) {
+int vfs_create_path(const char *path, uint8_t attr) {
     if (!path || !*path) {
         eprintf("create_path: path is null or undefined");
         return -1;
@@ -841,23 +838,23 @@ int vfs_create_path(const char* path, uint8_t attr) {
         return -1;
 
     vfs_mount_res_t res;
-    if (vfs_resolve_mount(norm, &res) != 0) return -1;
+    if (vfs_resolve_mount(norm, &res) != 0)
+        return -1;
     if (res.mnt->type == FS_FAT16) {
-        fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
+        fat16_fs_t *fs = (fat16_fs_t *)res.mnt->fs;
         uint16_t parent_cluster = FAT16_ROOT_CLUSTER; // root
         return fat16_create_path(fs, res.rel_path, parent_cluster, attr);
     }
 
     if (res.mnt->type == FS_FAT32) {
-        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        fat32_fs_t *fs = (fat32_fs_t *)res.mnt->fs;
         return fat32_create_path(fs, res.rel_path, attr);
     }
 
     return -2;
 }
 
-int vfs_unlink(const char* path)
-{
+int vfs_unlink(const char *path) {
     if (!path || !*path) {
         eprintf("unlink:: path is null or undefined");
         return -1;
@@ -873,25 +870,25 @@ int vfs_unlink(const char* path)
         return -2;
 
     if (res.mnt->type == FS_FAT32) {
-        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        fat32_fs_t *fs = (fat32_fs_t *)res.mnt->fs;
         return fat32_unlink_path(fs, res.rel_path);
     }
 
     if (res.mnt->type == FS_EXT2) {
-        ext2_fs_t* fs = (ext2_fs_t*)res.mnt->fs;
+        ext2_fs_t *fs = (ext2_fs_t *)res.mnt->fs;
         return ext2_unlink_path(fs, res.rel_path);
     }
 
     if (res.mnt->type != FS_FAT16)
         return -3;
 
-    fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
+    fat16_fs_t *fs = (fat16_fs_t *)res.mnt->fs;
 
     /* Split parent + name (RELATIVE PATH, NO LEADING '/') */
     char parent_path[256];
     char name[13];
 
-    const char* last = strrchr(res.rel_path, '/');
+    const char *last = strrchr(res.rel_path, '/');
 
     if (last) {
         /* Has parent directories */
@@ -925,8 +922,7 @@ int vfs_unlink(const char* path)
     return fat16_unlink_path(fs, parent_cluster, name);
 }
 
-int vfs_mv(const char* src, const char* dst)
-{
+int vfs_mv(const char *src, const char *dst) {
     char src_norm[256], dst_norm[256];
     if (vfs_normalize_path(src, src_norm, sizeof(src_norm)) != 0)
         return -1;
@@ -934,8 +930,10 @@ int vfs_mv(const char* src, const char* dst)
         return -1;
 
     vfs_mount_res_t src_res, dst_res;
-    if (vfs_resolve_mount(src_norm, &src_res) != 0) return -1;
-    if (vfs_resolve_mount(dst_norm, &dst_res) != 0) return -1;
+    if (vfs_resolve_mount(src_norm, &src_res) != 0)
+        return -1;
+    if (vfs_resolve_mount(dst_norm, &dst_res) != 0)
+        return -1;
 
     if (src_res.mnt != dst_res.mnt) {
         printf("mv: cross-device move not supported");
@@ -943,19 +941,19 @@ int vfs_mv(const char* src, const char* dst)
     }
 
     if (src_res.mnt->type == FS_FAT32) {
-        fat32_fs_t* fs = (fat32_fs_t*)src_res.mnt->fs;
+        fat32_fs_t *fs = (fat32_fs_t *)src_res.mnt->fs;
         return fat32_mv(fs, src_res.rel_path, dst_res.rel_path);
     }
 
     if (src_res.mnt->type == FS_EXT2) {
-        ext2_fs_t* fs = (ext2_fs_t*)src_res.mnt->fs;
+        ext2_fs_t *fs = (ext2_fs_t *)src_res.mnt->fs;
         return ext2_rename(fs, src_res.rel_path, dst_res.rel_path);
     }
 
     if (src_res.mnt->type != FS_FAT16)
         return -1;
 
-    fat16_fs_t* fs = (fat16_fs_t*)src_res.mnt->fs;
+    fat16_fs_t *fs = (fat16_fs_t *)src_res.mnt->fs;
 
     /* ---------- SPLIT SRC ---------- */
     uint16_t src_parent = FAT16_ROOT_CLUSTER;
@@ -963,9 +961,9 @@ int vfs_mv(const char* src, const char* dst)
 
     char src_tmp[256];
     strncpy(src_tmp, src_res.rel_path, sizeof(src_tmp));
-    src_tmp[sizeof(src_tmp)-1] = 0;
+    src_tmp[sizeof(src_tmp) - 1] = 0;
 
-    char* s = strrchr(src_tmp, '/');
+    char *s = strrchr(src_tmp, '/');
     if (s) {
         *s = 0;
         strncpy(src_name, s + 1, sizeof(src_name));
@@ -988,9 +986,9 @@ int vfs_mv(const char* src, const char* dst)
 
     char dst_tmp[256];
     strncpy(dst_tmp, dst_res.rel_path, sizeof(dst_tmp));
-    dst_tmp[sizeof(dst_tmp)-1] = 0;
+    dst_tmp[sizeof(dst_tmp) - 1] = 0;
 
-    char* d = strrchr(dst_tmp, '/');
+    char *d = strrchr(dst_tmp, '/');
     if (d) {
         *d = 0;
         strncpy(dst_name, d + 1, sizeof(dst_name));
@@ -1011,16 +1009,16 @@ int vfs_mv(const char* src, const char* dst)
     return fat16_mv(fs, src_parent, src_name, dst_parent, dst_name);
 }
 
-const char* vfs_getcwd(void) {
+const char *vfs_getcwd(void) {
     return vfs_cwd;
 }
 
-int vfs_is_direct_child_mount(const char* parent, mount_entry_t* m) {
+int vfs_is_direct_child_mount(const char *parent, mount_entry_t *m) {
     if (!strcmp(parent, "/")) {
         if (m->mount_point[0] != '/')
             return 0;
         /* Only one slash allowed */
-        const char* rest = m->mount_point + 1;
+        const char *rest = m->mount_point + 1;
         return strchr(rest, '/') == NULL;
     }
 
@@ -1034,8 +1032,8 @@ int vfs_is_direct_child_mount(const char* parent, mount_entry_t* m) {
     return strchr(m->mount_point + plen + 1, '/') == NULL;
 }
 
-const char* vfs_basename(const char* path) {
-    const char* last = path;
+const char *vfs_basename(const char *path) {
+    const char *last = path;
     while (*path) {
         if (*path == '/')
             last = path + 1;
@@ -1044,8 +1042,7 @@ const char* vfs_basename(const char* path) {
     return last;
 }
 
-int vfs_sync(void)
-{
+int vfs_sync(void) {
     int ret = 0;
 
     for (int i = 0; i < mounted_partition_count; i++) {
@@ -1053,22 +1050,22 @@ int vfs_sync(void)
 
         switch (mnt->type) {
 
-        case FS_FAT16:
-            ret |= fat16_sync((fat16_fs_t*)mnt->fs);
-            break;
+            case FS_FAT16:
+                ret |= fat16_sync((fat16_fs_t *)mnt->fs);
+                break;
 
-        case FS_FAT32:
-            ret |= fat32_sync((fat32_fs_t*)mnt->fs);
-            break;
+            case FS_FAT32:
+                ret |= fat32_sync((fat32_fs_t *)mnt->fs);
+                break;
 
-        case FS_EXT2:
-            ret |= ext2_sync((ext2_fs_t*)mnt->fs);
-            break;
+            case FS_EXT2:
+                ret |= ext2_sync((ext2_fs_t *)mnt->fs);
+                break;
 
-        case FS_ISO9660:
-        case FS_PROC:
-        case FS_DEV:
-            break;
+            case FS_ISO9660:
+            case FS_PROC:
+            case FS_DEV:
+                break;
         }
     }
 
@@ -1076,7 +1073,6 @@ int vfs_sync(void)
     return ret;
 }
 
-int vfs_exec(const char *path, int argc, const char **argv)
-{
+int vfs_exec(const char *path, int argc, const char **argv) {
     return userland_exec(path, argc, argv, NULL);
 }

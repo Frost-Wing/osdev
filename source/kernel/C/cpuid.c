@@ -11,11 +11,11 @@
  * @return The value of the EAX register after executing CPUID.
  */
 int cpuid_string(int code, int where[4]) {
-    #if defined (__x86_64__)
-    __asm__ volatile ("cpuid":"=a"(*where),"=b"(*(where+0)),
-               "=d"(*(where+1)),"=c"(*(where+2)):"a"(code));
+#if defined(__x86_64__)
+    __asm__ volatile("cpuid" : "=a"(*where), "=b"(*(where + 0)),
+        "=d"(*(where + 1)), "=c"(*(where + 2)) : "a"(code));
     return (int)where[0];
-    #endif
+#endif
 }
 
 /**
@@ -28,7 +28,7 @@ int cpuid_string(int code, int where[4]) {
  */
 cstring cpu_string(void) {
     static char s[16] = "BogusProces!";
-    cpuid_string(0, (int*)(s));
+    cpuid_string(0, (int *)(s));
     return s;
 }
 
@@ -45,21 +45,21 @@ cstring cpu_string(void) {
  * @param edx Pointer to store the value of EDX register.
  */
 void cpuid(uint32 reg, uint32 *eax, uint32 *ebx, uint32 *ecx, uint32 *edx) {
-    #if defined (__x86_64__)
+#if defined(__x86_64__)
     __asm__ volatile("cpuid"
-        : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
-        : "0" (reg));
-    #endif
+        : "=a"(*eax), "=b"(*ebx), "=c"(*ecx), "=d"(*edx)
+        : "0"(reg));
+#endif
 }
 
 /**
  * @brief Retrieve the CPU vendor string.
- * 
+ *
  * @return The CPU vendor string.
  */
 cstring get_cpu_vendor(void) {
     static char vendor[128];
-    cpuid(0x80000002, (uint32 *)(vendor +  0), (uint32 *)(vendor +  4), (uint32 *)(vendor +  8), (uint32 *)(vendor + 12));
+    cpuid(0x80000002, (uint32 *)(vendor + 0), (uint32 *)(vendor + 4), (uint32 *)(vendor + 8), (uint32 *)(vendor + 12));
     cpuid(0x80000003, (uint32 *)(vendor + 16), (uint32 *)(vendor + 20), (uint32 *)(vendor + 24), (uint32 *)(vendor + 28));
     cpuid(0x80000004, (uint32 *)(vendor + 32), (uint32 *)(vendor + 36), (uint32 *)(vendor + 40), (uint32 *)(vendor + 44));
     vendor[127] = 0;
@@ -113,7 +113,7 @@ void print_L3_cache_info(void) {
     printf("CPU Line Size: %d B, Assoc. Type: %d; Cache Size: %d KB. (L3 INFO)", edx & 0xff, (edx >> 12) & 0x0F, (edx >> 16) & 0xFFFF);
 }
 
-bool is_kvm_supported(void){
+bool is_kvm_supported(void) {
     uint32 eax, ebx, ecx, edx;
 
     // Check if CPUID instruction is supported

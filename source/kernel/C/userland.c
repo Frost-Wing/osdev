@@ -1,20 +1,19 @@
-#include <stdint.h>
-#include <memory.h>
 #include <basics.h>
-#include <paging.h>
-#include <userland.h>
+#include <cc-asm.h>
+#include <debugger.h>
 #include <executables/elf.h>
 #include <filesystems/vfs.h>
 #include <heap.h>
+#include <memory.h>
+#include <paging.h>
+#include <stdint.h>
 #include <tss.h>
 #include <tty.h>
-#include <debugger.h>
-#include <cc-asm.h>
+#include <userland.h>
 
 // Defined in syscalls.c. Keeps sys_fork()'s notion of "what's currently
 // running" accurate - see the call site in userland_exec() below.
-extern void record_exec_context(const char* target, const char* const* argv);
-
+extern void record_exec_context(const char *target, const char *const *argv);
 
 static uint64_t user_heap_break = USER_HEAP_VADDR;
 static uint64_t user_heap_mapped_end = USER_HEAP_VADDR;
@@ -72,14 +71,13 @@ typedef struct {
     uint64_t resume_r15;
     uint64_t resume_ret_rip;
     uint64_t resume_ret_rsp;
-    int      last_exit_code;
+    int last_exit_code;
 } userland_saved_frame_t;
 
 static userland_saved_frame_t userland_frame_stack[USERLAND_MAX_DEPTH];
 static int userland_depth = 0; /* number of active (nested) userland_exec frames */
 
-__attribute__((aligned(16)))
-static uint8_t userland_syscall_stacks[USERLAND_MAX_DEPTH][0x4000];
+__attribute__((aligned(16))) static uint8_t userland_syscall_stacks[USERLAND_MAX_DEPTH][0x4000];
 
 /* Save whatever is currently in the "active frame" globals (the outer
  * frame we're about to supersede) and reserve a new depth slot. Returns
@@ -90,20 +88,20 @@ static int userland_push_frame(void) {
     if (userland_depth >= USERLAND_MAX_DEPTH)
         return -1;
 
-    userland_saved_frame_t* f = &userland_frame_stack[userland_depth];
+    userland_saved_frame_t *f = &userland_frame_stack[userland_depth];
     f->saved_kernel_stack_top = userland_saved_kernel_stack_top;
-    f->saved_tss_rsp0         = userland_saved_tss_rsp0;
-    f->resume_rip             = userland_resume_rip;
-    f->resume_rsp             = userland_resume_rsp;
-    f->resume_rbx             = userland_resume_rbx;
-    f->resume_rbp             = userland_resume_rbp;
-    f->resume_r12             = userland_resume_r12;
-    f->resume_r13             = userland_resume_r13;
-    f->resume_r14             = userland_resume_r14;
-    f->resume_r15             = userland_resume_r15;
-    f->resume_ret_rip         = userland_resume_ret_rip;
-    f->resume_ret_rsp         = userland_resume_ret_rsp;
-    f->last_exit_code         = userland_last_exit_code;
+    f->saved_tss_rsp0 = userland_saved_tss_rsp0;
+    f->resume_rip = userland_resume_rip;
+    f->resume_rsp = userland_resume_rsp;
+    f->resume_rbx = userland_resume_rbx;
+    f->resume_rbp = userland_resume_rbp;
+    f->resume_r12 = userland_resume_r12;
+    f->resume_r13 = userland_resume_r13;
+    f->resume_r14 = userland_resume_r14;
+    f->resume_r15 = userland_resume_r15;
+    f->resume_ret_rip = userland_resume_ret_rip;
+    f->resume_ret_rsp = userland_resume_ret_rsp;
+    f->last_exit_code = userland_last_exit_code;
 
     return userland_depth++;
 }
@@ -135,20 +133,20 @@ static bool userland_pop_frame(void) {
         return false;
     }
 
-    userland_saved_frame_t* f = &userland_frame_stack[userland_depth - 1];
+    userland_saved_frame_t *f = &userland_frame_stack[userland_depth - 1];
     userland_saved_kernel_stack_top = f->saved_kernel_stack_top;
-    userland_saved_tss_rsp0         = f->saved_tss_rsp0;
-    userland_resume_rip             = f->resume_rip;
-    userland_resume_rsp             = f->resume_rsp;
-    userland_resume_rbx             = f->resume_rbx;
-    userland_resume_rbp             = f->resume_rbp;
-    userland_resume_r12             = f->resume_r12;
-    userland_resume_r13             = f->resume_r13;
-    userland_resume_r14             = f->resume_r14;
-    userland_resume_r15             = f->resume_r15;
-    userland_resume_ret_rip         = f->resume_ret_rip;
-    userland_resume_ret_rsp         = f->resume_ret_rsp;
-    userland_last_exit_code         = f->last_exit_code;
+    userland_saved_tss_rsp0 = f->saved_tss_rsp0;
+    userland_resume_rip = f->resume_rip;
+    userland_resume_rsp = f->resume_rsp;
+    userland_resume_rbx = f->resume_rbx;
+    userland_resume_rbp = f->resume_rbp;
+    userland_resume_r12 = f->resume_r12;
+    userland_resume_r13 = f->resume_r13;
+    userland_resume_r14 = f->resume_r14;
+    userland_resume_r15 = f->resume_r15;
+    userland_resume_ret_rip = f->resume_ret_rip;
+    userland_resume_ret_rsp = f->resume_ret_rsp;
+    userland_last_exit_code = f->last_exit_code;
     return true;
 }
 static inline void wrmsr64_local(uint32_t msr, uint64_t value);
@@ -183,7 +181,7 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     tty_flush_input();
     printf(blue_color "\n[process exited with code %d]" reset_color, exit_code);
     asm volatile("sti");
-    
+
     asm volatile(
         "xor %%rax, %%rax\n"
         "mov %0, %%rsp\n"
@@ -195,21 +193,21 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
 }
 
 static void debug_dump_initial_stack(uint64_t stack_top) {
-    uint64_t* words = (uint64_t*)stack_top;
+    uint64_t *words = (uint64_t *)stack_top;
     debug_printf("userland: initial rsp=%x argc=%u argv0=%x argv1=%x env0=%x aux0=%x aux1=%x\n",
-                 stack_top,
-                 (uint32_t)words[0],
-                 words[1],
-                 words[2],
-                 words[(uint32_t)words[0] + 2],
-                 words[(uint32_t)words[0] + 4],
-                 words[(uint32_t)words[0] + 5]);
+        stack_top,
+        (uint32_t)words[0],
+        words[1],
+        words[2],
+        words[(uint32_t)words[0] + 2],
+        words[(uint32_t)words[0] + 4],
+        words[(uint32_t)words[0] + 5]);
 }
 
 static uint64_t rdtsc64_local(void) {
     uint32_t lo = 0;
     uint32_t hi = 0;
-    asm volatile ("rdtsc" : "=a"(lo), "=d"(hi));
+    asm volatile("rdtsc" : "=a"(lo), "=d"(hi));
     return ((uint64_t)hi << 32) | lo;
 }
 
@@ -229,17 +227,17 @@ __attribute__((unused)) static uint64_t max_u64(uint64_t a, uint64_t b) {
     return a > b ? a : b;
 }
 
-static uint64_t push_bytes_to_stack(uint64_t* stack_ptr, const void* src, uint64_t len) {
+static uint64_t push_bytes_to_stack(uint64_t *stack_ptr, const void *src, uint64_t len) {
     *stack_ptr -= len;
-    memcpy((void*)*stack_ptr, src, len);
+    memcpy((void *)*stack_ptr, src, len);
     return *stack_ptr;
 }
 
-static uint64_t push_cstr_to_stack(uint64_t* stack_ptr, const char* str) {
+static uint64_t push_cstr_to_stack(uint64_t *stack_ptr, const char *str) {
     return push_bytes_to_stack(stack_ptr, str, (uint64_t)strlen(str) + 1U);
 }
 
-static int string_array_count(const char* const* arr) {
+static int string_array_count(const char *const *arr) {
     if (!arr)
         return 0;
 
@@ -250,22 +248,20 @@ static int string_array_count(const char* const* arr) {
     return count;
 }
 
-static const char* const default_envp[] = {
+static const char *const default_envp[] = {
     "HOME=/",
     "PATH=/",
     "TERM=linux",
     "USER=none",
     "SHLVL=1",
-    NULL
-};
+    NULL};
 
-static uint64_t build_initial_user_stack(const char* exec_path,
-                                         int argc,
-                                         const char* const* argv,
-                                         const char* const* envp,
-                                         const elf_image_info_t* image_info)
-{
-    const char* const* final_envp = envp ? envp : default_envp;
+static uint64_t build_initial_user_stack(const char *exec_path,
+    int argc,
+    const char *const *argv,
+    const char *const *envp,
+    const elf_image_info_t *image_info) {
+    const char *const *final_envp = envp ? envp : default_envp;
     int envc = string_array_count(final_envp);
     int argvc = argc;
     uint64_t stack_ptr = USER_STACK_TOP;
@@ -300,30 +296,30 @@ static uint64_t build_initial_user_stack(const char* exec_path,
         env_addrs[i] = push_cstr_to_stack(&stack_ptr, final_envp[i] ? final_envp[i] : "");
 
     for (int i = argvc - 1; i >= 0; --i) {
-        const char* s = (argv && argv[i]) ? argv[i] : "";
+        const char *s = (argv && argv[i]) ? argv[i] : "";
         argv_addrs[i] = push_cstr_to_stack(&stack_ptr, s);
     }
 
     // --- auxiliary vector ---
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PHDR, image_info ? image_info->phdr_addr : 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PHENT, image_info ? image_info->phentsize : 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PHNUM, image_info ? image_info->phnum : 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PAGESZ, PAGE_SIZE };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_BASE, 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_FLAGS, 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_ENTRY, image_info ? image_info->entry : 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_UID, 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_EUID, 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_GID, 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_EGID, 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_HWCAP, 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_CLKTCK, 100 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_SECURE, 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_RANDOM, random_addr };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_HWCAP2, 0 };
-    auxv[auxc++] = (auxv_pair_t){ LINUX_AT_PLATFORM, platform_addr };
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_PHDR, image_info ? image_info->phdr_addr : 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_PHENT, image_info ? image_info->phentsize : 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_PHNUM, image_info ? image_info->phnum : 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_PAGESZ, PAGE_SIZE};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_BASE, 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_FLAGS, 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_ENTRY, image_info ? image_info->entry : 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_UID, 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_EUID, 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_GID, 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_EGID, 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_HWCAP, 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_CLKTCK, 100};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_SECURE, 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_RANDOM, random_addr};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_HWCAP2, 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_PLATFORM, platform_addr};
     if (execfn_addr && auxc < USER_AUXV_MAX)
-        auxv[auxc++] = (auxv_pair_t){ LINUX_AT_EXECFN, execfn_addr };
+        auxv[auxc++] = (auxv_pair_t){LINUX_AT_EXECFN, execfn_addr};
 
     // --- pointer frame: argc, argv[], NULL, envp[], NULL, auxv[], AT_NULL ---
     uint64_t frame_words =
@@ -339,7 +335,7 @@ static uint64_t build_initial_user_stack(const char* exec_path,
     if ((frame_ptr & 0xFULL) != 8)
         frame_ptr -= 8;
 
-    uint64_t* out = (uint64_t*)frame_ptr;
+    uint64_t *out = (uint64_t *)frame_ptr;
     *out++ = (uint64_t)argvc;
 
     for (int i = 0; i < argvc; ++i)
@@ -360,7 +356,7 @@ static uint64_t build_initial_user_stack(const char* exec_path,
     return frame_ptr;
 }
 
-static int init_user_tls(const elf_image_info_t* image_info) {
+static int init_user_tls(const elf_image_info_t *image_info) {
     uint64_t tls_memsz = image_info ? image_info->tls_memsz : 0;
     uint64_t tls_filesz = image_info ? image_info->tls_filesz : 0;
     uint64_t tls_align = (image_info && image_info->tls_align) ? image_info->tls_align : 1;
@@ -382,7 +378,7 @@ static int init_user_tls(const elf_image_info_t* image_info) {
 
     if (tls_end > USER_TLS_VADDR + USER_TLS_REGION_SIZE) {
         eprintf("userland: TLS region too small end=%x limit=%x",
-                tls_end, USER_TLS_VADDR + USER_TLS_REGION_SIZE);
+            tls_end, USER_TLS_VADDR + USER_TLS_REGION_SIZE);
         return -1;
     }
 
@@ -391,18 +387,18 @@ static int init_user_tls(const elf_image_info_t* image_info) {
         map_user_page(vaddr, phys, USER_DATA_FLAGS);
     }
 
-    memset((void*)USER_TLS_VADDR, 0, tls_end - USER_TLS_VADDR);
+    memset((void *)USER_TLS_VADDR, 0, tls_end - USER_TLS_VADDR);
 
     if (tls_filesz && image_info && image_info->tls_template)
-        memcpy((void*)tls_block_addr, image_info->tls_template, tls_filesz);
+        memcpy((void *)tls_block_addr, image_info->tls_template, tls_filesz);
     if (tls_memsz > tls_filesz)
-        memset((void*)(tls_block_addr + tls_filesz), 0, tls_memsz - tls_filesz);
+        memset((void *)(tls_block_addr + tls_filesz), 0, tls_memsz - tls_filesz);
 
-    glibc_tls_block_t* tls = (glibc_tls_block_t*)tcb_addr;
-    glibc_tcb_head_t* tcb = &tls->head;
+    glibc_tls_block_t *tls = (glibc_tls_block_t *)tcb_addr;
+    glibc_tcb_head_t *tcb = &tls->head;
 
     tls->dtv[0].counter = 1;
-    tls->dtv[1].pointer.val = (void*)tls_block_addr;
+    tls->dtv[1].pointer.val = (void *)tls_block_addr;
     tls->dtv[1].pointer.to_free = NULL;
 
     tcb->tcb = tcb_addr;
@@ -417,8 +413,8 @@ static int init_user_tls(const elf_image_info_t* image_info) {
     tcb->ssp_base = 0;
 
     debug_printf("userland: tls base=%x block=%x filesz=%u memsz=%u align=%u dtv=%x stack_guard=%x pointer_guard=%x\n",
-                 tcb_addr, tls_block_addr, tls_filesz, tls_memsz, tls_align,
-                 tcb->dtv, tcb->stack_guard, tcb->pointer_guard);
+        tcb_addr, tls_block_addr, tls_filesz, tls_memsz, tls_align,
+        tcb->dtv, tcb->stack_guard, tcb->pointer_guard);
 
     wrmsr64_local(IA32_FS_BASE_MSR, tcb_addr);
     return 0;
@@ -472,8 +468,8 @@ uint64_t userland_brk(uint64_t requested_break) {
     uint64_t user_heap_end = USER_HEAP_VADDR + USER_HEAP_SIZE;
 
     debug_printf("enter-> brk request=%x current=%x\n",
-       requested_break,
-       user_heap_break);
+        requested_break,
+        user_heap_break);
 
     if (requested_break == 0) {
         return user_heap_break;
@@ -490,8 +486,8 @@ uint64_t userland_brk(uint64_t requested_break) {
 
     user_heap_break = requested_break;
     debug_printf("exit-> brk request=%x current=%x\n",
-       requested_break,
-       user_heap_break);
+        requested_break,
+        user_heap_break);
     return user_heap_break;
 }
 
@@ -510,15 +506,15 @@ uint64_t userland_mmap_anon(uint64_t length) {
     user_mmap_cursor += aligned_len;
 
     debug_printf("mmap len=%x cursor=%x end=%x\n",
-       aligned_len,
-       user_mmap_cursor,
-       user_mmap_end);
+        aligned_len,
+        user_mmap_cursor,
+        user_mmap_end);
 
     debug_printf("mmap returns %x\n", mapping_base);
     return mapping_base;
 }
 
-bool userland_prepare_exit(syscall_frame_t* frame, uint64_t exit_code) {
+bool userland_prepare_exit(syscall_frame_t *frame, uint64_t exit_code) {
     (void)frame;
 
     if (!userland_running || !userland_resume_rip || !userland_resume_rsp)
@@ -535,9 +531,9 @@ bool userland_is_running(void) {
 
 static int userland_exception_exit_code(uint64_t int_no) {
     switch (int_no) {
-        case 0:  // divide by zero
+        case 0: // divide by zero
             return 136;
-        case 6:  // invalid opcode
+        case 6: // invalid opcode
             return 132;
         case 13: // general protection fault
         case 14: // page fault
@@ -553,10 +549,10 @@ void userland_abort_from_exception(uint64_t int_no, uint64_t err_code, uint64_t 
 
     userland_last_exit_code = userland_exception_exit_code(int_no);
     eprintf("[userland] fatal exception: int=%02u err=0x%02X rip=0x%X -> exit=%02d",
-            int_no,
-            err_code,
-            fault_rip,
-            userland_last_exit_code);
+        int_no,
+        err_code,
+        fault_rip,
+        userland_last_exit_code);
 
     asm volatile(
         "cli\n"
@@ -570,18 +566,17 @@ void userland_abort_from_exception(uint64_t int_no, uint64_t err_code, uint64_t 
         "jmp *%7\n"
         :
         : "r"(userland_resume_rbx),
-          "r"(userland_resume_rbp),
-          "r"(userland_resume_r12),
-          "r"(userland_resume_r13),
-          "r"(userland_resume_r14),
-          "r"(userland_resume_r15),
-          "r"(userland_resume_rsp),
-          "r"(userland_resume_rip)
+        "r"(userland_resume_rbp),
+        "r"(userland_resume_r12),
+        "r"(userland_resume_r13),
+        "r"(userland_resume_r14),
+        "r"(userland_resume_r15),
+        "r"(userland_resume_rsp),
+        "r"(userland_resume_rip)
         : "memory");
 
     __builtin_unreachable();
 }
-
 
 /**
  * @brief Enter userland (ring 3) at a specific userspace RIP.
@@ -596,7 +591,7 @@ void enter_userland_at(uint64_t code_entry) {
 
     // printf("Switching to userland at 0x%x with stack 0x%x", code_entry, stack_top);
 
-    asm volatile (
+    asm volatile(
         "cli\n"
         "mov %0, %%r11\n"
         "mov %1, %%r10\n"
@@ -616,12 +611,10 @@ void enter_userland_at(uint64_t code_entry) {
         "iretq\n"
         :
         : "r"(stack_top), "r"(code_entry)
-        : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"
-    );
+        : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11");
 
     return;
 }
-
 
 void userland_exec_prepare(
     const char *path,
@@ -629,8 +622,7 @@ void userland_exec_prepare(
     const char *argv[],
     elf_image_info_t *out_info,
     void **out_entry,
-    uint64_t *out_stack)
-{
+    uint64_t *out_stack) {
     elf_image_info_t image_info = {0};
     void *entry = elf_load_from_vfs_ex(path, &image_info);
     if (!entry) {
@@ -655,14 +647,13 @@ void userland_exec_prepare(
         kfree(image_info.tls_template);
 }
 
-int userland_exec(const userland_exec_ctx_t* ctx)
-{
+int userland_exec(const userland_exec_ctx_t *ctx) {
     if (!ctx || !ctx->path)
         return -1;
 
     elf_image_info_t image_info = {0};
 
-    void* entry = elf_load_from_vfs_ex(ctx->path, &image_info);
+    void *entry = elf_load_from_vfs_ex(ctx->path, &image_info);
     if (!entry)
         return -1;
 
@@ -685,7 +676,7 @@ int userland_exec(const userland_exec_ctx_t* ctx)
     // ----------------------------------------------------
     // SAFE ARGV SNAPSHOT (CRITICAL FIX)
     // ----------------------------------------------------
-    const char* safe_argv[32];
+    const char *safe_argv[32];
     int safe_argc = ctx->argc;
 
     if (safe_argc < 0)
@@ -698,7 +689,7 @@ int userland_exec(const userland_exec_ctx_t* ctx)
     }
     safe_argv[safe_argc] = NULL;
 
-    const char* safe_envp = ctx->envp;
+    const char *safe_envp = ctx->envp;
 
     // ----------------------------------------------------
     // BUILD USER STACK
@@ -707,7 +698,7 @@ int userland_exec(const userland_exec_ctx_t* ctx)
         build_initial_user_stack(ctx->path, safe_argc, safe_argv, safe_envp, &image_info);
 
     debug_printf("userland exec: %s entry=%p stack=%p argc=%d\n",
-                 ctx->path, entry, (void*)stack_top, safe_argc);
+        ctx->path, entry, (void *)stack_top, safe_argc);
 
     debug_dump_initial_stack(stack_top);
 
@@ -744,14 +735,14 @@ int userland_exec(const userland_exec_ctx_t* ctx)
 
     kernel_stack_top =
         (uint64_t)&userland_syscall_stacks[frame_depth]
-        [sizeof(userland_syscall_stacks[frame_depth])];
+                                          [sizeof(userland_syscall_stacks[frame_depth])];
 
     tss.rsp0 = kernel_stack_top;
 
     // ----------------------------------------------------
     // SWITCH TO USER MODE
     // ----------------------------------------------------
-    asm volatile (
+    asm volatile(
         "cli\n"
         "mov %0, %%r11\n"
         "mov %1, %%r10\n"
@@ -772,8 +763,7 @@ int userland_exec(const userland_exec_ctx_t* ctx)
         :
         : "r"(stack_top), "r"((uint64_t)entry)
         : "memory", "rax", "rbx", "rcx", "rdx",
-          "rsi", "rdi", "r8", "r9", "r10", "r11"
-    );
+        "rsi", "rdi", "r8", "r9", "r10", "r11");
 
     __builtin_unreachable();
 }
@@ -797,8 +787,7 @@ int userland_exec(const userland_exec_ctx_t* ctx)
  * function in between must have preserved them as callee-saved regs).
  * Only the program image, stack, and TLS actually change.
  */
-int userland_exec_replace(const userland_exec_ctx_t* ctx)
-{
+int userland_exec_replace(const userland_exec_ctx_t *ctx) {
     if (!ctx || !ctx->path)
         return -1;
 
@@ -809,7 +798,7 @@ int userland_exec_replace(const userland_exec_ctx_t* ctx)
 
     elf_image_info_t image_info = {0};
 
-    void* entry = elf_load_from_vfs_ex(ctx->path, &image_info);
+    void *entry = elf_load_from_vfs_ex(ctx->path, &image_info);
     if (!entry)
         return -1;
 
@@ -821,8 +810,10 @@ int userland_exec_replace(const userland_exec_ctx_t* ctx)
     local.path = ctx->path;
 
     int safe_argc = ctx->argc;
-    if (safe_argc < 0) safe_argc = 0;
-    if (safe_argc > 31) safe_argc = 31;
+    if (safe_argc < 0)
+        safe_argc = 0;
+    if (safe_argc > 31)
+        safe_argc = 31;
 
     local.argc = safe_argc;
     local.envp = ctx->envp;
@@ -849,20 +840,20 @@ int userland_exec_replace(const userland_exec_ctx_t* ctx)
     // ---------------------------------------------------
     uint64_t stack_top =
         build_initial_user_stack(local.path,
-                                 local.argc,
-                                 local.argv,
-                                 local.envp,
-                                 &image_info);
+            local.argc,
+            local.argv,
+            local.envp,
+            &image_info);
 
     debug_printf("userland: exec (replace ctx) path=%s entry=%p stack=%p\n",
-                 local.path, entry, (void*)stack_top);
+        local.path, entry, (void *)stack_top);
 
     debug_dump_initial_stack(stack_top);
 
     // ---------------------------------------------------
     // SWITCH TO USER MODE
     // ---------------------------------------------------
-    asm volatile (
+    asm volatile(
         "cli\n"
         "mov %0, %%r11\n"
         "mov %1, %%r10\n"
@@ -883,8 +874,7 @@ int userland_exec_replace(const userland_exec_ctx_t* ctx)
         :
         : "r"(stack_top), "r"((uint64_t)entry)
         : "memory", "rax", "rbx", "rcx", "rdx",
-          "rsi", "rdi", "r8", "r9", "r10", "r11"
-    );
+        "rsi", "rdi", "r8", "r9", "r10", "r11");
 
     __builtin_unreachable();
 }

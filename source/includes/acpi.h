@@ -4,17 +4,17 @@
  * @brief The ACPI Header
  * @version 0.1
  * @date 2023-10-29
- * 
+ *
  * @copyright Copyright (C) 2019-2023 mintsuki and contributors.
- * 
+ *
  */
 #ifndef __ACPI_H_
 #define __ACPI_H_ 1
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
-extern const char* oem_name;
+extern const char *oem_name;
 
 extern bool virtualized;
 
@@ -38,16 +38,15 @@ struct acpi_gas {
     uint64_t address;
 };
 
-
 /**
  * @brief Initializes and iterates through all ACPI tables
- * 
+ *
  */
 void acpi_init(void);
 
 /**
  * @brief Searches for an STD Header in the ACPI Tables
- * 
+ *
  * @param signature Signature of the requested STD Header
  * @param index The index of the requested SDT Header
  * @returns Address of the ACPI Table
@@ -56,7 +55,7 @@ void *acpi_find_sdt(const char *signature, size_t index);
 
 /**
  * @brief Reboots using ACPI, if ACPI is unresponsive it tires hard reset and then triple fault.
- * 
+ *
  * @param hhdm_offset The HHDM Offset offered by Limine bootloader.
  */
 void acpi_reboot(uintptr_t hhdm_offset);

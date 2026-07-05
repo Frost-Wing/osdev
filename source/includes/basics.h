@@ -4,12 +4,12 @@
  * @brief This is a basic header files with FrostWing specific short forms and basically a good for life header
  * @version 0.1
  * @date 2023-12-10
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef uintptr_t int_pointer;
 typedef uint64_t uint64;
@@ -19,11 +19,11 @@ typedef uint8_t uint8;
 
 #define null NULL
 
-typedef const char* cstring;
-typedef char* string;
+typedef const char *cstring;
+typedef char *string;
 
-#define GiB *1024*1024*1024ULL
-#define MiB *1024*1024ULL
+#define GiB *1024 * 1024 * 1024ULL
+#define MiB *1024 * 1024ULL
 #define KiB *1024ULL
 
 #define yes true
@@ -50,4 +50,7 @@ typedef char* string;
  * @brief Assert Definition
  * @authors GAMINGNOOB (Coded Original) & Pradosh (Modified it)
  */
-#define assert(expression, file, line) if(!(expression)){printf("\x1b[31mAssert Failed! at \x1b[36m%s:%d\x1b[0m => \x1b[32m%s\x1b[0m", file, line, #expression);}
+#define assert(expression, file, line)                                                                          \
+    if (!(expression)) {                                                                                        \
+        printf("\x1b[31mAssert Failed! at \x1b[36m%s:%d\x1b[0m => \x1b[32m%s\x1b[0m", file, line, #expression); \
+    }

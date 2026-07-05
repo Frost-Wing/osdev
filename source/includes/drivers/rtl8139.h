@@ -4,41 +4,41 @@
  * @brief The Header files for RTL8139 Networking Card.
  * @version 0.1
  * @date 2023-12-05
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 #ifndef rtl8139_h
 #define rtl8139_h
- 
+
 #include <basics.h>
 #include <graphics.h>
 #include <hal.h>
 
 // RTL8139 registers
-#define RTL8139_REG_MAC         0x00
-#define RTL8139_REG_TX_STATUS   0x10
-#define RTL8139_REG_TX_ADDR     0x20
-#define RTL8139_REG_RX_BUFFER   0x30
-#define RTL8139_REG_COMMAND     0x37
+#define RTL8139_REG_MAC 0x00
+#define RTL8139_REG_TX_STATUS 0x10
+#define RTL8139_REG_TX_ADDR 0x20
+#define RTL8139_REG_RX_BUFFER 0x30
+#define RTL8139_REG_COMMAND 0x37
 
 // RTL8139 commands
-#define RTL8139_CMD_RESET       0x10
-#define RTL8139_CMD_RX_ENABLE   0x09
-#define RTL8139_CMD_TX_ENABLE   0x04
+#define RTL8139_CMD_RESET 0x10
+#define RTL8139_CMD_RX_ENABLE 0x09
+#define RTL8139_CMD_TX_ENABLE 0x04
 
 // RTL8139 packet buffer size
-#define RTL8139_BUFFER_SIZE     8192
+#define RTL8139_BUFFER_SIZE 8192
 
 // RTL8139 PCI addresses
-#define RTL8139_IOADDR1     0x10
-#define RTL8139_CMD         0x37
+#define RTL8139_IOADDR1 0x10
+#define RTL8139_CMD 0x37
 
 // RTL8139 Status
 #define TOK 0x0001
 #define ROK 0x0002
 
-#define RTL8139_IRQ_LINE 0x3C 
+#define RTL8139_IRQ_LINE 0x3C
 
 struct rtl8139 {
     uint16 io_base;
@@ -47,42 +47,42 @@ struct rtl8139 {
 
 /**
  * @brief Global pointer for the RTL card.
- * 
+ *
  */
-extern struct rtl8139* RTL8139;
+extern struct rtl8139 *RTL8139;
 
 /**
  * @brief Function to read the MAC address from EEPROM
- * 
- * @param nic 
+ *
+ * @param nic
  */
 void read_mac_address(void);
 
 /**
  * @brief Initialize RTL8139 NIC
- * 
+ *
  * @param nic the pointer to RTL structure
  */
-void rtl8139_init(struct rtl8139* nic);
+void rtl8139_init(struct rtl8139 *nic);
 
 /**
  * @brief Transmit a packet from the RTL8139
- * 
- * @param data 
- * @param length 
+ *
+ * @param data
+ * @param length
  * @return true if successfully sent.
  * @return false if failed to sent.
  */
-bool rtl8139_send_packet(const uint8* data, uint16 length);
+bool rtl8139_send_packet(const uint8 *data, uint16 length);
 
 /**
  * @brief Receives a packet
- * 
+ *
  * @param buffer the received data
  * @param length the length of buffer
  * @return [true] Return yes if a packet was received
  * @return [false] Return false if a packet was not received
  */
-bool rtl8139_receive_packet(uint8* buffer, uint16* length);
+bool rtl8139_receive_packet(uint8 *buffer, uint16 *length);
 
 #endif

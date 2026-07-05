@@ -1,20 +1,18 @@
-#include <scheduler/process.h>
-#include <memory.h>
 #include <heap.h>
+#include <memory.h>
 #include <paging.h>
-#include <scheduler/scheduler.h>
 #include <pit.h>
+#include <scheduler/process.h>
+#include <scheduler/scheduler.h>
 
 static process_t *process_list = NULL;
 static uint32_t next_pid = 1;
-
 
 /* -----------------------------
  * INTERNAL HELPERS
  * ----------------------------- */
 
-static process_t *alloc_process(void)
-{
+static process_t *alloc_process(void) {
     process_t *p = (process_t *)kmalloc(sizeof(process_t));
     if (!p)
         return NULL;
@@ -24,14 +22,12 @@ static process_t *alloc_process(void)
     return p;
 }
 
-static void setup_kernel_stack(process_t *p)
-{
+static void setup_kernel_stack(process_t *p) {
     p->kernel_stack = kmalloc(PROCESS_KERNEL_STACK);
     p->kernel_stack_top = (uint8_t *)p->kernel_stack + PROCESS_KERNEL_STACK;
 }
 
-static void setup_user_stack(process_t *p)
-{
+static void setup_user_stack(process_t *p) {
     p->user_stack = kmalloc(PROCESS_USER_STACK);
 }
 
@@ -40,10 +36,10 @@ static void setup_user_stack(process_t *p)
  * ----------------------------- */
 
 process_t *process_create_kernel(const char *name,
-                                void (*entry)(void))
-{
+    void (*entry)(void)) {
     process_t *p = alloc_process();
-    if (!p) return NULL;
+    if (!p)
+        return NULL;
 
     p->type = PROCESS_KERNEL;
     p->state = PROCESS_READY;
@@ -69,11 +65,11 @@ process_t *process_create_kernel(const char *name,
  * ----------------------------- */
 
 process_t *process_create_user(const char *path,
-                              int argc,
-                              const char *argv[])
-{
+    int argc,
+    const char *argv[]) {
     process_t *p = alloc_process();
-    if (!p) return NULL;
+    if (!p)
+        return NULL;
 
     p->type = PROCESS_USER;
     p->state = PROCESS_READY;
@@ -107,8 +103,7 @@ process_t *process_create_user(const char *path,
  * EXIT
  * ----------------------------- */
 
-void process_exit(int code)
-{
+void process_exit(int code) {
     if (!current_process)
         return;
 
@@ -122,12 +117,10 @@ void process_exit(int code)
  * FIND
  * ----------------------------- */
 
-process_t *process_find(uint32_t pid)
-{
+process_t *process_find(uint32_t pid) {
     process_t *p = process_list;
 
-    while (p)
-    {
+    while (p) {
         if (p->pid == pid)
             return p;
 
@@ -141,8 +134,7 @@ process_t *process_find(uint32_t pid)
  * SLEEP
  * ----------------------------- */
 
-void process_sleep(uint64_t ticks)
-{
+void process_sleep(uint64_t ticks) {
     if (!current_process)
         return;
 
@@ -156,8 +148,7 @@ void process_sleep(uint64_t ticks)
  * INIT
  * ----------------------------- */
 
-void process_init(void)
-{
+void process_init(void) {
     process_list = NULL;
     next_pid = 1;
     current_process = NULL;
@@ -167,15 +158,13 @@ void process_init(void)
  * FOR SCHEDULER USE ONLY
  * ----------------------------- */
 
-void process_enqueue(process_t *p)
-{
+void process_enqueue(process_t *p) {
     p->next = process_list;
     process_list = p;
 }
 
 /* simple dequeue (not heavily used in RR) */
-process_t *process_dequeue(void)
-{
+process_t *process_dequeue(void) {
     if (!process_list)
         return NULL;
 
@@ -184,8 +173,7 @@ process_t *process_dequeue(void)
     return p;
 }
 
-process_t *process_fork(process_t *parent)
-{
+process_t *process_fork(process_t *parent) {
     process_t *child = alloc_process();
     if (!child)
         return NULL;
@@ -199,8 +187,8 @@ process_t *process_fork(process_t *parent)
     /* copy kernel stack */
     child->kernel_stack = kmalloc(PROCESS_KERNEL_STACK);
     memcpy(child->kernel_stack,
-           parent->kernel_stack,
-           PROCESS_KERNEL_STACK);
+        parent->kernel_stack,
+        PROCESS_KERNEL_STACK);
 
     child->kernel_stack_top =
         (uint8_t *)child->kernel_stack + PROCESS_KERNEL_STACK;
@@ -208,11 +196,11 @@ process_t *process_fork(process_t *parent)
     /* copy user stack (simple clone, not COW yet) */
     child->user_stack = kmalloc(PROCESS_USER_STACK);
     memcpy(child->user_stack,
-           parent->user_stack,
-           PROCESS_USER_STACK);
+        parent->user_stack,
+        PROCESS_USER_STACK);
 
     /* FIX context so child returns 0, parent gets child PID */
-    child->context.rax = 0;          // fork() return in child
+    child->context.rax = 0;           // fork() return in child
     parent->context.rax = child->pid; // fork() return in parent
 
     scheduler_add(child);
@@ -220,8 +208,7 @@ process_t *process_fork(process_t *parent)
     return child;
 }
 
-void process_destroy(process_t *proc)
-{
+void process_destroy(process_t *proc) {
     if (!proc)
         return;
     proc->state = PROCESS_DEAD;

@@ -9,14 +9,14 @@
  *
  */
 
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
-#include <strings.h>
-#include <kernel.h>
-#include <memory.h>
 #include <acpi.h>
+#include <kernel.h>
 #include <limine.h>
+#include <memory.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <strings.h>
 // #include <meltdown.h>
 
 typedef char symbol[];
@@ -45,14 +45,14 @@ struct fadt {
     uint32_t firmware_ctrl;
     uint32_t dsdt;
 
-    uint8_t  reserved1;
-    uint8_t  preferred_pm_profile;
+    uint8_t reserved1;
+    uint8_t preferred_pm_profile;
     uint16_t sci_int;
     uint32_t smi_cmd;
-    uint8_t  acpi_enable;
-    uint8_t  acpi_disable;
-    uint8_t  s4bios_req;
-    uint8_t  pstate_cnt;
+    uint8_t acpi_enable;
+    uint8_t acpi_disable;
+    uint8_t s4bios_req;
+    uint8_t pstate_cnt;
 
     uint32_t pm1a_evt_blk;
     uint32_t pm1b_evt_blk;
@@ -61,37 +61,31 @@ struct fadt {
 
     /* skip tons of fields */
 
-    uint8_t  reserved2[76];
+    uint8_t reserved2[76];
 
-    struct acpi_gas reset_reg;   // ✅ correct
-    uint8_t         reset_value;
+    struct acpi_gas reset_reg; // ✅ correct
+    uint8_t reset_value;
 } __attribute__((packed));
-
 
 static bool use_xsdt;
 static struct rsdt *rsdt;
 
-const char* oem_name = "";
+const char *oem_name = "";
 
 bool virtualized = false;
 
 static volatile struct limine_rsdp_request rsdp_req = {
-    LIMINE_RSDP_REQUEST, 0, NULL
-};
+    LIMINE_RSDP_REQUEST, 0, NULL};
 
-void acpi_init(void)
-{
+void acpi_init(void) {
     struct rsdp *rsdp = rsdp_req.response->address;
     info("Found RSDP address!", __FILE__);
 
-    if (rsdp->rev >= 2 && rsdp->xsdt_addr)
-    {
+    if (rsdp->rev >= 2 && rsdp->xsdt_addr) {
         use_xsdt = true;
         rsdt = (struct rsdt *)((uintptr_t)rsdp->xsdt_addr);
         info("Using XSDT!", __FILE__);
-    }
-    else
-    {
+    } else {
         use_xsdt = false;
         rsdt = (struct rsdt *)((uintptr_t)rsdp->rsdt_addr);
         warn("XSDT Not found! But we can ignore that!", __FILE__);
@@ -100,10 +94,10 @@ void acpi_init(void)
     done("Successfully loaded!", __FILE__);
     oem_name = rsdp->oem_id;
     printf("OEM Name: %s", oem_name);
-    if(contains(oem_name, "BOCHS") || contains(oem_name, "VBOX") || contains(oem_name, "QEMU") || contains(oem_name, "VMWARE")){
+    if (contains(oem_name, "BOCHS") || contains(oem_name, "VBOX") || contains(oem_name, "QEMU") || contains(oem_name, "VMWARE")) {
         warn("Currently running in a virtualized environment.", __FILE__);
         virtualized = true;
-    }else{
+    } else {
         info("Currently running in a real computer.", __FILE__);
         virtualized = false;
     }
@@ -117,9 +111,7 @@ void *acpi_find_sdt(const char *signature, size_t index) {
 
     for (size_t i = 0; i < entries; i++) {
         struct sdt *ptr =
-            use_xsdt ?
-            (struct sdt *)(uintptr_t)((uint64_t *)rsdt->ptrs_start)[i] :
-            (struct sdt *)(uintptr_t)((uint32_t *)rsdt->ptrs_start)[i];
+            use_xsdt ? (struct sdt *)(uintptr_t)((uint64_t *)rsdt->ptrs_start)[i] : (struct sdt *)(uintptr_t)((uint32_t *)rsdt->ptrs_start)[i];
 
         if (!strncmp(ptr->signature, signature, 4)) {
             if (found++ == index)
@@ -133,10 +125,11 @@ void acpi_reboot(uintptr_t hhdm_offset) {
     clear_interrupts();
 
     struct fadt *fadt = (struct fadt *)((uintptr_t)acpi_find_sdt("FACP", 0) + hhdm_offset);
-    if (!fadt) goto fallback;
+    if (!fadt)
+        goto fallback;
 
     struct acpi_gas reg;
-    memcpy(&reg, (const void*)&fadt->reset_reg, sizeof(reg));
+    memcpy(&reg, (const void *)&fadt->reset_reg, sizeof(reg));
 
     if (reg.address && reg.address_space == 1) {
         printf("ACPI reset: space=%d addr=0x%x value=0x%x", reg.address_space, reg.address, fadt->reset_value);
@@ -152,14 +145,14 @@ fallback:
 
     // Keyboard controller reset
     for (int i = 0; i < 100000; i++)
-        if (!(inb(0x64) & 0x02)) break;
+        if (!(inb(0x64) & 0x02))
+            break;
     outb(0x64, 0xFE);
 
     // Triple fault fallback (works everywhere)
-    asm volatile (
+    asm volatile(
         "lidt (0)\n"
-        "int $3\n"
-    );
+        "int $3\n");
 
     hcf2();
 }

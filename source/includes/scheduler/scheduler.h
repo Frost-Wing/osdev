@@ -7,8 +7,8 @@
 #define SCHEDULER_H
 
 #include <scheduler/process.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 void scheduler_init(void);
 

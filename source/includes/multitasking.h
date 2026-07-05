@@ -2,8 +2,8 @@
 #define MULTITASKING_H
 
 #include <basics.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef enum {
     TASK_TYPE_KERNEL = 0,
@@ -23,20 +23,20 @@ typedef struct task_info {
     int exit_code;
     uint64_t runtime_ticks;
     uint32_t parent_pid;
-    const char* name;
-    const char* exe_path;
+    const char *name;
+    const char *exe_path;
 } task_info_t;
 
 typedef struct user_task_spec {
-    const char* path;
+    const char *path;
     int argc;
-    const char* argv[32];
+    const char *argv[32];
     uint32_t parent_pid;
     bool fork_child;
 } user_task_spec_t;
 
-typedef bool (*task_iter_cb_t)(const task_info_t* info, void* ctx);
-typedef bool (*kernel_task_fn_t)(uint32_t pid, uint64_t now_ticks, void* ctx, int* exit_code);
+typedef bool (*task_iter_cb_t)(const task_info_t *info, void *ctx);
+typedef bool (*kernel_task_fn_t)(uint32_t pid, uint64_t now_ticks, void *ctx, int *exit_code);
 
 typedef struct {
     uint64_t rip;
@@ -56,33 +56,33 @@ typedef struct task {
     char name[64];
 
     kernel_task_fn_t kernel_fn;
-    void* kernel_ctx;
+    void *kernel_ctx;
 
     user_task_spec_t user_spec;
     user_runtime_t user_runtime;
-    struct task* next;
-    
+    struct task *next;
+
 } task_t;
 
 void multitasking_init(void);
 void multitasking_on_pit_tick(uint64_t now_ticks);
 void multitasking_pump(void);
-task_t* multitasking_find_task(uint32_t pid);
+task_t *multitasking_find_task(uint32_t pid);
 
-uint32_t multitasking_spawn_kernel(const char* name, kernel_task_fn_t fn, void* ctx);
-uint32_t multitasking_spawn_userland(const char* name, const user_task_spec_t* spec);
+uint32_t multitasking_spawn_kernel(const char *name, kernel_task_fn_t fn, void *ctx);
+uint32_t multitasking_spawn_userland(const char *name, const user_task_spec_t *spec);
 
 bool multitasking_exit_task(uint32_t pid, int exit_code);
-bool multitasking_reap_task(uint32_t pid, task_info_t* out_info);
-bool multitasking_find_child(uint32_t parent_pid, int64_t pid_filter, bool exited_only, task_info_t* out_info);
+bool multitasking_reap_task(uint32_t pid, task_info_t *out_info);
+bool multitasking_find_child(uint32_t parent_pid, int64_t pid_filter, bool exited_only, task_info_t *out_info);
 bool multitasking_current_is_fork_child(void);
-bool multitasking_get_task(uint32_t pid, task_info_t* out_info);
+bool multitasking_get_task(uint32_t pid, task_info_t *out_info);
 uint32_t multitasking_current_pid(void);
 
 uint32_t multitasking_count_tasks(void);
 uint32_t multitasking_count_running(void);
 
-bool multitasking_for_each_task(task_iter_cb_t cb, void* ctx);
+bool multitasking_for_each_task(task_iter_cb_t cb, void *ctx);
 
 void multitasking_start_cursor_blink_task(void);
 

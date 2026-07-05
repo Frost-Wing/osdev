@@ -9,47 +9,47 @@
  *
  */
 #include <commands/login.h>
+#include <graphics.h>
+#include <keyboard.h>
+#include <klog.h>
+#include <limine.h>
+#include <memory.h>
 #include <stdint.h>
+#include <stream.h>
 #include <strings.h>
 #include <syscalls.h>
-#include <limine.h>
-#include <keyboard.h>
-#include <graphics.h>
-#include <memory.h>
-#include <stream.h>
-#include <userland.h>
-#include <klog.h>
 #include <syslog.h>
+#include <userland.h>
 
 // Entire filesystems present in the OS.
-#include <filesystems/vfs.h>
-#include <filesystems/layers/proc.h>
-#include <filesystems/layers/dev.h>
+#include <filesystems/ext2.h>
 #include <filesystems/fat16.h>
 #include <filesystems/fat32.h>
 #include <filesystems/iso9660.h>
-#include <filesystems/ext2.h>
+#include <filesystems/layers/dev.h>
+#include <filesystems/layers/proc.h>
+#include <filesystems/vfs.h>
 
-#include <executables/elf.h>
 #include <ahci.h>
-#include <rtc.h>
-#include <heap.h>
-#include <tty.h>
-#include <multitasking.h>
 #include <cc-asm.h>
+#include <executables/elf.h>
+#include <heap.h>
+#include <multitasking.h>
+#include <rtc.h>
+#include <tty.h>
 
 // sys headers
 #include <sys/dirent.h>
+#include <sys/helper.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/termios.h>
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
-#include <sys/helper.h>
 
 extern struct limine_framebuffer *framebuffer;
-extern uint64* font_address;
+extern uint64 *font_address;
 
 typedef struct {
     bool exists;
@@ -62,7 +62,7 @@ typedef struct {
 // char current_exec_path[256] = "/";
 uint64_t current_fs_base = 0;
 uint32_t current_umask = 022;
-uint64_t* clear_child_tid = NULL;
+uint64_t *clear_child_tid = NULL;
 // char current_exec_argv_storage[32][128];
 // const char* current_exec_argv[32];
 // int current_exec_argc = 0;
@@ -86,7 +86,7 @@ typedef struct {
 } linux_iso9660_dir_record_t;
 #pragma pack(pop)
 
-static void iso_name_to_vfs_local(const char* in, uint8_t in_len, char* out, size_t out_sz) {
+static void iso_name_to_vfs_local(const char *in, uint8_t in_len, char *out, size_t out_sz) {
     size_t oi = 0;
     for (uint8_t i = 0; i < in_len && oi + 1 < out_sz; ++i) {
         char c = in[i];
@@ -128,7 +128,7 @@ static int linux_flags_to_vfs(int linux_flags) {
     return vfs_flags;
 }
 
-static void fill_stat_from_info(linux_stat_t* st, const vfs_stat_info_t* info) {
+static void fill_stat_from_info(linux_stat_t *st, const vfs_stat_info_t *info) {
     if (!st || !info)
         return;
 
@@ -145,7 +145,7 @@ static void fill_stat_from_info(linux_stat_t* st, const vfs_stat_info_t* info) {
     st->st_blocks = (info->size + 511) / 512;
 }
 
-static bool resolve_path_at(int dirfd, const char* path, char* out, size_t out_sz) {
+static bool resolve_path_at(int dirfd, const char *path, char *out, size_t out_sz) {
     if (!path || !out)
         return false;
 
@@ -158,7 +158,7 @@ static bool resolve_path_at(int dirfd, const char* path, char* out, size_t out_s
     if (!fd_valid(dirfd))
         return false;
 
-    const char* base = fd_get_path(dirfd);
+    const char *base = fd_get_path(dirfd);
     if (!base)
         base = vfs_getcwd();
 
@@ -167,7 +167,7 @@ static bool resolve_path_at(int dirfd, const char* path, char* out, size_t out_s
     return vfs_normalize_path(joined, out, out_sz) == 0;
 }
 
-static bool fill_vfs_stat_for_path_at(int dirfd, const char* path, vfs_stat_info_t* info) {
+static bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *info) {
     if (!path || !info)
         return false;
 
@@ -236,21 +236,21 @@ static bool fill_vfs_stat_for_path_at(int dirfd, const char* path, vfs_stat_info
     }
 
     if (res.mnt->type == FS_FAT16) {
-        fat16_fs_t* fs = (fat16_fs_t*)res.mnt->fs;
+        fat16_fs_t *fs = (fat16_fs_t *)res.mnt->fs;
         fat16_dir_entry_t entry = {0};
         if (fat16_find_path(fs, res.rel_path, &entry) != 0)
             return false;
         info->is_dir = (entry.attr & 0x10) != 0;
         info->size = entry.filesize;
     } else if (res.mnt->type == FS_FAT32) {
-        fat32_fs_t* fs = (fat32_fs_t*)res.mnt->fs;
+        fat32_fs_t *fs = (fat32_fs_t *)res.mnt->fs;
         fat32_dir_entry_t entry = {0};
         if (fat32_find_path(fs, res.rel_path, &entry) != FAT_OK)
             return false;
         info->is_dir = (entry.attr & FAT_ATTR_DIRECTORY) != 0;
         info->size = entry.file_size;
     } else if (res.mnt->type == FS_ISO9660) {
-        iso9660_fs_t* fs = (iso9660_fs_t*)res.mnt->fs;
+        iso9660_fs_t *fs = (iso9660_fs_t *)res.mnt->fs;
         iso9660_dirent_t entry = {0};
         if (iso9660_find_path(fs, res.rel_path, &entry) != 0)
             return false;
@@ -264,7 +264,7 @@ static bool fill_vfs_stat_for_path_at(int dirfd, const char* path, vfs_stat_info
     return true;
 }
 
-static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t* info) {
+static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
     if (!info || !fd_valid(fd))
         return false;
 
@@ -280,7 +280,7 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t* info) {
         return true;
     }
 
-    vfs_file_t* file = fd_get_file(fd);
+    vfs_file_t *file = fd_get_file(fd);
     switch (file->mnt->type) {
         case FS_PROC:
         case FS_DEV:
@@ -307,7 +307,7 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t* info) {
     return true;
 }
 
-static uint64 copy_readlink_result(const char* target, char* buf, uint64_t bufsiz) {
+static uint64 copy_readlink_result(const char *target, char *buf, uint64_t bufsiz) {
     if (!target || !buf || bufsiz == 0)
         return -LINUX_EINVAL;
 
@@ -318,7 +318,7 @@ static uint64 copy_readlink_result(const char* target, char* buf, uint64_t bufsi
     return (uint64)len;
 }
 
-static bool path_is_loadable_elf(const char* path) {
+static bool path_is_loadable_elf(const char *path) {
     if (!path)
         return false;
 
@@ -333,7 +333,7 @@ static bool path_is_loadable_elf(const char* path) {
     return rd == (int)sizeof(ident) && ident[0] == 0x7F && ident[1] == 'E' && ident[2] == 'L' && ident[3] == 'F';
 }
 
-static bool should_route_to_toybox(const char* target) {
+static bool should_route_to_toybox(const char *target) {
     // Bail out before logging anything for targets that were never a real
     // exec attempt (e.g. the default/unset current_exec_path == "/", or an
     // empty string). Without this, sys_fork() calling this before the very
@@ -343,7 +343,7 @@ static bool should_route_to_toybox(const char* target) {
 
     debug_printf("route -> %s\n", target);
 
-    const char* applet = vfs_basename(target);
+    const char *applet = vfs_basename(target);
     if (!applet || applet[0] == '\0' || strcmp(applet, "toybox") == 0)
         return false;
 
@@ -354,12 +354,11 @@ static bool should_route_to_toybox(const char* target) {
 }
 
 static int build_toybox_argv(
-    const char* target,
+    const char *target,
     int argc,
-    char** copied_argv,
-    const char* out_argv[32]
-) {
-    const char* applet = vfs_basename(target);
+    char **copied_argv,
+    const char *out_argv[32]) {
+    const char *applet = vfs_basename(target);
     debug_printf("build_toybox_argv -> target = %s\n", target);
     int out_argc = 0;
 
@@ -375,7 +374,7 @@ static int build_toybox_argv(
     return out_argc;
 }
 
-static int emit_dirent(char* buf, uint64_t buflen, uint64_t* used, uint64_t ino, uint8_t type, const char* name, uint64_t next_off) {
+static int emit_dirent(char *buf, uint64_t buflen, uint64_t *used, uint64_t ino, uint8_t type, const char *name, uint64_t next_off) {
     uint64_t name_len = strlen(name) + 1;
     uint64_t reclen = sizeof(linux_dirent64_t) + name_len;
     reclen = (reclen + 7) & ~7ULL;
@@ -383,24 +382,24 @@ static int emit_dirent(char* buf, uint64_t buflen, uint64_t* used, uint64_t ino,
     if (*used + reclen > buflen)
         return 0;
 
-    linux_dirent64_t* ent = (linux_dirent64_t*)(buf + *used);
+    linux_dirent64_t *ent = (linux_dirent64_t *)(buf + *used);
     ent->d_ino = ino;
     ent->d_off = next_off;
     ent->d_reclen = (uint16_t)reclen;
     ent->d_type = type;
     memcpy(ent->d_name, name, name_len);
-    memset(((char*)ent) + sizeof(linux_dirent64_t) + name_len, 0, reclen - sizeof(linux_dirent64_t) - name_len);
+    memset(((char *)ent) + sizeof(linux_dirent64_t) + name_len, 0, reclen - sizeof(linux_dirent64_t) - name_len);
     *used += reclen;
     return 1;
 }
 
-static uint32_t fat16_cluster_lba_local(fat16_fs_t* fs, uint16_t cluster) {
+static uint32_t fat16_cluster_lba_local(fat16_fs_t *fs, uint16_t cluster) {
     if (cluster == FAT16_ROOT_CLUSTER)
         return fs->root_dir_start;
     return fs->data_start + ((uint32_t)(cluster - 2) * fs->bs.sectors_per_cluster);
 }
 
-static void fat32_short_name(const fat32_dir_entry_t* e, char* out, size_t out_sz) {
+static void fat32_short_name(const fat32_dir_entry_t *e, char *out, size_t out_sz) {
     char name[9];
     char ext[4];
 
@@ -422,41 +421,49 @@ static void fat32_short_name(const fat32_dir_entry_t* e, char* out, size_t out_s
 
 static uint8_t ext2_filetype_to_dt(uint8_t ft) {
     switch (ft) {
-        case EXT2_FT_REG_FILE: return 8;  /* DT_REG  */
-        case EXT2_FT_DIR:      return 4;  /* DT_DIR  */
-        case EXT2_FT_CHRDEV:   return 2;  /* DT_CHR  */
-        case EXT2_FT_BLKDEV:   return 6;  /* DT_BLK  */
-        case EXT2_FT_FIFO:     return 1;  /* DT_FIFO */
-        case EXT2_FT_SOCK:     return 12; /* DT_SOCK */
-        case EXT2_FT_SYMLINK:  return 10; /* DT_LNK  */
-        default:                return 0; /* DT_UNKNOWN */
+        case EXT2_FT_REG_FILE:
+            return 8; /* DT_REG  */
+        case EXT2_FT_DIR:
+            return 4; /* DT_DIR  */
+        case EXT2_FT_CHRDEV:
+            return 2; /* DT_CHR  */
+        case EXT2_FT_BLKDEV:
+            return 6; /* DT_BLK  */
+        case EXT2_FT_FIFO:
+            return 1; /* DT_FIFO */
+        case EXT2_FT_SOCK:
+            return 12; /* DT_SOCK */
+        case EXT2_FT_SYMLINK:
+            return 10; /* DT_LNK  */
+        default:
+            return 0; /* DT_UNKNOWN */
     }
 }
 
 typedef struct {
-    char*     buf;
-    uint64_t  buflen;
-    uint64_t* used;
-    uint32_t* pos;
-    uint64_t  entry_index; /* resume point, from *pos */
-    uint64_t  idx;         /* running count of entries seen so far */
+    char *buf;
+    uint64_t buflen;
+    uint64_t *used;
+    uint32_t *pos;
+    uint64_t entry_index; /* resume point, from *pos */
+    uint64_t idx;         /* running count of entries seen so far */
 } ext2_getdents_ctx_t;
 
-static int ext2_getdents_cb(uint32_t ino, uint8_t file_type, const char* name, void* user) {
-    ext2_getdents_ctx_t* ctx = (ext2_getdents_ctx_t*)user;
+static int ext2_getdents_cb(uint32_t ino, uint8_t file_type, const char *name, void *user) {
+    ext2_getdents_ctx_t *ctx = (ext2_getdents_ctx_t *)user;
 
     if (ctx->idx++ < ctx->entry_index)
         return 0; /* not at resume point yet, keep going */
 
     if (!emit_dirent(ctx->buf, ctx->buflen, ctx->used, ino,
-                      ext2_filetype_to_dt(file_type), name, ctx->idx))
+            ext2_filetype_to_dt(file_type), name, ctx->idx))
         return 1; /* output buffer full, stop iteration */
 
     *ctx->pos = (uint32_t)ctx->idx;
     return 0;
 }
 
-static uint64 sys_mkdirat(int dirfd, const char* path, int mode) {
+static uint64 sys_mkdirat(int dirfd, const char *path, int mode) {
     (void)mode;
     if (!path)
         return -LINUX_EINVAL;
@@ -470,17 +477,22 @@ static uint64 sys_mkdirat(int dirfd, const char* path, int mode) {
         return 0;
 
     switch (rc) {
-        case EXT2_ERR_EXISTS:    return -LINUX_EEXIST;
-        case EXT2_ERR_NOSPACE:   return -LINUX_ENOSPC;
-        case EXT2_ERR_NOTDIR:    return -LINUX_ENOTDIR;
-        case EXT2_ERR_NOT_FOUND: return -LINUX_ENOENT;
-        case EXT2_ERR_IO:        return -LINUX_EIO;
-        default:                 return -LINUX_EIO;
+        case EXT2_ERR_EXISTS:
+            return -LINUX_EEXIST;
+        case EXT2_ERR_NOSPACE:
+            return -LINUX_ENOSPC;
+        case EXT2_ERR_NOTDIR:
+            return -LINUX_ENOTDIR;
+        case EXT2_ERR_NOT_FOUND:
+            return -LINUX_ENOENT;
+        case EXT2_ERR_IO:
+            return -LINUX_EIO;
+        default:
+            return -LINUX_EIO;
     }
 }
 
-static uint64_t sys_unlink(const char *user_path)
-{
+static uint64_t sys_unlink(const char *user_path) {
     char path[1024];
 
     if (strcpy(path, user_path) < 0)
@@ -489,23 +501,23 @@ static uint64_t sys_unlink(const char *user_path)
     int ret = vfs_unlink(path);
 
     if (ret < 0)
-        return ret;        // or translate to Linux errno if needed
+        return ret; // or translate to Linux errno if needed
 
     return 0;
 }
 
-static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
+static int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
     if (!buf || buflen < sizeof(linux_dirent64_t))
         return -LINUX_EINVAL;
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
-    vfs_file_t* file = fd_get_file((int)fd);
+    vfs_file_t *file = fd_get_file((int)fd);
     if (!file) {
         return -LINUX_ENOTDIR;
     }
 
-    uint32_t* pos = fd_pos_ptr((int)fd);
+    uint32_t *pos = fd_pos_ptr((int)fd);
     if (!pos)
         return -LINUX_ENOTDIR;
 
@@ -519,8 +531,8 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
             if (idx++ < entry_index)
                 continue;
 
-            mount_entry_t* m = &mounted_partitions[i];
-            const char* name = vfs_basename(m->mount_point);
+            mount_entry_t *m = &mounted_partitions[i];
+            const char *name = vfs_basename(m->mount_point);
 
             if (!emit_dirent(
                     buf,
@@ -537,7 +549,7 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
     }
 
     if (file->mnt->type == FS_PROC) {
-        static const char* proc_entries[PROC_FILE_COUNT] = {"stat", "heap", "meminfo"};
+        static const char *proc_entries[PROC_FILE_COUNT] = {"stat", "heap", "meminfo"};
         for (uint64_t i = entry_index; i < PROC_FILE_COUNT; ++i) {
             if (!emit_dirent(buf, buflen, &used, i + 2, 8, proc_entries[i], i + 1))
                 break;
@@ -547,7 +559,7 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
     }
 
     if (file->mnt->type == FS_DEV) {
-        static const char* dev_entries[] = {"null", "zero", "random", "urandom", "klog"};
+        static const char *dev_entries[] = {"null", "zero", "random", "urandom", "klog"};
         const uint64_t fixed = 5;
         uint64_t total = fixed;
         for (int i = 0; i < block_device_count; i++) {
@@ -557,7 +569,7 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
         }
 
         for (uint64_t i = entry_index; i < total; ++i) {
-            const char* name = NULL;
+            const char *name = NULL;
 
             if (i < fixed) {
                 name = dev_entries[i];
@@ -589,7 +601,7 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
     }
 
     if (file->mnt->type == FS_FAT16) {
-        fat16_fs_t* fs = file->f.fat16.fs;
+        fat16_fs_t *fs = file->f.fat16.fs;
         uint16_t cluster = file->f.fat16.entry.first_cluster;
         uint8_t sector[SECTOR_SIZE];
         uint64_t idx = 0;
@@ -600,9 +612,9 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
         if (cluster == FAT16_ROOT_CLUSTER) {
             for (uint32_t s = 0; s < fs->root_dir_sectors; ++s) {
                 ahci_read_sector(fs->portno, fs->root_dir_start + s, sector, 1);
-                fat16_dir_entry_t* entries = (fat16_dir_entry_t*)sector;
+                fat16_dir_entry_t *entries = (fat16_dir_entry_t *)sector;
                 for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; ++i) {
-                    fat16_dir_entry_t* e = &entries[i];
+                    fat16_dir_entry_t *e = &entries[i];
                     if (e->name[0] == 0x00)
                         return (int)used;
                     if (e->name[0] == 0xE5 || (e->attr & 0x0F) == 0x0F || (e->attr & 0x08))
@@ -623,9 +635,9 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
             uint32_t lba = fat16_cluster_lba_local(fs, cluster);
             for (uint32_t s = 0; s < fs->bs.sectors_per_cluster; ++s) {
                 ahci_read_sector(fs->portno, lba + s, sector, 1);
-                fat16_dir_entry_t* entries = (fat16_dir_entry_t*)sector;
+                fat16_dir_entry_t *entries = (fat16_dir_entry_t *)sector;
                 for (int i = 0; i < DIR_ENTRIES_PER_SECTOR; ++i) {
-                    fat16_dir_entry_t* e = &entries[i];
+                    fat16_dir_entry_t *e = &entries[i];
                     if (e->name[0] == 0x00)
                         return (int)used;
                     if (e->name[0] == 0xE5 || (e->attr & 0x0F) == 0x0F || (e->attr & 0x08))
@@ -645,7 +657,7 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
     }
 
     if (file->mnt->type == FS_FAT32) {
-        fat32_fs_t* fs = file->f.fat32.fs;
+        fat32_fs_t *fs = file->f.fat32.fs;
         uint32_t cluster = file->f.fat32.is_dir ? file->f.fat32.start_cluster : fs->root_cluster;
         uint8_t sector[FAT32_SECTOR_SIZE];
         uint64_t idx = 0;
@@ -658,7 +670,7 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
             for (uint32_t s = 0; s < fs->sectors_per_cluster; ++s) {
                 ahci_read_sector(fs->portno, cluster_lba + s, sector, 1);
                 for (uint32_t off = 0; off < FAT32_SECTOR_SIZE; off += sizeof(fat32_dir_entry_t)) {
-                    fat32_dir_entry_t* e = (fat32_dir_entry_t*)(sector + off);
+                    fat32_dir_entry_t *e = (fat32_dir_entry_t *)(sector + off);
                     if (e->name[0] == 0x00)
                         return (int)used;
                     if (e->name[0] == 0xE5 || e->attr == FAT_ATTR_LFN || (e->attr & FAT_ATTR_VOLUME_ID))
@@ -675,13 +687,13 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
             uint32_t fat_sector = fs->fat_start_lba + (cluster * 4 / FAT32_SECTOR_SIZE);
             uint32_t ent_offset = (cluster * 4) % FAT32_SECTOR_SIZE;
             ahci_read_sector(fs->portno, fat_sector, sector, 1);
-            cluster = (*(uint32_t*)(sector + ent_offset)) & 0x0FFFFFFF;
+            cluster = (*(uint32_t *)(sector + ent_offset)) & 0x0FFFFFFF;
         }
         return (int)used;
     }
 
     if (file->mnt->type == FS_ISO9660) {
-        iso9660_fs_t* fs = file->f.iso9660.fs;
+        iso9660_fs_t *fs = file->f.iso9660.fs;
         iso9660_dirent_t dir = file->f.iso9660.entry;
         if ((dir.flags & ISO9660_FLAG_DIR) == 0) {
             dir.extent_lba = fs->root_extent_lba;
@@ -689,7 +701,7 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
             dir.flags = ISO9660_FLAG_DIR;
         }
 
-        uint8_t* block = kmalloc(fs->logical_block_size);
+        uint8_t *block = kmalloc(fs->logical_block_size);
         if (!block)
             return -LINUX_ENOMEM;
 
@@ -700,7 +712,7 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
                 break;
             uint32_t off = 0;
             while (off < fs->logical_block_size) {
-                linux_iso9660_dir_record_t* r = (linux_iso9660_dir_record_t*)(block + off);
+                linux_iso9660_dir_record_t *r = (linux_iso9660_dir_record_t *)(block + off);
                 if (r->length == 0)
                     break;
                 if (r->name_len == 1 && (uint8_t)r->name[0] <= 1) {
@@ -717,7 +729,7 @@ static int sys_getdents64(uint64_t fd, char* buf, uint64_t buflen) {
                 off += r->length;
             }
         }
-iso_done:
+    iso_done:
         kfree(block);
         return (int)used;
     }
@@ -744,7 +756,7 @@ iso_done:
     return -LINUX_ENOTDIR;
 }
 
-static uint64 sys_open_common(int dirfd, const char* path, int flags, int mode) {
+static uint64 sys_open_common(int dirfd, const char *path, int flags, int mode) {
     (void)mode;
 
     if (path == NULL)
@@ -772,7 +784,7 @@ static uint64 sys_close(uint64_t fd) {
     return fd_close((int)fd) == 0 ? 0 : -LINUX_EBADF;
 }
 
-static uint64 sys_fstat(uint64_t fd, linux_stat_t* st) {
+static uint64 sys_fstat(uint64_t fd, linux_stat_t *st) {
     vfs_stat_info_t info;
     if (!st)
         return -LINUX_EINVAL;
@@ -782,7 +794,7 @@ static uint64 sys_fstat(uint64_t fd, linux_stat_t* st) {
     return 0;
 }
 
-static uint64 sys_stat(const char* path, linux_stat_t* st) {
+static uint64 sys_stat(const char *path, linux_stat_t *st) {
     if (!path || !st)
         return -LINUX_EINVAL;
 
@@ -794,7 +806,7 @@ static uint64 sys_stat(const char* path, linux_stat_t* st) {
     return 0;
 }
 
-static uint64 sys_newfstatat(int dirfd, const char* path, linux_stat_t* st, int flags) {
+static uint64 sys_newfstatat(int dirfd, const char *path, linux_stat_t *st, int flags) {
     (void)flags;
     if (!st)
         return -LINUX_EINVAL;
@@ -813,7 +825,7 @@ static uint64 sys_newfstatat(int dirfd, const char* path, linux_stat_t* st, int 
     return 0;
 }
 
-static uint64 sys_statx(int dirfd, const char* path, int flags, unsigned int mask, linux_statx_t* stx) {
+static uint64 sys_statx(int dirfd, const char *path, int flags, unsigned int mask, linux_statx_t *stx) {
     (void)mask;
     linux_stat_t st;
     if (!stx)
@@ -834,7 +846,7 @@ static uint64 sys_statx(int dirfd, const char* path, int flags, unsigned int mas
     return 0;
 }
 
-static uint64 sys_read(uint64_t fd, char* buf, uint64_t count) {
+static uint64 sys_read(uint64_t fd, char *buf, uint64_t count) {
     if (buf == NULL || count == 0)
         return 0;
 
@@ -845,18 +857,18 @@ static uint64 sys_read(uint64_t fd, char* buf, uint64_t count) {
     if (!(flags & VFS_RDONLY) && !(flags & VFS_RDWR))
         return -LINUX_EBADF;
 
-    vfs_file_t* file = fd_get_file((int)fd);
+    vfs_file_t *file = fd_get_file((int)fd);
     if (fd == 0)
         return tty_read(buf, count);
 
-    int rd = vfs_read(file, (uint8_t*)buf, (uint32_t)count);
+    int rd = vfs_read(file, (uint8_t *)buf, (uint32_t)count);
     if (rd < 0)
         return -LINUX_EBADF;
 
     return rd;
 }
 
-static uint64 sys_write(uint64_t fd, const char* buf, uint64_t count) {
+static uint64 sys_write(uint64_t fd, const char *buf, uint64_t count) {
     if (buf == NULL || count == 0)
         return 0;
 
@@ -867,27 +879,27 @@ static uint64 sys_write(uint64_t fd, const char* buf, uint64_t count) {
     if (!(flags & VFS_WRONLY) && !(flags & VFS_RDWR))
         return -LINUX_EBADF;
 
-    vfs_file_t* file = fd_get_file((int)fd);
+    vfs_file_t *file = fd_get_file((int)fd);
     if (file == NULL) {
         for (uint64_t i = 0; i < count; ++i)
             putc(buf[i]);
         return (uint64)count;
     }
 
-    int wr = vfs_write(file, (const uint8_t*)buf, (uint32_t)count);
+    int wr = vfs_write(file, (const uint8_t *)buf, (uint32_t)count);
     if (wr < 0)
         return -LINUX_EBADF;
 
     return wr;
 }
 
-static uint64 sys_writev(uint64_t fd, const linux_iovec_t* iov, uint64_t iovcnt) {
+static uint64 sys_writev(uint64_t fd, const linux_iovec_t *iov, uint64_t iovcnt) {
     if (iov == NULL)
         return -LINUX_EINVAL;
 
     uint64 total = 0;
     for (uint64_t i = 0; i < iovcnt; ++i) {
-        uint64 written = sys_write(fd, (const char*)iov[i].iov_base, iov[i].iov_len);
+        uint64 written = sys_write(fd, (const char *)iov[i].iov_base, iov[i].iov_len);
         if (written < 0)
             return written;
         total += written;
@@ -907,7 +919,7 @@ static uint64 sys_socket(uint64_t domain, uint64_t type, uint64_t protocol) {
     return -LINUX_EAFNOSUPPORT;
 }
 
-static uint64 sys_connect(uint64_t fd, const void* addr, uint64_t addrlen) {
+static uint64 sys_connect(uint64_t fd, const void *addr, uint64_t addrlen) {
     (void)addr;
     (void)addrlen;
 
@@ -922,7 +934,7 @@ static uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
 
     switch (req) {
         case LINUX_TIOCGWINSZ: {
-            linux_winsize_t* ws = (linux_winsize_t*)arg;
+            linux_winsize_t *ws = (linux_winsize_t *)arg;
             if (!ws)
                 return -LINUX_EINVAL;
             ws->ws_row = 25;
@@ -932,7 +944,7 @@ static uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
             return 0;
         }
         case LINUX_TCGETS: {
-            linux_termios_t* tio = (linux_termios_t*)arg;
+            linux_termios_t *tio = (linux_termios_t *)arg;
             if (!tio)
                 return -LINUX_EINVAL;
 
@@ -940,13 +952,13 @@ static uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
 
             /* Input flags */
             tio->c_iflag =
-                LINUX_ICRNL |    // CR -> NL
-                LINUX_IXON;      // Ctrl-S/Ctrl-Q flow control
+                LINUX_ICRNL | // CR -> NL
+                LINUX_IXON;   // Ctrl-S/Ctrl-Q flow control
 
             /* Output flags */
             tio->c_oflag =
-                LINUX_OPOST |    // enable output processing
-                LINUX_ONLCR;     // NL -> CRNL
+                LINUX_OPOST | // enable output processing
+                LINUX_ONLCR;  // NL -> CRNL
 
             /* Control flags */
             tio->c_cflag =
@@ -963,7 +975,7 @@ static uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
                 LINUX_IEXTEN;
 
             /* Special characters */
-            tio->c_cc[LINUX_VMIN]  = 1;
+            tio->c_cc[LINUX_VMIN] = 1;
             tio->c_cc[LINUX_VTIME] = 0;
 
             return 0;
@@ -975,7 +987,7 @@ static uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
         case LINUX_TIOCGPGRP:
             if (!arg)
                 return -LINUX_EINVAL;
-            *(int*)arg = 1;
+            *(int *)arg = 1;
             return 0;
         case LINUX_TIOCSPGRP:
             return arg ? 0 : -LINUX_EINVAL;
@@ -1010,7 +1022,7 @@ static uint64 sys_fcntl(uint64_t fd, uint64_t cmd, uint64_t arg) {
     }
 }
 
-static uint64 sys_access_common(int dirfd, const char* path, int mode) {
+static uint64 sys_access_common(int dirfd, const char *path, int mode) {
     (void)mode;
     if (!path)
         return -LINUX_EINVAL;
@@ -1022,7 +1034,7 @@ static uint64 sys_lseek(uint64_t fd, int64_t offset, uint64_t whence) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
 
-    uint32_t* pos = fd_pos_ptr((int)fd);
+    uint32_t *pos = fd_pos_ptr((int)fd);
     if (!pos)
         return -LINUX_EINVAL;
 
@@ -1068,8 +1080,8 @@ static uint64 sys_dup(uint64_t oldfd) {
     return newfd < 0 ? -LINUX_ENFILE : newfd;
 }
 
-static uint64 sys_getcwd(char* buf, uint64_t size) {
-    const char* cwd = vfs_getcwd();
+static uint64 sys_getcwd(char *buf, uint64_t size) {
+    const char *cwd = vfs_getcwd();
     if (!buf || size == 0)
         return -LINUX_EINVAL;
 
@@ -1081,7 +1093,7 @@ static uint64 sys_getcwd(char* buf, uint64_t size) {
     return (uint64)len;
 }
 
-static uint64 sys_chdir(const char* path) {
+static uint64 sys_chdir(const char *path) {
     if (!path)
         return -LINUX_EINVAL;
 
@@ -1093,10 +1105,9 @@ static uint64 sys_chdir(const char* path) {
 }
 
 static uint64 sys_readlinkat(int dirfd,
-                            const char* path,
-                            char* buf,
-                            uint64_t bufsiz)
-{
+    const char *path,
+    char *buf,
+    uint64_t bufsiz) {
     if (!path)
         return -LINUX_EINVAL;
 
@@ -1105,8 +1116,7 @@ static uint64 sys_readlinkat(int dirfd,
         return -LINUX_EINVAL;
 
     if (strcmp(resolved_path, "/proc/self/exe") == 0 ||
-        strcmp(resolved_path, "self/exe") == 0)
-    {
+        strcmp(resolved_path, "self/exe") == 0) {
         uint32_t pid = multitasking_current_pid();
 
         if (pid == 0)
@@ -1127,7 +1137,7 @@ static uint64 sys_readlinkat(int dirfd,
     return -LINUX_ENOENT;
 }
 
-static uint64 sys_clock_gettime(uint64_t clockid, linux_timespec_t* tp) {
+static uint64 sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
     if (!tp)
         return -LINUX_EINVAL;
     if (clockid != LINUX_CLOCK_REALTIME && clockid != LINUX_CLOCK_MONOTONIC)
@@ -1142,7 +1152,7 @@ static uint64 sys_clock_gettime(uint64_t clockid, linux_timespec_t* tp) {
     return 0;
 }
 
-static uint64 sys_nanosleep(const linux_timespec_t* req, linux_timespec_t* rem) {
+static uint64 sys_nanosleep(const linux_timespec_t *req, linux_timespec_t *rem) {
     (void)rem;
     if (!req)
         return -LINUX_EINVAL;
@@ -1151,15 +1161,13 @@ static uint64 sys_nanosleep(const linux_timespec_t* req, linux_timespec_t* rem) 
     return 0;
 }
 
-int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg)
-{
+int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg) {
     (void)arg;
 
     if (magic1 != 0xfee1dead)
         return -LINUX_EINVAL;
 
-    switch (magic2)
-    {
+    switch (magic2) {
         case 672274793:
         case 85072278:
         case 369367448:
@@ -1169,17 +1177,16 @@ int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg)
             return -LINUX_EINVAL;
     }
 
-    switch (cmd)
-    {
-        case 0x01234567:      /* RESTART */
+    switch (cmd) {
+        case 0x01234567: /* RESTART */
             reboot();
             break;
 
-        case 0x4321FEDC:      /* POWER_OFF */
+        case 0x4321FEDC: /* POWER_OFF */
             shutdown();
             break;
 
-        case 0xCDEF0123:      /* HALT */
+        case 0xCDEF0123: /* HALT */
             hcf();
             break;
 
@@ -1191,12 +1198,9 @@ int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg)
     return 0;
 }
 
-int sys_kill(int pid, int sig)
-{
-    if (pid == 1)
-    {
-        switch (sig)
-        {
+int sys_kill(int pid, int sig) {
+    if (pid == 1) {
+        switch (sig) {
             case SIGTERM:
             case SIGINT:
                 reboot();
@@ -1216,7 +1220,7 @@ int sys_kill(int pid, int sig)
 
 // Backs dmesg, which opens /dev/kmsg or falls back to the syslog(2) syscall
 // (SYS_syslog == 103 on x86_64) to read the kernel ring buffer.
-uint64 sys_syslog(int type, char* buf, uint64_t len) {
+uint64 sys_syslog(int type, char *buf, uint64_t len) {
     syslog_printf("[syscall] klog: type -> %d", type);
     switch (type) {
         case LINUX_SYSLOG_ACTION_CLOSE:
@@ -1354,14 +1358,14 @@ static uint64 sys_arch_prctl(uint64_t code, uint64_t addr) {
         case LINUX_ARCH_GET_FS:
             if (!addr)
                 return -LINUX_EINVAL;
-            *(uint64_t*)addr = rdmsr64(IA32_FS_BASE_MSR);
+            *(uint64_t *)addr = rdmsr64(IA32_FS_BASE_MSR);
             return 0;
         default:
             return -LINUX_ENOSYS;
     }
 }
 
-static uint64 sys_prlimit64(uint64_t pid, uint64_t resource, const linux_rlimit64_t* new_limit, linux_rlimit64_t* old_limit) {
+static uint64 sys_prlimit64(uint64_t pid, uint64_t resource, const linux_rlimit64_t *new_limit, linux_rlimit64_t *old_limit) {
     (void)resource;
     (void)new_limit;
     if (pid != 0 && pid != 1)
@@ -1389,23 +1393,23 @@ static uint64 sys_tgkill(uint64_t tgid, uint64_t tid, uint64_t sig) {
     return -LINUX_ENOSYS;
 }
 
-static uint64 sys_set_tid_address(uint64_t* tidptr) {
+static uint64 sys_set_tid_address(uint64_t *tidptr) {
     clear_child_tid = tidptr;
     return 1;
 }
 
-static uint64 sys_set_robust_list(const void* head, uint64_t len) {
+static uint64 sys_set_robust_list(const void *head, uint64_t len) {
     (void)head;
     if (len != 24)
         return -LINUX_EINVAL;
     return 0;
 }
 
-static uint64 sys_getrandom(void* buf, uint64_t buflen, uint64_t flags) {
+static uint64 sys_getrandom(void *buf, uint64_t buflen, uint64_t flags) {
     (void)flags;
     if (!buf)
         return -LINUX_EINVAL;
-    uint8_t* out = (uint8_t*)buf;
+    uint8_t *out = (uint8_t *)buf;
     uint64_t state = rdtsc64();
     for (uint64_t i = 0; i < buflen; ++i) {
         state ^= state << 13;
@@ -1416,15 +1420,14 @@ static uint64 sys_getrandom(void* buf, uint64_t buflen, uint64_t flags) {
     return (uint64)buflen;
 }
 
-static uint64 sys_execve(const char* target,
-                         char* const* argv,
-                         char* const* envp)
-{
+static uint64 sys_execve(const char *target,
+    char *const *argv,
+    char *const *envp) {
     if (!target)
         return -LINUX_EINVAL;
 
-    char** copied_argv = NULL;
-    char** copied_envp = NULL;
+    char **copied_argv = NULL;
+    char **copied_envp = NULL;
 
     int argc = copy_user_string_array(argv, &copied_argv);
     if (argc < 0)
@@ -1440,7 +1443,7 @@ static uint64 sys_execve(const char* target,
 
     ctx.path = target;
     ctx.argc = argc;
-    ctx.envp = (const char* const*)copied_envp;
+    ctx.envp = (const char *const *)copied_envp;
 
     for (int i = 0; i < argc && i < 31; i++)
         ctx.argv[i] = copied_argv[i];
@@ -1450,13 +1453,12 @@ static uint64 sys_execve(const char* target,
     int rc;
 
     if (should_route_to_toybox(target)) {
-        const char* toybox_argv[32];
+        const char *toybox_argv[32];
         int toybox_argc = build_toybox_argv(
             target,
             argc,
-            (char**)copied_argv,
-            toybox_argv
-        );
+            (char **)copied_argv,
+            toybox_argv);
 
         userland_exec_ctx_t tb_ctx;
 
@@ -1480,27 +1482,26 @@ static uint64 sys_execve(const char* target,
     return (rc == 0) ? 0 : -LINUX_ENOEXEC;
 }
 
-static uint64 sys_fork(void)
-{
+static uint64 sys_fork(void) {
     if (multitasking_current_is_fork_child())
         return 0;
 
-    task_t* cur = multitasking_get_current_task();
+    task_t *cur = multitasking_get_current_task();
     if (!cur) {
         debug_printf("[syscall] failed, could not get the current task! (fork())\n");
         syslog_printf("[syscall] failed, could not get the current task! (fork())");
         return -LINUX_ENOSYS;
     }
 
-    if (!cur->user_spec.path){
+    if (!cur->user_spec.path) {
         debug_printf("[syscall] user_spec.path is null!\n");
         syslog_printf("[syscall] user_spec.path is null!");
         return -LINUX_ENOSYS;
     }
 
-    const char* spawn_path = cur->user_spec.path;
+    const char *spawn_path = cur->user_spec.path;
 
-    const char* spawn_argv[32];
+    const char *spawn_argv[32];
     int spawn_argc = cur->user_spec.argc;
 
     if (spawn_argc < 0)
@@ -1515,13 +1516,12 @@ static uint64 sys_fork(void)
 
     // toybox routing
     if (should_route_to_toybox(spawn_path)) {
-        const char* toybox_argv[32];
+        const char *toybox_argv[32];
         int toybox_argc = build_toybox_argv(
             spawn_path,
             spawn_argc,
             spawn_argv,
-            toybox_argv
-        );
+            toybox_argv);
 
         spawn_path = "/bin/toybox";
         spawn_argc = toybox_argc;
@@ -1552,7 +1552,7 @@ static uint64 sys_fork(void)
     return child;
 }
 
-static uint64 sys_wait4(int64_t pid, int* status, int options, void* rusage) {
+static uint64 sys_wait4(int64_t pid, int *status, int options, void *rusage) {
     (void)rusage;
     const int LINUX_WNOHANG = 1;
 
@@ -1589,10 +1589,9 @@ static uint64 sys_wait4(int64_t pid, int* status, int options, void* rusage) {
 #define FUTEX_WAIT 0
 #define FUTEX_WAKE 1
 
-static uint64 sys_futex(uint32_t* uaddr, int op, uint32_t val,
-                       const linux_timespec_t* timeout,
-                       uint32_t* uaddr2, uint32_t val3)
-{
+static uint64 sys_futex(uint32_t *uaddr, int op, uint32_t val,
+    const linux_timespec_t *timeout,
+    uint32_t *uaddr2, uint32_t val3) {
     (void)timeout;
     (void)uaddr2;
     (void)val3;
@@ -1600,8 +1599,7 @@ static uint64 sys_futex(uint32_t* uaddr, int op, uint32_t val,
     if (!uaddr)
         return -LINUX_EINVAL;
 
-    switch (op & 0xF)
-    {
+    switch (op & 0xF) {
         case FUTEX_WAIT:
             // If value doesn't match, return immediately
             if (*uaddr != val)
@@ -1632,31 +1630,28 @@ struct passwd fake_root = {
     .pw_uid = 0,
 };
 
-struct passwd* getpwuid(int uid) {
+struct passwd *getpwuid(int uid) {
     if (uid == 0)
         return &fake_root;
     return NULL;
 }
 
 // THIS IS FOR INTERRUPT 0X80
-void int80_handler(InterruptFrame* frame)
-{
+void int80_handler(InterruptFrame *frame) {
     uint64_t ret = syscall_dispatch(
         frame->rax,
         frame->rdi,
         frame->rsi,
         frame->rdx,
-        frame->rcx,   // arg4 (int 0x80 uses rcx)
+        frame->rcx, // arg4 (int 0x80 uses rcx)
         frame->r8,
-        frame->r9
-    );
+        frame->r9);
 
     frame->rax = ret;
 }
 
 // THIS IS FOR SYSCALL INSTRUCTION
-void syscall_handler(syscall_frame_t* f)
-{
+void syscall_handler(syscall_frame_t *f) {
     if (f && (f->rax == LINUX_SYS_EXIT || f->rax == LINUX_SYS_EXIT_GROUP)) {
         if (clear_child_tid)
             *clear_child_tid = 0;
@@ -1672,10 +1667,9 @@ void syscall_handler(syscall_frame_t* f)
         f->rdi,
         f->rsi,
         f->rdx,
-        f->r10,   // ⚠️ DIFFERENT HERE
+        f->r10, // ⚠️ DIFFERENT HERE
         f->r8,
-        f->r9
-    );
+        f->r9);
 
     f->rax = ret;
 }
@@ -1708,59 +1702,56 @@ static const char *names[] = {
     [267] = "readlinkat",
 };
 
-uint64_t syscall_dispatch (
+uint64_t syscall_dispatch(
     uint64_t nr,
     uint64_t arg1,
     uint64_t arg2,
     uint64_t arg3,
     uint64_t arg4,
     uint64_t arg5,
-    uint64_t arg6
-) {
+    uint64_t arg6) {
 
     syslog_printf("[syscall] %s(%u)", names[nr] ? names[nr] : "?", nr);
     debug_printf("[syscall] %s(%u)\n", names[nr] ? names[nr] : "?", nr);
 
-    switch (nr)
-    {
+    switch (nr) {
         case LINUX_SYS_READ:
-            return sys_read(arg1, (char*)arg2, arg3);
+            return sys_read(arg1, (char *)arg2, arg3);
 
         case LINUX_SYS_WRITE:
-            return sys_write(arg1, (const char*)arg2, arg3);
+            return sys_write(arg1, (const char *)arg2, arg3);
 
         case LINUX_SYS_OPEN:
-            return sys_open_common(LINUX_AT_FDCWD, (const char*)arg1, arg2, arg3);
+            return sys_open_common(LINUX_AT_FDCWD, (const char *)arg1, arg2, arg3);
 
         case LINUX_SYS_FSTAT:
-            return sys_fstat(arg1, (linux_stat_t*)arg2);
+            return sys_fstat(arg1, (linux_stat_t *)arg2);
 
         case LINUX_SYS_STAT:
-            return sys_stat((const char*)arg1, (linux_stat_t*)arg2);
+            return sys_stat((const char *)arg1, (linux_stat_t *)arg2);
 
         case LINUX_SYS_LSTAT:
             return sys_newfstatat(
                 LINUX_AT_FDCWD,
-                (const char*)arg1,
-                (linux_stat_t*)arg2,
-                LINUX_AT_SYMLINK_NOFOLLOW
-            );
+                (const char *)arg1,
+                (linux_stat_t *)arg2,
+                LINUX_AT_SYMLINK_NOFOLLOW);
 
         case LINUX_SYS_MPROTECT:
             return sys_mprotect(arg1, arg2, arg3);
 
         case LINUX_SYS_RT_SIGACTION:
             return 0;
-        
+
         case LINUX_SYS_RT_SIGPROCMASK:
         case LINUX_SYS_SIGALTSTACK:
             return -LINUX_ENOSYS;
 
         case LINUX_SYS_ACCESS:
-            return sys_access_common(LINUX_AT_FDCWD, (const char*)arg1, arg2);
+            return sys_access_common(LINUX_AT_FDCWD, (const char *)arg1, arg2);
 
         case LINUX_SYS_OPENAT:
-            return sys_open_common((int)arg1, (const char*)arg2, arg3, arg4);
+            return sys_open_common((int)arg1, (const char *)arg2, arg3, arg4);
 
         case LINUX_SYS_CLOSE:
             return sys_close(arg1);
@@ -1781,7 +1772,7 @@ uint64_t syscall_dispatch (
             return sys_ioctl(arg1, arg2, arg3);
 
         case LINUX_SYS_WRITEV:
-            return sys_writev(arg1, (linux_iovec_t*)arg2, arg3);
+            return sys_writev(arg1, (linux_iovec_t *)arg2, arg3);
 
         case LINUX_SYS_DUP:
             return sys_dup(arg1);
@@ -1790,7 +1781,7 @@ uint64_t syscall_dispatch (
             return sys_dup2(arg1, arg2);
 
         case LINUX_SYS_NANOSLEEP:
-            return sys_nanosleep((const linux_timespec_t*)arg1, (linux_timespec_t*)arg2);
+            return sys_nanosleep((const linux_timespec_t *)arg1, (linux_timespec_t *)arg2);
 
         case LINUX_SYS_GETPID:
             return multitasking_current_pid() ? multitasking_current_pid() : 1;
@@ -1799,35 +1790,35 @@ uint64_t syscall_dispatch (
             return sys_socket(arg1, arg2, arg3);
 
         case LINUX_SYS_CONNECT:
-            return sys_connect(arg1, (const void*)arg2, arg3);
+            return sys_connect(arg1, (const void *)arg2, arg3);
 
         case LINUX_SYS_CLONE:
             return sys_fork();
 
         case LINUX_SYS_EXECVE:
-            return sys_execve((const char*)arg1, (char* const*)arg2, (char* const*)arg3);
+            return sys_execve((const char *)arg1, (char *const *)arg2, (char *const *)arg3);
 
         case LINUX_SYS_EXIT:
         case LINUX_SYS_EXIT_GROUP:
             return 0;
 
         case LINUX_SYS_GETCWD:
-            return sys_getcwd((char*)arg1, arg2);
+            return sys_getcwd((char *)arg1, arg2);
 
         case LINUX_SYS_FCNTL:
             return sys_fcntl(arg1, arg2, arg3);
 
         case LINUX_SYS_CHDIR:
-            return sys_chdir((const char*)arg1);
+            return sys_chdir((const char *)arg1);
 
         case LINUX_SYS_FORK:
             return sys_fork();
 
         case LINUX_SYS_UNAME:
-            return sys_uname((linux_utsname_t*)arg1);
+            return sys_uname((linux_utsname_t *)arg1);
 
         case LINUX_SYS_READLINK:
-            return sys_readlinkat(LINUX_AT_FDCWD, (const char*)arg1, (char*)arg2, arg3);
+            return sys_readlinkat(LINUX_AT_FDCWD, (const char *)arg1, (char *)arg2, arg3);
 
         case LINUX_SYS_UMASK:
             return sys_umask(arg1);
@@ -1842,7 +1833,7 @@ uint64_t syscall_dispatch (
             return 1;
 
         case LINUX_SYS_WAIT4:
-            return sys_wait4((int64_t)arg1, (int*)arg2, (int)arg3, (void*)arg4);
+            return sys_wait4((int64_t)arg1, (int *)arg2, (int)arg3, (void *)arg4);
 
         case LINUX_SYS_ARCH_PRCTL:
             return sys_arch_prctl(arg1, arg2);
@@ -1854,34 +1845,34 @@ uint64_t syscall_dispatch (
             return sys_tgkill(arg1, arg2, arg3);
 
         case LINUX_SYS_GETDENTS64:
-            return sys_getdents64(arg1, (char*)arg2, arg3);
+            return sys_getdents64(arg1, (char *)arg2, arg3);
 
         case LINUX_SYS_SET_TID_ADDRESS:
-            return sys_set_tid_address((uint64_t*)arg1);
+            return sys_set_tid_address((uint64_t *)arg1);
 
         case LINUX_SYS_CLOCK_GETTIME:
-            return sys_clock_gettime(arg1, (linux_timespec_t*)arg2);
+            return sys_clock_gettime(arg1, (linux_timespec_t *)arg2);
 
         case LINUX_SYS_NEWFSTATAT:
-            return sys_newfstatat((int)arg1, (const char*)arg2, (linux_stat_t*)arg3, (int)arg4);
+            return sys_newfstatat((int)arg1, (const char *)arg2, (linux_stat_t *)arg3, (int)arg4);
 
         case LINUX_SYS_READLINKAT:
-            return sys_readlinkat((int)arg1, (const char*)arg2, (char*)arg3, arg4);
+            return sys_readlinkat((int)arg1, (const char *)arg2, (char *)arg3, arg4);
 
         case LINUX_SYS_FACCESSAT:
-            return sys_access_common((int)arg1, (const char*)arg2, (int)arg3);
+            return sys_access_common((int)arg1, (const char *)arg2, (int)arg3);
 
         case LINUX_SYS_SET_ROBUST_LIST:
-            return sys_set_robust_list((const void*)arg1, arg2);
+            return sys_set_robust_list((const void *)arg1, arg2);
 
         case LINUX_SYS_PRLIMIT64:
-            return sys_prlimit64(arg1, arg2, (const linux_rlimit64_t*)arg3, (linux_rlimit64_t*)arg4);
+            return sys_prlimit64(arg1, arg2, (const linux_rlimit64_t *)arg3, (linux_rlimit64_t *)arg4);
 
         case LINUX_SYS_GETRANDOM:
-            return sys_getrandom((void*)arg1, arg2, arg3);
+            return sys_getrandom((void *)arg1, arg2, arg3);
 
         case LINUX_SYS_STATX:
-            return sys_statx((int)arg1, (const char*)arg2, (int)arg3, (unsigned int)arg4, (linux_statx_t*)arg5);
+            return sys_statx((int)arg1, (const char *)arg2, (int)arg3, (unsigned int)arg4, (linux_statx_t *)arg5);
 
         case LINUX_SYS_SYNC: // sync
             return vfs_sync();
@@ -1894,18 +1885,17 @@ uint64_t syscall_dispatch (
                 (int)arg1,
                 (int)arg2,
                 (unsigned int)arg3,
-                (void*)arg4
-            );
+                (void *)arg4);
             return 1;
 
         case LINUX_SYS_SYSLOG: // syslog, this is what dmesg calls
-            return sys_syslog((int)arg1, (char*)arg2, arg3);
+            return sys_syslog((int)arg1, (char *)arg2, arg3);
 
         case LINUX_SYS_MKDIR:
-            return sys_mkdirat(LINUX_AT_FDCWD, (const char*)arg1, arg2);
+            return sys_mkdirat(LINUX_AT_FDCWD, (const char *)arg1, arg2);
 
         case LINUX_SYS_MKDIRAT:
-            return sys_mkdirat((int)arg1, (const char*)arg2, arg3);
+            return sys_mkdirat((int)arg1, (const char *)arg2, arg3);
 
         case LINUX_SYS_UNLINK:
             return sys_unlink((const char *)arg1);
@@ -1913,36 +1903,33 @@ uint64_t syscall_dispatch (
         case PRAD_MAGIC:
             info("Alive from userland", __FILE__);
             return 0;
-        
+
         case LINUX_SYS_FUTEX:
-            return sys_futex((uint32_t*)arg1, arg2, arg3,
-                            (const linux_timespec_t*)arg4,
-                            (uint32_t*)arg5, arg6);
-        case 19:
-            {
-                linux_iovec_t* iov = (linux_iovec_t*)arg2;
-                if (arg3 > 0)
-                    return sys_read(arg1, iov[0].iov_base, iov[0].iov_len);
-                return 0;
+            return sys_futex((uint32_t *)arg1, arg2, arg3,
+                (const linux_timespec_t *)arg4,
+                (uint32_t *)arg5, arg6);
+        case 19: {
+            linux_iovec_t *iov = (linux_iovec_t *)arg2;
+            if (arg3 > 0)
+                return sys_read(arg1, iov[0].iov_base, iov[0].iov_len);
+            return 0;
+        }
+
+        case 7: {
+            struct pollfd {
+                int fd;
+                short events;
+                short revents;
+            };
+
+            struct pollfd *fds = (struct pollfd *)arg1;
+
+            for (int i = 0; i < arg2; i++) {
+                fds[i].revents = fds[i].events; // pretend ready
             }
 
-        case 7:
-            {
-                struct pollfd {
-                    int fd;
-                    short events;
-                    short revents;
-                };
-
-                struct pollfd* fds = (struct pollfd*)arg1;
-
-                for (int i = 0; i < arg2; i++)
-                {
-                    fds[i].revents = fds[i].events; // pretend ready
-                }
-
-                return arg2;
-            }
+            return arg2;
+        }
         default:
             printf(linux_syscalls_prefix "Unknown, returning -ENOSYS for (%u)", nr);
             return -LINUX_ENOSYS;

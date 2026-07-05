@@ -9,27 +9,25 @@
  *
  */
 
+#include <cc-asm.h>
+#include <executables/fwde.h>
 #include <idt.h>
 #include <isr.h>
 #include <keyboard.h>
-#include <ps2-mouse.h>
 #include <pit.h>
+#include <ps2-mouse.h>
 #include <syscalls.h>
-#include <executables/fwde.h>
-#include <cc-asm.h>
 
-extern void* isr_stub_table[];
-extern void* irq_stub_table[];
+extern void *isr_stub_table[];
+extern void *irq_stub_table[];
 
 IDTEntry idt_entries[256];
 
 IDTPointer idt_ptr = {
     (uint16_t)(sizeof(idt_entries) - 1U),
-    0U
-};
+    0U};
 
-void setIdtEntry(IDTEntry *target, uint64_t offset, uint16_t selector, uint8_t ist, uint8_t type_attributes)
-{
+void setIdtEntry(IDTEntry *target, uint64_t offset, uint16_t selector, uint8_t ist, uint8_t type_attributes) {
     target->offset_1 = (uint16_t)(offset & 0xFFFFU);
     target->selector = selector;
     target->ist = ist;
@@ -65,8 +63,7 @@ void remap_pic(void) {
     outb(0xa1, read_slave);
 }
 
-void init_syscall(void)
-{
+void init_syscall(void) {
     wrmsr64(IA32_EFER, rdmsr64(IA32_EFER) | EFER_SCE);
 
     // kernel CS = 0x08
@@ -78,8 +75,7 @@ void init_syscall(void)
     wrmsr64(IA32_FMASK, 0);
 }
 
-void initIdt(void)
-{
+void initIdt(void) {
     info("Started initialization!", __FILE__);
 
     // interrupt number of keyboard is 0x21, for pit it's 0x20 and for mouse it's 0x2C
@@ -90,14 +86,12 @@ void initIdt(void)
     registerInterruptHandler(0x31, process_IFL);
     registerInterruptHandler(0x80, int80_handler);
 
-    for (uint8_t i = 0; i < 32; i++)
-    {
+    for (uint8_t i = 0; i < 32; i++) {
         setIdtEntry(&idt_entries[i], (uint64_t)isr_stub_table[i], 0x08, 0, 0x8E);
     }
 
-    for (uint8_t i = 32; i < 255; i++)
-    {
-        setIdtEntry(&idt_entries[i], (uint64_t)irq_stub_table[i-32], 0x08, 0, 0x8E);
+    for (uint8_t i = 32; i < 255; i++) {
+        setIdtEntry(&idt_entries[i], (uint64_t)irq_stub_table[i - 32], 0x08, 0, 0x8E);
     }
 
     setIdtEntry(&idt_entries[0x80], (uint64_t)irq_stub_table[0x80 - 32], 0x08, 0, 0xEE);

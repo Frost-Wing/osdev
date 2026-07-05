@@ -4,35 +4,35 @@
  * @brief The executor header for FrostWing Deployed Executable - 64 bits
  * @version 0.1
  * @date 2024-01-07
- * 
+ *
  * @copyright Copyright (c) Pradosh 2024
- * 
+ *
  */
 #include <basics.h>
-#include <stdbool.h>
+#include <cc-asm.h>
 #include <graphics.h>
 #include <isr.h>
 #include <meltdown.h>
-#include <cc-asm.h>
+#include <stdbool.h>
 
 typedef struct {
-    char signature[6]; // 0xCD + 0x31 + FWDE
+    char signature[6];  // 0xCD + 0x31 + FWDE
     uint8 architecture; // 1 = 64 bits; 2 = 32 bits; 3 = 16 bits; 4 = 8 bits
-    uint16 raw_size; // size of just the executable part and not the header
-    uint8 endian; // 0 = error; 1 = little; 2 = big
+    uint16 raw_size;    // size of just the executable part and not the header
+    uint8 endian;       // 0 = error; 1 = little; 2 = big
 } fwde_header;
 
 typedef struct
 {
-    uint64* fb_addr;
+    uint64 *fb_addr;
     uint64 width;
     uint64 height;
     uint64 pitch;
     void (*print)(cstring msg);
-} kernel_data ;
+} kernel_data;
 
-typedef void(*entry_function)(kernel_data*);
+typedef void (*entry_function)(kernel_data *);
 
-bool verify_signature(const char* signature);
-void process_IFL(InterruptFrame* frame);
-void execute_fwde(uint64* addr, kernel_data* data);
+bool verify_signature(const char *signature);
+void process_IFL(InterruptFrame *frame);
+void execute_fwde(uint64 *addr, kernel_data *data);

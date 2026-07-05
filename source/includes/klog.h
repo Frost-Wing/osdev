@@ -22,7 +22,7 @@
 #define KLOG_TS_FRAC_DIGITS 2
 
 /** Size (in bytes) of the backing klog ring buffer storage. */
-#define KLOG_BUFFER_SIZE (8192*4)
+#define KLOG_BUFFER_SIZE (8192 * 4)
 
 extern bool is_klog_ready;
 
@@ -56,11 +56,12 @@ void klog_putc(char c);
  */
 void klog_printf(cstring format, ...);
 
-size_t klog_read(char* out, size_t max_len);
+size_t klog_read(char *out, size_t max_len);
 
-size_t klog_read_at(char* out, size_t offset, size_t max_len);
+size_t klog_read_at(char *out, size_t offset, size_t max_len);
 
-size_t klog_size(void);;
+size_t klog_size(void);
+;
 
 /**
  * @brief Clear the klog ring buffer, discarding all buffered log entries.

@@ -4,9 +4,9 @@
  * @brief The CPUID instructions
  * @version 0.1
  * @date 2023-11-10
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 #include <basics.h>
 #include <graphics.h>
@@ -49,14 +49,14 @@ void cpuid(uint32 reg, uint32 *eax, uint32 *ebx, uint32 *ecx, uint32 *edx);
 
 /**
  * @brief Retrieve the CPU vendor string.
- * 
+ *
  * @return The CPU vendor string.
  */
 cstring get_cpu_vendor(void);
 
 /**
  * @brief Retrieve the CPU name.
- * 
+ *
  * @return The CPU name.
  */
 cstring get_cpu_name(void);

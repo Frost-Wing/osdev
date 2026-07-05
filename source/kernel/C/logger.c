@@ -1,20 +1,20 @@
 /**
  * @file logger.c
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2023-10-22
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
+#include <debugger.h>
 #include <graphics.h>
+#include <klog.h>
 #include <opengl/glbackend.h>
 #include <ringbuffer.h>
-#include <klog.h>
-#include <debugger.h>
 
-extern struct flanterm_context* ft_ctx;
+extern struct flanterm_context *ft_ctx;
 static stream_t printf_stream;
 
 string last_filename = "unknown"; // for warn, info, err, done
@@ -116,9 +116,8 @@ void done(cstring message, cstring file) {
     last_filename = file;
 }
 
-void putc(char c){
-    if (c == '\b')
-    {
+void putc(char c) {
+    if (c == '\b') {
         vputc('\b');
         vputc(' ');
     }
@@ -132,26 +131,25 @@ void vputc(char c) {
 
 /**
  * @brief Prints a value in binary format
- * 
+ *
  * @param value A pointer to the value that will be printed
  */
-void printbin(uint8_t value)
-{
+void printbin(uint8_t value) {
     static char binaryRepresentation[9];
     binaryRepresentation[8] = 0;
 
     for (int i = 0; i < 8; i++)
         binaryRepresentation[i] = (value & (0x80 >> i)) ? '1' : '0';
-    
+
     print(binaryRepresentation);
 }
 
-static void printstr_fmt(const char* s, int width)
-{
+static void printstr_fmt(const char *s, int width) {
     int len = 0;
-    const char* p = s;
+    const char *p = s;
 
-    while (*p++) len++;
+    while (*p++)
+        len++;
 
     while (len < width) {
         putc(' ');
@@ -229,8 +227,9 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, 
                     break;
 
                 case 's': {
-                    const char *s = va_arg(argp, char*);
-                    if (!s) s = "(null)";
+                    const char *s = va_arg(argp, char *);
+                    if (!s)
+                        s = "(null)";
                     printstr_fmt(s, width);
                     break;
                 }
@@ -244,10 +243,11 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, 
                     putc(*format);
                     break;
             }
-        }
-        else {
+        } else {
             switch (*format) {
-                default: putc(*format); break;
+                default:
+                    putc(*format);
+                    break;
             }
         }
         format++;
@@ -284,12 +284,11 @@ int format_number(
     int base,
     int width,
     bool zero,
-    bool upper
-) {
+    bool upper) {
     char tmp[64];
     const char *digits = upper
-        ? "0123456789ABCDEF"
-        : "0123456789abcdef";
+                             ? "0123456789ABCDEF"
+                             : "0123456789abcdef";
 
     int neg = 0;
     int i = 0;
@@ -325,8 +324,7 @@ int format_number(
     return pos;
 }
 
-int snprintf(char *buf, size_t size, const char *fmt, ...)
-{
+int snprintf(char *buf, size_t size, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     int ret = vsnprintf(buf, size, fmt, ap);
@@ -334,27 +332,26 @@ int snprintf(char *buf, size_t size, const char *fmt, ...)
     return ret;
 }
 
-int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
-{
+int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
     size_t outpos = 0;
 
-    // helper macro: append a single char safely
-    #define APPEND(ch) \
-        do { \
-            if (outpos + 1 < size) \
-                buf[outpos] = (ch); \
-            outpos++; \
-        } while (0)
+// helper macro: append a single char safely
+#define APPEND(ch)              \
+    do {                        \
+        if (outpos + 1 < size)  \
+            buf[outpos] = (ch); \
+        outpos++;               \
+    } while (0)
 
-    // helper macro: append string safely
-    #define APPEND_STR(s) \
-        do { \
-            const char *_p = (s); \
-            while (*_p) { \
-                APPEND(*_p); \
-                _p++; \
-            } \
-        } while (0)
+// helper macro: append string safely
+#define APPEND_STR(s)         \
+    do {                      \
+        const char *_p = (s); \
+        while (*_p) {         \
+            APPEND(*_p);      \
+            _p++;             \
+        }                     \
+    } while (0)
 
     while (*fmt) {
         if (*fmt != '%') {
@@ -418,7 +415,8 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
 
             case 's': {
                 const char *s = va_arg(ap, char *);
-                if (!s) s = "(null)";
+                if (!s)
+                    s = "(null)";
                 APPEND_STR(s);
                 break;
             }
@@ -448,28 +446,28 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
     return outpos;
 }
 
-void print_bitmap(int x, int y, int w, int h, const bool* pixels, uint32 color) {
+void print_bitmap(int x, int y, int w, int h, const bool *pixels, uint32 color) {
     int i, j, l;
     for (l = j = 0; l < h; l++) {
         for (i = 0; i < w; i++, j++) {
-            if(pixels[j] == true) glWritePixel((uvec2){x + i, y + l}, color);
+            if (pixels[j] == true)
+                glWritePixel((uvec2){x + i, y + l}, color);
         }
     }
 }
 
-void print(cstring s)
-{
-    if (!s) return;
+void print(cstring s) {
+    if (!s)
+        return;
 
-    while (*s)
-    {
+    while (*s) {
         vputc(*s);
         s++;
     }
 }
 
 void kprint(cstring msg) {
-    if(msg == null){
+    if (msg == null) {
         flanterm_write(ft_ctx, "null", 4);
         return;
     }

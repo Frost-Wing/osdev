@@ -4,15 +4,14 @@
  * @brief Basic linux rm code.
  * @version 0.1
  * @date 2025-10-07
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
 #include <commands/commands.h>
 
-int cmd_rm(int argc, char** argv)
-{
+int cmd_rm(int argc, char **argv) {
     if (argc < 2) {
         printf("rm: missing operand");
         return 1;
@@ -35,9 +34,9 @@ int cmd_rm(int argc, char** argv)
         int ret;
 
         if (recursive)
-            ret = vfs_rm_recursive(argv[i]);   // recursive delete
+            ret = vfs_rm_recursive(argv[i]); // recursive delete
         else
-            ret = vfs_unlink(argv[i]);  // file only
+            ret = vfs_unlink(argv[i]); // file only
 
         if (ret != 0)
             printf("rm: cannot remove '%s'", argv[i]);

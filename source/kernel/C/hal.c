@@ -9,15 +9,14 @@
  *
  */
 
-#include <hal.h>
 #include <cc-asm.h>
+#include <hal.h>
 
 /**
  * @brief Initializes HAL by remapping the PIC interrupts to avoid conflicts
  *
  */
-deprecated_message("Do not use this! this crashes the OS, this is for a future use.")
-void init_hardware_abstraction_layer(void) {
+deprecated_message("Do not use this! this crashes the OS, this is for a future use.") void init_hardware_abstraction_layer(void) {
     clear_interrupts();
 
     outb(pic1_command, 0x11);
@@ -42,10 +41,10 @@ void init_hardware_abstraction_layer(void) {
  * @param port  The 16-bit I/O port number.
  * @param value The 8-bit value to be sent to the port.
  */
-void outb(uint16 port, uint8 value){
-    #if defined (__x86_64__)
-    __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
-    #endif
+void outb(uint16 port, uint8 value) {
+#if defined(__x86_64__)
+    __asm__ volatile("outb %0, %1" : : "a"(value), "Nd"(port));
+#endif
 }
 
 /**
@@ -56,12 +55,12 @@ void outb(uint16 port, uint8 value){
  * @param port The 16-bit I/O port number.
  * @return    The 8-bit value read from the port.
  */
-uint8 inb(uint16 port){
-    #if defined (__x86_64__)
+uint8 inb(uint16 port) {
+#if defined(__x86_64__)
     uint8 returnVal;
-    __asm__ volatile ("inb %1, %0" : "=a"(returnVal) : "Nd"(port));
+    __asm__ volatile("inb %1, %0" : "=a"(returnVal) : "Nd"(port));
     return returnVal;
-    #endif
+#endif
 
     return 0;
 }
@@ -75,9 +74,9 @@ uint8 inb(uint16 port){
  * @param data       The 16-bit value to be sent to the port.
  */
 void outw(uint16 portNumber, uint16 data) {
-    #if defined (__x86_64__)
+#if defined(__x86_64__)
     __asm__ volatile("outw %0, %1" : : "a"(data), "Nd"(portNumber));
-    #endif
+#endif
 }
 
 /**
@@ -86,10 +85,10 @@ void outw(uint16 portNumber, uint16 data) {
  * This function performs an I/O wait operation using inline assembly.
  * It is used to add a small delay in I/O operations.
  */
-void io_wait(void){
-    #if defined (__x86_64__)
-    __asm__ volatile ("outb %%al, $0x80" : : "a"(0));
-    #endif
+void io_wait(void) {
+#if defined(__x86_64__)
+    __asm__ volatile("outb %%al, $0x80" : : "a"(0));
+#endif
 }
 
 /**
@@ -101,11 +100,11 @@ void io_wait(void){
  * @return           The 16-bit value read from the port.
  */
 uint16 inw(uint16 portNumber) {
-    #if defined (__x86_64__)
+#if defined(__x86_64__)
     uint16 data;
     __asm__ volatile("inw %1, %0" : "=a"(data) : "Nd"(portNumber));
     return data;
-    #endif
+#endif
 
     return 0;
 }
@@ -119,11 +118,11 @@ uint16 inw(uint16 portNumber) {
  * @return           The 32-bit value read from the port.
  */
 uint32 inl(uint16 portNumber) {
-    #if defined (__x86_64__)
+#if defined(__x86_64__)
     uint32 data;
     __asm__ volatile("inl %1, %0" : "=a"(data) : "Nd"(portNumber));
     return data;
-    #endif
+#endif
 
     return 0;
 }
@@ -137,9 +136,9 @@ uint32 inl(uint16 portNumber) {
  * @param data       The 32-bit value to be sent to the port.
  */
 void outl(uint16 portNumber, uint32 data) {
-    #if defined (__x86_64__)
+#if defined(__x86_64__)
     __asm__ volatile("outl %0, %1" : : "a"(data), "Nd"(portNumber));
-    #endif
+#endif
 }
 
 /**
@@ -147,8 +146,7 @@ void outl(uint16 portNumber, uint32 data) {
  *
  * @param usec Number of microseconds to wait
  */
-void io_wait_us(uint32_t usec)
-{
+void io_wait_us(uint32_t usec) {
     // io_wait() is roughly ~1µs per call on modern CPUs
     for (uint32_t i = 0; i < usec; i++)
         io_wait();
@@ -159,8 +157,7 @@ void io_wait_us(uint32_t usec)
  *
  * @param msec Number of milliseconds to wait
  */
-void io_wait_ms(uint32_t msec)
-{
+void io_wait_ms(uint32_t msec) {
     for (uint32_t i = 0; i < msec; i++)
         io_wait_us(1000);
 }

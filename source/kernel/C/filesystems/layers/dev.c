@@ -6,26 +6,25 @@
  * @date 2026-04-04
  */
 
-#include <filesystems/layers/dev.h>
 #include <ahci.h>
 #include <basics.h>
+#include <cc-asm.h>
+#include <filesystems/layers/dev.h>
 #include <graphics.h>
 #include <heap.h>
-#include <strings.h>
-#include <cc-asm.h>
-#include <memory.h>
 #include <klog.h>
+#include <memory.h>
+#include <strings.h>
 #include <syslog.h>
 
 static uint64_t devfs_rng_state = 0x9E3779B97F4A7C15ULL;
 
-static int devfs_disk_id_from_name(const char* name)
-{
+static int devfs_disk_id_from_name(const char *name) {
     if (!name || !*name)
         return -1;
 
     for (int i = 0; i < block_device_count; i++) {
-        block_device_info_t* dev = &block_devices[i];
+        block_device_info_t *dev = &block_devices[i];
         if (!dev->present)
             continue;
 
@@ -39,8 +38,7 @@ static int devfs_disk_id_from_name(const char* name)
     return -1;
 }
 
-static bool devfs_is_block_node(const char* name)
-{
+static bool devfs_is_block_node(const char *name) {
     int id = devfs_disk_id_from_name(name);
     return id >= 0;
 }
@@ -49,16 +47,14 @@ void devfs_init(void) {
     devfs_rng_state ^= rdtsc64();
 }
 
-static uint8_t devfs_next_rand_u8(void)
-{
+static uint8_t devfs_next_rand_u8(void) {
     devfs_rng_state ^= devfs_rng_state << 13;
     devfs_rng_state ^= devfs_rng_state >> 7;
     devfs_rng_state ^= devfs_rng_state << 17;
     return (uint8_t)(devfs_rng_state & 0xFF);
 }
 
-int devfs_open(vfs_file_t* file)
-{
+int devfs_open(vfs_file_t *file) {
     if (!file || !file->rel_path)
         return -1;
 
@@ -73,7 +69,7 @@ int devfs_open(vfs_file_t* file)
         strcmp(file->rel_path, "urandom") == 0 ||
         strcmp(file->rel_path, "klog") == 0 ||
         strcmp(file->rel_path, "syslog") == 0) {
-        
+
         file->pos = 0;
         return 0;
     }
@@ -86,8 +82,7 @@ int devfs_open(vfs_file_t* file)
     return -1;
 }
 
-int devfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
-{
+int devfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
     if (!file || !buf)
         return -1;
 
@@ -108,13 +103,13 @@ int devfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
     }
 
     if (strcmp(file->rel_path, "klog") == 0) {
-        size_t n = klog_read_at((char*)buf, (size_t)file->pos, size);
+        size_t n = klog_read_at((char *)buf, (size_t)file->pos, size);
         file->pos += n;
         return (int)n;
     }
 
     if (strcmp(file->rel_path, "syslog") == 0) {
-        size_t n = syslog_read_at((char*)buf, (size_t)file->pos, size);
+        size_t n = syslog_read_at((char *)buf, (size_t)file->pos, size);
         file->pos += n;
         return (int)n;
     }
@@ -123,11 +118,11 @@ int devfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
     if (disk_id < 0)
         return -1;
 
-    block_device_info_t* dev = block_get_device(disk_id);
+    block_device_info_t *dev = block_get_device(disk_id);
     if (!dev || dev->sector_size == 0)
         return -1;
 
-    uint8_t* secbuf = kmalloc(dev->sector_size);
+    uint8_t *secbuf = kmalloc(dev->sector_size);
     if (!secbuf)
         return -1;
 
@@ -155,8 +150,7 @@ int devfs_read(vfs_file_t* file, uint8_t* buf, uint32_t size)
     return (int)done;
 }
 
-int devfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size)
-{
+int devfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
     if (!file || !buf)
         return -1;
 
@@ -177,11 +171,11 @@ int devfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size)
     if (disk_id < 0)
         return -1;
 
-    block_device_info_t* dev = block_get_device(disk_id);
+    block_device_info_t *dev = block_get_device(disk_id);
     if (!dev || dev->sector_size == 0)
         return -1;
 
-    uint8_t* secbuf = kmalloc(dev->sector_size);
+    uint8_t *secbuf = kmalloc(dev->sector_size);
     if (!secbuf)
         return -1;
 
@@ -219,13 +213,11 @@ int devfs_write(vfs_file_t* file, const uint8_t* buf, uint32_t size)
     return (int)done;
 }
 
-void devfs_close(vfs_file_t* file)
-{
+void devfs_close(vfs_file_t *file) {
     (void)file;
 }
 
-int devfs_ls(void)
-{
+int devfs_ls(void) {
     printfnoln(blue_color "null " reset_color);
     printfnoln(blue_color "zero " reset_color);
     printfnoln(blue_color "random " reset_color);
@@ -234,7 +226,7 @@ int devfs_ls(void)
     printfnoln(blue_color "syslog " reset_color);
 
     for (int i = 0; i < block_device_count; i++) {
-        block_device_info_t* dev = &block_devices[i];
+        block_device_info_t *dev = &block_devices[i];
         if (!dev->present)
             continue;
 

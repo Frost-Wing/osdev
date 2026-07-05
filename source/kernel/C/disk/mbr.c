@@ -1,34 +1,34 @@
 /**
  * @file mbr.c
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief The main code to read the LBA0 and check whether the disk is MBR. 
+ * @brief The main code to read the LBA0 and check whether the disk is MBR.
  * @version 0.1
  * @date 2025-12-28
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
-#include <disk/mbr.h>
 #include <ahci.h>
+#include <disk/mbr.h>
 #include <filesystems/fat16.h>
 #include <filesystems/iso9660.h>
 #include <heap.h>
-#include <strings.h>
 #include <memory.h>
+#include <strings.h>
 
 mbr_disk_t mbr_disks[10];
 int mbr_disks_count = 0;
 
-int check_mbr(int portno){
-    uint8_t* buf = kmalloc_aligned(512, 512);
-    
+int check_mbr(int portno) {
+    uint8_t *buf = kmalloc_aligned(512, 512);
+
     if (!buf) {
         error("[AHCI/MBR] kmalloc failed", __FILE__);
         return -1;
     }
     memset(buf, 0, 512);
-    
+
     if (block_read_sector(portno, 0, buf, 1) != 0) {
         error("[AHCI/MBR] Read LBA failed", __FILE__);
         printf("[BLOCK/MBR] Read LBA failed on device %d", portno);
@@ -48,10 +48,10 @@ int check_mbr(int portno){
     return 0;
 }
 
-void parse_mbr_partitions(uint8* mbr, int portno){
-    mbr_partition_t* partitions = (mbr_partition_t*)&mbr[446];
-    block_device_info_t* dev = block_get_device(portno);
-    const char* dev_name = block_get_device_name(portno);
+void parse_mbr_partitions(uint8 *mbr, int portno) {
+    mbr_partition_t *partitions = (mbr_partition_t *)&mbr[446];
+    block_device_info_t *dev = block_get_device(portno);
+    const char *dev_name = block_get_device_name(portno);
 
     mbr_disks[mbr_disks_count].port = portno;
     mbr_disks[mbr_disks_count].sectors = dev ? dev->total_sectors : 0;
@@ -62,10 +62,10 @@ void parse_mbr_partitions(uint8* mbr, int portno){
 
         uint32_t start = partitions[i].lba_start;
         uint32_t count = partitions[i].num_sectors;
-        uint32_t end   = start + count - 1;
+        uint32_t end = start + count - 1;
 
         printf("MBR Partition %d: type=0x%X, LBA start=%u, sectors=%u, bootable=%d", i, partitions[i].partition_type, start, count, partitions[i].boot_flag == MBR_PART_BOOTABLE ? 1 : 0);
-        
+
         mbr_disks[mbr_disks_count].partitions[i].disk = i;
         mbr_disks[mbr_disks_count].partitions[i].lba_start = start;
         mbr_disks[mbr_disks_count].partitions[i].sectors = count;
@@ -78,7 +78,7 @@ void parse_mbr_partitions(uint8* mbr, int portno){
         }
 
         partition_fs_type_t fs_type = detect_fat_type_enum(buf);
-        
+
         if (fs_type == FS_UNKNOWN)
             fs_type = detect_ext2_type_enum(portno, start);
 
@@ -98,8 +98,7 @@ void parse_mbr_partitions(uint8* mbr, int portno){
             fs_type,
             part_name,
             partitions[i].partition_type,
-            null
-        );
+            null);
     }
 
     mbr_disks_count++;

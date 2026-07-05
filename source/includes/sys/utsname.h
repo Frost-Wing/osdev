@@ -1,12 +1,12 @@
 /**
  * @file utsname.h
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-04-03
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 #ifndef SYS_UTSNAME_H
 #define SYS_UTSNAME_H
@@ -14,8 +14,8 @@
 #include <filesystems/vfs.h>
 #include <graphics.h>
 #include <heap.h>
-#include <stdint.h>
 #include <memory.h>
+#include <stdint.h>
 #include <versions.h>
 
 #ifndef LINUX_EINVAL
@@ -24,7 +24,7 @@
 
 #ifndef LINUX_ENOMEM
 #define LINUX_ENOMEM 12
-#endif 
+#endif
 
 /**
  * @brief System identification information.
@@ -42,7 +42,6 @@ typedef struct {
     char domainname[65];
 } linux_utsname_t;
 
-
 /**
  * @brief Retrieves system identification information.
  *
@@ -56,19 +55,19 @@ typedef struct {
  *
  * @note All strings are guaranteed to be null-terminated.
  */
-static uint64 sys_uname(linux_utsname_t* uts) {
+static uint64 sys_uname(linux_utsname_t *uts) {
     if (!uts)
         return -LINUX_EINVAL;
 
     // Optional: zeroing is not strictly needed if we overwrite everything
     memset(uts, 0, sizeof(*uts));
 
-    // Use a small macro/helper to reduce repetition
-    #define SET_FIELD(field, value) \
-        snprintf((field), sizeof(field), "%s", (value))
+// Use a small macro/helper to reduce repetition
+#define SET_FIELD(field, value) \
+    snprintf((field), sizeof(field), "%s", (value))
 
-    SET_FIELD(uts->sysname,    "FrostWing");
-    SET_FIELD(uts->nodename,   "localhost");
+    SET_FIELD(uts->sysname, "FrostWing");
+    SET_FIELD(uts->nodename, "localhost");
 
     vfs_file_t hostf = {0};
     if (vfs_open("/etc/hostname", VFS_RDONLY, &hostf) == 0) {
@@ -76,7 +75,7 @@ static uint64 sys_uname(linux_utsname_t* uts) {
         uint32_t total = 0;
 
         while (total < (sizeof(hostbuf) - 1)) {
-            int r = vfs_read(&hostf, (uint8_t*)hostbuf + total, sizeof(hostbuf) - 1 - total);
+            int r = vfs_read(&hostf, (uint8_t *)hostbuf + total, sizeof(hostbuf) - 1 - total);
             if (r <= 0)
                 break;
             total += (uint32_t)r;
@@ -95,16 +94,15 @@ static uint64 sys_uname(linux_utsname_t* uts) {
     } else {
         printf("open failed!");
     }
-    
-    SET_FIELD(uts->release,    "v0.1-prebuild-construct");
+
+    SET_FIELD(uts->release, "v0.1-prebuild-construct");
     snprintf(uts->version, sizeof(uts->version), "fw-kernel (Build Stamp: %s)", date);
-    SET_FIELD(uts->machine,    "x86_64");
+    SET_FIELD(uts->machine, "x86_64");
     SET_FIELD(uts->domainname, "localdomain");
 
-    #undef SET_FIELD
+#undef SET_FIELD
 
     return 0;
 }
-
 
 #endif
