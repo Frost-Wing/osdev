@@ -20,6 +20,8 @@ char fxsave_region[512] __attribute__((aligned(16)));
  */
 void load_complete_sse(void) {
 #if defined(__x86_64__)
+    LOG_SCOPE();
+    info("Loading SSE", __FILE__);
     asm volatile(
         "mov %%cr0, %%rax\n"
         "and $0xFFFB, %%ax\n"
@@ -42,6 +44,7 @@ void load_complete_sse(void) {
  */
 void check_sse(void) {
 #if defined(__x86_64__)
+    LOG_SCOPE();
     int eax = 0x1;
     int ebx, ecx, edx;
     asm volatile("cpuid"
@@ -55,7 +58,7 @@ void check_sse(void) {
     } else {
         int sseVersion = (ecx >> 25) & 0x7;
         done("SSE detected!", __FILE__);
-        printf("SSE Version : %d", sseVersion);
+        info("SSE Version : %d", __FILE__, sseVersion);
     }
 #endif
 }

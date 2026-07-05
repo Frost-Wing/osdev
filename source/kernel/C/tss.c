@@ -22,6 +22,7 @@ uint64_t kernel_stack_top = (uint64_t)&kernel_stack[0x4000];
 
 // Initialize TSS
 void kernel_tss_init(void) {
+    LOG_SCOPE();
     memset(&tss, 0, sizeof(tss));
 
     tss.rsp0 = (uint64_t)(kernel_stack + sizeof(kernel_stack));
@@ -46,6 +47,7 @@ void kernel_tss_init(void) {
 
 // Load TSS using ltr instruction
 void tss_load(void) {
+    LOG_SCOPE();
     asm volatile("ltr %0" ::"r"((uint16)0x28));
     done("Done loading TSS", __FILE__);
 }

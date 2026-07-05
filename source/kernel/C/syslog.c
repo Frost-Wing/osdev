@@ -24,8 +24,11 @@ ring_buffer_t syslog_rb;
 bool is_syslog_ready = false;
 
 void syslog_init(void) {
+    LOG_SCOPE();
+    info("Initializing /dev/syslog", __FILE__);
     rb_init(&syslog_rb, syslog_storage, SYSLOG_BUFFER_SIZE, sizeof(char));
     is_syslog_ready = true;
+    done("Initialized /dev/syslog", __FILE__);
 }
 
 void syslog_putc(char c) {

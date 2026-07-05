@@ -77,6 +77,8 @@ static void fill_info(const task_t *task, task_info_t *info) {
 }
 
 void multitasking_init(void) {
+    LOG_SCOPE();
+    info("Initializing multitasking", __FILE__);
     uint64_t flags = irq_save_disable();
     g_task_head = NULL;
     g_task_tail = NULL;
@@ -84,6 +86,7 @@ void multitasking_init(void) {
     g_current_pid = 0;
     g_last_tick = 0;
     irq_restore(flags);
+    done("Initialized multitasking", __FILE__);
 }
 
 uint32_t multitasking_current_pid(void) {
