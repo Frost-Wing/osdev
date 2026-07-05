@@ -46,6 +46,7 @@ void fd_table_init(void);
 bool fd_valid(int fd);
 vfs_file_t *fd_get_file(int fd);
 int fd_open(const char *path, int flags);
+int fd_create_virtual(const char *path, int flags);
 int fd_close(int fd);
 int fd_dup(int oldfd);
 int fd_dup2(int oldfd, int newfd);
