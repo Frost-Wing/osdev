@@ -16,6 +16,7 @@ struct ip6_hdr {
             uint8_t ip6_un1_nxt;
             uint8_t ip6_un1_hlim;
         } ip6_un1;
+
         uint8_t ip6_un2_vfc;
     } ip6_ctlun;
     struct in6_addr ip6_src;
@@ -103,6 +104,7 @@ struct ip6_opt_jumbo {
     uint8_t ip6oj_len;
     uint8_t ip6oj_jumbo_len[4];
 };
+
 #define IP6OPT_JUMBO_LEN 6
 
 struct ip6_opt_nsap {

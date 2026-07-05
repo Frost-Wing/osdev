@@ -114,15 +114,18 @@ struct __ptrace_syscall_info {
     uint32_t arch;
     uint64_t instruction_pointer;
     uint64_t stack_pointer;
+
     union {
         struct {
             uint64_t nr;
             uint64_t args[6];
         } entry;
+
         struct {
             int64_t rval;
             uint8_t is_error;
         } exit;
+
         struct {
             uint64_t nr;
             uint64_t args[6];

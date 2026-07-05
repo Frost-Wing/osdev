@@ -104,6 +104,7 @@ void scheduler_switch(process_t *next) {
 
     context_switch(&old->context, &next->context);
 }
+
 void scheduler_init(void) {
     ready_head = NULL;
     ready_tail = NULL;

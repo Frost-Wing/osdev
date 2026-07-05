@@ -1,12 +1,12 @@
 /**
  * @file ping.c
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-07-05
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 #include <commands/commands.h>
 #include <graphics.h>
@@ -15,9 +15,9 @@
 
 extern volatile uint64_t pit_ticks;
 
-#define PING_COUNT    4
-#define PING_PAYLOAD  56    // bytes, like real ping's default
-#define PIT_MS_PER_TICK 10  // 1000 / pit_freq(100)
+#define PING_COUNT 4
+#define PING_PAYLOAD 56    // bytes, like real ping's default
+#define PIT_MS_PER_TICK 10 // 1000 / pit_freq(100)
 
 int cmd_ping(int argc, char **argv) {
     if (argc < 2) {
@@ -47,12 +47,14 @@ int cmd_ping(int argc, char **argv) {
 
         if (r == NET_OK) {
             received++;
-            if (elapsed_ms < min_ms) min_ms = elapsed_ms;
-            if (elapsed_ms > max_ms) max_ms = elapsed_ms;
+            if (elapsed_ms < min_ms)
+                min_ms = elapsed_ms;
+            if (elapsed_ms > max_ms)
+                max_ms = elapsed_ms;
             sum_ms += elapsed_ms;
 
             printf("%d bytes from %s: icmp_seq=%d ttl=64 time=%d ms",
-                   PING_PAYLOAD, s, i, elapsed_ms);
+                PING_PAYLOAD, s, i, elapsed_ms);
         } else {
             printf("Request timeout for icmp_seq %d", i);
         }
@@ -61,12 +63,12 @@ int cmd_ping(int argc, char **argv) {
     printf("\n--- %s ping statistics ---", argv[1]);
     int loss_pct = sent ? ((sent - received) * 100) / sent : 0;
     printf("%d packets transmitted, %d packets received, %d%% packet loss",
-           sent, received, loss_pct);
+        sent, received, loss_pct);
 
     if (received > 0) {
         uint32_t avg_ms = sum_ms / received;
         printf("round-trip min/avg/max = %d/%d/%d ms",
-               min_ms, avg_ms, max_ms);
+            min_ms, avg_ms, max_ms);
     }
 
     return received > 0 ? 0 : 1;

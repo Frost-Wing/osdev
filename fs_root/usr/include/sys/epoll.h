@@ -18,6 +18,7 @@ extern "C" {
 #define EPOLL_NONBLOCK O_NONBLOCK
 
 enum EPOLL_EVENTS { __EPOLL_DUMMY };
+
 #define EPOLLIN 0x001
 #define EPOLLPRI 0x002
 #define EPOLLOUT 0x004

@@ -1,8 +1,8 @@
 #include <graphics.h>
 #include <memory.h>
 #include <net/net.h>
-#include <strings.h>
 #include <pit.h>
+#include <strings.h>
 #define ETH_ARP 0x0806
 #define ETH_IP 0x0800
 #define ARP_REQUEST 1

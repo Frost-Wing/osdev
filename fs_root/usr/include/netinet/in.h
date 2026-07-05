@@ -11,6 +11,7 @@ extern "C" {
 
 typedef uint16_t in_port_t;
 typedef uint32_t in_addr_t;
+
 struct in_addr {
     in_addr_t s_addr;
 };
@@ -29,6 +30,7 @@ struct in6_addr {
         uint32_t __s6_addr32[4];
     } __in6_union;
 };
+
 #define s6_addr __in6_union.__s6_addr
 #define s6_addr16 __in6_union.__s6_addr16
 #define s6_addr32 __in6_union.__s6_addr32
@@ -58,12 +60,12 @@ struct ipv6_mreq {
 #define INADDR_ALLSNOOPERS_GROUP ((in_addr_t)0xe000006a)
 #define INADDR_MAX_LOCAL_GROUP ((in_addr_t)0xe00000ff)
 
-#define IN6ADDR_ANY_INIT                                                \
-    {                                                                   \
+#define IN6ADDR_ANY_INIT                        \
+    {                                           \
         { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } \
     }
-#define IN6ADDR_LOOPBACK_INIT                                           \
-    {                                                                   \
+#define IN6ADDR_LOOPBACK_INIT                   \
+    {                                           \
         { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } \
     }
 
@@ -280,6 +282,7 @@ struct ip_msfilter {
     uint32_t imsf_numsrc;
     struct in_addr imsf_slist[1];
 };
+
 #define IP_MSFILTER_SIZE(numsrc) \
     (sizeof(struct ip_msfilter) - sizeof(struct in_addr) + (numsrc) * sizeof(struct in_addr))
 
@@ -301,6 +304,7 @@ struct group_filter {
     uint32_t gf_numsrc;
     struct sockaddr_storage gf_slist[1];
 };
+
 #define GROUP_FILTER_SIZE(numsrc) \
     (sizeof(struct group_filter) - sizeof(struct sockaddr_storage) + (numsrc) * sizeof(struct sockaddr_storage))
 
