@@ -118,6 +118,12 @@ void string_transport_front(char *str, int x);
 string trim(cstring str);
 
 /**
+ * @brief Find first occurrence of substring `needle` in `haystack`
+ * @return pointer to the start of the match in haystack, or NULL if not found
+ */
+char *strstr(const char *haystack, const char *needle);
+
+/**
  * @brief Concatenate two strings.
  *
  * This function concatenates the source string @p src to the end of the
