@@ -44,7 +44,18 @@ int cmd_exec(int argc, char** argv)
     tty_flush_input();
     keyboard_flush_buffer();
 
-    if (userland_exec(path, user_argc, user_argv, NULL) != 0) {
+    userland_exec_ctx_t ctx;
+
+    ctx.path = path;
+    ctx.argc = user_argc;
+    ctx.envp = NULL;
+
+    for (int i = 0; i < user_argc; i++)
+        ctx.argv[i] = user_argv[i];
+
+    ctx.argv[user_argc] = NULL;
+
+    if (userland_exec(&ctx) != 0) {
         keyboard_flush_buffer();
         eprintf("exec: failed to load ELF");
         return -1;
