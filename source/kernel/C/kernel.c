@@ -19,6 +19,7 @@
 #include <multitasking.h>
 #include <klog.h>
 #include <syslog.h>
+#include <net/net.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
@@ -246,6 +247,10 @@ void main(void) {
     load_complete_sse();
 
     rtl8139_init(RTL8139);
+    ipv4_init(net_ipv4_from_octets(10, 0, 2, 15),
+              net_ipv4_from_octets(255, 255, 255, 0),
+              net_ipv4_from_octets(10, 0, 2, 2),
+              net_ipv4_from_octets(10, 0, 2, 3));
 
     frost_compilation_information();
     
