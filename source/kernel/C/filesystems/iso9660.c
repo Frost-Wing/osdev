@@ -1,8 +1,8 @@
 #include <filesystems/iso9660.h>
-#include <strings.h>
-#include <heap.h>
 #include <graphics.h>
+#include <heap.h>
 #include <memory.h>
+#include <strings.h>
 
 #pragma pack(push, 1)
 typedef struct {
@@ -23,15 +23,13 @@ typedef struct {
 } iso9660_dir_record_t;
 #pragma pack(pop)
 
-static int iso_read_block(iso9660_fs_t* fs, uint32_t block, uint8_t* out)
-{
+static int iso_read_block(iso9660_fs_t *fs, uint32_t block, uint8_t *out) {
     uint32_t lba = fs->partition_lba + block * (fs->logical_block_size / SECTOR_SIZE);
     uint32_t sectors = fs->logical_block_size / SECTOR_SIZE;
     return ahci_read_sector(fs->portno, lba, out, sectors);
 }
 
-static void iso_name_to_vfs(const char* in, uint8_t in_len, char* out, size_t out_sz)
-{
+static void iso_name_to_vfs(const char *in, uint8_t in_len, char *out, size_t out_sz) {
     size_t oi = 0;
 
     for (uint8_t i = 0; i < in_len && oi + 1 < out_sz; i++) {
@@ -52,8 +50,7 @@ static void iso_name_to_vfs(const char* in, uint8_t in_len, char* out, size_t ou
     out[oi] = '\0';
 }
 
-static int iso_name_eq(const char* query, const char* rec_name, uint8_t rec_len)
-{
+static int iso_name_eq(const char *query, const char *rec_name, uint8_t rec_len) {
     char lhs[128];
     char rhs[128];
 
@@ -70,16 +67,15 @@ static int iso_name_eq(const char* query, const char* rec_name, uint8_t rec_len)
     return strcmp(lhs, rhs) == 0;
 }
 
-static int iso_find_in_dir(iso9660_fs_t* fs,
-                           uint32_t dir_extent,
-                           uint32_t dir_size,
-                           const char* name,
-                           iso9660_dirent_t* out)
-{
+static int iso_find_in_dir(iso9660_fs_t *fs,
+    uint32_t dir_extent,
+    uint32_t dir_size,
+    const char *name,
+    iso9660_dirent_t *out) {
     if (!fs || !name || !out)
         return -1;
 
-    uint8_t* blk = kmalloc(fs->logical_block_size);
+    uint8_t *blk = kmalloc(fs->logical_block_size);
     if (!blk)
         return -2;
 
@@ -94,7 +90,7 @@ static int iso_find_in_dir(iso9660_fs_t* fs,
 
         uint32_t off = 0;
         while (off < fs->logical_block_size && bytes_seen < dir_size) {
-            iso9660_dir_record_t* r = (iso9660_dir_record_t*)(blk + off);
+            iso9660_dir_record_t *r = (iso9660_dir_record_t *)(blk + off);
             if (r->length == 0)
                 break;
 
@@ -123,12 +119,11 @@ static int iso_find_in_dir(iso9660_fs_t* fs,
     return -4;
 }
 
-int iso9660_detect_at_lba(int portno, uint32_t lba_start)
-{
+int iso9660_detect_at_lba(int portno, uint32_t lba_start) {
     uint8_t pvd[ISO9660_SECTOR_SIZE];
 
     if (ahci_read_sector(portno, lba_start + 16 * (ISO9660_SECTOR_SIZE / SECTOR_SIZE),
-                         pvd, ISO9660_SECTOR_SIZE / SECTOR_SIZE) != 0)
+            pvd, ISO9660_SECTOR_SIZE / SECTOR_SIZE) != 0)
         return 0;
 
     if (pvd[0] != 1)
@@ -143,8 +138,7 @@ int iso9660_detect_at_lba(int portno, uint32_t lba_start)
     return 1;
 }
 
-int iso9660_mount(int portno, uint32_t partition_lba, iso9660_fs_t* fs)
-{
+int iso9660_mount(int portno, uint32_t partition_lba, iso9660_fs_t *fs) {
     if (!fs)
         return -1;
 
@@ -163,15 +157,14 @@ int iso9660_mount(int portno, uint32_t partition_lba, iso9660_fs_t* fs)
     if (fs->logical_block_size == 0)
         fs->logical_block_size = ISO9660_SECTOR_SIZE;
 
-    iso9660_dir_record_t* root = (iso9660_dir_record_t*)&pvd[156];
+    iso9660_dir_record_t *root = (iso9660_dir_record_t *)&pvd[156];
     fs->root_extent_lba = root->extent_lba_le;
     fs->root_size = root->data_len_le;
 
     return 0;
 }
 
-int iso9660_find_path(iso9660_fs_t* fs, const char* path, iso9660_dirent_t* out)
-{
+int iso9660_find_path(iso9660_fs_t *fs, const char *path, iso9660_dirent_t *out) {
     if (!fs || !path || !out)
         return -1;
 
@@ -191,14 +184,14 @@ int iso9660_find_path(iso9660_fs_t* fs, const char* path, iso9660_dirent_t* out)
     strncpy(tmp, path, sizeof(tmp) - 1);
     tmp[sizeof(tmp) - 1] = '\0';
 
-    char* p = tmp;
+    char *p = tmp;
     while (*p) {
         while (*p == '/')
             p++;
         if (!*p)
             break;
 
-        char* start = p;
+        char *start = p;
         while (*p && *p != '/')
             p++;
 
@@ -218,8 +211,7 @@ int iso9660_find_path(iso9660_fs_t* fs, const char* path, iso9660_dirent_t* out)
     return 0;
 }
 
-int iso9660_open(iso9660_fs_t* fs, const char* path, iso9660_file_t* out)
-{
+int iso9660_open(iso9660_fs_t *fs, const char *path, iso9660_file_t *out) {
     if (!fs || !path || !out)
         return -1;
 
@@ -236,8 +228,7 @@ int iso9660_open(iso9660_fs_t* fs, const char* path, iso9660_file_t* out)
     return 0;
 }
 
-int iso9660_read(iso9660_file_t* f, uint8_t* out, uint32_t size)
-{
+int iso9660_read(iso9660_file_t *f, uint8_t *out, uint32_t size) {
     if (!f || !out)
         return -1;
 
@@ -248,7 +239,7 @@ int iso9660_read(iso9660_file_t* f, uint8_t* out, uint32_t size)
     if (size > remaining)
         size = remaining;
 
-    uint8_t* blk = kmalloc(f->fs->logical_block_size);
+    uint8_t *blk = kmalloc(f->fs->logical_block_size);
     if (!blk)
         return -2;
 
@@ -277,18 +268,16 @@ int iso9660_read(iso9660_file_t* f, uint8_t* out, uint32_t size)
     return (int)done;
 }
 
-void iso9660_close(iso9660_file_t* f)
-{
+void iso9660_close(iso9660_file_t *f) {
     if (f)
         memset(f, 0, sizeof(*f));
 }
 
-int iso9660_list_dir(iso9660_fs_t* fs, const iso9660_dirent_t* dir)
-{
+int iso9660_list_dir(iso9660_fs_t *fs, const iso9660_dirent_t *dir) {
     if (!fs || !dir)
         return -1;
 
-    uint8_t* blk = kmalloc(fs->logical_block_size);
+    uint8_t *blk = kmalloc(fs->logical_block_size);
     if (!blk)
         return -2;
 
@@ -302,7 +291,7 @@ int iso9660_list_dir(iso9660_fs_t* fs, const iso9660_dirent_t* dir)
 
         uint32_t off = 0;
         while (off < fs->logical_block_size) {
-            iso9660_dir_record_t* r = (iso9660_dir_record_t*)(blk + off);
+            iso9660_dir_record_t *r = (iso9660_dir_record_t *)(blk + off);
             if (r->length == 0)
                 break;
 
@@ -327,8 +316,7 @@ int iso9660_list_dir(iso9660_fs_t* fs, const iso9660_dirent_t* dir)
     return 0;
 }
 
-int iso9660_list_root(iso9660_fs_t* fs)
-{
+int iso9660_list_root(iso9660_fs_t *fs) {
     if (!fs)
         return -1;
 

@@ -7,7 +7,6 @@
  * `memmove`, and `memcmp`.
  */
 
- 
 #ifndef MEMORY_H
 #define MEMORY_H
 
@@ -23,8 +22,8 @@ struct memory_context {
     uint64 bad;
     uint64 bootloader_reclaimable;
     uint64 kernel_modules;
-    uint64 framebuffer;            // Mostly unneeded because frame buffer struct separately gives it,
-    uint64 unknown;                // This value must be always 0.
+    uint64 framebuffer; // Mostly unneeded because frame buffer struct separately gives it,
+    uint64 unknown;     // This value must be always 0.
 };
 
 /**
@@ -88,35 +87,35 @@ int memcmp(const void *s1, const void *s2, size_t n);
  * @param start Pointer to the start address of the memory to be dumped.
  * @param end   Pointer to the end address of the memory to be dumped.
  */
-void memory_dump(const void* start, const void* end);
+void memory_dump(const void *start, const void *end);
 
 /**
  * @brief Allocates memory at an specific address.
- * 
+ *
  * @param phys_addr Physical address to allocate memory.
  * @param size Size of the memory to allocate.
  * @return Pointer to the allocated memory, or NULL if allocation fails.
  */
-void* allocate_memory_at_address(uint64 phys_addr, size_t size);
+void *allocate_memory_at_address(uint64 phys_addr, size_t size);
 
 /**
  * @brief Display the formatted memory context.
- * 
+ *
  * @param memory The memory context to display.
  */
-void display_memory_formatted(struct memory_context* memory);
+void display_memory_formatted(struct memory_context *memory);
 
 /**
  * @brief Reads the Limine memory map and saves to an usable context.
- * 
+ *
  * @param memory The memory context.
  * @param memory_map_request Limine Memory Mam Request.
  */
-void analyze_memory_map(struct memory_context* memory, struct limine_memmap_request memory_map_request);
+void analyze_memory_map(struct memory_context *memory, struct limine_memmap_request memory_map_request);
 
 /**
  * @brief Returns the CR2 register.
- * 
+ *
  * @return uint64_t value of CR2.
  */
 uint64_t getCR2(void);

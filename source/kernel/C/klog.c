@@ -23,19 +23,16 @@ ring_buffer_t klog_rb;
 
 bool is_klog_ready = false;
 
-void klog_init(void)
-{
+void klog_init(void) {
     rb_init(&klog_rb, klog_storage, KLOG_BUFFER_SIZE, sizeof(char));
     is_klog_ready = true;
 }
 
-void klog_putc(char c)
-{
+void klog_putc(char c) {
     rb_push_overwrite(&klog_rb, &c);
 }
 
-static void klog_puts(cstring s)
-{
+static void klog_puts(cstring s) {
     while (*s) {
         klog_putc(*s);
         s++;
@@ -45,12 +42,11 @@ static void klog_puts(cstring s)
 /**
  * @brief Write "[secs.fraction] " straight off pit_ticks, integer math only.
  */
-static void klog_write_timestamp(void)
-{
+static void klog_write_timestamp(void) {
     uint64_t ticks = pit_ticks;
 
     uint64_t secs = ticks / KLOG_TICKS_PER_SEC;
-    uint64_t rem  = ticks % KLOG_TICKS_PER_SEC;
+    uint64_t rem = ticks % KLOG_TICKS_PER_SEC;
 
     uint64_t scale = 1;
     for (int i = 0; i < KLOG_TS_FRAC_DIGITS; i++)
@@ -74,10 +70,10 @@ static void klog_write_timestamp(void)
     klog_putc(' ');
 }
 
-void klog_printf(cstring format, ...)
-{
-    if(!is_klog_ready) return;
-    
+void klog_printf(cstring format, ...) {
+    if (!is_klog_ready)
+        return;
+
     va_list argp;
     va_start(argp, format);
 
@@ -130,8 +126,9 @@ void klog_printf(cstring format, ...)
                 }
 
                 case 's': {
-                    const char *s = va_arg(argp, char*);
-                    if (!s) s = "(null)";
+                    const char *s = va_arg(argp, char *);
+                    if (!s)
+                        s = "(null)";
                     klog_puts(s);
                     break;
                 }
@@ -149,8 +146,7 @@ void klog_printf(cstring format, ...)
                     klog_putc(*format);
                     break;
             }
-        }
-        else {
+        } else {
             klog_putc(*format);
         }
 
@@ -162,13 +158,11 @@ void klog_printf(cstring format, ...)
     va_end(argp);
 }
 
-size_t klog_read(char* out, size_t max_len)
-{
+size_t klog_read(char *out, size_t max_len) {
     return klog_read_at(out, 0, max_len);
 }
 
-size_t klog_read_at(char* out, size_t offset, size_t max_len)
-{
+size_t klog_read_at(char *out, size_t offset, size_t max_len) {
     size_t total = rb_size(&klog_rb);
     if (offset >= total)
         return 0;
@@ -185,12 +179,10 @@ size_t klog_read_at(char* out, size_t offset, size_t max_len)
     return n;
 }
 
-size_t klog_size(void)
-{
+size_t klog_size(void) {
     return rb_size(&klog_rb);
 }
 
-void klog_clear(void)
-{
+void klog_clear(void) {
     rb_clear(&klog_rb);
 }

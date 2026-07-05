@@ -4,32 +4,32 @@
  * @brief Contains code and definitons for Paging
  * @version 0.1
  * @date 2023-12-17
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 #ifndef PAGING_H
 #define PAGING_H
 
 #include <basics.h>
-#include <userland.h>
 #include <limine.h>
+#include <userland.h>
 
-#define PAGE_SIZE      4096ULL
+#define PAGE_SIZE 4096ULL
 
-#define PAGE_PRESENT  0x1
-#define PAGE_RW       0x2
-#define PAGE_USER     0x4
-#define PAGE_NX       (1ULL << 63)
+#define PAGE_PRESENT 0x1
+#define PAGE_RW 0x2
+#define PAGE_USER 0x4
+#define PAGE_NX (1ULL << 63)
 
-#define USER_CODE_FLAGS (PAGE_PRESENT | PAGE_USER | PAGE_RW )
+#define USER_CODE_FLAGS (PAGE_PRESENT | PAGE_USER | PAGE_RW)
 #define USER_DATA_FLAGS (PAGE_PRESENT | PAGE_USER | PAGE_RW | PAGE_NX)
 
 extern struct limine_memmap_response *memmap;
 
 /**
  * @brief Function to map userland pages
- * 
+ *
  * @param virt Virtual memory address of user
  * @param phys Physical memory address of kernel's user code.
  * @param flags Permissions
@@ -47,7 +47,7 @@ void paging_set_hhdm_offset(uint64_t offset);
 uintptr_t allocate_page(void);
 uintptr_t allocate_pages(size_t count);
 uint64_t virtual_to_physical(uint64_t virt);
-uint64_t fast_virt_to_phys(void* v);
-uint64_t virt_to_phys(void* v);
+uint64_t fast_virt_to_phys(void *v);
+uint64_t virt_to_phys(void *v);
 
 #endif

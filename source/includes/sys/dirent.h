@@ -4,9 +4,9 @@
  * @brief Directory entry structure (64-bit variant).
  * @version 0.1
  * @date 2026-04-03
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 #ifndef SYS_DIRENT_H
 #define SYS_DIRENT_H

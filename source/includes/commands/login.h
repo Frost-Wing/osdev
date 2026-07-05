@@ -4,16 +4,16 @@
  * @brief Handle the logging-in functions.
  * @version 0.1
  * @date 2025-01-16
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
 #ifndef LOGIN_H
 #define LOGIN_H
 
-#include <basics.h>
 #include <algorithms/hashing.h>
+#include <basics.h>
 #include <graphics.h>
 
 #define MAX_USERS_ALLOWED 7
@@ -22,29 +22,29 @@
 
 /**
  * @brief Function to create an user with an hash.
- * 
- * @param name 
- * @param password 
+ *
+ * @param name
+ * @param password
  */
 void create_user(uint64 name, uint64 password);
 
 /**
  * @brief Function to create an user with plain string.
- * @warning Potential security risk. 
+ * @warning Potential security risk.
  *
- * @param name 
- * @param password 
+ * @param name
+ * @param password
  */
 void create_user_str(cstring name, cstring password);
 
-int login_request(char* userbuf, int max);
+int login_request(char *userbuf, int max);
 
 /**
  * @brief Requests password for verification for sudo.
- * 
+ *
  * @param username current username
  * @return Whether it was successful.
  */
-int ask_password(const char* username);
+int ask_password(const char *username);
 
 #endif

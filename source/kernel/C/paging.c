@@ -4,18 +4,18 @@
  * @brief The source for Paging
  * @version 0.1
  * @date 2023-12-17
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
-#include <paging.h>
-#include <memory.h>
 #include <cc-asm.h>
+#include <memory.h>
+#include <paging.h>
 
 uint64_t memory_start;
 uint64_t memory_end;
-size_t   amount_of_pages;
-uint8*    page_bitmap;
+size_t amount_of_pages;
+uint8 *page_bitmap;
 
 extern uint8_t user_code_start[];
 extern uint8_t user_code_end[];
@@ -33,7 +33,7 @@ static inline uint64_t *phys_to_virt_ptr(uint64_t phys_addr) {
 }
 
 uintptr_t allocate_page(void) {
-    if(!memmap){
+    if (!memmap) {
         error("Limine failed to give the memory map", __FILE__);
         hcf2();
     }
@@ -41,7 +41,8 @@ uintptr_t allocate_page(void) {
     if (!bump_ptr) {
         for (uint64_t i = 0; i < memmap->entry_count; i++) {
             struct limine_memmap_entry *e = memmap->entries[i];
-            if (e->type != LIMINE_MEMMAP_USABLE) continue;
+            if (e->type != LIMINE_MEMMAP_USABLE)
+                continue;
             bump_ptr = (e->base + PAGE_SIZE - 1) & ~0xFFFULL;
             break;
         }
@@ -71,30 +72,34 @@ uint64_t virtual_to_physical(uint64_t virt) {
     uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
     uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
-    uint64_t pd_idx   = (virt >> 21) & 0x1FF;
-    uint64_t pt_idx   = (virt >> 12) & 0x1FF;
-    uint64_t offset   = virt & 0xFFF;
+    uint64_t pd_idx = (virt >> 21) & 0x1FF;
+    uint64_t pt_idx = (virt >> 12) & 0x1FF;
+    uint64_t offset = virt & 0xFFF;
 
-    if (!(pml4[pml4_idx] & PAGE_PRESENT)) return 0;
+    if (!(pml4[pml4_idx] & PAGE_PRESENT))
+        return 0;
     uint64_t *pdpt = phys_to_virt_ptr(pml4[pml4_idx] & ~0xFFFULL);
 
-    if (!(pdpt[pdpt_idx] & PAGE_PRESENT)) return 0;
+    if (!(pdpt[pdpt_idx] & PAGE_PRESENT))
+        return 0;
     uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & ~0xFFFULL);
 
-    if (!(pd[pd_idx] & PAGE_PRESENT)) return 0;
+    if (!(pd[pd_idx] & PAGE_PRESENT))
+        return 0;
     uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & ~0xFFFULL);
 
-    if (!(pt[pt_idx] & PAGE_PRESENT)) return 0;
+    if (!(pt[pt_idx] & PAGE_PRESENT))
+        return 0;
 
     uint64_t phys = (pt[pt_idx] & ~0xFFF) | offset;
     return phys;
 }
 
-uint64_t fast_virt_to_phys(void* v) {
+uint64_t fast_virt_to_phys(void *v) {
     return (uint64_t)v - hhdm_offset;
 }
 
-uint64_t virt_to_phys(void* v) {
+uint64_t virt_to_phys(void *v) {
     return fast_virt_to_phys(v);
 }
 
@@ -106,8 +111,8 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
 
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
     uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
-    uint64_t pd_idx   = (virt >> 21) & 0x1FF;
-    uint64_t pt_idx   = (virt >> 12) & 0x1FF;
+    uint64_t pd_idx = (virt >> 21) & 0x1FF;
+    uint64_t pt_idx = (virt >> 12) & 0x1FF;
 
     // Create PDPT if missing
     if (!(pml4[pml4_idx] & PAGE_PRESENT)) {
@@ -155,8 +160,8 @@ void unmap_user_page(uint64_t virt) {
     uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
     uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
-    uint64_t pd_idx   = (virt >> 21) & 0x1FF;
-    uint64_t pt_idx   = (virt >> 12) & 0x1FF;
+    uint64_t pd_idx = (virt >> 21) & 0x1FF;
+    uint64_t pt_idx = (virt >> 12) & 0x1FF;
 
     if (!(pml4[pml4_idx] & PAGE_PRESENT))
         return;

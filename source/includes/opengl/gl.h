@@ -4,7 +4,7 @@
  * @brief Contains all opengl related functions
  * @version 0.1
  * @date 2023-10-24
- * 
+ *
  * @copyright Copyright (c) Pradosh & GAMINGNOOBdev 2023
  */
 

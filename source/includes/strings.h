@@ -4,20 +4,20 @@
  * @brief The header file for strings.c
  * @version 0.1
  * @date 2023-10-21
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
 #include <basics.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #define MAX_WORDS 30
 #define MAX_WORD_LEN 40
 
 #define CONCAT(...) \
-    str_concat_impl(sizeof((const char*[]){__VA_ARGS__}) / sizeof(const char*), __VA_ARGS__)
+    str_concat_impl(sizeof((const char *[]){__VA_ARGS__}) / sizeof(const char *), __VA_ARGS__)
 
 // typedef char symbol[];
 
@@ -34,7 +34,7 @@ int strlen(cstring s);
 
 /**
  * @brief Copies a string from `src` to `dest`
- * 
+ *
  * @param dest Pointer to the destination
  * @param src Source string
  * @returns The resulting copy of the string `src`
@@ -43,7 +43,7 @@ string strcpy(string dest, cstring src);
 
 /**
  * @brief Copies `n` characters from `src` to `dest`
- * 
+ *
  * @param dest Pointer to the destination
  * @param src Source string
  * @param n Number of characters that will be copies
@@ -132,67 +132,67 @@ string strcat(string dest, cstring src);
 
 /**
  * @brief Removes the last char
- * 
- * @param str 
+ *
+ * @param str
  */
 void remove_last_char(string str);
 
 /**
  * @brief Converts a string to a long integer.
- * 
+ *
  * @param str The input string to be converted.
  * @param endptr Reference to a pointer that will be updated to point to the character after the last valid character.
  * @param base The base of the number.
- * @return long 
+ * @return long
  */
 long strtol(const char *str, char **endptr, int base);
 
 /**
  * @brief Converts an uint to string
- * 
- * @param num 
- * @return char* 
+ *
+ * @param num
+ * @return char*
  */
-char* uint_to_string(unsigned int num);
+char *uint_to_string(unsigned int num);
 
 /**
  * @brief Prints Hexadecimal number
- * 
+ *
  * @param hex the hexadecimal number to be printed.
  */
-char* hex_to_string(signed int num, bool caps);
+char *hex_to_string(signed int num, bool caps);
 
 /**
  * @brief Removes the leading and trailing spaces.
- * 
- * @param str 
- * @return char* 
+ *
+ * @param str
+ * @return char*
  */
-char* leading_trailing_trim(const char *str);
+char *leading_trailing_trim(const char *str);
 
 /**
  * @brief Splits a string into tokens based on a delimiter.
- * 
+ *
  * @param str The input string to be split.
  * @param delim The delimiter character.
  * @param num_tokens The number of tokens found.
  * @return char** Returns an array of strings containing the tokens.
  */
-char** splitf(const char* str, char delim, int* num_tokens);
+char **splitf(const char *str, char delim, int *num_tokens);
 
 /**
  * @brief Implemented for sh.c
- * 
- * @param c 
- * @return int 
+ *
+ * @param c
+ * @return int
  */
 int isspace(char c);
 
-char* trim_inplace(char* s);
+char *trim_inplace(char *s);
 
-char* strrchr(const char* s, int c);
-char* strdup(const char* str);
+char *strrchr(const char *s, int c);
+char *strdup(const char *str);
 
-char* strchr(const char* s, int c);
+char *strchr(const char *s, int c);
 
 int itoa(int num, string str, int len, int base);

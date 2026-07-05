@@ -1,19 +1,19 @@
 /**
  * @file sh.c
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2025-01-14
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
 #include <commands/login.h>
 #include <filesystems/vfs.h>
 #include <graphics.h>
-#include <sh_util.h>
 #include <multitasking.h>
+#include <sh_util.h>
 #include <strings.h>
 
 int last_status_code = 0;
@@ -24,55 +24,49 @@ static char global_term_env[64] = "TERM=linux";
 static char global_user_env[64] = "USER=none";
 static char global_shlvl_env[32] = "SHLVL=1";
 
-char* global_envp[] = {
+char *global_envp[] = {
     global_home_env,
     global_path_env,
     global_term_env,
     global_user_env,
     global_shlvl_env,
-    NULL
-};
+    NULL};
 
-void init_command_list(command_list* lst)
-{
+void init_command_list(command_list *lst) {
     if (lst == NULL)
         return;
 
     memset(lst, 0, sizeof(command_list));
 }
 
-void dispose_command_list(command_list* lst)
-{
+void dispose_command_list(command_list *lst) {
     if (lst == NULL)
         return;
 
-    for (command_list_entry* entry = lst->start; entry != NULL;)
-    {
-        command_list_entry* next = entry->next;
+    for (command_list_entry *entry = lst->start; entry != NULL;) {
+        command_list_entry *next = entry->next;
         kfree(entry->command);
         kfree(entry);
         entry = next;
     }
 }
 
-void push_command_to_list(command_list* lst, const char* value, size_t length)
-{
+void push_command_to_list(command_list *lst, const char *value, size_t length) {
     if (lst == NULL || value == NULL || length == 0)
         return;
 
-    command_list_entry* entry = kmalloc(sizeof(command_list_entry));
+    command_list_entry *entry = kmalloc(sizeof(command_list_entry));
     assert(entry != NULL, __FILE__, __LINE__);
     if (entry == NULL)
         return;
 
     memset(entry, 0, sizeof(command_list_entry));
     entry->length = length;
-    entry->command = kmalloc(length+1);
-    memset(entry->command, 0, length+1);
+    entry->command = kmalloc(length + 1);
+    memset(entry->command, 0, length + 1);
     memcpy(entry->command, value, length);
 
-    if (lst->start == NULL)
-    {
+    if (lst->start == NULL) {
         lst->start = lst->end = entry;
         lst->count++;
         return;
@@ -86,7 +80,7 @@ void push_command_to_list(command_list* lst, const char* value, size_t length)
 
 bool running = true;
 
-void welcome_message(void){
+void welcome_message(void) {
     printf(blue_color " ______             _           _  _____ _          _ _ ");
     printf(blue_color "|  ____|           | |         | |/ ____| |        | | |");
     printf(blue_color "| |__ _ __ ___  ___| |_ ___  __| | (___ | |__   ___| | |");
@@ -106,18 +100,17 @@ void welcome_message(void){
     update_system_time(&second, &minute, &hour, &day, &month, &year);
 
     printf("Time    : %02d:%02d:%02d %02d/%02d/%02d",
-           hour, minute, second, day, month, year);
+        hour, minute, second, day, month, year);
 }
 
-extern uint64* wm_addr;
+extern uint64 *wm_addr;
 
-void start_window_manager(void){
-    void* file_addr = wm_addr;
-    fdlfcn_handle* handle = fdlopen(file_addr, FDL_IMMEDIATE);
-    int(*startfunction)(void);
-    startfunction = (int(*)(void))fdlsym(FLD_NEXT, "_start");
-    if (startfunction != NULL)
-    {
+void start_window_manager(void) {
+    void *file_addr = wm_addr;
+    fdlfcn_handle *handle = fdlopen(file_addr, FDL_IMMEDIATE);
+    int (*startfunction)(void);
+    startfunction = (int (*)(void))fdlsym(FLD_NEXT, "_start");
+    if (startfunction != NULL) {
         int result = startfunction();
         printf("Result function: %d", result);
         info("Successfully loaded function from .so file", __FILE__);
@@ -125,12 +118,12 @@ void start_window_manager(void){
     fdlclose(handle);
 }
 
-extern struct flanterm_context* ft_ctx;
-struct fwrfs* global_fs;
+extern struct flanterm_context *ft_ctx;
+struct fwrfs *global_fs;
 
-int show_prompt(int argc, char** argv){
+int show_prompt(int argc, char **argv) {
 
-    if(last_status_code == 0)
+    if (last_status_code == 0)
         printfnoln("[" green_color "%d" reset_color "] ", last_status_code);
     else
         printfnoln("[" red_color "%d" reset_color "] ", last_status_code);
@@ -138,7 +131,7 @@ int show_prompt(int argc, char** argv){
     print(vfs_getcwd());
     print(" @ ");
 
-    if(strcmp(argv[0], "root") == 0){
+    if (strcmp(argv[0], "root") == 0) {
         print(red_color);
         print(argv[0]);
         print(reset_color);
@@ -153,11 +146,11 @@ int show_prompt(int argc, char** argv){
     return 0;
 }
 
-void ksh_exec(void){
+void ksh_exec(void) {
     int failed_attempts = 0;
 
-    while(true){
-        if (failed_attempts >= 5){
+    while (true) {
+        if (failed_attempts >= 5) {
             error("You tried 5 different wrong attempts. You've been locked out.", __FILE__);
             hcf2();
         }
@@ -165,35 +158,33 @@ void ksh_exec(void){
         char username[32];
         int result = login_request(username, sizeof(username));
 
-        if(result == 0){
+        if (result == 0) {
             int argc = 1;
 
             int isSudo = 0;
-            if(strcmp(username, "root") == 0)
+            if (strcmp(username, "root") == 0)
                 isSudo = 1;
 
             /* safer argument passing */
             char sudo_flag = isSudo;
 
-            char* dummy_argv[] = {
+            char *dummy_argv[] = {
                 username,
-                &sudo_flag
-            };
+                &sudo_flag};
 
             snprintf(global_user_env, sizeof(global_user_env), "USER=%s", username);
 
             shell_main(argc, dummy_argv);
-        }
-        else{
+        } else {
             error("Invalid credentials.", __FILE__);
             failed_attempts++;
         }
     }
 }
 
-int shell_main(int argc, char** argv){
+int shell_main(int argc, char **argv) {
     running = true;
-    char* command = kmalloc(BUFFER_SIZE);
+    char *command = kmalloc(BUFFER_SIZE);
     size_t commandBufferSize = BUFFER_SIZE;
     size_t commandSize = 0;
     size_t cursor = 0;
@@ -206,26 +197,24 @@ int shell_main(int argc, char** argv){
 
     command_list commandHistory;
     init_command_list(&commandHistory);
-    
+
     putc('\n');
 
     show_prompt(argc, argv);
 
     uint8_t commandPulledFromHistory = 0;
-    command_list_entry* entry = NULL;
+    command_list_entry *entry = NULL;
     char c;
-    while (running)
-    {
+    while (running) {
         multitasking_pump();
         c = getc();
 
         if (c == 0)
             continue;
 
-        if (c == '\n')
-        {
+        if (c == '\n') {
             command[cursor] = '\0'; // Null-terminate the string
-            
+
             last_status_code = execute_chain(command);
 
             push_command_to_list(&commandHistory, command, cursor);
@@ -233,22 +222,18 @@ int shell_main(int argc, char** argv){
             commandSize = 0;
             memset(command, 0, commandBufferSize);
 
-            if(running){
+            if (running) {
                 snprintf(global_path_env, sizeof(global_path_env), "PATH=%s", vfs_getcwd());
                 show_prompt(argc, argv);
             }
             continue;
-        }
-        else if (c == '\b')
-        {
+        } else if (c == '\b') {
             if (cursor > 0)
                 cursor--;
-            else continue;
-        }
-        else
-        {
-            if (commandSize+1 >= commandBufferSize)
-            {
+            else
+                continue;
+        } else {
+            if (commandSize + 1 >= commandBufferSize) {
                 commandBufferSize += BUFFER_SIZE;
                 command = krealloc(command, commandBufferSize);
             }
@@ -265,10 +250,9 @@ int shell_main(int argc, char** argv){
     return 0;
 }
 
-static void apply_redirection(redir_t* r,
-                              vfs_file_t** old_out,
-                              vfs_file_t** old_err)
-{
+static void apply_redirection(redir_t *r,
+    vfs_file_t **old_out,
+    vfs_file_t **old_err) {
     if (!r || (!r->redirect_stdout && !r->redirect_stderr))
         return;
 
@@ -303,34 +287,30 @@ static void apply_redirection(redir_t* r,
         stream_set_file(STDERR, &file_handle);
     }
 }
-static void parse_redirection(int* argc, char** argv, redir_t* r)
-{
+static void parse_redirection(int *argc, char **argv, redir_t *r) {
     memset(r, 0, sizeof(redir_t));
 
-    for(int i = 0; i < *argc; i++) {
-        if(strcmp(argv[i], ">") == 0 && i+1 < *argc) {
+    for (int i = 0; i < *argc; i++) {
+        if (strcmp(argv[i], ">") == 0 && i + 1 < *argc) {
             r->redirect_stdout = 1;
             r->append = 0;
-            r->filename = argv[i+1];
-        }
-        else if(strcmp(argv[i], ">>") == 0 && i+1 < *argc) {
+            r->filename = argv[i + 1];
+        } else if (strcmp(argv[i], ">>") == 0 && i + 1 < *argc) {
             r->redirect_stdout = 1;
             r->append = 1;
-            r->filename = argv[i+1];
-        }
-        else if(strcmp(argv[i], "&>") == 0 && i+1 < *argc) {
+            r->filename = argv[i + 1];
+        } else if (strcmp(argv[i], "&>") == 0 && i + 1 < *argc) {
             r->redirect_stdout = 1;
             r->redirect_stderr = 1;
             r->append = 0;
-            r->filename = argv[i+1];
-        }
-        else {
+            r->filename = argv[i + 1];
+        } else {
             continue;
         }
 
         /* remove operator + filename from argv */
-        for(int j = i; j+2 < *argc; j++)
-            argv[j] = argv[j+2];
+        for (int j = i; j + 2 < *argc; j++)
+            argv[j] = argv[j + 2];
 
         *argc -= 2;
         argv[*argc] = NULL;
@@ -338,61 +318,69 @@ static void parse_redirection(int* argc, char** argv, redir_t* r)
     }
 }
 
-static void restore_redirection(vfs_file_t* old_out,
-                                vfs_file_t* old_err)
-{
+static void restore_redirection(vfs_file_t *old_out,
+    vfs_file_t *old_err) {
     stream_set_file(STDOUT, old_out);
     stream_set_file(STDERR, old_err);
 }
-
 
 /* parse command line into sequence of subcmd_t.
    E.g. "a && b || c" => ["a"(OP_AND), "b"(OP_OR), "c"(OP_NONE)]
    Returns number of subcommands parsed.
    Caller must free each subcmd[i].cmd.
 */
-static int parse_chain(const char* line, subcmd_t* out, int max_out)
-{
+static int parse_chain(const char *line, subcmd_t *out, int max_out) {
     int count = 0;
-    const char* p = line;
-    const char* start = p;
+    const char *p = line;
+    const char *start = p;
 
-    while(*p && count < max_out) {
-        const char* q = p;
+    while (*p && count < max_out) {
+        const char *q = p;
         bool in_squote = false, in_dquote = false;
         bool found_op = false;
-        while(*q) {
-            if(*q == '\'' && !in_dquote) in_squote = !in_squote;
-            else if(*q == '"' && !in_squote) in_dquote = !in_dquote;
-            else if(!in_squote && !in_dquote) {
-                if(q[0] == '&' && q[1] == '&') { found_op = true; break; }
-                if(q[0] == '|' && q[1] == '|') { found_op = true; break; }
+        while (*q) {
+            if (*q == '\'' && !in_dquote)
+                in_squote = !in_squote;
+            else if (*q == '"' && !in_squote)
+                in_dquote = !in_dquote;
+            else if (!in_squote && !in_dquote) {
+                if (q[0] == '&' && q[1] == '&') {
+                    found_op = true;
+                    break;
+                }
+                if (q[0] == '|' && q[1] == '|') {
+                    found_op = true;
+                    break;
+                }
             }
             q++;
         }
 
         size_t len;
         op_t op = OP_NONE;
-        if(found_op) {
+        if (found_op) {
             len = (size_t)(q - p);
-            if(q[0] == '&' && q[1] == '&') op = OP_AND;
-            else if(q[0] == '|' && q[1] == '|') op = OP_OR;
+            if (q[0] == '&' && q[1] == '&')
+                op = OP_AND;
+            else if (q[0] == '|' && q[1] == '|')
+                op = OP_OR;
         } else {
             len = strlen(p);
         }
 
-        char* buf = (char*)kmalloc(len + 1);
+        char *buf = (char *)kmalloc(len + 1);
         memcpy(buf, p, len);
         buf[len] = '\0';
-        trim_inplace((char*)buf);
+        trim_inplace((char *)buf);
 
         out[count].cmd = buf;
         out[count].op_after = op;
         count++;
 
-        if(found_op) {
+        if (found_op) {
             q += 2;
-            while(*q && isspace((unsigned char)*q)) q++;
+            while (*q && isspace((unsigned char)*q))
+                q++;
             p = q;
         } else {
             break;
@@ -403,38 +391,37 @@ static int parse_chain(const char* line, subcmd_t* out, int max_out)
 }
 
 static command_t commands[] = {
-    { "echo", cmd_echo },
-    { "touch", cmd_touch },
-    { "rm", cmd_rm },
-    { "mkdir", cmd_mkdir },
-    { "cat", cmd_cat },
-    { "ls", cmd_ls },
-    { "clear", cmd_clear },
-    { "pwd", cmd_pwd },
-    { "cd", cmd_cd },
-    { "whoami", cmd_whoami },
-    { "shutdown", cmd_shutdown },
-    { "lspci", cmd_lspci },
-    { "lsblk", cmd_lsblk },
-    { "mount", cmd_mount },
-    { "mv", cmd_mv },
-    { "umount", cmd_umount },
-    { "exec", cmd_exec },
-    { "tasks", cmd_tasks },
-    { "ping", cmd_ping },
-    { "wget", cmd_wget }
+    {"echo", cmd_echo},
+    {"touch", cmd_touch},
+    {"rm", cmd_rm},
+    {"mkdir", cmd_mkdir},
+    {"cat", cmd_cat},
+    {"ls", cmd_ls},
+    {"clear", cmd_clear},
+    {"pwd", cmd_pwd},
+    {"cd", cmd_cd},
+    {"whoami", cmd_whoami},
+    {"shutdown", cmd_shutdown},
+    {"lspci", cmd_lspci},
+    {"lsblk", cmd_lsblk},
+    {"mount", cmd_mount},
+    {"mv", cmd_mv},
+    {"umount", cmd_umount},
+    {"exec", cmd_exec},
+    {"tasks", cmd_tasks},
+    {"ping", cmd_ping},
+    {"wget", cmd_wget}
     // { "fwfetch", cmd_fwfetch },
     // { "help", cmd_help },
 };
 
+static int dispatch(int argc, char **argv) {
+    if (argc == 0)
+        return 0;
+    const char *cmd = argv[0];
 
-static int dispatch(int argc, char** argv)
-{
-    if(argc == 0) return 0;
-    const char* cmd = argv[0];
-
-    for(size_t i = 0; i < sizeof(commands)/sizeof(commands[0]); i++) {
-        if(strcmp(cmd, commands[i].name) == 0) {
+    for (size_t i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {
+        if (strcmp(cmd, commands[i].name) == 0) {
             return commands[i].func(argc, argv);
         }
     }
@@ -443,40 +430,40 @@ static int dispatch(int argc, char** argv)
     return 127;
 }
 
-
-int execute_chain(const char* line)
-{
-    if(!line) return 0;
+int execute_chain(const char *line) {
+    if (!line)
+        return 0;
     char tmp[MAX_COMMAND_LINE];
-    strncpy(tmp, line, sizeof(tmp)-1);
-    tmp[sizeof(tmp)-1] = '\0';
+    strncpy(tmp, line, sizeof(tmp) - 1);
+    tmp[sizeof(tmp) - 1] = '\0';
     trim_inplace(tmp);
-    if(tmp[0] == '\0') return 0;
+    if (tmp[0] == '\0')
+        return 0;
 
     subcmd_t parts[MAX_SUBCOMMANDS];
     int n = parse_chain(tmp, parts, MAX_SUBCOMMANDS);
     int last_status = 0;
 
-    for(int i = 0; i < n; ++i) {
+    for (int i = 0; i < n; ++i) {
         /* If previous operator was && and last_status != 0 then skip current */
-        if(i > 0) {
-            op_t prevop = parts[i-1].op_after;
-            if(prevop == OP_AND && last_status != 0) {
+        if (i > 0) {
+            op_t prevop = parts[i - 1].op_after;
+            if (prevop == OP_AND && last_status != 0) {
                 /* skip execution */
                 last_status = last_status; /* unchanged */
                 continue;
-            } else if(prevop == OP_OR && last_status == 0) {
+            } else if (prevop == OP_OR && last_status == 0) {
                 /* skip execution because prior succeeded */
                 continue;
             }
         }
 
         /* Tokenize current subcommand into argv */
-        char* argv[MAX_ARGV];
+        char *argv[MAX_ARGV];
         int argc = split_args(parts[i].cmd, argv, MAX_ARGV);
 
-        if(argc == 0) {
-            for(int k=0;k<argc;k++)
+        if (argc == 0) {
+            for (int k = 0; k < argc; k++)
                 kfree(argv[k]);
             continue;
         }
@@ -484,8 +471,8 @@ int execute_chain(const char* line)
         redir_t redir;
         parse_redirection(&argc, argv, &redir);
 
-        vfs_file_t* old_out = NULL;
-        vfs_file_t* old_err = NULL;
+        vfs_file_t *old_out = NULL;
+        vfs_file_t *old_err = NULL;
 
         apply_redirection(&redir, &old_out, &old_err);
 
@@ -494,11 +481,11 @@ int execute_chain(const char* line)
 
         restore_redirection(NULL, NULL);
 
-        for(int k=0;k<argc;k++)
+        for (int k = 0; k < argc; k++)
             kfree(argv[k]);
     }
 
-    for(int i=0;i<n;i++)
+    for (int i = 0; i < n; i++)
         kfree(parts[i].cmd);
 
     return last_status;
@@ -511,34 +498,42 @@ int execute_chain(const char* line)
   - returns argc
   - argv[] are newly allocated strings (kmalloc). Caller must free each argv[i].
 */
-int split_args(const char* cmdline, char** argv, int max_args)
-{
+int split_args(const char *cmdline, char **argv, int max_args) {
     int argc = 0;
-    const char* p = cmdline;
-    while(*p && argc < max_args) {
-        while(*p && isspace((unsigned char)*p)) p++;
-        if(!*p) break;
+    const char *p = cmdline;
+    while (*p && argc < max_args) {
+        while (*p && isspace((unsigned char)*p))
+            p++;
+        if (!*p)
+            break;
 
         char quote = 0;
-        if(*p == '"' || *p == '\'') {
+        if (*p == '"' || *p == '\'') {
             quote = *p;
             p++;
         }
 
-        const char* start = p;
+        const char *start = p;
         size_t bufcap = 128;
-        char* buf = (char*)kmalloc(bufcap);
+        char *buf = (char *)kmalloc(bufcap);
         size_t len = 0;
 
-        if(quote) {
-            while(*p && *p != quote) {
-                if(len + 1 >= bufcap) { bufcap *= 2; buf = krealloc(buf, bufcap); }
+        if (quote) {
+            while (*p && *p != quote) {
+                if (len + 1 >= bufcap) {
+                    bufcap *= 2;
+                    buf = krealloc(buf, bufcap);
+                }
                 buf[len++] = *p++;
             }
-            if(*p == quote) p++; /* skip ending quote */
+            if (*p == quote)
+                p++; /* skip ending quote */
         } else {
-            while(*p && !isspace((unsigned char)*p)) {
-                if(len + 1 >= bufcap) { bufcap *= 2; buf = krealloc(buf, bufcap); }
+            while (*p && !isspace((unsigned char)*p)) {
+                if (len + 1 >= bufcap) {
+                    bufcap *= 2;
+                    buf = krealloc(buf, bufcap);
+                }
                 buf[len++] = *p++;
             }
         }

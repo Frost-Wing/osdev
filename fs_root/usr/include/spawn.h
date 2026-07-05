@@ -25,24 +25,24 @@ struct sched_param;
 #define POSIX_SPAWN_SETSID 128
 
 typedef struct {
-	int __flags;
-	pid_t __pgrp;
-	sigset_t __def, __mask;
-	int __prio, __pol;
-	void *__fn;
-	char __pad[64-sizeof(void *)];
+    int __flags;
+    pid_t __pgrp;
+    sigset_t __def, __mask;
+    int __prio, __pol;
+    void *__fn;
+    char __pad[64 - sizeof(void *)];
 } posix_spawnattr_t;
 
 typedef struct {
-	int __pad0[2];
-	void *__actions;
-	int __pad[16];
+    int __pad0[2];
+    void *__actions;
+    int __pad[16];
 } posix_spawn_file_actions_t;
 
 int posix_spawn(pid_t *__restrict, const char *__restrict, const posix_spawn_file_actions_t *,
-	const posix_spawnattr_t *__restrict, char *const *__restrict, char *const *__restrict);
+    const posix_spawnattr_t *__restrict, char *const *__restrict, char *const *__restrict);
 int posix_spawnp(pid_t *__restrict, const char *__restrict, const posix_spawn_file_actions_t *,
-	const posix_spawnattr_t *__restrict, char *const *__restrict, char *const *__restrict);
+    const posix_spawnattr_t *__restrict, char *const *__restrict, char *const *__restrict);
 
 int posix_spawnattr_init(posix_spawnattr_t *);
 int posix_spawnattr_destroy(posix_spawnattr_t *);

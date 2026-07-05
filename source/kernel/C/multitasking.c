@@ -1,31 +1,31 @@
-#include <multitasking.h>
+#include <flanterm/flanterm.h>
 #include <graphics.h>
 #include <heap.h>
 #include <memory.h>
+#include <multitasking.h>
 #include <strings.h>
 #include <userland.h>
-#include <flanterm/flanterm.h>
 
-extern struct flanterm_context* ft_ctx;
+extern struct flanterm_context *ft_ctx;
 
-static task_t* g_task_head = NULL;
-static task_t* g_task_tail = NULL;
+static task_t *g_task_head = NULL;
+static task_t *g_task_tail = NULL;
 static uint32_t g_next_pid = 1;
 static uint32_t g_current_pid = 0;
 static uint64_t g_last_tick = 0;
 
 static uint64_t irq_save_disable(void) {
     uint64_t flags = 0;
-    asm volatile("pushfq; popq %0; cli" : "=r"(flags) :: "memory");
+    asm volatile("pushfq; popq %0; cli" : "=r"(flags)::"memory");
     return flags;
 }
 
 static void irq_restore(uint64_t flags) {
-    asm volatile("pushq %0; popfq" :: "r"(flags) : "memory", "cc");
+    asm volatile("pushq %0; popfq" ::"r"(flags) : "memory", "cc");
 }
 
-static task_t* find_task_locked(uint32_t pid) {
-    for (task_t* task = g_task_head; task != NULL; task = task->next) {
+static task_t *find_task_locked(uint32_t pid) {
+    for (task_t *task = g_task_head; task != NULL; task = task->next) {
         if (task->pid == pid)
             return task;
     }
@@ -33,19 +33,18 @@ static task_t* find_task_locked(uint32_t pid) {
     return NULL;
 }
 
-task_t* multitasking_find_task(uint32_t pid) {
+task_t *multitasking_find_task(uint32_t pid) {
     return find_task_locked(pid);
 }
 
-task_t* multitasking_get_current_task(void)
-{
+task_t *multitasking_get_current_task(void) {
     uint32_t pid = multitasking_current_pid();
-    if (!pid){
+    if (!pid) {
         debug_printf("\t[multitasking] invalid pid.\n");
         return NULL;
     }
 
-    for (task_t* t = g_task_head; t; t = t->next)
+    for (task_t *t = g_task_head; t; t = t->next)
         if (t->pid == pid)
             return t;
 
@@ -53,7 +52,7 @@ task_t* multitasking_get_current_task(void)
     return NULL;
 }
 
-static void push_task_locked(task_t* task) {
+static void push_task_locked(task_t *task) {
     if (g_task_tail == NULL) {
         g_task_head = g_task_tail = task;
         return;
@@ -63,7 +62,7 @@ static void push_task_locked(task_t* task) {
     g_task_tail = task;
 }
 
-static void fill_info(const task_t* task, task_info_t* info) {
+static void fill_info(const task_t *task, task_info_t *info) {
     if (!task || !info)
         return;
 
@@ -94,11 +93,11 @@ uint32_t multitasking_current_pid(void) {
     return pid;
 }
 
-uint32_t multitasking_spawn_kernel(const char* name, kernel_task_fn_t fn, void* ctx) {
+uint32_t multitasking_spawn_kernel(const char *name, kernel_task_fn_t fn, void *ctx) {
     if (!fn)
         return 0;
 
-    task_t* task = (task_t*)kmalloc(sizeof(task_t));
+    task_t *task = (task_t *)kmalloc(sizeof(task_t));
     if (!task)
         return 0;
 
@@ -124,12 +123,11 @@ uint32_t multitasking_spawn_kernel(const char* name, kernel_task_fn_t fn, void* 
     return task->pid;
 }
 
-uint32_t multitasking_spawn_userland(const char* name, const user_task_spec_t* spec)
-{
+uint32_t multitasking_spawn_userland(const char *name, const user_task_spec_t *spec) {
     if (!spec || !spec->path)
         return 0;
 
-    task_t* task = (task_t*)kmalloc(sizeof(task_t));
+    task_t *task = (task_t *)kmalloc(sizeof(task_t));
     if (!task)
         return 0;
 
@@ -178,16 +176,12 @@ uint32_t multitasking_spawn_userland(const char* name, const user_task_spec_t* s
     // ---------------------------
     // Deep copy argv safely
     // ---------------------------
-    for (int i = 0; i < argc; i++)
-    {
-        if (spec->argv[i])
-        {
+    for (int i = 0; i < argc; i++) {
+        if (spec->argv[i]) {
             task->user_spec.argv[i] = strdup(spec->argv[i]);
             if (!task->user_spec.argv[i])
                 goto fail;
-        }
-        else
-        {
+        } else {
             task->user_spec.argv[i] = NULL;
         }
     }
@@ -211,8 +205,7 @@ fail:
     // ---------------------------
     // Cleanup on partial failure
     // ---------------------------
-    for (int i = 0; i < 32; i++)
-    {
+    for (int i = 0; i < 32; i++) {
         if (task->user_spec.argv[i])
             kfree(task->user_spec.argv[i]);
     }
@@ -228,7 +221,7 @@ fail:
 
 bool multitasking_exit_task(uint32_t pid, int exit_code) {
     uint64_t flags = irq_save_disable();
-    task_t* task = find_task_locked(pid);
+    task_t *task = find_task_locked(pid);
     if (!task) {
         irq_restore(flags);
         return false;
@@ -241,12 +234,12 @@ bool multitasking_exit_task(uint32_t pid, int exit_code) {
     return true;
 }
 
-bool multitasking_get_task(uint32_t pid, task_info_t* out_info) {
+bool multitasking_get_task(uint32_t pid, task_info_t *out_info) {
     if (!out_info)
         return false;
 
     uint64_t flags = irq_save_disable();
-    task_t* task = find_task_locked(pid);
+    task_t *task = find_task_locked(pid);
     if (!task) {
         irq_restore(flags);
         return false;
@@ -257,9 +250,7 @@ bool multitasking_get_task(uint32_t pid, task_info_t* out_info) {
     return true;
 }
 
-
-
-static bool child_matches_filter(const task_t* task, uint32_t parent_pid, int64_t pid_filter) {
+static bool child_matches_filter(const task_t *task, uint32_t parent_pid, int64_t pid_filter) {
     if (!task || task->parent_pid != parent_pid)
         return false;
 
@@ -273,10 +264,10 @@ static bool child_matches_filter(const task_t* task, uint32_t parent_pid, int64_
     return true;
 }
 
-bool multitasking_find_child(uint32_t parent_pid, int64_t pid_filter, bool exited_only, task_info_t* out_info) {
+bool multitasking_find_child(uint32_t parent_pid, int64_t pid_filter, bool exited_only, task_info_t *out_info) {
     uint64_t flags = irq_save_disable();
 
-    for (task_t* task = g_task_head; task != NULL; task = task->next) {
+    for (task_t *task = g_task_head; task != NULL; task = task->next) {
         if (!child_matches_filter(task, parent_pid, pid_filter))
             continue;
         if (exited_only && task->state != TASK_STATE_EXITED)
@@ -292,10 +283,10 @@ bool multitasking_find_child(uint32_t parent_pid, int64_t pid_filter, bool exite
     return false;
 }
 
-bool multitasking_reap_task(uint32_t pid, task_info_t* out_info) {
+bool multitasking_reap_task(uint32_t pid, task_info_t *out_info) {
     uint64_t flags = irq_save_disable();
-    task_t* prev = NULL;
-    task_t* task = g_task_head;
+    task_t *prev = NULL;
+    task_t *task = g_task_head;
 
     while (task) {
         if (task->pid == pid)
@@ -327,7 +318,7 @@ bool multitasking_reap_task(uint32_t pid, task_info_t* out_info) {
 
 bool multitasking_current_is_fork_child(void) {
     uint64_t flags = irq_save_disable();
-    task_t* task = find_task_locked(g_current_pid);
+    task_t *task = find_task_locked(g_current_pid);
     bool is_child = task && task->fork_child;
     if (task)
         task->fork_child = false;
@@ -339,7 +330,7 @@ uint32_t multitasking_count_tasks(void) {
     uint32_t count = 0;
 
     uint64_t flags = irq_save_disable();
-    for (task_t* task = g_task_head; task != NULL; task = task->next)
+    for (task_t *task = g_task_head; task != NULL; task = task->next)
         count++;
     irq_restore(flags);
 
@@ -350,7 +341,7 @@ uint32_t multitasking_count_running(void) {
     uint32_t count = 0;
 
     uint64_t flags = irq_save_disable();
-    for (task_t* task = g_task_head; task != NULL; task = task->next) {
+    for (task_t *task = g_task_head; task != NULL; task = task->next) {
         if (task->state != TASK_STATE_EXITED)
             count++;
     }
@@ -359,12 +350,12 @@ uint32_t multitasking_count_running(void) {
     return count;
 }
 
-bool multitasking_for_each_task(task_iter_cb_t cb, void* ctx) {
+bool multitasking_for_each_task(task_iter_cb_t cb, void *ctx) {
     if (!cb)
         return false;
 
     uint64_t flags = irq_save_disable();
-    task_t* current = g_task_head;
+    task_t *current = g_task_head;
 
     while (current != NULL) {
         task_info_t info;
@@ -386,12 +377,12 @@ bool multitasking_for_each_task(task_iter_cb_t cb, void* ctx) {
 static void sweep_exited_tasks(void) {
     uint64_t flags = irq_save_disable();
 
-    task_t* prev = NULL;
-    task_t* cur = g_task_head;
+    task_t *prev = NULL;
+    task_t *cur = g_task_head;
 
     while (cur != NULL) {
         if (cur->state == TASK_STATE_EXITED) {
-            task_t* dead = cur;
+            task_t *dead = cur;
             cur = cur->next;
 
             if (prev)
@@ -415,14 +406,14 @@ static void sweep_exited_tasks(void) {
     irq_restore(flags);
 }
 
-static bool cursor_blink_task(uint32_t pid, uint64_t now_ticks, void* ctx, int* exit_code) {
+static bool cursor_blink_task(uint32_t pid, uint64_t now_ticks, void *ctx, int *exit_code) {
     (void)pid;
     (void)exit_code;
 
     if (!ft_ctx)
         return false;
 
-    uint64_t* next_toggle_tick = (uint64_t*)ctx;
+    uint64_t *next_toggle_tick = (uint64_t *)ctx;
     if (!next_toggle_tick)
         return false;
 
@@ -434,7 +425,7 @@ static bool cursor_blink_task(uint32_t pid, uint64_t now_ticks, void* ctx, int* 
 }
 
 void multitasking_start_cursor_blink_task(void) {
-    uint64_t* blink_ctx = (uint64_t*)kmalloc(sizeof(uint64_t));
+    uint64_t *blink_ctx = (uint64_t *)kmalloc(sizeof(uint64_t));
     if (!blink_ctx)
         return;
 
@@ -447,14 +438,14 @@ void multitasking_on_pit_tick(uint64_t now_ticks) {
     uint64_t flags = irq_save_disable();
     g_last_tick = now_ticks;
 
-    for (task_t* task = g_task_head; task != NULL; task = task->next) {
+    for (task_t *task = g_task_head; task != NULL; task = task->next) {
         if (task->type != TASK_TYPE_KERNEL || task->state == TASK_STATE_EXITED)
             continue;
 
         task->state = TASK_STATE_RUNNING;
         g_current_pid = task->pid;
         kernel_task_fn_t fn = task->kernel_fn;
-        void* kctx = task->kernel_ctx;
+        void *kctx = task->kernel_ctx;
 
         irq_restore(flags);
 
@@ -476,17 +467,14 @@ void multitasking_on_pit_tick(uint64_t now_ticks) {
     irq_restore(flags);
 }
 
-void multitasking_pump(void)
-{
-    task_t* task_to_run = NULL;
+void multitasking_pump(void) {
+    task_t *task_to_run = NULL;
 
     uint64_t flags = irq_save_disable();
 
-    for (task_t* task = g_task_head; task; task = task->next)
-    {
+    for (task_t *task = g_task_head; task; task = task->next) {
         if (task->type == TASK_TYPE_USERLAND &&
-            task->state == TASK_STATE_READY)
-        {
+            task->state == TASK_STATE_READY) {
             task->state = TASK_STATE_RUNNING;
             g_current_pid = task->pid;
             task_to_run = task;
@@ -502,15 +490,16 @@ void multitasking_pump(void)
     // ---------------------------
     // FIRST TIME RUN ONLY
     // ---------------------------
-    if (!task_to_run->user_runtime.started)
-    {
+    if (!task_to_run->user_runtime.started) {
         userland_exec_ctx_t ctx;
 
         ctx.path = task_to_run->user_spec.path;
 
         int argc = task_to_run->user_spec.argc;
-        if (argc < 0) argc = 0;
-        if (argc > 31) argc = 31;
+        if (argc < 0)
+            argc = 0;
+        if (argc > 31)
+            argc = 31;
 
         ctx.argc = argc;
         ctx.envp = NULL;

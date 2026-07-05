@@ -1,12 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 
-int main(void)
-{
+int main(void) {
     char input[256];
 
-    while (1)
-    {
+    while (1) {
         printf("$ ");
         fflush(stdout);
 

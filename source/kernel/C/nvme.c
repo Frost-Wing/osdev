@@ -3,50 +3,47 @@
  * @brief Minimal polled NVMe support for FrostWing block devices.
  */
 
-#include <nvme.h>
-#include <pci.h>
 #include <ahci.h>
+#include <cc-asm.h>
 #include <disk/gpt.h>
 #include <disk/mbr.h>
-#include <heap.h>
 #include <graphics.h>
+#include <heap.h>
 #include <memory.h>
+#include <nvme.h>
 #include <paging.h>
-#include <cc-asm.h>
+#include <pci.h>
 
-#define NVME_CC_EN            (1U << 0)
-#define NVME_CC_CSS_NVM       (0U << 4)
-#define NVME_CC_MPS_SHIFT     7
-#define NVME_CC_AMS_RR        (0U << 11)
-#define NVME_CC_IOSQES_SHIFT  16
-#define NVME_CC_IOCQES_SHIFT  20
-#define NVME_CSTS_RDY         (1U << 0)
+#define NVME_CC_EN (1U << 0)
+#define NVME_CC_CSS_NVM (0U << 4)
+#define NVME_CC_MPS_SHIFT 7
+#define NVME_CC_AMS_RR (0U << 11)
+#define NVME_CC_IOSQES_SHIFT 16
+#define NVME_CC_IOCQES_SHIFT 20
+#define NVME_CSTS_RDY (1U << 0)
 #define NVME_ADMIN_OP_CREATE_IO_SQ 0x01
 #define NVME_ADMIN_OP_CREATE_IO_CQ 0x05
-#define NVME_ADMIN_OP_IDENTIFY     0x06
+#define NVME_ADMIN_OP_IDENTIFY 0x06
 #define NVME_ADMIN_OP_SET_FEATURES 0x09
-#define NVME_NVM_OP_WRITE          0x01
-#define NVME_NVM_OP_READ           0x02
-#define NVME_FEAT_NUM_QUEUES       0x07
+#define NVME_NVM_OP_WRITE 0x01
+#define NVME_NVM_OP_READ 0x02
+#define NVME_FEAT_NUM_QUEUES 0x07
 
 nvme_controller_t nvme_controllers[NVME_MAX_CONTROLLERS];
 nvme_namespace_t nvme_namespaces[NVME_MAX_NAMESPACES];
 int nvme_namespace_count = 0;
 
-static inline volatile uint32_t* nvme_sq_doorbell(nvme_controller_t* ctrl, uint16_t qid)
-{
+static inline volatile uint32_t *nvme_sq_doorbell(nvme_controller_t *ctrl, uint16_t qid) {
     uintptr_t base = (uintptr_t)ctrl->regs + 0x1000 + (uint32_t)(2U * (uint32_t)qid) * ctrl->doorbell_stride;
-    return (volatile uint32_t*)base;
+    return (volatile uint32_t *)base;
 }
 
-static inline volatile uint32_t* nvme_cq_doorbell(nvme_controller_t* ctrl, uint16_t qid)
-{
+static inline volatile uint32_t *nvme_cq_doorbell(nvme_controller_t *ctrl, uint16_t qid) {
     uintptr_t base = (uintptr_t)ctrl->regs + 0x1000 + (uint32_t)((2U * (uint32_t)qid) + 1U) * ctrl->doorbell_stride;
-    return (volatile uint32_t*)base;
+    return (volatile uint32_t *)base;
 }
 
-static int nvme_wait_ready(nvme_controller_t* ctrl, int ready, int timeout_ms)
-{
+static int nvme_wait_ready(nvme_controller_t *ctrl, int ready, int timeout_ms) {
     for (int i = 0; i < timeout_ms * 1000; i++) { // spin per microsecond
         int is_ready = (ctrl->regs->csts & NVME_CSTS_RDY) ? 1 : 0;
         if (is_ready == ready)
@@ -56,9 +53,7 @@ static int nvme_wait_ready(nvme_controller_t* ctrl, int ready, int timeout_ms)
     return -1;
 }
 
-
-static int nvme_submit_and_wait(nvme_controller_t* ctrl, nvme_queue_t* q, nvme_command_t* cmd)
-{
+static int nvme_submit_and_wait(nvme_controller_t *ctrl, nvme_queue_t *q, nvme_command_t *cmd) {
     uint16_t cid = q->sq_tail;
     cmd->cid = cid;
     q->sq[q->sq_tail] = *cmd;
@@ -67,7 +62,7 @@ static int nvme_submit_and_wait(nvme_controller_t* ctrl, nvme_queue_t* q, nvme_c
     *nvme_sq_doorbell(ctrl, q->qid) = q->sq_tail;
 
     for (int spin = 0; spin < 1000000; spin++) {
-        nvme_completion_t* cpl = &q->cq[q->cq_head];
+        nvme_completion_t *cpl = &q->cq[q->cq_head];
         if ((cpl->status & 1) != q->phase)
             continue;
 
@@ -88,8 +83,7 @@ static int nvme_submit_and_wait(nvme_controller_t* ctrl, nvme_queue_t* q, nvme_c
     return -1;
 }
 
-static int nvme_identify(nvme_controller_t* ctrl, uint32_t nsid, uint32_t cns, void* buffer)
-{
+static int nvme_identify(nvme_controller_t *ctrl, uint32_t nsid, uint32_t cns, void *buffer) {
     nvme_command_t cmd;
     memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = NVME_ADMIN_OP_IDENTIFY;
@@ -100,8 +94,7 @@ static int nvme_identify(nvme_controller_t* ctrl, uint32_t nsid, uint32_t cns, v
     return nvme_submit_and_wait(ctrl, &ctrl->adminq, &cmd);
 }
 
-static int nvme_create_io_queues(nvme_controller_t* ctrl)
-{
+static int nvme_create_io_queues(nvme_controller_t *ctrl) {
     nvme_command_t cmd;
     memset(&cmd, 0, sizeof(cmd));
 
@@ -133,9 +126,7 @@ static int nvme_create_io_queues(nvme_controller_t* ctrl)
     return 0;
 }
 
-
-static int nvme_init_controller(nvme_controller_t* ctrl)
-{
+static int nvme_init_controller(nvme_controller_t *ctrl) {
     uint16_t max_entries = (uint16_t)((ctrl->regs->cap & 0xFFFF) + 1);
     uint8_t dstrd = (ctrl->regs->cap >> 32) & 0xF;
     uint8_t mpsmin = (ctrl->regs->cap >> 48) & 0xF;
@@ -209,8 +200,7 @@ static int nvme_init_controller(nvme_controller_t* ctrl)
     return nvme_create_io_queues(ctrl);
 }
 
-static int nvme_buffer_needs_bounce(void* buffer, uint32_t lba_size)
-{
+static int nvme_buffer_needs_bounce(void *buffer, uint32_t lba_size) {
     uintptr_t start = (uintptr_t)buffer;
     uintptr_t end = start + lba_size;
 
@@ -220,11 +210,10 @@ static int nvme_buffer_needs_bounce(void* buffer, uint32_t lba_size)
     return ((start & 0xFFF) + lba_size) > 4096 || end > heap_end;
 }
 
-static int nvme_read_write_one(nvme_namespace_t* ns, uint64_t lba, void* buffer, int is_write)
-{
-    nvme_controller_t* ctrl = &nvme_controllers[ns->controller_index];
+static int nvme_read_write_one(nvme_namespace_t *ns, uint64_t lba, void *buffer, int is_write) {
+    nvme_controller_t *ctrl = &nvme_controllers[ns->controller_index];
     nvme_command_t cmd;
-    uint8_t* io_buffer = (uint8_t*)buffer;
+    uint8_t *io_buffer = (uint8_t *)buffer;
     int use_bounce = nvme_buffer_needs_bounce(buffer, ns->lba_size);
 
     if (use_bounce) {
@@ -236,7 +225,7 @@ static int nvme_read_write_one(nvme_namespace_t* ns, uint64_t lba, void* buffer,
         if (!ctrl->bounce_buffer)
             return -1;
 
-        io_buffer = (uint8_t*)ctrl->bounce_buffer;
+        io_buffer = (uint8_t *)ctrl->bounce_buffer;
         if (is_write)
             memcpy(io_buffer, buffer, ns->lba_size);
     }
@@ -256,10 +245,9 @@ static int nvme_read_write_one(nvme_namespace_t* ns, uint64_t lba, void* buffer,
     return rc;
 }
 
-static void nvme_probe_namespaces(int controller_index)
-{
-    nvme_controller_t* ctrl = &nvme_controllers[controller_index];
-    uint8_t* identify_buf = kmalloc_aligned(4096, 4096);
+static void nvme_probe_namespaces(int controller_index) {
+    nvme_controller_t *ctrl = &nvme_controllers[controller_index];
+    uint8_t *identify_buf = kmalloc_aligned(4096, 4096);
     if (!identify_buf)
         return;
 
@@ -269,7 +257,7 @@ static void nvme_probe_namespaces(int controller_index)
         return;
     }
 
-    ctrl->nn = ((uint32_t*)identify_buf)[129];
+    ctrl->nn = ((uint32_t *)identify_buf)[129];
     if (ctrl->nn == 0)
         ctrl->nn = 1;
 
@@ -278,12 +266,12 @@ static void nvme_probe_namespaces(int controller_index)
         if (nvme_identify(ctrl, nsid, 0, identify_buf) != 0)
             continue;
 
-        uint64_t nsze = *(uint64_t*)(identify_buf + 0);
+        uint64_t nsze = *(uint64_t *)(identify_buf + 0);
         if (nsze == 0)
             continue;
 
         uint8_t flbas = identify_buf[26] & 0x0F;
-        uint32_t lbaf = *(uint32_t*)(identify_buf + 128 + flbas * 4);
+        uint32_t lbaf = *(uint32_t *)(identify_buf + 128 + flbas * 4);
         uint8_t lbads = (lbaf >> 16) & 0xFF;
         uint32_t lba_size = 1U << lbads;
 
@@ -293,7 +281,7 @@ static void nvme_probe_namespaces(int controller_index)
         }
 
         int ns_index = nvme_namespace_count++;
-        nvme_namespace_t* ns = &nvme_namespaces[ns_index];
+        nvme_namespace_t *ns = &nvme_namespaces[ns_index];
         memset(ns, 0, sizeof(*ns));
 
         ns->present = 1;
@@ -307,8 +295,7 @@ static void nvme_probe_namespaces(int controller_index)
             ns_index,
             ns->total_sectors,
             ns->lba_size,
-            ns->name
-        );
+            ns->name);
 
         if (ns->logical_device < 0)
             continue;
@@ -322,10 +309,9 @@ static void nvme_probe_namespaces(int controller_index)
     kfree(identify_buf);
 }
 
-void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function)
-{
+void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function) {
     for (int i = 0; i < NVME_MAX_CONTROLLERS; i++) {
-        nvme_controller_t* ctrl = &nvme_controllers[i];
+        nvme_controller_t *ctrl = &nvme_controllers[i];
         if (ctrl->present)
             continue;
 
@@ -344,7 +330,7 @@ void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function)
         }
 
         memset(ctrl, 0, sizeof(*ctrl));
-        ctrl->regs = (nvme_regs_t*)(uintptr_t)bar;
+        ctrl->regs = (nvme_regs_t *)(uintptr_t)bar;
         ctrl->controller_id = (uint32_t)i;
 
         if (nvme_init_controller(ctrl) != 0) {
@@ -365,16 +351,15 @@ void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function)
     }
 }
 
-int nvme_read_sector(int namespace_index, uint64_t lba, void* buffer, uint32_t count)
-{
+int nvme_read_sector(int namespace_index, uint64_t lba, void *buffer, uint32_t count) {
     if (namespace_index < 0 || namespace_index >= nvme_namespace_count || !buffer)
         return -1;
 
-    nvme_namespace_t* ns = &nvme_namespaces[namespace_index];
+    nvme_namespace_t *ns = &nvme_namespaces[namespace_index];
     if (!ns->present)
         return -1;
 
-    uint8_t* ptr = (uint8_t*)buffer;
+    uint8_t *ptr = (uint8_t *)buffer;
     for (uint32_t i = 0; i < count; i++) {
         if (nvme_read_write_one(ns, lba + i, ptr + i * ns->lba_size, 0) != 0)
             return -2;
@@ -383,16 +368,15 @@ int nvme_read_sector(int namespace_index, uint64_t lba, void* buffer, uint32_t c
     return 0;
 }
 
-int nvme_write_sector(int namespace_index, uint64_t lba, void* buffer, uint32_t count)
-{
+int nvme_write_sector(int namespace_index, uint64_t lba, void *buffer, uint32_t count) {
     if (namespace_index < 0 || namespace_index >= nvme_namespace_count || !buffer)
         return -1;
 
-    nvme_namespace_t* ns = &nvme_namespaces[namespace_index];
+    nvme_namespace_t *ns = &nvme_namespaces[namespace_index];
     if (!ns->present)
         return -1;
 
-    uint8_t* ptr = (uint8_t*)buffer;
+    uint8_t *ptr = (uint8_t *)buffer;
     for (uint32_t i = 0; i < count; i++) {
         if (nvme_read_write_one(ns, lba + i, ptr + i * ns->lba_size, 1) != 0)
             return -2;

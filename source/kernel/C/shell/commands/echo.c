@@ -4,15 +4,14 @@
  * @brief Basic linux echo command.
  * @version 0.1
  * @date 2025-10-07
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
 #include <commands/commands.h>
 
-int cmd_echo(int argc, char** argv)
-{
+int cmd_echo(int argc, char **argv) {
     bool newline = true;
     int start = 1;
 
@@ -23,9 +22,11 @@ int cmd_echo(int argc, char** argv)
 
     for (int i = start; i < argc; i++) {
         printfnoln("%s", argv[i]);
-        if (i < argc - 1) putc(' ');
+        if (i < argc - 1)
+            putc(' ');
     }
 
-    if (newline) putc('\n');
+    if (newline)
+        putc('\n');
     return 0;
 }

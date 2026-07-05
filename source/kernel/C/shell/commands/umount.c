@@ -1,34 +1,33 @@
 /**
  * @file umount.c
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-01-06
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 
-#include <commands/commands.h>
 #include <ahci.h>
-#include <filesystems/fat16.h>
+#include <commands/commands.h>
 #include <filesystems/ext2.h>
+#include <filesystems/fat16.h>
 #include <strings.h>
 
-int cmd_umount(int argc, char** argv)
-{
+int cmd_umount(int argc, char **argv) {
     if (argc < 2) {
         printf("Usage: umount <mount_point>");
         return 1;
     }
 
-    const char* mount_point = argv[1];
+    const char *mount_point = argv[1];
 
     /* Never allow root unmount */
     if (strcmp(mount_point, "/") == 0)
         printf("umount: warn unmounting root filesystem");
 
-    mount_entry_t* m = find_mount_by_point(mount_point);
+    mount_entry_t *m = find_mount_by_point(mount_point);
     if (!m) {
         printf("umount: %s: not mounted", mount_point);
         return 1;
@@ -38,13 +37,13 @@ int cmd_umount(int argc, char** argv)
     switch (m->type) {
         case FS_FAT16:
             if (m->fs) {
-                fat16_unmount((fat16_fs_t*)m->fs);
+                fat16_unmount((fat16_fs_t *)m->fs);
                 kfree(m->fs);
             }
             break;
         case FS_EXT2:
             if (m->fs) {
-                ext2_unmount((ext2_fs_t*)m->fs);
+                ext2_unmount((ext2_fs_t *)m->fs);
                 kfree(m->fs);
             }
             break;

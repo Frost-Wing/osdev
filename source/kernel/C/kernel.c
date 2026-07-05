@@ -4,22 +4,22 @@
  * @brief The Main kernel file, everything starts from here
  * @version 0.1
  * @date 2023-10-21
- * 
+ *
  * @copyright Copyright (c) Pradosh 2023
- * 
+ *
  */
 
 #include <commands/login.h>
+#include <executables/elf.h>
 #include <gdt.h>
 #include <idt.h>
 #include <kernel.h>
-#include <ringbuffer.h>
-#include <tty.h>
-#include <executables/elf.h>
-#include <multitasking.h>
 #include <klog.h>
-#include <syslog.h>
+#include <multitasking.h>
 #include <net/net.h>
+#include <ringbuffer.h>
+#include <syslog.h>
+#include <tty.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
@@ -27,9 +27,9 @@ int terminal_columns = 0;
 uint64 fb_width = 0;
 uint64 fb_height = 0;
 
-uint64* wm_addr;
+uint64 *wm_addr;
 
-uint64* font_address = null;
+uint64 *font_address = null;
 
 extern void ksh_exec(void);
 
@@ -37,50 +37,45 @@ extern void ksh_exec(void);
 // the compiler does not optimise them away, so, usually, they should
 // be made volatile or equivalent.
 static volatile struct limine_framebuffer_request framebuffer_request = {
-    LIMINE_FRAMEBUFFER_REQUEST, 0, null
-};
+    LIMINE_FRAMEBUFFER_REQUEST, 0, null};
 
 static volatile struct limine_hhdm_request hhdm_request = {
-    LIMINE_HHDM_REQUEST, 0, null
-};
+    LIMINE_HHDM_REQUEST, 0, null};
 
 static volatile struct limine_memmap_request memory_map_request = {
-    LIMINE_MEMMAP_REQUEST, 0, null
-};
+    LIMINE_MEMMAP_REQUEST, 0, null};
 
 static volatile struct limine_smp_request smp_request = {
-    LIMINE_SMP_REQUEST, 0, null, 0
-};
+    LIMINE_SMP_REQUEST, 0, null, 0};
 
 static volatile struct limine_boot_time_request boot_time_request = {
-    LIMINE_BOOT_TIME_REQUEST, 0, null
-};
+    LIMINE_BOOT_TIME_REQUEST, 0, null};
 
 struct limine_module_request module_request = {
-    LIMINE_MODULE_REQUEST, 0, null, 0, null
-};
+    LIMINE_MODULE_REQUEST, 0, null, 0, null};
 
 struct flanterm_context *ft_ctx = null;
 struct limine_framebuffer *framebuffer = null;
-struct memory_context* limine_memory_ctx;
+struct memory_context *limine_memory_ctx;
 
 bool isBufferReady = no;
 
 uint32 ctr = 0;
 
 static void ap_entry(struct limine_smp_info *info) {
-#if defined (__x86_64__)
+#if defined(__x86_64__)
     printf("LAPIC ID: 0x%x", info->lapic_id);
-#elif defined (__aarch64__)
+#elif defined(__aarch64__)
     printf("GIC CPU Interface no.: 0x%x", info->gic_iface_no);
     printf("MPIDR: 0x%x", info->mpidr);
-#elif defined (__riscv)
+#elif defined(__riscv)
     printf("Hart ID: 0x%x", info->hartid);
 #endif
 
     __atomic_fetch_add(&ctr, 1, __ATOMIC_SEQ_CST);
 
-    while (1);
+    while (1)
+        ;
 }
 
 #define MOUSE_COLOR_DEFAULT 0xffffffff
@@ -90,8 +85,7 @@ static void ap_entry(struct limine_smp_info *info) {
 
 uint32_t mouseColor = MOUSE_COLOR_DEFAULT;
 
-__attribute__((unused)) static void mouseMovementHandler(int64_t xRel, int64_t yRel)
-{
+__attribute__((unused)) static void mouseMovementHandler(int64_t xRel, int64_t yRel) {
     (void)xRel;
     (void)yRel;
     ivec2 lastMousePos = GetLastMousePosition();
@@ -103,28 +97,23 @@ __attribute__((unused)) static void mouseMovementHandler(int64_t xRel, int64_t y
     print_bitmap((int)mousePos.x, (int)mousePos.y, 8, 16, mouse_cursor, mouseColor);
 }
 
-__attribute__((unused)) static void mouseButtonHandler(uint8_t button, uint8_t action)
-{
-    if (action == MOUSE_BUTTON_RELEASE)
-    {
+__attribute__((unused)) static void mouseButtonHandler(uint8_t button, uint8_t action) {
+    if (action == MOUSE_BUTTON_RELEASE) {
         mouseColor = MOUSE_COLOR_DEFAULT;
         return;
     }
 
-    if (button == MOUSE_BUTTON_LEFT)
-    {
+    if (button == MOUSE_BUTTON_LEFT) {
         mouseColor = MOUSE_COLOR_LEFT;
         return;
     }
 
-    if (button == MOUSE_BUTTON_RIGHT)
-    {
+    if (button == MOUSE_BUTTON_RIGHT) {
         mouseColor = MOUSE_COLOR_RIGHT;
         return;
     }
 
-    if (button == MOUSE_BUTTON_MIDDLE)
-    {
+    if (button == MOUSE_BUTTON_MIDDLE) {
         mouseColor = MOUSE_COLOR_MIDDLE;
         return;
     }
@@ -144,11 +133,10 @@ void main(void) {
     paging_set_hhdm_offset(hhdm_request.response->offset);
 
     ft_ctx = flanterm_fb_simple_init(
-        framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch
-    );    
+        framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch);
     isBufferReady = yes;
 
-    if(framebuffer_request.response->framebuffer_count > 1){
+    if (framebuffer_request.response->framebuffer_count > 1) {
         info("Multiple framebuffers detected! using the first one.", __FILE__);
     }
 
@@ -157,13 +145,13 @@ void main(void) {
     fb_width = framebuffer->width;
     fb_height = framebuffer->height;
 
-    if(virtualized){ // The code inside this will not work on a real machine.
+    if (virtualized) { // The code inside this will not work on a real machine.
         probe_serial();
     }
 
     debug_printf("KERNEL STR -> %z : %z\n", (uint64)virtual_to_physical((uint64_t)(uintptr_t)kstart), kstart);
     debug_printf("KERNEL END -> %z : %z\n", (uint64)virtual_to_physical((uint64_t)(uintptr_t)kend), kend);
-    
+
     /**
      * ! In memory, kernel is loaded at higher half and at 0x8000000.
      * ! Therefore heap, userland (and more..) can be in the range of 0x1000000 to <= 0x8000000
@@ -174,18 +162,18 @@ void main(void) {
     // void* heap_page = allocate_pages(64 MiB / PAGE_SIZE);
     // mm_init(heap_page, 64 MiB);
 
-    limine_memory_ctx = (struct memory_context*)kmalloc(sizeof(struct memory_context));
+    limine_memory_ctx = (struct memory_context *)kmalloc(sizeof(struct memory_context));
 
     acpi_init();
-    
+
     mm_print_out();
 
     setup_gdt();
     initIdt();
     klog_init();
     syslog_init();
-    
-    RTL8139 = (struct rtl8139*) kmalloc(sizeof(struct rtl8139));
+
+    RTL8139 = (struct rtl8139 *)kmalloc(sizeof(struct rtl8139));
 
     analyze_memory_map(limine_memory_ctx, memory_map_request);
 
@@ -207,30 +195,31 @@ void main(void) {
     printf("Read back page2: 0x%x", *test2);
 
     probe_pci();
-    
+
     printf(public_key);
 
-    printf("Display Resolution: %dx%d (%d) pixels. Pitch: %d", framebuffer->width, framebuffer->height, framebuffer->width*framebuffer->height, framebuffer->pitch);
+    printf("Display Resolution: %dx%d (%d) pixels. Pitch: %d", framebuffer->width, framebuffer->height, framebuffer->width * framebuffer->height, framebuffer->pitch);
 
     info("Memory Values begin! ===", __FILE__);
     display_memory_formatted(limine_memory_ctx);
     info(reset_color "Memory values end! =====", __FILE__);
 
-    if(limine_memory_ctx->bad != 0){
+    if (limine_memory_ctx->bad != 0) {
         warn("Bad blocks of memory found, it is recommended to replace your RAM.", __FILE__);
     }
 
     printf("Total CPU(s): %d", smp_request.response->cpu_count);
-    for(uint64_t i=0;i<smp_request.response->cpu_count;i++){
-        printf("Processor  ID [%d] : 0x%X", (int)(i+1U), smp_request.response->cpus[i]->processor_id);
-        printf("Local APIC ID [%d] : 0x%X", (int)(i+1U), smp_request.response->cpus[i]->lapic_id);
+    for (uint64_t i = 0; i < smp_request.response->cpu_count; i++) {
+        printf("Processor  ID [%d] : 0x%X", (int)(i + 1U), smp_request.response->cpus[i]->processor_id);
+        printf("Local APIC ID [%d] : 0x%X", (int)(i + 1U), smp_request.response->cpus[i]->lapic_id);
 
-        if (smp_request.response->cpus[i]->lapic_id !=  smp_request.response->bsp_lapic_id) {
+        if (smp_request.response->cpus[i]->lapic_id != smp_request.response->bsp_lapic_id) {
             uint32_t old_ctr = __atomic_load_n(&ctr, __ATOMIC_SEQ_CST);
 
             __atomic_store_n(&smp_request.response->cpus[i]->goto_address, ap_entry, __ATOMIC_SEQ_CST);
 
-            while (__atomic_load_n(&ctr, __ATOMIC_SEQ_CST) == old_ctr);
+            while (__atomic_load_n(&ctr, __ATOMIC_SEQ_CST) == old_ctr)
+                ;
         }
     }
     print_cpu_info();
@@ -240,7 +229,7 @@ void main(void) {
 
     init_rtc();
     display_time();
-    
+
     enable_fpu();
 
     check_sse();
@@ -248,23 +237,23 @@ void main(void) {
 
     rtl8139_init(RTL8139);
     ipv4_init(net_ipv4_from_octets(10, 0, 2, 15),
-              net_ipv4_from_octets(255, 255, 255, 0),
-              net_ipv4_from_octets(10, 0, 2, 2),
-              net_ipv4_from_octets(10, 0, 2, 3));
+        net_ipv4_from_octets(255, 255, 255, 0),
+        net_ipv4_from_octets(10, 0, 2, 2),
+        net_ipv4_from_octets(10, 0, 2, 3));
 
     frost_compilation_information();
-    
+
     init_hashing();
-    
+
     mm_print_out();
     multitasking_init();
     multitasking_start_cursor_blink_task();
     create_user_str("root", "prad");
-    
+
     enable_fpu();
-    
+
     info("Welcome to FrostWing Operating System!", "(https://github.com/Frost-Wing)");
-    
+
     ksh_exec();
     // void* entry = elf_load_from_vfs("/init.elf");
     // if (!entry) {
@@ -275,12 +264,12 @@ void main(void) {
     // enter_userland_at((uint64_t)entry);
 }
 
-void shutdown(void){
+void shutdown(void) {
     info("shutdown has been called", __FILE__);
     acpi_shutdown_hack(hhdm_request.response->offset, acpi_find_sdt);
 }
 
-void reboot(void){
+void reboot(void) {
     info("reboot has been called", __FILE__);
     acpi_reboot(hhdm_request.response->offset);
 }

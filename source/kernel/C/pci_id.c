@@ -4,9 +4,9 @@
  * @brief The list of all officially recognized devices.
  * @version 0.1
  * @date 2025-12-27
- * 
+ *
  * @copyright Copyright (c) Pradosh 2025
- * 
+ *
  */
 
 #include <pci.h>
@@ -31,10 +31,9 @@ static pci_id_entry_t pci_ids[] = {
     {0x8086, 0x7010, 0xFF, "82371SB PIIX3 IDE [Natoma/Triton II]", 0, NULL},
     {0x8086, 0x7113, 0xFF, "82371AB/EB/MB PIIX4 ACPI", 0, NULL},
 
-
     // --- AMD chipset ---
     {0x1022, 0x7800, 0xFF, "AMD SATA Controller [AHCI]", 0, NULL},
-    {0x1022, 0x7801, 0xFF, "AMD SATA Controller [IDE]",  0, NULL},
+    {0x1022, 0x7801, 0xFF, "AMD SATA Controller [IDE]", 0, NULL},
     {0x1022, 0x7802, 0xFF, "AMD SATA Controller [RAID]", 0, NULL},
     {0x1022, 0x780B, 0xFF, "AMD SMBus Controller", 0, NULL},
     {0x1022, 0x780E, 0xFF, "AMD PCI Bridge", 0, NULL},
@@ -70,18 +69,18 @@ static pci_id_entry_t pci_ids[] = {
     {0x10DE, 0x0090, 0x03, "G70 [GeForce 7800 GTX]", 1, NULL},
     {0x10DE, 0x1b83, 0x03, "GP104 [GeForce GTX 1060 6GB]", 1, NULL},
     {0x10DE, 0x0040, 0x03, "NV40 [GeForce 6800 Ultra]", 1, NULL},
-    {0x10DE, 0x0041, 0x03, "NV40 [GeForce 6800]",       1, NULL},
-    {0x10DE, 0x0042, 0x03, "NV40 [GeForce 6800 LE]",    1, NULL},
-    {0x10DE, 0x0043, 0x03, "NV40 [GeForce 6800 XE]",    1, NULL},
-    {0x10DE, 0x0044, 0x03, "NV40 [GeForce 6800 XT]",    1, NULL},
-    {0x10DE, 0x0045, 0x03, "NV40 [GeForce 6800 GT]",    1, NULL},
-    {0x10DE, 0x0046, 0x03, "NV40 [GeForce 6800 GS]",    1, NULL},
+    {0x10DE, 0x0041, 0x03, "NV40 [GeForce 6800]", 1, NULL},
+    {0x10DE, 0x0042, 0x03, "NV40 [GeForce 6800 LE]", 1, NULL},
+    {0x10DE, 0x0043, 0x03, "NV40 [GeForce 6800 XE]", 1, NULL},
+    {0x10DE, 0x0044, 0x03, "NV40 [GeForce 6800 XT]", 1, NULL},
+    {0x10DE, 0x0045, 0x03, "NV40 [GeForce 6800 GT]", 1, NULL},
+    {0x10DE, 0x0046, 0x03, "NV40 [GeForce 6800 GS]", 1, NULL},
 
-    {0x10DE, 0x0090, 0x03, "G70 [GeForce 7800 GTX]",    1, NULL},
-    {0x10DE, 0x0091, 0x03, "G70 [GeForce 7800 GTX]",    1, NULL},
-    {0x10DE, 0x0092, 0x03, "G70 [GeForce 7800 GT]",     1, NULL},
-    {0x10DE, 0x0093, 0x03, "G70 [GeForce 7800 GS]",     1, NULL},
-    {0x10DE, 0x0094, 0x03, "G70 [GeForce 7800 SLI]",    1, NULL},
+    {0x10DE, 0x0090, 0x03, "G70 [GeForce 7800 GTX]", 1, NULL},
+    {0x10DE, 0x0091, 0x03, "G70 [GeForce 7800 GTX]", 1, NULL},
+    {0x10DE, 0x0092, 0x03, "G70 [GeForce 7800 GT]", 1, NULL},
+    {0x10DE, 0x0093, 0x03, "G70 [GeForce 7800 GS]", 1, NULL},
+    {0x10DE, 0x0094, 0x03, "G70 [GeForce 7800 SLI]", 1, NULL},
 
     {0x10DE, 0x1B83, 0x03, "GP104 [GeForce GTX 1060 6GB]", 1, NULL},
     {0x10DE, 0x1B84, 0x03, "GP104 [GeForce GTX 1060 3GB]", 1, NULL},
@@ -92,10 +91,9 @@ static pci_id_entry_t pci_ids[] = {
     {0x5549, 0x0405, 0x03, "VMware SVGA Graphics", 1, NULL},
     {0x1013, 0x00b8, 0x03, "Cirrus Graphics", 1, NULL},
 
-    {0, 0, 0, NULL, 0, NULL}
-};
+    {0, 0, 0, NULL, 0, NULL}};
 
-cstring parse_vendor(uint16 vendor){
+cstring parse_vendor(uint16 vendor) {
     cstring vendorName;
     static char unknown_vendor[20];
 
@@ -137,7 +135,7 @@ cstring parse_vendor(uint16 vendor){
     return vendorName;
 }
 
-cstring parse_class(uint16 classid){
+cstring parse_class(uint16 classid) {
     cstring className;
     static char unknown_class[20];
 
@@ -213,21 +211,19 @@ cstring parse_class(uint16 classid){
     return className;
 }
 
-const pci_id_entry_t* pci_lookup(uint16_t vendor, uint16_t device, uint8_t classid)
-{
+const pci_id_entry_t *pci_lookup(uint16_t vendor, uint16_t device, uint8_t classid) {
     for (int i = 0; pci_ids[i].name != null; i++) {
         if (pci_ids[i].vendor == vendor &&
             pci_ids[i].device == device &&
-           (pci_ids[i].classid == 0xFF ||
-            pci_ids[i].classid == classid)) {
+            (pci_ids[i].classid == 0xFF ||
+                pci_ids[i].classid == classid)) {
             return &pci_ids[i];
         }
     }
     return NULL;
 }
 
-cstring auto_name_gpu(uint16 vendor, uint16 device)
-{
+cstring auto_name_gpu(uint16 vendor, uint16 device) {
     static char name[64];
 
     switch (vendor) {
@@ -244,18 +240,17 @@ cstring auto_name_gpu(uint16 vendor, uint16 device)
             break;
 
         default:
-            snprintf(name, sizeof(name),"Generic VGA Adapter (0x%04X)", device);
+            snprintf(name, sizeof(name), "Generic VGA Adapter (0x%04X)", device);
             break;
     }
 
     return name;
 }
 
-void probe_ahci(uint8_t bus, uint8_t slot, uint8_t function)
-{
-    ahci_hba_mem_t* abar = (ahci_hba_mem_t*)(uintptr_t)(pci_config_read_dword(bus, slot, function, 0x24) & 0xFFFFFFF0U);
+void probe_ahci(uint8_t bus, uint8_t slot, uint8_t function) {
+    ahci_hba_mem_t *abar = (ahci_hba_mem_t *)(uintptr_t)(pci_config_read_dword(bus, slot, function, 0x24) & 0xFFFFFFF0U);
 
-    if (abar && abar != (void*)0xFFFFFFFF) {
+    if (abar && abar != (void *)0xFFFFFFFF) {
         done("Found AHCI BAR!", __FILE__);
         detect_ahci_devices(abar);
     } else {
@@ -263,8 +258,7 @@ void probe_ahci(uint8_t bus, uint8_t slot, uint8_t function)
     }
 }
 
-void probe_rtl8139(uint8_t bus, uint8_t slot, uint8_t function)
-{
+void probe_rtl8139(uint8_t bus, uint8_t slot, uint8_t function) {
     RTL8139->io_base = (uint16_t)(pci_read_word(bus, slot, function, RTL8139_IOADDR1) & 0xFFFC);
 
     uint8_t irq = (uint8_t)(pci_read_word(bus, slot, function, RTL8139_IRQ_LINE) & 0xFFU);
