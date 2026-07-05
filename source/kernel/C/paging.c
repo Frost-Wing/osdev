@@ -9,6 +9,8 @@
  * 
  */
 #include <paging.h>
+#include <memory.h>
+#include <cc-asm.h>
 
 uint64_t memory_start;
 uint64_t memory_end;
@@ -47,6 +49,7 @@ uintptr_t allocate_page(void) {
 
     uintptr_t page = bump_ptr;
     bump_ptr += PAGE_SIZE;
+    memset(phys_to_virt_ptr(page), 0, PAGE_SIZE);
     return page;
 }
 
