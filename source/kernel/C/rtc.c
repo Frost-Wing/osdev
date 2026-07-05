@@ -87,10 +87,11 @@ void update_system_time(uint8 *second, uint8 *minute, uint8 *hour, uint8 *day, u
 }
 
 void display_time(void) {
+    LOG_SCOPE();
     uint8 sec, min, hr, day, mon;
     uint16 yr;
     update_system_time(&sec, &min, &hr, &day, &mon, &yr);
-    printf("Time: %d:%d:%d %d/%d/%d", hr, min, sec, mon, day, yr);
+    info("Time: %d:%d:%d %d/%d/%d", __FILE__, hr, min, sec, mon, day, yr);
 }
 
 void sleep(int seconds) {
