@@ -3,7 +3,17 @@
 #include <memory.h>
 #include <net/net.h>
 #include <strings.h>
+#include <pit.h>
 #define IP_TCP 6
+
+extern volatile uint64_t pit_ticks;
+#define PIT_MS_PER_TICK 10 // 1000 / pit_freq(100) -- adjust if pit_freq changes
+
+// convert a millisecond duration into a target pit_ticks value
+static inline uint64_t ms_to_ticks(uint32 ms) {
+    uint64_t t = ms / PIT_MS_PER_TICK;
+    return t ? t : 1; // always wait at least 1 tick if any timeout was requested
+}
 
 struct dns_hdr {
     uint16 id, flags, qd, an, ns, ar;
@@ -53,7 +63,8 @@ int dns_resolve(const char *host, net_ipv4_t *out) {
     size_t rl = sizeof(r);
     net_ipv4_t src;
     uint16 sp;
-    if (udp_recv(49152, &src, &sp, r, &rl, 400000) != NET_OK)
+    // 400ms timeout for DNS reply, expressed in real time via pit_ticks
+    if (udp_recv(49152, &src, &sp, r, &rl, 400) != NET_OK)
         return NET_ETIMEDOUT;
     if (rl < sizeof(*h) || ((struct dns_hdr *)r)->id != h->id)
         return NET_ERR;
@@ -99,13 +110,17 @@ struct tcp_hdr {
 #define TCP_SOCK_ESTABLISHED 2
 #define TCP_SOCK_CLOSING 3
 
+// was 2048 -- too small relative to the advertised 4096 window and typical
+// ~1460 byte segments; bumped up so we hit the "buffer full" path far less often
+#define TCP_RX_BUF_SIZE 16384
+
 struct tcp_sock {
     bool used;
     int state;
     uint16 sport, dport;
     net_ipv4_t dst;
     uint32 seq, ack;
-    uint8 rx[2048];
+    uint8 rx[TCP_RX_BUF_SIZE];
     size_t rx_len;
     bool fin;
 };
@@ -185,10 +200,14 @@ int tcp_connect(net_ipv4_t dst, uint16 dport) {
         return NET_ERR;
     }
     s->seq++;
-    for (uint32 t = 0; t < 500000; t++) {
+
+    // 5 second timeout for the handshake, measured in real time
+    uint64_t deadline = pit_ticks + ms_to_ticks(5000);
+    while (pit_ticks < deadline) {
         netif_poll();
         if (s->state == TCP_SOCK_ESTABLISHED)
             return fd;
+        asm volatile("hlt");
     }
     s->used = false;
     return NET_ETIMEDOUT;
@@ -212,11 +231,15 @@ int tcp_send(int sock, const void *data, size_t len) {
     return (int)sent;
 }
 
+// `timeout` is now a millisecond duration, measured against real pit_ticks
+// instead of a raw spin-loop iteration count.
 int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout) {
     if (!len || sock < 0 || sock >= NET_TCP_MAX_SOCKETS || !tcp_socks[sock].used)
         return NET_ERR;
     struct tcp_sock *s = &tcp_socks[sock];
-    for (uint32 t = 0; t < timeout; t++) {
+
+    uint64_t deadline = pit_ticks + ms_to_ticks(timeout);
+    while (pit_ticks < deadline) {
         netif_poll();
         if (s->rx_len) {
             size_t n = s->rx_len;
@@ -231,9 +254,10 @@ int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout) {
         }
         if (s->fin)
             break;
+        asm volatile("hlt");
     }
     *len = 0;
-    return NET_ETIMEDOUT;
+    return s->fin ? NET_EOF : NET_ETIMEDOUT;
 }
 
 void tcp_close(int sock) {
@@ -273,13 +297,25 @@ void tcp_input(net_ipv4_t src, const uint8 *p, size_t len) {
     }
     if (s->state != TCP_SOCK_ESTABLISHED)
         return;
+
     if (dlen && seq == s->ack) {
         size_t room = sizeof(s->rx) - s->rx_len;
-        size_t n = dlen < room ? dlen : room;
-        memcpy(s->rx + s->rx_len, data, n);
-        s->rx_len += n;
-        s->ack += dlen;
-        tcp_send_segment(s, TCP_ACK, NULL, 0);
+        // FIX: previously this always did `s->ack += dlen` even when `room < dlen`,
+        // meaning we told the sender "got it all" while actually discarding the
+        // tail of the segment that didn't fit. That created a permanent, silent
+        // gap in the byte stream with no chance of retransmission.
+        //
+        // Now: only accept + ack the segment if it fully fits. If it doesn't,
+        // drop it entirely without acking, so the remote TCP stack's own
+        // retransmit timer will resend it once tcp_recv() has drained rx_len
+        // and there's room again.
+        if (room >= dlen) {
+            memcpy(s->rx + s->rx_len, data, dlen);
+            s->rx_len += dlen;
+            s->ack += dlen;
+            tcp_send_segment(s, TCP_ACK, NULL, 0);
+        }
+        // else: buffer full, silently drop this segment (no ack sent).
     }
     if (h->flags & TCP_FIN) {
         s->ack = seq + dlen + 1;
@@ -292,11 +328,13 @@ static const char *skip_scheme(const char *u) {
     return strncmp(u, "http://", 7) == 0 ? u + 7 : (strncmp(u, "https://", 8) == 0 ? u + 8 : u);
 }
 
-int http_get_to_file(const char *url, const char *path) {
+int http_get_to_file(const char *url, const char *path,
+                      wget_progress_cb cb, void *ctx) {
     if (strncmp(url, "https://", 8) == 0) {
-        printf("https: TLS is not implemented yet; use http:// fallback");
+        printf("https: TLS is not implemented yet; use http:// fallback\n");
         return NET_ENOTSUP;
     }
+
     const char *u = skip_scheme(url);
     char host[128];
     char reqpath[256];
@@ -308,31 +346,136 @@ int http_get_to_file(const char *url, const char *path) {
     host[i] = 0;
     strncpy(reqpath, u[i] ? u + i : "/", sizeof(reqpath) - 1);
     reqpath[sizeof(reqpath) - 1] = 0;
+
     net_ipv4_t ip;
     if (dns_resolve(host, &ip) != NET_OK)
         return NET_ETIMEDOUT;
+
     int s = tcp_connect(ip, 80);
     if (s < 0)
         return s;
+
     char req[512];
     snprintf(req, sizeof(req), "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n", reqpath, host);
     tcp_send(s, req, strlen(req));
+
     vfs_file_t f;
     if (vfs_open(path, VFS_WRONLY | VFS_CREATE | VFS_TRUNC, &f) != 0) {
         tcp_close(s);
         return NET_ERR;
     }
+
+    // --- parse headers first, so body writing starts clean ---
+    char hdrbuf[2048];
+    size_t hdrlen = 0;
     uint8 b[1024];
-    size_t n = sizeof(b);
-    int wrote = 0;
-    while (tcp_recv(s, b, &n, 100000) == NET_OK && n) {
-        vfs_write(&f, b, n);
-        wrote += n;
-        n = sizeof(b);
+    int header_done = 0;
+    uint64 content_length = 0; // 0 = unknown
+    int have_length = 0;
+    size_t body_start_in_b = 0;
+    size_t body_start_n = 0;
+
+    // consecutive-timeout budget: a single slow gap shouldn't kill the transfer,
+    // but a truly dead connection still needs to give up eventually
+    int timeouts_in_a_row = 0;
+    const int MAX_CONSEC_TIMEOUTS = 20; // ~20 * 3000ms = up to 60s of real stalling
+
+    while (!header_done) {
+        size_t n = sizeof(b);
+        int r = tcp_recv(s, b, &n, 3000); // 3s per attempt, not 100ms
+
+        if (r == NET_ETIMEDOUT) {
+            if (++timeouts_in_a_row > MAX_CONSEC_TIMEOUTS) {
+                vfs_close(&f);
+                tcp_close(s);
+                return NET_ETIMEDOUT;
+            }
+            continue; // retry, connection is still alive
+        }
+        if (r != NET_OK || !n) {
+            // NET_EOF (clean close) or hard error before headers finished == failure
+            vfs_close(&f);
+            tcp_close(s);
+            return NET_ETIMEDOUT;
+        }
+        timeouts_in_a_row = 0;
+
+        for (size_t k = 0; k < n; k++) {
+            if (hdrlen < sizeof(hdrbuf) - 1)
+                hdrbuf[hdrlen++] = (char)b[k];
+
+            if (hdrlen >= 4 &&
+                hdrbuf[hdrlen-4] == '\r' && hdrbuf[hdrlen-3] == '\n' &&
+                hdrbuf[hdrlen-2] == '\r' && hdrbuf[hdrlen-1] == '\n') {
+                header_done = 1;
+                body_start_in_b = k + 1; // remainder of this chunk is body
+                body_start_n = n;
+                break;
+            }
+        }
     }
+    hdrbuf[hdrlen] = 0;
+
+    // pull Content-Length out of the raw header text (case-sensitive scan is fine for this)
+    char *cl = strstr(hdrbuf, "Content-Length:");
+    if (!cl) cl = strstr(hdrbuf, "content-length:");
+    if (cl) {
+        cl += 15;
+        while (*cl == ' ') cl++;
+        content_length = 0;
+        have_length = 1;
+        while (*cl >= '0' && *cl <= '9') {
+            content_length = content_length * 10 + (*cl - '0');
+            cl++;
+        }
+    }
+
+    // --- write out whatever body bytes were already in the header chunk ---
+    uint64 downloaded = 0;
+    if (body_start_in_b < body_start_n) {
+        size_t leftover = body_start_n - body_start_in_b;
+        vfs_write(&f, b + body_start_in_b, leftover);
+        downloaded += leftover;
+        if (cb) cb(downloaded, content_length, ctx);
+    }
+
+    // --- stream the rest of the body ---
+    timeouts_in_a_row = 0;
+    for (;;) {
+        size_t n = sizeof(b);
+        int r = tcp_recv(s, b, &n, 3000);
+
+        if (r == NET_OK && n) {
+            timeouts_in_a_row = 0;
+            vfs_write(&f, b, n);
+            downloaded += n;
+            if (cb) cb(downloaded, have_length ? content_length : 0, ctx);
+
+            // if we already know the total and we've got it all, we're done
+            if (have_length && downloaded >= content_length)
+                break;
+            continue;
+        }
+
+        if (r == NET_ETIMEDOUT) {
+            if (++timeouts_in_a_row > MAX_CONSEC_TIMEOUTS)
+                break; // give up: connection seems dead
+            continue;  // transient gap, keep waiting
+        }
+
+        // NET_EOF (clean FIN) or hard error -> server is done sending, or died
+        break;
+    }
+
     vfs_close(&f);
     tcp_close(s);
-    return wrote ? NET_OK : NET_ETIMEDOUT;
+
+    // Don't report success on a partial download: if we knew the expected
+    // size and didn't reach it, this was a failure even if some bytes landed.
+    if (have_length && downloaded < content_length)
+        return NET_ETIMEDOUT;
+
+    return downloaded ? NET_OK : NET_ETIMEDOUT;
 }
 
 int dhcp_configure(uint32 timeout_ticks) {
