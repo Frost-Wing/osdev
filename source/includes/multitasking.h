@@ -85,5 +85,6 @@ uint32_t multitasking_count_running(void);
 bool multitasking_for_each_task(task_iter_cb_t cb, void *ctx);
 
 void multitasking_start_cursor_blink_task(void);
+task_t *multitasking_get_current_task(void);
 
 #endif

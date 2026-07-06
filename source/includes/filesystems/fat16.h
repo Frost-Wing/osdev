@@ -133,4 +133,6 @@ void fat16_unformat_name(const fat16_dir_entry_t *e, char *out);
  * @return 0 on success.
  */
 int fat16_sync(fat16_fs_t *fs);
+
+void fat16_unmount(fat16_fs_t *fs);
 #endif
