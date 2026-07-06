@@ -155,6 +155,10 @@ int vfs_normalize_path(const char *in, char *out, size_t out_sz);
 
 int vfs_resolve_mount(const char *path, vfs_mount_res_t *out);
 
-int vfs_sync(void);
+int vfs_sync(bool kernel_call);
+
+int vfs_mount(const char *diskname, const char *mount_point, bool is_kernel_call);
+int vfs_umount(const char *mount_point, bool is_kernel_call);
+int vfs_umount_all(bool is_kernel_call);
 
 #endif // VFS_H

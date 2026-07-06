@@ -14,6 +14,7 @@
 #include <debugger.h>
 #include <filesystems/ext2.h>
 #include <filesystems/fat16.h>
+#include <filesystems/fat32.h>
 #include <filesystems/iso9660.h>
 #include <filesystems/layers/dev.h>
 #include <filesystems/layers/proc.h>
@@ -22,6 +23,7 @@
 #include <heap.h>
 #include <memory.h>
 #include <strings.h>
+#include <klog.h>
 
 char vfs_cwd[256] = "/";
 uint16_t vfs_cwd_cluster = 0;
@@ -851,6 +853,16 @@ int vfs_create_path(const char *path, uint8_t attr) {
         return fat32_create_path(fs, res.rel_path, attr);
     }
 
+    if (res.mnt->type == FS_EXT2) {
+        ext2_fs_t *fs = (ext2_fs_t *)res.mnt->fs;
+
+        /* Mirror FAT convention: bit 0x10 means "this is a directory". */
+        if (attr & 0x10)
+            return ext2_mkdir(fs, res.rel_path);
+
+        return ext2_create(fs, res.rel_path, 0644, NULL);
+    }
+
     return -2;
 }
 
@@ -1042,7 +1054,7 @@ const char *vfs_basename(const char *path) {
     return last;
 }
 
-int vfs_sync(void) {
+int vfs_sync(bool kernel_call) {
     int ret = 0;
 
     for (int i = 0; i < mounted_partition_count; i++) {
@@ -1069,10 +1081,366 @@ int vfs_sync(void) {
         }
     }
 
-    klog_printf("sync has been called!");
+    klog_printf("Sync has been called!");
+    if(kernel_call){
+        LOG_SCOPE();
+        info("Syncing all disks", __FILE__);
+    }
     return ret;
 }
 
 int vfs_exec(const char *path, int argc, const char **argv) {
     return userland_exec(path, argc, argv, NULL);
+}
+
+const char *fs_type_to_string(int fs) {
+    switch (fs) {
+        case FS_FAT16:
+            return "FAT16";
+        case FS_FAT32:
+            return "FAT32";
+        case FS_PROC:
+            return "PROCFS";
+        case FS_DEV:
+            return "DEVFS";
+        case FS_ISO9660:
+            return "ISO9660";
+        case FS_EXT2:
+            return "EXT2";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+
+int vfs_mount(const char *diskname, const char *mount_point, bool is_kernel_call) {
+    // Strip leading "/dev/" if present
+    const char *device = diskname;
+    if (strncmp(device, "/dev/", 5) == 0) {
+        device += 5;
+    }
+
+    if (strcmp(mount_point, "/") != 0) {
+        vfs_mount_res_t res;
+        if (vfs_resolve_mount("/", &res) != 0) {
+            if (is_kernel_call)
+                error("mount: cannot mount block device, root (/) is not mounted.", __FILE__, device);
+            else
+                eprintf("mount: cannot mount block device, root (/) is not mounted.");
+            return -2;
+        }
+
+        int is_dir = vfs_path_is_dir(mount_point);
+        if (is_dir <= 0) {
+            if (is_kernel_call)
+                error("mount: mount point '%s' does not exist on the underlying filesystem.", __FILE__, mount_point);
+            else
+                eprintf("mount: mount point '%s' does not exist on the underlying filesystem.", mount_point);
+            return -3;
+        }
+    }
+
+    if (strcmp(device, "proc") == 0) {
+        mount_entry_t *new_mount = add_mount(mount_point, device, FS_PROC, NULL);
+        if (!new_mount) {
+            if (is_kernel_call)
+                error("mount: failed to add mount entry for %s.", __FILE__, device);
+            return 1;
+        }
+
+        procfs_init();
+
+        if (strcmp(mount_point, "/proc") != 0) {
+            if (is_kernel_call)
+                warn("mount: warning mounting 'proc' on non-standard path.", __FILE__, mount_point);
+            else
+                printf("mount: warning mounting \'proc\' on non-standard path.");
+        }
+
+        if (is_kernel_call)
+            done("mount: mounted %s (%s) at '%s'.", __FILE__, device, fs_type_to_string(FS_PROC), mount_point);
+        else
+            printf("mount: mounted " red_color "%s" reset_color " (%s) at '%s'",
+                device,
+                fs_type_to_string(FS_PROC),
+                mount_point);
+
+        return 0;
+    }
+
+    if (strcmp(device, "dev") == 0) {
+        mount_entry_t *new_mount = add_mount(mount_point, device, FS_DEV, NULL);
+        if (!new_mount) {
+            if (is_kernel_call)
+                error("mount: failed to add mount entry for %s.", __FILE__, device);
+            return 1;
+        }
+
+        devfs_init();
+
+        if (strcmp(mount_point, "/dev") != 0) {
+            if (is_kernel_call)
+                warn("mount: warning mounting 'dev' on non-standard path.", __FILE__, mount_point);
+            else
+                printf("mount: warning mounting 'dev' on non-standard path.");
+        }
+
+        if (is_kernel_call)
+            done("mount: mounted %s (%s) at '%s'.", __FILE__, device, fs_type_to_string(FS_DEV), mount_point);
+        else
+            printf("mount: mounted " red_color "%s" reset_color " (%s) at '%s'",
+                device,
+                fs_type_to_string(FS_DEV),
+                mount_point);
+
+        return 0;
+    }
+
+    general_partition_t *partition = search_general_partition(device);
+    int raw_device_id = -1;
+
+    if (!partition) {
+        for (int i = 0; i < block_device_count; i++) {
+            if (!block_devices[i].present)
+                continue;
+            if (strcmp(block_devices[i].name, device) == 0) {
+                raw_device_id = i;
+                break;
+            }
+        }
+
+        if (raw_device_id < 0) {
+            if (is_kernel_call)
+                error("mount: %s: partition not found.", __FILE__, device);
+            else
+                printf("mount: %s: partition not found.", device);
+            return 1;
+        }
+    }
+
+    void *fs_struct = NULL;
+    int ret = 0;
+
+    partition_fs_type_t mount_fs = partition ? partition->fs_type : FS_ISO9660;
+
+    switch (mount_fs) {
+        case FS_FAT16:
+            fs_struct = kmalloc(sizeof(fat16_fs_t));
+            if (!fs_struct) {
+                if (is_kernel_call)
+                    error("mount: memory allocation failed.", __FILE__, device);
+                else
+                    printf("mount: memory allocation failed.");
+                return 1;
+            }
+            mount_entry_t *mount1 = add_mount(mount_point, device, partition->fs_type, fs_struct);
+            if (!mount1) {
+                if (is_kernel_call)
+                    error("mount: failed to add mount entry for %s.", __FILE__, device);
+                return 1;
+            }
+
+            ret = fat16_mount(partition->ahci_port, partition->lba_start, (fat16_fs_t *)fs_struct);
+            break;
+
+        case FS_FAT32:
+            fs_struct = kmalloc(sizeof(fat32_fs_t));
+            if (!fs_struct) {
+                if (is_kernel_call)
+                    error("mount: memory allocation failed.", __FILE__, device);
+                else
+                    printf("mount: memory allocation failed.");
+                return 1;
+            }
+            mount_entry_t *mount2 = add_mount(mount_point, device, partition->fs_type, fs_struct);
+            if (!mount2) {
+                if (is_kernel_call)
+                    error("mount: failed to add mount entry for %s.", __FILE__, device);
+                return 1;
+            }
+
+            ret = fat32_mount(partition->ahci_port, partition->lba_start, (fat32_fs_t *)fs_struct);
+            break;
+
+        case FS_ISO9660:
+            fs_struct = kmalloc(sizeof(iso9660_fs_t));
+            if (!fs_struct) {
+                if (is_kernel_call)
+                    error("mount: memory allocation failed.", __FILE__, device);
+                else
+                    printf("mount: memory allocation failed.");
+                return 1;
+            }
+            mount_entry_t *mount3 = add_mount(mount_point, device, mount_fs, fs_struct);
+            if (!mount3) {
+                if (is_kernel_call)
+                    error("mount: failed to add mount entry for %s.", __FILE__, device);
+                return 1;
+            }
+
+            if (partition)
+                ret = iso9660_mount(partition->ahci_port, partition->lba_start, (iso9660_fs_t *)fs_struct);
+            else
+                ret = iso9660_mount(raw_device_id, 0, (iso9660_fs_t *)fs_struct);
+            break;
+
+        case FS_EXT2:
+            fs_struct = kmalloc(sizeof(ext2_fs_t));
+            if (!fs_struct) {
+                if (is_kernel_call)
+                    error("mount: memory allocation failed.", __FILE__, device);
+                else
+                    printf("mount: memory allocation failed.");
+                return 1;
+            }
+            mount_entry_t *mount4 = add_mount(mount_point, device, partition->fs_type, fs_struct);
+            if (!mount4) {
+                if (is_kernel_call)
+                    error("mount: failed to add mount entry for %s.", __FILE__, device);
+                return 1;
+            }
+
+            ret = ext2_mount(partition->ahci_port, partition->lba_start, (ext2_fs_t *)fs_struct);
+            break;
+
+        default:
+            if (is_kernel_call)
+                error("mount: unsupported filesystem.", __FILE__, device);
+            else
+                printf("mount: unsupported filesystem.");
+            return 1;
+    }
+
+    if (ret != 0) {
+        if (is_kernel_call)
+            error("mount: mounting of %s failed.", __FILE__, device);
+        else
+            printf("mount: mounting failed.");
+        return 1;
+    }
+
+    if (is_kernel_call)
+        done("mount: mounted %s (%s) at '%s'.", __FILE__, device, fs_type_to_string(mount_fs), mount_point);
+    else
+        printf("mount: mounted %s (%s) at '%s'",
+            device,
+            fs_type_to_string(mount_fs),
+            mount_point);
+
+    return 0;
+}
+
+int vfs_umount(const char *mount_point, bool is_kernel_call) {
+    /* Never allow root unmount */
+    if (strcmp(mount_point, "/") == 0) {
+        if (is_kernel_call)
+            warn("umount: unmounting root filesystem.", __FILE__, mount_point);
+        else
+            printf("umount: warn unmounting root filesystem");
+    }
+
+    mount_entry_t *m = find_mount_by_point(mount_point);
+    if (!m) {
+        if (is_kernel_call)
+            error("umount: %s: not mounted.", __FILE__, mount_point);
+        else
+            printf("umount: %s: not mounted", mount_point);
+        return 1;
+    }
+
+    /* Filesystem-specific cleanup */
+    switch (m->type) {
+        case FS_FAT16:
+            if (m->fs) {
+                fat16_unmount((fat16_fs_t *)m->fs);
+                kfree(m->fs);
+            }
+            break;
+        case FS_EXT2:
+            if (m->fs) {
+                ext2_unmount((ext2_fs_t *)m->fs);
+                kfree(m->fs);
+            }
+            break;
+        case FS_PROC:
+            // procfs_shutdown(); /* or procfs_unmount() */
+            break;
+        case FS_DEV:
+            break;
+        default:
+            if (is_kernel_call)
+                error("umount: unsupported filesystem.", __FILE__, mount_point);
+            else
+                printf("umount: unsupported filesystem");
+            return 1;
+    }
+
+    if (remove_mount(mount_point) != 0) {
+        if (is_kernel_call)
+            error("umount: failed to remove mount for %s.", __FILE__, mount_point);
+        else
+            printf("umount: failed to remove mount");
+        return 1;
+    }
+
+    if (is_kernel_call)
+        done("umount: %s unmounted.", __FILE__, mount_point);
+    else
+        printf("umount: %s unmounted", mount_point);
+
+    return 0;
+}
+
+int vfs_umount_all(bool is_kernel_call) {
+    int ret = 0;
+
+    /* Unmount every non-root mount first. We restart the scan after each
+     * removal since remove_mount() shifts the mounted_partitions array,
+     * and we copy the mount_point out before calling vfs_umount() in case
+     * the entry's backing memory moves/gets invalidated during removal. */
+    bool progress = true;
+    while (progress) {
+        progress = false;
+
+        for (int i = 0; i < mounted_partition_count; i++) {
+            mount_entry_t *m = &mounted_partitions[i];
+
+            if (strcmp(m->mount_point, "/") == 0)
+                continue;
+
+            char mount_point_copy[256];
+            strncpy(mount_point_copy, m->mount_point, sizeof(mount_point_copy) - 1);
+            mount_point_copy[sizeof(mount_point_copy) - 1] = '\0';
+
+            if (vfs_umount(mount_point_copy, is_kernel_call) != 0)
+                ret = 1;
+
+            progress = true;
+            break; /* array shifted, restart the scan */
+        }
+    }
+
+    /* Finally unmount root */
+    for (int i = 0; i < mounted_partition_count; i++) {
+        mount_entry_t *m = &mounted_partitions[i];
+
+        if (strcmp(m->mount_point, "/") == 0) {
+            char mount_point_copy[256];
+            strncpy(mount_point_copy, m->mount_point, sizeof(mount_point_copy) - 1);
+            mount_point_copy[sizeof(mount_point_copy) - 1] = '\0';
+
+            if (vfs_umount(mount_point_copy, is_kernel_call) != 0)
+                ret = 1;
+
+            break;
+        }
+    }
+
+    klog_printf("Unmount all has been called!");
+    if (is_kernel_call) {
+        LOG_SCOPE();
+        info("Unmounting all disks", __FILE__);
+    }
+
+    return ret;
 }

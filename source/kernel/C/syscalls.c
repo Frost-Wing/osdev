@@ -2023,7 +2023,7 @@ uint64_t syscall_dispatch(
             return sys_statx((int)arg1, (const char *)arg2, (int)arg3, (unsigned int)arg4, (linux_statx_t *)arg5);
 
         case LINUX_SYS_SYNC: // sync
-            return vfs_sync();
+            return vfs_sync(false);
 
         case LINUX_SYS_KILL:
             return sys_kill((int)arg1, (int)arg2);

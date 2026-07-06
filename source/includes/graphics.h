@@ -47,6 +47,10 @@ extern inline void __log_scope_exit(int *unused);
 #define LOG_SCOPE() \
     int __log_guard__ __attribute__((cleanup(__log_scope_exit))) = (log_depth++, 0)
 
+#define LOG_BLOCK \
+    for (int __log_guard__ __attribute__((cleanup(__log_scope_exit))) = (log_depth++, 0); \
+         !__log_guard__; __log_guard__ = 1)
+
 #define printf(fmt, ...) \
     printf_internal(__FILE__, __func__, __LINE__, fmt, ##__VA_ARGS__)
 
