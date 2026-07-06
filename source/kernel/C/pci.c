@@ -10,6 +10,7 @@
  */
 #include <filesystems/layers/proc.h>
 #include <filesystems/vfs.h>
+#include <graphics.h>
 #include <memory.h>
 #include <pci.h>
 
@@ -260,13 +261,15 @@ void probe_pci(void) {
                     probe_nvme((uint8_t)bus, (uint8_t)slot, (uint8_t)function);
                 }
 
-                print(green_color);
-                printf("%9s : Device : %9s -- Class : %9s", vendorName, deviceName, className);
-                print(reset_color);
+                // info("%9s : Device : %9s -- Class : %9s", __FILE__, vendorName, deviceName, className);
 
-                debug_printf(green_color);
-                debug_printf("%s : Device : %s -- Class : %s\n", vendorName, deviceName, className);
-                debug_printf(reset_color);
+                info("Vendor : %9s", __FILE__ , vendorName);
+                LOG_BLOCK{
+                    info("Device : %9s", __FILE__ , deviceName);
+                    LOG_BLOCK {
+                        info("Class : %9s", __FILE__ , className);
+                    }
+                }
 
                 strncpy(vendorNames[i], vendorName, 63);
                 strncpy(deviceNames[i], deviceName, 63);
@@ -295,10 +298,10 @@ void probe_pci(void) {
     done("Successfully saved to a array and verified.", __FILE__);
 
     total_devices = i;
-    printf("Total PCI Devices : %02d", total_devices);
-    printf(yellow_color "GPU(0) : %s", GPUName[0]);
-    printf("GPU(1) : %s" reset_color, GPUName[1]);
-    printf("Display Adapter : %s", display_adapter_name);
+    info("Total PCI Devices : %02d", __FILE__, total_devices);
+    info(yellow_color "GPU(0) : %s", __FILE__, GPUName[0]);
+    info("GPU(1) : %s" reset_color, __FILE__, GPUName[1]);
+    info("Display Adapter : %s", __FILE__, display_adapter_name);
 }
 
 int proc_pci_register() {
