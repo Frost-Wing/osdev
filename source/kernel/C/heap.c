@@ -5,6 +5,8 @@
 #include <memory.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <meltdown.h>
+#include <cc-asm.h>
 
 typedef struct alloc_t {
     uint64_t size;
@@ -59,7 +61,7 @@ void mm_init(uintptr_t kernel_end, uint64 heap_size) {
 
     heap_begin = ALIGN_UP(kernel_end, 8);
     if (heap_size <= 0 || (uint64_t)heap_size > UINT64_MAX - heap_begin) {
-        meltdown_screen("Invalid heap size!", __FILE__, __LINE__, 0, getCR2(), 0);
+        meltdown_screen("Invalid heap size!", __FILE__, __LINE__, 0, getCR2(), 0, null);
         hcf();
     }
     heap_end = heap_begin + (uint64_t)heap_size;
@@ -108,7 +110,7 @@ void *kmalloc(size_t size) {
 
     if (size > UINT64_MAX - last_alloc - sizeof(alloc_t) ||
         last_alloc + sizeof(alloc_t) + size > heap_end) {
-        meltdown_screen("Heap out of memory!", __FILE__, __LINE__, 0, getCR2(), 0);
+        meltdown_screen("Heap out of memory!", __FILE__, __LINE__, 0, getCR2(), 0, null);
         hcf();
     }
 
