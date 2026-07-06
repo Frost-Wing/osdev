@@ -11,6 +11,7 @@
 
 #include <commands/login.h>
 #include <executables/elf.h>
+#include <filesystems/vfs.h>
 #include <gdt.h>
 #include <idt.h>
 #include <kernel.h>
@@ -51,6 +52,9 @@ static volatile struct limine_smp_request smp_request = {
 
 static volatile struct limine_boot_time_request boot_time_request = {
     LIMINE_BOOT_TIME_REQUEST, 0, null};
+
+static volatile struct limine_kernel_file_request kernel_file_request = {
+    LIMINE_KERNEL_FILE_REQUEST, 0, null};
 
 struct limine_module_request module_request = {
     LIMINE_MODULE_REQUEST, 0, null, 0, null};
@@ -96,6 +100,40 @@ __attribute__((unused)) static void mouseMovementHandler(int64_t xRel, int64_t y
     // glDrawLine((uvec2){0, 0}, (uvec2){mousePos.x, mousePos.y}, mouseColor);
     print_bitmap((int)lastMousePos.x, (int)lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
     print_bitmap((int)mousePos.x, (int)mousePos.y, 8, 16, mouse_cursor, mouseColor);
+}
+
+static char cmdline_value_buf[128];
+
+const char *cmdline_get(const char *cmdline, const char *key) {
+    if (!cmdline)
+        return null;
+
+    size_t key_len = strlen(key);
+    const char *p = cmdline;
+
+    while (*p) {
+        while (*p == ' ')
+            p++;
+        if (!*p)
+            break;
+
+        const char *tok_start = p;
+        while (*p && *p != ' ')
+            p++;
+        size_t tok_len = (size_t)(p - tok_start);
+
+        if (tok_len > key_len && tok_start[key_len] == '=' &&
+            strncmp(tok_start, key, key_len) == 0) {
+            size_t val_len = tok_len - key_len - 1;
+            if (val_len >= sizeof(cmdline_value_buf))
+                val_len = sizeof(cmdline_value_buf) - 1;
+            memcpy(cmdline_value_buf, tok_start + key_len + 1, val_len);
+            cmdline_value_buf[val_len] = '\0';
+            return cmdline_value_buf;
+        }
+    }
+
+    return null;
 }
 
 __attribute__((unused)) static void mouseButtonHandler(uint8_t button, uint8_t action) {
@@ -153,6 +191,7 @@ void main(void) {
     debug_printf("KERNEL STR -> %z : %z\n", (uint64)virtual_to_physical((uint64_t)(uintptr_t)kstart), kstart);
     debug_printf("KERNEL END -> %z : %z\n", (uint64)virtual_to_physical((uint64_t)(uintptr_t)kend), kend);
 
+    info("Welcome to FrostWing kernel (getting stuff ready)", __FILE__);
     /**
      * ! In memory, kernel is loaded at higher half and at 0x8000000.
      * ! Therefore heap, userland (and more..) can be in the range of 0x1000000 to <= 0x8000000
@@ -247,6 +286,28 @@ void main(void) {
     multitasking_start_cursor_blink_task();
     create_user_str("root", "prad");
 
+    const char *cmdline = null;
+    if (kernel_file_request.response != null && kernel_file_request.response->kernel_file != null) {
+        cmdline = kernel_file_request.response->kernel_file->cmdline;
+    } else {
+        warn("Limine failed to give command-line data", __FILE__);
+    }
+
+    const char *rootdisk = cmdline_get(cmdline, "rootdisk");
+    if (rootdisk) {
+        info("Mounting root disk from cmdline: %s", __FILE__, rootdisk);
+        int ret = vfs_mount(rootdisk, "/", true);
+        if (ret != 0) {
+            error("Failed to mount root disk '%s' specified via cmdline.", __FILE__, rootdisk);
+            hcf2();
+        }
+        vfs_mount("proc", "/proc", true);
+        vfs_mount("dev", "/dev", true);
+
+    } else {
+        warn("No rootdisk= specified on kernel cmdline, root not mounted.", __FILE__, "main");
+    }
+
     enable_fpu();
 
     info("Welcome to FrostWing Operating System! %s", __FILE__, "(https://github.com/Frost-Wing)");
@@ -256,11 +317,15 @@ void main(void) {
 }
 
 void shutdown(void) {
-    info("shutdown has been called", __FILE__);
+    vfs_sync(true);
+    vfs_umount_all(true);
+    info("Shutdown has been called", __FILE__);
     acpi_shutdown_hack(hhdm_request.response->offset, acpi_find_sdt);
 }
 
 void reboot(void) {
-    info("reboot has been called", __FILE__);
+    vfs_sync(true);
+    vfs_umount_all(true);
+    info("Reboot has been called", __FILE__);
     acpi_reboot(hhdm_request.response->offset);
 }
