@@ -23,6 +23,8 @@ extern uint8_t user_code_end[];
 
 struct limine_memmap_response *memmap;
 static uintptr_t bump_ptr = 0;
+static uintptr_t bump_end = 0;
+static uintptr_t free_list_head = 0;
 static uint64_t hhdm_offset = 0;
 
 void paging_set_hhdm_offset(uint64_t offset) {
@@ -33,6 +35,7 @@ static inline uint64_t *phys_to_virt_ptr(uint64_t phys_addr) {
     return (uint64_t *)(phys_addr + hhdm_offset);
 }
 
+
 uintptr_t allocate_page(void) {
     if (!memmap) {
         LOG_SCOPE();
@@ -40,14 +43,39 @@ uintptr_t allocate_page(void) {
         hcf2();
     }
 
-    if (!bump_ptr) {
+    if (!bump_ptr || bump_ptr + PAGE_SIZE > bump_end) {
+        uintptr_t search_from = bump_ptr;
+        uintptr_t best_start = 0, best_end = 0;
+        int found = 0;
+
         for (uint64_t i = 0; i < memmap->entry_count; i++) {
             struct limine_memmap_entry *e = memmap->entries[i];
             if (e->type != LIMINE_MEMMAP_USABLE)
                 continue;
-            bump_ptr = (e->base + PAGE_SIZE - 1) & ~0xFFFULL;
-            break;
+
+            uintptr_t region_start = (e->base + PAGE_SIZE - 1) & ~0xFFFULL;
+            uintptr_t region_end = e->base + e->length;
+
+            if (region_start + PAGE_SIZE > region_end)
+                continue; // region too small to hold even one page
+
+            if (region_start >= search_from) {
+                if (!found || region_start < best_start) {
+                    best_start = region_start;
+                    best_end = region_end;
+                    found = 1;
+                }
+            }
         }
+
+        if (!found) {
+            LOG_SCOPE();
+            error("Out of physical memory", __FILE__);
+            hcf2();
+        }
+
+        bump_ptr = best_start;
+        bump_end = best_end;
     }
 
     uintptr_t page = bump_ptr;
@@ -158,6 +186,21 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
 }
 
+static void free_page(uintptr_t phys) {
+    // Stash the next-pointer inside the freed page itself (via its HHDM mapping)
+    uint64_t *v = phys_to_virt_ptr(phys);
+    *v = free_list_head;
+    free_list_head = phys;
+}
+
+static int table_is_empty(uint64_t *table) {
+    for (int i = 0; i < 512; i++) {
+        if (table[i] & PAGE_PRESENT)
+            return 0;
+    }
+    return 1;
+}
+
 void unmap_user_page(uint64_t virt) {
     uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
@@ -167,19 +210,38 @@ void unmap_user_page(uint64_t virt) {
 
     if (!(pml4[pml4_idx] & PAGE_PRESENT))
         return;
-    uint64_t *pdpt = phys_to_virt_ptr(pml4[pml4_idx] & ~0xFFFULL);
+    uint64_t pdpt_phys = pml4[pml4_idx] & ~0xFFFULL;
+    uint64_t *pdpt = phys_to_virt_ptr(pdpt_phys);
 
     if (!(pdpt[pdpt_idx] & PAGE_PRESENT))
         return;
-    uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & ~0xFFFULL);
+    uint64_t pd_phys = pdpt[pdpt_idx] & ~0xFFFULL;
+    uint64_t *pd = phys_to_virt_ptr(pd_phys);
 
     if (!(pd[pd_idx] & PAGE_PRESENT))
         return;
-    uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & ~0xFFFULL);
+    uint64_t pt_phys = pd[pd_idx] & ~0xFFFULL;
+    uint64_t *pt = phys_to_virt_ptr(pt_phys);
 
     if (!(pt[pt_idx] & PAGE_PRESENT))
         return;
 
     pt[pt_idx] = 0;
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
+
+    // Walk back up, freeing any level that's now completely empty
+    if (table_is_empty(pt)) {
+        pd[pd_idx] = 0;
+        free_page(pt_phys);
+
+        if (table_is_empty(pd)) {
+            pdpt[pdpt_idx] = 0;
+            free_page(pd_phys);
+
+            if (table_is_empty(pdpt)) {
+                pml4[pml4_idx] = 0;
+                free_page(pdpt_phys);
+            }
+        }
+    }
 }

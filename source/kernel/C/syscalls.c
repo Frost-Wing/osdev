@@ -20,6 +20,7 @@
 #include <syscalls.h>
 #include <syslog.h>
 #include <userland.h>
+#include <debugger.h>
 
 // Entire filesystems present in the OS.
 #include <filesystems/ext2.h>
@@ -51,6 +52,9 @@
 
 extern struct limine_framebuffer *framebuffer;
 extern uint64 *font_address;
+
+extern void reboot();
+extern void shutdown();
 
 typedef struct {
     bool exists;
@@ -2059,7 +2063,7 @@ uint64_t syscall_dispatch(
         case 19: {
             linux_iovec_t *iov = (linux_iovec_t *)arg2;
             if (arg3 > 0)
-                return sys_read(arg1, iov[0].iov_base, iov[0].iov_len);
+                return sys_read(arg1, (char*)iov[0].iov_base, iov[0].iov_len);
             return 0;
         }
 

@@ -5,6 +5,7 @@
 #include <multitasking.h>
 #include <strings.h>
 #include <userland.h>
+#include <debugger.h>
 
 extern struct flanterm_context *ft_ctx;
 
