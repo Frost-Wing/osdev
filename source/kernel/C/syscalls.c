@@ -1875,6 +1875,7 @@ static const char *names[] = {
     [24] = "sched_yield",
     [39] = "getpid",
     [57] = "fork",
+    [58] = "vfork",
     [61] = "wait4",
     [63] = "uname",
     [72] = "fcntl",
@@ -1994,10 +1995,20 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_SETSOCKOPT:
             return sys_setsockopt(arg1, arg2, arg3, (const void *)arg4, arg5);
 
-        case LINUX_SYS_CLONE:
-            if (arg1 != 0)
+        case LINUX_SYS_CLONE: {
+            /*
+             * musl implements fork()/vfork() on x86_64 with clone(SIGCHLD, 0)
+             * instead of the obsolete fork syscall. Treat that exact no-shared-
+             * address-space form as fork so toybox sh can spawn applets. Real
+             * thread-like clone flags still require process context cloning and
+             * are intentionally rejected.
+             */
+            const uint64_t LINUX_SIGCHLD = 17;
+            if ((arg1 & ~0xFFULL) != 0 || (arg1 & 0xFFULL) != LINUX_SIGCHLD ||
+                arg2 != 0 || arg3 != 0 || arg4 != 0 || arg5 != 0)
                 return -LINUX_ENOSYS;
             return sys_fork();
+        }
 
         case LINUX_SYS_EXECVE:
             return sys_execve((const char *)arg1, (char *const *)arg2, (char *const *)arg3);
@@ -2016,6 +2027,7 @@ uint64_t syscall_dispatch(
             return sys_chdir((const char *)arg1);
 
         case LINUX_SYS_FORK:
+        case LINUX_SYS_VFORK:
             return sys_fork();
 
         case LINUX_SYS_UNAME:

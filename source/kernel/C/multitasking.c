@@ -542,6 +542,7 @@ void multitasking_start_cursor_blink_task(void) {
 
 void multitasking_on_pit_tick(uint64_t now_ticks) {
     uint64_t flags = irq_save_disable();
+    uint32_t saved_current_pid = g_current_pid;
     g_last_tick = now_ticks;
 
     for (task_t *task = g_task_head; task != NULL; task = task->next) {
@@ -571,7 +572,7 @@ void multitasking_on_pit_tick(uint64_t now_ticks) {
         }
     }
 
-    g_current_pid = 0;
+    g_current_pid = saved_current_pid;
     irq_restore(flags);
 }
 
@@ -579,6 +580,7 @@ void multitasking_pump(void) {
     task_t *task_to_run = NULL;
 
     uint64_t flags = irq_save_disable();
+    uint32_t saved_current_pid = g_current_pid;
 
     for (task_t *task = g_task_head; task; task = task->next) {
         if (task->state == TASK_STATE_SLEEPING && task->wakeup_tick <= g_last_tick)
@@ -626,7 +628,7 @@ void multitasking_pump(void) {
         task_to_run->exit_code = rc;
         task_to_run->user_runtime.started = 1;
 
-        g_current_pid = 0;
+        g_current_pid = saved_current_pid;
         return;
     }
 
@@ -636,5 +638,5 @@ void multitasking_pump(void) {
     task_to_run->state = TASK_STATE_EXITED;
     task_to_run->exit_code = -LINUX_ENOSYS;
 
-    g_current_pid = 0;
+    g_current_pid = saved_current_pid;
 }
