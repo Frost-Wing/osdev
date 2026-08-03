@@ -174,11 +174,22 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
      * "running" (blocked mid-syscall) even though nothing is in ring3
      * right now, so keep userland_running true for it. Only the truly
      * outermost exit clears it. */
-    userland_running = userland_pop_frame();
+    bool still_in_userland = userland_pop_frame();
+    userland_running = still_in_userland;
 
     wrmsr64_local(IA32_FS_BASE_MSR, 0);
-    userland_unmap_all();
-    userland_heap_init();
+    /*
+     * Nested userland_exec() happens while another user task is blocked in
+     * the kernel (for example toybox sh -> wait4() -> multitasking_pump()).
+     * Tearing down the global user mappings here destroys the suspended outer
+     * task's address space and causes a kernel/user return fault after the
+     * child exits. Only reclaim the user image when the outermost userland
+     * frame exits; inner exits merely unwind to their waiter.
+     */
+    if (!still_in_userland) {
+        userland_unmap_all();
+        userland_heap_init();
+    }
     tty_flush_input();
     printf(blue_color "\n[process exited with code %d]" reset_color, exit_code);
     asm volatile("sti");
