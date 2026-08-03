@@ -280,6 +280,66 @@ void multitasking_yield(void) {
     multitasking_pump();
 }
 
+bool multitasking_update_user_image(uint32_t pid, const char *path, int argc, const char *const argv[]) {
+    if (!path)
+        return false;
+
+    if (argc < 0)
+        argc = 0;
+    if (argc > 31)
+        argc = 31;
+
+    char *new_path = strdup(path);
+    if (!new_path)
+        return false;
+
+    const char *new_argv[32];
+    memset(new_argv, 0, sizeof(new_argv));
+
+    for (int i = 0; i < argc; i++) {
+        const char *arg = (argv && argv[i]) ? argv[i] : "";
+        new_argv[i] = strdup(arg);
+        if (!new_argv[i]) {
+            for (int j = 0; j < i; j++)
+                kfree((void *)new_argv[j]);
+            kfree(new_path);
+            return false;
+        }
+    }
+
+    uint64_t flags = irq_save_disable();
+    task_t *task = find_task_locked(pid);
+    if (!task || task->type != TASK_TYPE_USERLAND || task->state == TASK_STATE_EXITED) {
+        irq_restore(flags);
+        for (int i = 0; i < argc; i++)
+            kfree((void *)new_argv[i]);
+        kfree(new_path);
+        return false;
+    }
+
+    const char *old_path = task->user_spec.path;
+    const char *old_argv[32];
+    for (int i = 0; i < 32; i++)
+        old_argv[i] = task->user_spec.argv[i];
+
+    task->user_spec.path = new_path;
+    task->user_spec.argc = argc;
+    for (int i = 0; i < 32; i++)
+        task->user_spec.argv[i] = (i < argc) ? new_argv[i] : NULL;
+    snprintf(task->name, sizeof(task->name), "%s", path);
+
+    irq_restore(flags);
+
+    for (int i = 0; i < 32; i++) {
+        if (old_argv[i])
+            kfree((void *)old_argv[i]);
+    }
+    if (old_path)
+        kfree((void *)old_path);
+
+    return true;
+}
+
 bool multitasking_get_task(uint32_t pid, task_info_t *out_info) {
     if (!out_info)
         return false;
