@@ -15,6 +15,9 @@
 // running" accurate - see the call site in userland_exec() below.
 extern void record_exec_context(const char *target, const char *const *argv);
 
+static void userland_unmap_all(void);
+void userland_heap_init(void);
+
 static uint64_t user_heap_break = USER_HEAP_VADDR;
 static uint64_t user_heap_mapped_end = USER_HEAP_VADDR;
 
@@ -58,6 +61,13 @@ static volatile int userland_last_exit_code = 0;
  */
 #define USERLAND_MAX_DEPTH 8
 
+typedef struct saved_user_page {
+    uint64_t vaddr;
+    uint64_t flags;
+    uint8_t data[PAGE_SIZE];
+    struct saved_user_page *next;
+} saved_user_page_t;
+
 typedef struct {
     uint64_t saved_kernel_stack_top;
     uint64_t saved_tss_rsp0;
@@ -72,6 +82,7 @@ typedef struct {
     uint64_t resume_ret_rip;
     uint64_t resume_ret_rsp;
     int last_exit_code;
+    saved_user_page_t *user_pages;
 } userland_saved_frame_t;
 
 static userland_saved_frame_t userland_frame_stack[USERLAND_MAX_DEPTH];
@@ -84,6 +95,56 @@ __attribute__((aligned(16))) static uint8_t userland_syscall_stacks[USERLAND_MAX
  * the index of the new frame's dedicated stack buffer, or -1 if we've
  * nested deeper than we ever expect to (a real bug elsewhere, not a
  * resource we should silently corrupt through). */
+static void userland_free_snapshot(saved_user_page_t *pages) {
+    while (pages) {
+        saved_user_page_t *next = pages->next;
+        kfree(pages);
+        pages = next;
+    }
+}
+
+static void userland_snapshot_range(saved_user_page_t **list, uint64_t start, uint64_t end) {
+    for (uint64_t vaddr = start; vaddr < end; vaddr += PAGE_SIZE) {
+        uint64_t phys = virtual_to_physical(vaddr);
+        uint64_t flags = paging_user_page_flags(vaddr);
+        if (!phys || !(flags & PAGE_PRESENT))
+            continue;
+
+        saved_user_page_t *page = (saved_user_page_t *)kmalloc(sizeof(saved_user_page_t));
+        if (!page)
+            continue;
+
+        page->vaddr = vaddr;
+        page->flags = flags;
+        memcpy(page->data, (const void *)vaddr, PAGE_SIZE);
+        page->next = *list;
+        *list = page;
+    }
+}
+
+static saved_user_page_t *userland_snapshot_mappings(void) {
+    saved_user_page_t *pages = NULL;
+
+    userland_snapshot_range(&pages, USER_CODE_VADDR, USER_HEAP_VADDR);
+    userland_snapshot_range(&pages, USER_HEAP_VADDR, USER_HEAP_VADDR + USER_HEAP_SIZE);
+    userland_snapshot_range(&pages, USER_MMAP_VADDR, USER_MMAP_VADDR + USER_MMAP_SIZE);
+    userland_snapshot_range(&pages, USER_TLS_VADDR, USER_TLS_VADDR + USER_TLS_REGION_SIZE);
+    userland_snapshot_range(&pages, USER_PHDR_VADDR, USER_PHDR_VADDR + PAGE_SIZE);
+    userland_snapshot_range(&pages, USER_STACK_TOP - USER_STACK_SIZE, USER_STACK_TOP);
+
+    return pages;
+}
+
+static void userland_restore_snapshot(saved_user_page_t *pages) {
+    userland_unmap_all();
+
+    for (saved_user_page_t *page = pages; page; page = page->next) {
+        uint64_t phys = allocate_page();
+        map_user_page(page->vaddr, phys, page->flags);
+        memcpy((void *)page->vaddr, page->data, PAGE_SIZE);
+    }
+}
+
 static int userland_push_frame(void) {
     if (userland_depth >= USERLAND_MAX_DEPTH)
         return -1;
@@ -102,6 +163,7 @@ static int userland_push_frame(void) {
     f->resume_ret_rip = userland_resume_ret_rip;
     f->resume_ret_rsp = userland_resume_ret_rsp;
     f->last_exit_code = userland_last_exit_code;
+    f->user_pages = (userland_depth > 0) ? userland_snapshot_mappings() : NULL;
 
     return userland_depth++;
 }
@@ -117,6 +179,8 @@ static bool userland_pop_frame(void) {
     userland_depth--;
 
     if (userland_depth == 0) {
+        userland_free_snapshot(userland_frame_stack[0].user_pages);
+        userland_frame_stack[0].user_pages = NULL;
         userland_resume_rip = 0;
         userland_resume_rsp = 0;
         userland_resume_rbx = 0;
@@ -132,6 +196,11 @@ static bool userland_pop_frame(void) {
         userland_last_exit_code = 0;
         return false;
     }
+
+    userland_saved_frame_t *finished = &userland_frame_stack[userland_depth];
+    userland_restore_snapshot(finished->user_pages);
+    userland_free_snapshot(finished->user_pages);
+    finished->user_pages = NULL;
 
     userland_saved_frame_t *f = &userland_frame_stack[userland_depth - 1];
     userland_saved_kernel_stack_top = f->saved_kernel_stack_top;
@@ -151,8 +220,6 @@ static bool userland_pop_frame(void) {
 }
 
 static inline void wrmsr64_local(uint32_t msr, uint64_t value);
-static void userland_unmap_all(void);
-void userland_heap_init(void);
 
 __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     uint64_t return_rip = userland_resume_ret_rip;
@@ -465,6 +532,7 @@ static void userland_unmap_all(void) {
     unmap_user_range(USER_HEAP_VADDR, USER_HEAP_VADDR + USER_HEAP_SIZE);
     unmap_user_range(USER_MMAP_VADDR, USER_MMAP_VADDR + USER_MMAP_SIZE);
     unmap_user_range(USER_TLS_VADDR, USER_TLS_VADDR + USER_TLS_REGION_SIZE);
+    unmap_user_range(USER_PHDR_VADDR, USER_PHDR_VADDR + PAGE_SIZE);
     unmap_user_range(USER_STACK_TOP - USER_STACK_SIZE, USER_STACK_TOP);
 }
 
@@ -663,11 +731,19 @@ int userland_exec(const userland_exec_ctx_t *ctx) {
     if (!ctx || !ctx->path)
         return -1;
 
+    int frame_depth = userland_push_frame();
+    if (frame_depth < 0) {
+        eprintf("[userland] exec nesting too deep");
+        return -1;
+    }
+
     elf_image_info_t image_info = {0};
 
     void *entry = elf_load_from_vfs_ex(ctx->path, &image_info);
-    if (!entry)
+    if (!entry) {
+        userland_pop_frame();
         return -1;
+    }
 
     // ----------------------------------------------------
     // DO NOT use any global exec context here anymore
@@ -679,6 +755,7 @@ int userland_exec(const userland_exec_ctx_t *ctx) {
     if (init_user_tls(&image_info) != 0) {
         if (image_info.tls_template)
             kfree(image_info.tls_template);
+        userland_pop_frame();
         return -1;
     }
 
@@ -717,12 +794,6 @@ int userland_exec(const userland_exec_ctx_t *ctx) {
     // ----------------------------------------------------
     // SAVE KERNEL STATE FOR RETURN PATH
     // ----------------------------------------------------
-    int frame_depth = userland_push_frame();
-    if (frame_depth < 0) {
-        eprintf("[userland] exec nesting too deep");
-        return -1;
-    }
-
     uint64_t kernel_rsp = 0;
     asm volatile("mov %%rsp, %0" : "=r"(kernel_rsp));
     asm volatile("mov %%rbx, %0" : "=r"(userland_resume_rbx));
