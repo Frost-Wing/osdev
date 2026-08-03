@@ -1828,8 +1828,15 @@ void int80_handler(InterruptFrame *frame) {
 // THIS IS FOR SYSCALL INSTRUCTION
 void syscall_handler(syscall_frame_t *f) {
     if (f && (f->rax == LINUX_SYS_EXIT || f->rax == LINUX_SYS_EXIT_GROUP)) {
-        if (clear_child_tid)
-            *clear_child_tid = 0;
+        /*
+         * set_tid_address(2)'s clear_child_tid points into the exiting
+         * userspace image. This kernel does not have copy_to_user/futex
+         * teardown yet, and directly dereferencing it from ring 0 can fault
+         * during process exit (for example after toybox sh runs a child and
+         * exits). Treat it as bookkeeping only for now rather than allowing a
+         * best-effort compatibility write to panic the kernel.
+         */
+        clear_child_tid = NULL;
         uint32_t pid = multitasking_current_pid();
         if (pid)
             multitasking_exit_task(pid, (int)f->rdi);
