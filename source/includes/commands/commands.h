@@ -42,5 +42,6 @@ int cmd_tasks(int argc, char **argv);
 int cmd_probepci(int argc, char **argv);
 int cmd_ping(int argc, char **argv);
 int cmd_wget(int argc, char **argv);
+int cmd_cp(int argc, char **argv);
 
 #endif

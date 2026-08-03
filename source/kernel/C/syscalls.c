@@ -322,9 +322,8 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
     switch (file->mnt->type) {
         case FS_PROC:
         case FS_DEV:
-            info->is_dir = false;
+            info->is_dir = (file->rel_path[0] == '\0');
             info->size = 0;
-            break;
         case FS_FAT16:
             info->is_dir = (file->f.fat16.entry.attr & 0x10) != 0;
             info->size = file->f.fat16.entry.filesize;
@@ -336,6 +335,10 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
         case FS_ISO9660:
             info->is_dir = (file->f.iso9660.entry.flags & ISO9660_FLAG_DIR) != 0;
             info->size = file->f.iso9660.entry.size;
+            break;
+        case FS_EXT2:
+            info->is_dir = file->f.ext2.is_dir != 0;
+            info->size = file->f.ext2.inode.i_size;
             break;
         default:
             return false;
@@ -849,13 +852,15 @@ static uint64 sys_stat(const char *path, linux_stat_t *st) {
 }
 
 static uint64 sys_newfstatat(int dirfd, const char *path, linux_stat_t *st, int flags) {
-    (void)flags;
     if (!st)
         return -LINUX_EINVAL;
-    if ((flags & ~(LINUX_AT_SYMLINK_NOFOLLOW | LINUX_AT_EMPTY_PATH)) != 0)
-        return -LINUX_EINVAL;
 
-    if ((flags & LINUX_AT_EMPTY_PATH) && path && path[0] == '\0')
+    // Only ever act on the flags we actually support; silently ignore
+    // anything else (AT_NO_AUTOMOUNT, AT_STATX_SYNC_*, etc.) instead of
+    // rejecting the call outright.
+    int known = flags & (LINUX_AT_SYMLINK_NOFOLLOW | LINUX_AT_EMPTY_PATH);
+
+    if ((known & LINUX_AT_EMPTY_PATH) && path && path[0] == '\0')
         return sys_fstat((uint64_t)dirfd, st);
 
     if (!path)
@@ -866,13 +871,14 @@ static uint64 sys_newfstatat(int dirfd, const char *path, linux_stat_t *st, int 
     fill_stat_from_info(st, &info);
     return 0;
 }
-
 static uint64 sys_statx(int dirfd, const char *path, int flags, unsigned int mask, linux_statx_t *stx) {
     (void)mask;
     linux_stat_t st;
     if (!stx)
         return -LINUX_EINVAL;
-    uint64 rc = sys_newfstatat(dirfd, path, &st, flags);
+    int compat_flags = flags & (LINUX_AT_SYMLINK_NOFOLLOW | LINUX_AT_EMPTY_PATH);
+    uint64 rc = sys_newfstatat(dirfd, path, &st, compat_flags);
+
     if (rc < 0)
         return rc;
 
