@@ -13,7 +13,8 @@ typedef enum {
 typedef enum {
     TASK_STATE_READY = 0,
     TASK_STATE_RUNNING = 1,
-    TASK_STATE_EXITED = 2
+    TASK_STATE_SLEEPING = 2,
+    TASK_STATE_EXITED = 3
 } task_state_t;
 
 typedef struct task_info {
@@ -22,6 +23,7 @@ typedef struct task_info {
     task_state_t state;
     int exit_code;
     uint64_t runtime_ticks;
+    uint64_t wakeup_tick;
     uint32_t parent_pid;
     const char *name;
     const char *exe_path;
@@ -51,6 +53,7 @@ typedef struct task {
     int exit_code;
     uint64_t created_at_tick;
     uint64_t runtime_ticks;
+    uint64_t wakeup_tick;
     uint32_t parent_pid;
     bool fork_child;
     char name[64];
@@ -72,7 +75,17 @@ task_t *multitasking_find_task(uint32_t pid);
 uint32_t multitasking_spawn_kernel(const char *name, kernel_task_fn_t fn, void *ctx);
 uint32_t multitasking_spawn_userland(const char *name, const user_task_spec_t *spec);
 
+/*
+ * Tiny process API for the rest of the kernel:
+ *  - spawn_* creates runnable work and returns a Linux-style pid, or 0 on error.
+ *  - exit/kill move a task to EXITED so the parent can wait4()/reap it.
+ *  - sleep parks a task until the PIT tick reaches wakeup_tick.
+ *  - yield gives another ready user task a chance to run cooperatively.
+ */
 bool multitasking_exit_task(uint32_t pid, int exit_code);
+bool multitasking_kill_task(uint32_t pid, int signal);
+bool multitasking_sleep_task(uint32_t pid, uint64_t wakeup_tick);
+void multitasking_yield(void);
 bool multitasking_reap_task(uint32_t pid, task_info_t *out_info);
 bool multitasking_find_child(uint32_t parent_pid, int64_t pid_filter, bool exited_only, task_info_t *out_info);
 bool multitasking_current_is_fork_child(void);
