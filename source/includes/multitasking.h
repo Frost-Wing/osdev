@@ -86,6 +86,7 @@ bool multitasking_exit_task(uint32_t pid, int exit_code);
 bool multitasking_kill_task(uint32_t pid, int signal);
 bool multitasking_sleep_task(uint32_t pid, uint64_t wakeup_tick);
 void multitasking_yield(void);
+bool multitasking_update_user_image(uint32_t pid, const char *path, int argc, const char *const argv[]);
 bool multitasking_reap_task(uint32_t pid, task_info_t *out_info);
 bool multitasking_find_child(uint32_t parent_pid, int64_t pid_filter, bool exited_only, task_info_t *out_info);
 bool multitasking_current_is_fork_child(void);
