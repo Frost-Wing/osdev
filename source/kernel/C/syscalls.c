@@ -1297,11 +1297,18 @@ static uint64 sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
 }
 
 static uint64 sys_nanosleep(const linux_timespec_t *req, linux_timespec_t *rem) {
-    (void)rem;
+    if (rem) {
+        rem->tv_sec = 0;
+        rem->tv_nsec = 0;
+    }
     if (!req)
+        return -LINUX_EFAULT;
+    if (req->tv_sec < 0 || req->tv_nsec < 0 || req->tv_nsec >= 1000000000L)
         return -LINUX_EINVAL;
     if (req->tv_sec > 0)
         sleep((int)req->tv_sec);
+    else
+        multitasking_yield();
     return 0;
 }
 
@@ -1343,6 +1350,13 @@ int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg) {
 }
 
 int sys_kill(int pid, int sig) {
+    if (sig < 0 || sig > 64)
+        return -LINUX_EINVAL;
+    if (pid <= 0)
+        return -LINUX_ENOSYS;
+    if (sig == 0)
+        return multitasking_get_task((uint32_t)pid, &(task_info_t){0}) ? 0 : -LINUX_ESRCH;
+
     if (pid == 1) {
         switch (sig) {
             case SIGTERM:
@@ -1358,8 +1372,9 @@ int sys_kill(int pid, int sig) {
         return 0;
     }
 
-    /* normal process killing */
-    return 0; // process_kill(pid, sig)
+    if (!multitasking_kill_task((uint32_t)pid, sig))
+        return -LINUX_ESRCH;
+    return 0;
 }
 
 // Backs dmesg, which opens /dev/kmsg or falls back to the syslog(2) syscall
@@ -1595,6 +1610,7 @@ static uint64 sys_execve(const char *target,
     ctx.argv[argc] = NULL;
 
     int rc;
+    uint32_t current_pid = multitasking_current_pid();
 
     if (should_route_to_toybox(target)) {
         const char *toybox_argv[32];
@@ -1615,8 +1631,26 @@ static uint64 sys_execve(const char *target,
 
         tb_ctx.argv[toybox_argc] = NULL;
 
+        if (current_pid && !multitasking_update_user_image(current_pid, tb_ctx.path, tb_ctx.argc, tb_ctx.argv)) {
+            free_copied_string_array(copied_argv, argc);
+            free_copied_string_array(copied_envp, envc);
+            return -LINUX_ENOMEM;
+        }
+
         rc = userland_exec_replace(&tb_ctx);
     } else {
+        if (!path_is_loadable_elf(ctx.path)) {
+            free_copied_string_array(copied_argv, argc);
+            free_copied_string_array(copied_envp, envc);
+            return -LINUX_ENOEXEC;
+        }
+
+        if (current_pid && !multitasking_update_user_image(current_pid, ctx.path, ctx.argc, ctx.argv)) {
+            free_copied_string_array(copied_argv, argc);
+            free_copied_string_array(copied_envp, envc);
+            return -LINUX_ENOMEM;
+        }
+
         rc = userland_exec_replace(&ctx);
     }
 
@@ -1710,9 +1744,6 @@ static uint64 sys_wait4(int64_t pid, int *status, int options, void *rusage) {
     while (1) {
         task_info_t info = {0};
         if (multitasking_find_child(parent, pid, true, &info)) {
-            if (!multitasking_reap_task(info.pid, &info))
-                continue;
-
             if (!multitasking_reap_task(info.pid, &info))
                 continue;
 
@@ -1834,6 +1865,7 @@ static const char *names[] = {
     [13] = "rt_sigaction",
     [14] = "rt_sigprocmask",
     [16] = "ioctl",
+    [24] = "sched_yield",
     [39] = "getpid",
     [57] = "fork",
     [61] = "wait4",
@@ -1860,8 +1892,9 @@ uint64_t syscall_dispatch(
     uint64_t arg5,
     uint64_t arg6) {
 
-    syslog_printf("[syscall] %s(%u)", names[nr] ? names[nr] : "?", nr);
-    debug_printf("[syscall] %s(%u)\n", names[nr] ? names[nr] : "?", nr);
+    const char *syscall_name = (nr < (sizeof(names) / sizeof(names[0])) && names[nr]) ? names[nr] : "?";
+    syslog_printf("[syscall] %s(%u)", syscall_name, nr);
+    debug_printf("[syscall] %s(%u)\n", syscall_name, nr);
 
     switch (nr) {
         case LINUX_SYS_READ:
@@ -1932,6 +1965,10 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_NANOSLEEP:
             return sys_nanosleep((const linux_timespec_t *)arg1, (linux_timespec_t *)arg2);
 
+        case LINUX_SYS_SCHED_YIELD:
+            multitasking_yield();
+            return 0;
+
         case LINUX_SYS_GETPID:
             return multitasking_current_pid() ? multitasking_current_pid() : 1;
 
@@ -1951,6 +1988,8 @@ uint64_t syscall_dispatch(
             return sys_setsockopt(arg1, arg2, arg3, (const void *)arg4, arg5);
 
         case LINUX_SYS_CLONE:
+            if (arg1 != 0)
+                return -LINUX_ENOSYS;
             return sys_fork();
 
         case LINUX_SYS_EXECVE:
@@ -1987,8 +2026,13 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_GETEGID:
             return 0;
 
-        case LINUX_SYS_GETPPID:
+        case LINUX_SYS_GETPPID: {
+            task_info_t info = {0};
+            uint32_t pid = multitasking_current_pid();
+            if (pid && multitasking_get_task(pid, &info))
+                return info.parent_pid ? info.parent_pid : 1;
             return 1;
+        }
 
         case LINUX_SYS_WAIT4:
             return sys_wait4((int64_t)arg1, (int *)arg2, (int)arg3, (void *)arg4);
