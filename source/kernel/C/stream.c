@@ -291,6 +291,8 @@ uint32_t fd_file_size(int fd) {
             return file->f.fat32.entry.file_size;
         case FS_ISO9660:
             return file->f.iso9660.entry.size;
+        case FS_EXT2:
+            return file->f.ext2.inode.i_size;
         case FS_PROC:
         case FS_DEV:
         default:
@@ -310,6 +312,8 @@ uint32_t *fd_pos_ptr(int fd) {
             return &file->f.fat32.pos;
         case FS_ISO9660:
             return &file->f.iso9660.pos;
+        case FS_EXT2:
+            return &file->f.ext2.pos;
         case FS_PROC:
         case FS_DEV:
             return &file->pos;

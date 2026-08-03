@@ -449,7 +449,13 @@ int vfs_open(const char *path, int flags, vfs_file_t *out) {
         out->mnt = res.mnt;
         out->flags = flags;
 
-        if (procfs_open(out) != 0) // if file not found
+        if (res.rel_path[0] == '\0') {
+            // Opening /proc itself as a directory — nothing to open,
+            // getdents64 handles listing it directly.
+            return 0;
+        }
+
+        if (procfs_open(out) != 0)
             return -1;
 
         return 0;
@@ -459,6 +465,10 @@ int vfs_open(const char *path, int flags, vfs_file_t *out) {
         strncpy(out->rel_path, res.rel_path, sizeof(out->rel_path));
         out->mnt = res.mnt;
         out->flags = flags;
+
+        if (res.rel_path[0] == '\0') {
+            return 0;
+        }
 
         if (devfs_open(out) != 0)
             return -1;
@@ -941,16 +951,59 @@ int vfs_mv(const char *src, const char *dst) {
     if (vfs_normalize_path(dst, dst_norm, sizeof(dst_norm)) != 0)
         return -1;
 
+    /* If destination is an existing directory, move INTO it under the
+     * source's own basename (same convention as vfs_cp / standard 'mv'). */
+    if (vfs_path_is_dir(dst_norm) == 1) {
+        const char *base = vfs_basename(src_norm);
+        char combined[256];
+        size_t dlen = strlen(dst_norm);
+
+        if (dlen > 0 && dst_norm[dlen - 1] == '/')
+            snprintf(combined, sizeof(combined), "%s%s", dst_norm, base);
+        else
+            snprintf(combined, sizeof(combined), "%s/%s", dst_norm, base);
+
+        if (vfs_normalize_path(combined, dst_norm, sizeof(dst_norm)) != 0)
+            return -1;
+    }
+
     vfs_mount_res_t src_res, dst_res;
     if (vfs_resolve_mount(src_norm, &src_res) != 0)
         return -1;
     if (vfs_resolve_mount(dst_norm, &dst_res) != 0)
         return -1;
 
+    /* ---------- CROSS-DEVICE MOVE ---------- */
     if (src_res.mnt != dst_res.mnt) {
-        printf("mv: cross-device move not supported");
-        return -1;
+        int src_is_dir = vfs_path_is_dir(src_norm);
+        if (src_is_dir < 0) {
+            eprintf("mv: source path does not resolve: %s", src_norm);
+            return -1;
+        }
+        if (src_is_dir == 1) {
+            /* Would need recursive cross-fs copy, which needs a generic
+             * readdir() the VFS doesn't expose yet. */
+            eprintf("mv: cross-device move of directories is not supported");
+            return -1;
+        }
+
+        int ret = vfs_cp(src_norm, dst_norm);
+        if (ret != 0) {
+            eprintf("mv: cross-device copy failed (%d)", ret);
+            return ret;
+        }
+
+        if (vfs_unlink(src_norm) != 0) {
+            eprintf("mv: copied '%s' -> '%s' but failed to remove source",
+                     src_norm, dst_norm);
+            return -10;
+        }
+
+        printf("mv: moved '%s' -> '%s' (cross-device)", src_norm, dst_norm);
+        return 0;
     }
+
+    /* ---------- SAME-DEVICE MOVE (fast path) ---------- */
 
     if (src_res.mnt->type == FS_FAT32) {
         fat32_fs_t *fs = (fat32_fs_t *)src_res.mnt->fs;
@@ -1441,6 +1494,108 @@ int vfs_umount_all(bool is_kernel_call) {
         LOG_SCOPE();
         info("Unmounting all disks", __FILE__);
     }
+
+    return ret;
+}
+
+#define VFS_CP_BUF_SIZE 4096
+
+int vfs_cp(const char *src, const char *dst) {
+    if (!src || !dst || !*src || !*dst) {
+        eprintf("cp: invalid arguments");
+        return -1;
+    }
+
+    char src_norm[256];
+    if (vfs_normalize_path(src, src_norm, sizeof(src_norm)) != 0)
+        return -1;
+
+    int src_is_dir = vfs_path_is_dir(src_norm);
+    if (src_is_dir < 0) {
+        eprintf("cp: source path does not resolve: %s", src_norm);
+        return -2;
+    }
+    if (src_is_dir == 1) {
+        /* No generic readdir() abstraction exists in the VFS yet, so
+         * recursive directory copy isn't supported here. */
+        eprintf("cp: recursive directory copy not supported");
+        return -3;
+    }
+
+    char dst_norm[256];
+    if (vfs_normalize_path(dst, dst_norm, sizeof(dst_norm)) != 0)
+        return -1;
+
+    /* If destination is an existing directory, copy INTO it under the
+     * source's own basename (standard 'cp' behaviour). */
+    if (vfs_path_is_dir(dst_norm) == 1) {
+        const char *base = vfs_basename(src_norm);
+        char combined[256];
+        size_t dlen = strlen(dst_norm);
+
+        if (dlen > 0 && dst_norm[dlen - 1] == '/')
+            snprintf(combined, sizeof(combined), "%s%s", dst_norm, base);
+        else
+            snprintf(combined, sizeof(combined), "%s/%s", dst_norm, base);
+
+        if (vfs_normalize_path(combined, dst_norm, sizeof(dst_norm)) != 0)
+            return -1;
+    }
+
+    if (!strcmp(src_norm, dst_norm)) {
+        eprintf("cp: source and destination are the same file");
+        return -4;
+    }
+
+    vfs_file_t src_file;
+    if (vfs_open(src_norm, VFS_RDONLY, &src_file) != 0) {
+        eprintf("cp: cannot open source file: %s", src_norm);
+        return -5;
+    }
+
+    vfs_file_t dst_file;
+    if (vfs_open(dst_norm, VFS_WRONLY | VFS_CREATE | VFS_TRUNC, &dst_file) != 0) {
+        eprintf("cp: cannot open/create destination file: %s", dst_norm);
+        vfs_close(&src_file);
+        return -6;
+    }
+
+    uint8_t *buf = (uint8_t *)kmalloc(VFS_CP_BUF_SIZE);
+    if (!buf) {
+        eprintf("cp: out of memory");
+        vfs_close(&src_file);
+        vfs_close(&dst_file);
+        return -7;
+    }
+
+    int ret = 0;
+    for (;;) {
+        int r = vfs_read(&src_file, buf, VFS_CP_BUF_SIZE);
+        if (r < 0) {
+            eprintf("cp: read error on %s", src_norm);
+            ret = -8;
+            break;
+        }
+        if (r == 0)
+            break; /* EOF */
+
+        int w = vfs_write(&dst_file, buf, (uint32_t)r);
+        if (w < 0 || (uint32_t)w != (uint32_t)r) {
+            eprintf("cp: write error on %s (short write)", dst_norm);
+            ret = -9;
+            break;
+        }
+
+        if ((uint32_t)r < VFS_CP_BUF_SIZE)
+            break; /* short read -> EOF */
+    }
+
+    kfree(buf);
+    vfs_close(&src_file);
+    vfs_close(&dst_file);
+
+    if (ret == 0)
+        printf("cp: copied '%s' -> '%s'", src_norm, dst_norm);
 
     return ret;
 }

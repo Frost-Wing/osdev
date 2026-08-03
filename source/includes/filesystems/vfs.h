@@ -150,6 +150,19 @@ int vfs_unlink(const char *path);
  */
 const char *vfs_getcwd(void);
 
+/**
+ * @brief Copy a file from src to dst. Works across different mounted
+ *        filesystems (e.g. FAT32 -> EXT2) since it copies via the
+ *        generic vfs_read/vfs_write path. If dst is an existing
+ *        directory, the file is copied into it under its own name.
+ *        Directories are not currently supported.
+ *
+ * @param src Path to source file
+ * @param dst Path to destination file or directory
+ * @return 0 on success, negative on error
+ */
+int vfs_cp(const char *src, const char *dst);
+
 const char *vfs_basename(const char *path);
 int vfs_normalize_path(const char *in, char *out, size_t out_sz);
 

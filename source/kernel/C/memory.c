@@ -150,21 +150,22 @@ void *allocate_memory_at_address(uint64 phys_addr, size_t size) {
 }
 
 void display_memory_formatted(struct memory_context *memory) {
-    printf("Usable                 : %05d KiB", memory->usable / 1024);
-    printf("Reserved               : %05d KiB", memory->reserved / 1024);
-    printf("ACPI Reclaimable       : %05d KiB", memory->acpi_reclaimable / 1024);
-    printf("ACPI NVS               : %05d KiB", memory->acpi_nvs / 1024);
-    printf("Bad                    : %05d KiB", memory->bad / 1024);
-    printf("Bootloader Reclaimable : %05d KiB", memory->bootloader_reclaimable / 1024);
-    printf("Kernel Modules         : %05d KiB", memory->kernel_modules / 1024);
-    printf("Framebuffer            : %05d KiB", memory->framebuffer / 1024);
-    printf("Unknown                : %05d KiB", memory->unknown / 1024);
-    print(yellow_color);
-    printf("Grand Total            : %d MiB", ((memory->total / 1024) / 1024) - 3); // There is an error of 3MB (approx.) beacuse of division.
+    info("Usable                 : %05d KiB", __FILE__, memory->usable / 1024);
+    info("Reserved               : %05d KiB", __FILE__, memory->reserved / 1024);
+    info("ACPI Reclaimable       : %05d KiB", __FILE__, memory->acpi_reclaimable / 1024);
+    info("ACPI NVS               : %05d KiB", __FILE__, memory->acpi_nvs / 1024);
+    info("Bad                    : %05d KiB", __FILE__, memory->bad / 1024);
+    info("Bootloader Reclaimable : %05d KiB", __FILE__, memory->bootloader_reclaimable / 1024);
+    info("Kernel Modules         : %05d KiB", __FILE__, memory->kernel_modules / 1024);
+    info("Framebuffer            : %05d KiB", __FILE__, memory->framebuffer / 1024);
+    info("Unknown                : %05d KiB", __FILE__, memory->unknown / 1024);
+    info(yellow_color "Grand Total            : %d MiB", __FILE__, ((memory->total / 1024) / 1024) - 3); // There is an error of 3MB (approx.) beacuse of division.
 }
 
 void analyze_memory_map(struct memory_context *memory, struct limine_memmap_request memory_map_request) {
 
+    LOG_SCOPE();
+    
     memory->total = 0;
     memory->usable = 0;
     memory->reserved = 0;
@@ -217,7 +218,7 @@ void analyze_memory_map(struct memory_context *memory, struct limine_memmap_requ
                 memory->unknown += length;
                 type = "Unknown";
         }
-        printf("Base: 0x%09x, Length: 0x%09x, Type: %s", memory_map_request.response->entries[i]->base, length, type);
+        info("Base: 0x%09x, Length: 0x%09x, Type: %s", __FILE__, memory_map_request.response->entries[i]->base, length, type);
     }
 }
 

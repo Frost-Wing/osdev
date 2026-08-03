@@ -47,7 +47,7 @@ inline void __log_scope_exit(int *unused) {
 
 
 #define TREE_END    " └─ "
-#define TREE_BRANCH " ├─ "
+// #define TREE_BRANCH " ├─ "
 #define TREE_TRUNK  " │  "
 
 static void print_prefix(void) {

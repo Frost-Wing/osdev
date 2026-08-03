@@ -411,7 +411,8 @@ static command_t commands[] = {
     {"exec", cmd_exec},
     {"tasks", cmd_tasks},
     {"ping", cmd_ping},
-    {"wget", cmd_wget}
+    {"wget", cmd_wget},
+    {"cp", cmd_cp},
     // { "fwfetch", cmd_fwfetch },
     // { "help", cmd_help },
 };

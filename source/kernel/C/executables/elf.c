@@ -30,11 +30,11 @@ static uint32_t *elf_vfs_pos_ptr(vfs_file_t *file) {
             return &file->f.fat32.pos;
         case FS_ISO9660:
             return &file->f.iso9660.pos;
+        case FS_EXT2:
+                return &file->f.ext2.pos;
         case FS_UNKNOWN:
         case FS_FAT12:
         case FS_EXFAT:
-        case FS_EXT2:
-            return &file->f.ext2.pos;
         case FS_EXT3:
         case FS_EXT4:
         case FS_XFS:
