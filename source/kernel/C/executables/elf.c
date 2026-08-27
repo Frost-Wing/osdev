@@ -219,7 +219,7 @@ static int elf_apply_relocation_entries(const Elf64_Rela *relocs,
     return 0;
 }
 
-static uint64_t elf_compute_load_bias(const Elf64_Ehdr *header, const Elf64_Phdr *headers) {
+static uint64_t elf_compute_load_bias_at(const Elf64_Ehdr *header, const Elf64_Phdr *headers, uint64_t dyn_base) {
     if (!header || !headers)
         return 0;
 
@@ -236,8 +236,7 @@ static uint64_t elf_compute_load_bias(const Elf64_Ehdr *header, const Elf64_Phdr
         return 0;
 
     if (header->e_type == ET_DYN) {
-        uint64_t mapped_base = USER_CODE_VADDR;
-        return mapped_base - lowest_vaddr;
+        return dyn_base - lowest_vaddr;
     }
 
     return 0;
@@ -519,7 +518,29 @@ __attribute__((unused)) static int elf_map_program_header_from_vfs(Elf64_Phdr *p
     return 0;
 }
 
-void *elf_load_from_memory_ex(void *file_base_address, uint64_t file_size, elf_image_info_t *info) {
+
+static int elf_record_interp_segment(const Elf64_Phdr *ph, void *file_base_address, uint64_t file_size, elf_image_info_t *info) {
+    if (!info || !ph || ph->p_type != PT_INTERP)
+        return 0;
+
+    if (ph->p_filesz == 0 || ph->p_offset + ph->p_filesz > file_size || ph->p_filesz >= sizeof(info->interp_path)) {
+        eprintf("elf: invalid PT_INTERP bounds");
+        return -1;
+    }
+
+    memcpy(info->interp_path, (uint8_t *)file_base_address + ph->p_offset, ph->p_filesz);
+    info->interp_path[sizeof(info->interp_path) - 1] = '\0';
+    info->interp_path[ph->p_filesz - 1] = '\0';
+    info->has_interp = true;
+    return 0;
+}
+
+static void *elf_load_from_memory_at(void *file_base_address,
+    uint64_t file_size,
+    uint64_t dyn_base,
+    bool apply_relocations,
+    elf_image_info_t *info) {
+
     if (file_base_address == NULL || file_size < sizeof(Elf64_Ehdr))
         return NULL;
 
@@ -533,15 +554,18 @@ void *elf_load_from_memory_ex(void *file_base_address, uint64_t file_size, elf_i
     // printf("Parsing ELF64 file with %d PHDRs\n", header.e_phnum);
 
     Elf64_Phdr *program_headers_start = (Elf64_Phdr *)((uint8_t *)file_base_address + header.e_phoff);
-    uint64_t load_bias = elf_compute_load_bias(&header, program_headers_start);
+    uint64_t load_bias = elf_compute_load_bias_at(&header, program_headers_start, dyn_base);
 
     if (info)
         memset(info, 0, sizeof(*info));
 
     for (uint16_t i = 0; i < header.e_phnum; i++) {
         Elf64_Phdr *prog_header = (Elf64_Phdr *)((uint8_t *)program_headers_start + ((uint64_t)i * header.e_phentsize));
-        if (info)
+        if (info) {
             elf_record_tls_segment(prog_header, info);
+            if (elf_record_interp_segment(prog_header, file_base_address, file_size, info) != 0)
+                return NULL;
+        }
         if (elf_map_program_header(prog_header, file_base_address, file_size, load_bias) != 0) {
             return NULL;
         }
@@ -549,6 +573,8 @@ void *elf_load_from_memory_ex(void *file_base_address, uint64_t file_size, elf_i
 
     if (info) {
         info->entry = load_bias + header.e_entry;
+        info->requested_entry = header.e_entry;
+        info->load_bias = load_bias;
         info->phdr_addr = elf_stage_phdrs_for_user(program_headers_start,
             (uint64_t)header.e_phnum * header.e_phentsize);
         if (info->phdr_addr == 0)
@@ -559,17 +585,21 @@ void *elf_load_from_memory_ex(void *file_base_address, uint64_t file_size, elf_i
             return NULL;
     }
 
-    if (elf_apply_runtime_relocations(load_bias, program_headers_start, header.e_phnum) != 0)
+    if (apply_relocations && elf_apply_runtime_relocations(load_bias, program_headers_start, header.e_phnum) != 0)
         return NULL;
 
     return (void *)(load_bias + header.e_entry);
+}
+
+void *elf_load_from_memory_ex(void *file_base_address, uint64_t file_size, elf_image_info_t *info) {
+    return elf_load_from_memory_at(file_base_address, file_size, USER_CODE_VADDR, true, info);
 }
 
 void *elf_load_from_memory(void *file_base_address, uint64_t file_size) {
     return elf_load_from_memory_ex(file_base_address, file_size, NULL);
 }
 
-void *elf_load_from_vfs_ex(const char *path, elf_image_info_t *info) {
+static void *elf_load_from_vfs_at(const char *path, uint64_t dyn_base, bool apply_relocations, elf_image_info_t *info) {
     if (!path)
         return NULL;
 
@@ -643,9 +673,44 @@ void *elf_load_from_vfs_ex(const char *path, elf_image_info_t *info) {
     }
     vfs_close(&file);
 
-    void *entry = elf_load_from_memory_ex(file_image, size, info);
+    void *entry = elf_load_from_memory_at(file_image, size, dyn_base, false, info);
     kfree(file_image);
+
+    if (entry && info && info->has_interp) {
+        elf_image_info_t interp_info = {0};
+        void *interp_entry = NULL;
+
+        if (strcmp(info->interp_path, "/lib64/ld-linux-x86-64.so.2") == 0) {
+            vfs_file_t interp_probe;
+            if (vfs_open(info->interp_path, VFS_RDONLY, &interp_probe) == 0) {
+                vfs_close(&interp_probe);
+            } else {
+                snprintf(info->interp_path, sizeof(info->interp_path), "%s", "/lib/ld-musl-x86_64.so.1");
+            }
+        }
+
+        interp_entry = elf_load_from_vfs_at(info->interp_path, USER_INTERP_VADDR, true, &interp_info);
+        if (!interp_entry) {
+            eprintf("elf: failed to load interpreter %s", info->interp_path);
+            return NULL;
+        }
+
+        info->interp_base = interp_info.load_bias;
+        entry = interp_entry;
+        if (interp_info.tls_template)
+            kfree(interp_info.tls_template);
+    } else if (entry && info && apply_relocations) {
+        if (elf_apply_runtime_relocations(info->load_bias, (Elf64_Phdr *)info->phdr_addr, info->phnum) != 0)
+            return NULL;
+    }
+
     return entry;
+}
+
+void *elf_load_from_vfs_ex(const char *path, elf_image_info_t *info) {
+    elf_image_info_t local_info;
+    elf_image_info_t *load_info = info ? info : &local_info;
+    return elf_load_from_vfs_at(path, USER_CODE_VADDR, true, load_info);
 }
 
 void *elf_load_from_vfs(const char *path) {
