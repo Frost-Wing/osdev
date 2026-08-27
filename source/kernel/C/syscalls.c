@@ -590,12 +590,20 @@ static int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
     }
 
     if (file->mnt->type == FS_PROC) {
-        static const char *proc_entries[PROC_FILE_COUNT] = {"stat", "heap", "meminfo"};
-        for (uint64_t i = entry_index; i < PROC_FILE_COUNT; ++i) {
-            if (!emit_dirent(buf, buflen, &used, i + 2, 8, proc_entries[i], i + 1))
+        uint64_t i = entry_index;
+        const char *name;
+        procfs_type_t type;
+
+        while (procfs_getdent(file->rel_path, i, &name, &type)) {
+            uint8_t d_type = (type == PROC_DIR) ? 4 : 8;
+
+            if (!emit_dirent(buf, buflen, &used, path_inode_hash(name), d_type, name, i + 1))
                 break;
-            *pos = (uint32_t)(i + 1);
+
+            i++;
+            *pos = (uint32_t)i;
         }
+
         return (int)used;
     }
 
