@@ -303,6 +303,7 @@ void main(void) {
         }
         vfs_mount("proc", "/proc", true);
         vfs_mount("dev", "/dev", true);
+        vfs_mount("sys", "/sys", true);
 
     } else {
         warn("No rootdisk= specified on kernel cmdline, root not mounted.", __FILE__, "main");

@@ -46,6 +46,8 @@ typedef struct procfs_entry {
 void procfs_init(void);
 int procfs_register(procfs_entry_t *entry);
 
+void sysfs_init(void);
+
 int procfs_open(vfs_file_t *file);
 int procfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size);
 int procfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size);
@@ -53,5 +55,11 @@ void procfs_close(vfs_file_t *file);
 int procfs_getdent(const char *path, uint64_t index, const char **out_name, procfs_type_t *out_type);
 int procfs_ls(const char *path);
 int procfs_path_is_dir(const char *path);
+
+int sysfs_open(vfs_file_t *file);
+int sysfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size);
+int sysfs_getdent(const char *path, uint64_t index, const char **out_name, procfs_type_t *out_type);
+int sysfs_is_dir(const char *path);
+int sysfs_ls(const char *path);
 
 #endif
