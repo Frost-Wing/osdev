@@ -249,6 +249,24 @@ static bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info
         return true;
     }
 
+    if (res.mnt->type == FS_SYS) {
+        if (res.rel_path[0] == '\0') {
+            info->is_dir = true;
+            info->mode = LINUX_S_IFDIR | 0555;
+            return true;
+        }
+
+        vfs_file_t sysf = {0};
+        snprintf(sysf.rel_path, sizeof(sysf.rel_path), "%s", res.rel_path);
+        sysf.mnt = res.mnt;
+        if (sysfs_open(&sysf) != 0)
+            return false;
+        info->is_dir = sysfs_is_dir(res.rel_path);
+        info->mode = (info->is_dir ? LINUX_S_IFDIR : LINUX_S_IFREG) | 0555;
+        info->size = 0;
+        return true;
+    }
+
     if (res.mnt->type == FS_DEV) {
         if (res.rel_path[0] == '\0') {
             info->is_dir = true;
@@ -595,6 +613,24 @@ static int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
         procfs_type_t type;
 
         while (procfs_getdent(file->rel_path, i, &name, &type)) {
+            uint8_t d_type = (type == PROC_DIR) ? 4 : 8;
+
+            if (!emit_dirent(buf, buflen, &used, path_inode_hash(name), d_type, name, i + 1))
+                break;
+
+            i++;
+            *pos = (uint32_t)i;
+        }
+
+        return (int)used;
+    }
+
+    if (file->mnt->type == FS_SYS) {
+        uint64_t i = entry_index;
+        const char *name;
+        procfs_type_t type;
+
+        while (sysfs_getdent(file->rel_path, i, &name, &type)) {
             uint8_t d_type = (type == PROC_DIR) ? 4 : 8;
 
             if (!emit_dirent(buf, buflen, &used, path_inode_hash(name), d_type, name, i + 1))
