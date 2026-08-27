@@ -113,6 +113,7 @@ typedef struct {
 
 #define PT_LOAD 1
 #define PT_DYNAMIC 2
+#define PT_INTERP 3
 #define PT_TLS 7
 
 // Dynamic table tags
@@ -188,6 +189,11 @@ typedef struct {
 
 typedef struct {
     uint64_t entry;
+    uint64_t requested_entry;
+    uint64_t load_bias;
+    uint64_t interp_base;
+    bool has_interp;
+    char interp_path[128];
     uint64_t phdr_addr;
     uint16_t phentsize;
     uint16_t phnum;

@@ -608,8 +608,8 @@ static int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
     }
 
     if (file->mnt->type == FS_DEV) {
-        static const char *dev_entries[] = {"null", "zero", "random", "urandom", "klog"};
-        const uint64_t fixed = 5;
+        static const char *dev_entries[] = {"null", "zero", "random", "urandom", "klog", "syslog", "tty"};
+        const uint64_t fixed = 7;
         uint64_t total = fixed;
         for (int i = 0; i < block_device_count; i++) {
             if (block_devices[i].present &&
@@ -1433,12 +1433,11 @@ uint64 sys_syslog(int type, char *buf, uint64_t len) {
 /**
  * @brief Linux-compatible mmap wrapper backed by the kernel's anonymous mapper.
  *
- * Only anonymous mappings are currently supported. The function enforces
- * Linux argument validation and returns Linux errno values on failure.
+ * Anonymous mappings and simple private file-backed mappings are supported.
+ * File-backed mappings are eagerly copied so user-space ELF interpreters can
+ * map shared-library segments before applying their own relocations.
  */
 static uint64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, uint64_t fd, uint64_t off) {
-    (void)addr;
-
     if (length == 0)
         return -LINUX_EINVAL;
 
@@ -1451,13 +1450,33 @@ static uint64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t f
     if ((flags & (LINUX_MAP_PRIVATE | LINUX_MAP_SHARED)) == 0)
         return -LINUX_EINVAL;
 
-    if ((flags & LINUX_MAP_ANONYMOUS) == 0)
-        return -LINUX_ENOSYS;
+    uint64_t mapped = 0;
+    bool anonymous = (flags & LINUX_MAP_ANONYMOUS) != 0;
 
-    if ((int64_t)fd != -1)
-        return -LINUX_EBADF;
+    if (anonymous) {
+        if ((int64_t)fd != -1)
+            return -LINUX_EBADF;
+        mapped = (flags & LINUX_MAP_FIXED) ? userland_mmap_fixed(addr, length) : userland_mmap_anon(length);
+    } else {
+        if (!fd_valid((int)fd))
+            return -LINUX_EBADF;
+        mapped = (flags & LINUX_MAP_FIXED) ? userland_mmap_fixed(addr, length) : userland_mmap_anon(length);
+        if (mapped != 0) {
+            vfs_file_t *file = fd_get_file((int)fd);
+            uint32_t *pos = fd_pos_ptr((int)fd);
+            if (!file || !pos)
+                return -LINUX_EBADF;
+            uint32_t old_pos = *pos;
+            *pos = (uint32_t)off;
+            int rd = vfs_read(file, (uint8_t *)mapped, (uint32_t)length);
+            *pos = old_pos;
+            if (rd < 0)
+                return -LINUX_EIO;
+            if ((uint64_t)rd < length)
+                memset((uint8_t *)mapped + rd, 0, length - (uint64_t)rd);
+        }
+    }
 
-    uint64_t mapped = userland_mmap_anon(length);
     if (mapped == 0)
         return -LINUX_ENOMEM;
 
@@ -1485,9 +1504,10 @@ static uint64 sys_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
     if (end < addr)
         return -LINUX_EINVAL;
 
+    bool in_image = (addr >= USER_CODE_VADDR && end <= USER_HEAP_VADDR);
     bool in_heap = (addr >= USER_HEAP_VADDR && end <= (USER_HEAP_VADDR + USER_HEAP_SIZE));
     bool in_mmap = (addr >= USER_MMAP_VADDR && end <= (USER_MMAP_VADDR + USER_MMAP_SIZE));
-    if (!in_heap && !in_mmap)
+    if (!in_image && !in_heap && !in_mmap)
         return -LINUX_EINVAL;
 
     return 0;
@@ -1508,9 +1528,10 @@ static uint64 sys_munmap(uint64_t addr, uint64_t length) {
     if (end < addr)
         return -LINUX_EINVAL;
 
+    bool in_image = (addr >= USER_CODE_VADDR && end <= USER_HEAP_VADDR);
     bool in_heap = (addr >= USER_HEAP_VADDR && end <= (USER_HEAP_VADDR + USER_HEAP_SIZE));
     bool in_mmap = (addr >= USER_MMAP_VADDR && end <= (USER_MMAP_VADDR + USER_MMAP_SIZE));
-    if (!in_heap && !in_mmap)
+    if (!in_image && !in_heap && !in_mmap)
         return -LINUX_EINVAL;
 
     return 0;
