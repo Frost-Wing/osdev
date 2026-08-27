@@ -181,10 +181,28 @@ int procfs_register(procfs_entry_t *entry) {
     return 0;
 }
 
-/* Find proc entry by rel_path */
+/* Find proc entry by rel_path with path normalization */
 static procfs_entry_t *procfs_find(const char *name) {
+    if (!name || *name == '\0')
+        return NULL;
+
+    // Create a normalized version of the name without trailing slashes
+    static char normalized[256];
+    size_t len = strlen(name);
+    
+    // Copy name and strip trailing slash if present
+    if (len >= sizeof(normalized))
+        len = sizeof(normalized) - 1;
+    
+    memcpy(normalized, name, len);
+    normalized[len] = '\0';
+    
+    // Strip trailing slash for comparison
+    if (len > 0 && normalized[len - 1] == '/')
+        normalized[len - 1] = '\0';
+    
     for (int i = 0; i < proc_file_count; i++) {
-        if (strcmp(proc_files[i]->name, name) == 0)
+        if (strcmp(proc_files[i]->name, normalized) == 0)
             return proc_files[i];
     }
     return NULL;
@@ -237,25 +255,44 @@ int procfs_getdent(const char *path, uint64_t index, const char **out_name, proc
         return 0;
 
     size_t plen = strlen(path);
+    
+    // Normalize path by stripping trailing slashes
+    static char normalized_path[256];
+    if (plen >= sizeof(normalized_path))
+        plen = sizeof(normalized_path) - 1;
+    
+    if (plen > 0) {
+        memcpy(normalized_path, path, plen);
+        normalized_path[plen] = '\0';
+        
+        // Strip trailing slashes
+        while (plen > 0 && normalized_path[plen - 1] == '/') {
+            normalized_path[--plen] = '\0';
+        }
+    } else {
+        normalized_path[0] = '\0';
+    }
+    
     uint64_t seen = 0;
 
     for (int i = 0; i < proc_file_count; i++) {
         const char *name = proc_files[i]->name;
 
         if (plen) {
-            if (strncmp(name, path, plen) != 0)
+            if (strncmp(name, normalized_path, plen) != 0)
                 continue;
 
             name += plen;
 
+            // After stripping path prefix, must have either '/' or end of string
             if (*name == '/')
                 name++;
             else if (*name != '\0')
-                continue;
+                continue;  // Path component doesn't match exactly
         }
 
         if (*name == '\0')
-            continue;
+            continue;  // Skip entries that are empty after path stripping
 
         const char *slash = strchr(name, '/');
         size_t child_len = slash ? (size_t)(slash - name) : strlen(name);
@@ -311,22 +348,48 @@ int procfs_getdent(const char *path, uint64_t index, const char **out_name, proc
 
 int procfs_ls(const char *path) {
     size_t plen = strlen(path);
+    
+    // Normalize path by stripping trailing slashes (same as procfs_getdent)
+    static char normalized_path[256];
+    if (plen >= sizeof(normalized_path))
+        plen = sizeof(normalized_path) - 1;
+    
+    if (plen > 0) {
+        memcpy(normalized_path, path, plen);
+        normalized_path[plen] = '\0';
+        
+        // Strip trailing slashes
+        while (plen > 0 && normalized_path[plen - 1] == '/') {
+            normalized_path[--plen] = '\0';
+        }
+    } else {
+        normalized_path[0] = '\0';
+    }
 
     for (int i = 0; i < proc_file_count; i++) {
         const char *name = proc_files[i]->name;
 
         if (plen) {
-            if (strncmp(name, path, plen))
+            // Check if entry starts with path prefix
+            if (strncmp(name, normalized_path, plen) != 0)
                 continue;
 
             name += plen;
 
+            // After stripping path prefix, must have either '/' or end of string
             if (*name == '/')
                 name++;
+            else if (*name != '\0')
+                continue;  // Path component doesn't match
         }
 
+        // Skip if nothing left after path stripping
+        if (*name == '\0')
+            continue;
+            
         const char *slash = strchr(name, '/');
 
+        // Skip entries with further subdirectories (only show direct children)
         if (slash)
             continue;
 
