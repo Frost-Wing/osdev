@@ -41,6 +41,7 @@ endif
 # Directories
 SRC_DIRS := kernel drivers
 OBJ_DIR := obj
+CRASH_SYMBOLS_C := kernel/C/crash_symbols.generated.c
 
 # Flags
 CFLAGS := -std=gnu11 -ffreestanding \
@@ -61,12 +62,13 @@ LDFLAGS := -nostdlib -static --no-dynamic-linker -z text -z max-page-size=0x1000
 NASMFLAGS := -Wall -f elf64
 
 # Sources
-CFILES := $(shell find -L $(SRC_DIRS) -type f -name '*.c')
+CFILES := $(filter-out $(CRASH_SYMBOLS_C),$(shell find -L $(SRC_DIRS) -type f -name '*.c'))
 ASFILES := $(shell find -L $(SRC_DIRS) -type f -name '*.S')
 NASMFILES := $(shell find -L $(SRC_DIRS) -type f -name '*.asm')
 
 # Objects
 OBJ := $(addprefix $(OBJ_DIR)/,$(CFILES:.c=.c.o) $(ASFILES:.S=.S.o) $(NASMFILES:.asm=.asm.o))
+CRASH_SYMBOLS_OBJ := $(OBJ_DIR)/$(CRASH_SYMBOLS_C).o
 DEPS := $(OBJ:.o=.d)
 
 # ============================
@@ -80,8 +82,15 @@ all: version_info compile-commands $(KERNEL)
 
 # Final kernel link
 $(KERNEL): $(OBJ) linker/linker.ld
-	@echo -e "$(CYAN)[LD]$(RESET) $(WHITE)$@$(RESET)"
+	@echo -e "$(CYAN)[LD]$(RESET) $(WHITE)$@ bootstrap$(RESET)"
 	@$(LD) $(OBJ) $(LDFLAGS) -o $@
+	@echo -e "$(CYAN)[SYM]$(RESET) $(WHITE)Generating crash diagnosis symbols$(RESET)"
+	@python3 ./scripts/gen_crash_symbols.py --kernel $@ --root $(CURDIR) --out $(CRASH_SYMBOLS_C)
+	@mkdir -p $(dir $(CRASH_SYMBOLS_OBJ))
+	@echo -e "$(BLUE)[CC]$(RESET) $(GRAY)$(CRASH_SYMBOLS_C)$(RESET)"
+	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $(CRASH_SYMBOLS_C) -o $(CRASH_SYMBOLS_OBJ)
+	@echo -e "$(CYAN)[LD]$(RESET) $(WHITE)$@ final$(RESET)"
+	@$(LD) $(OBJ) $(CRASH_SYMBOLS_OBJ) $(LDFLAGS) -o $@
 
 # C source compile
 $(OBJ_DIR)/%.c.o: %.c includes/limine.h
@@ -117,7 +126,7 @@ clean:
 
 deep-clean:
 	@echo -e "$(RED)[RM]$(RESET) $(WHITE)All build outputs$(RESET)"
-	@rm -rf $(OBJ_DIR) $(KERNEL)
+	@rm -rf $(OBJ_DIR) $(KERNEL) $(CRASH_SYMBOLS_C)
 	@echo -e "$(OK) $(CYAN)Deep clean complete.$(RESET)"
 
 # Handling Debugging Infos
