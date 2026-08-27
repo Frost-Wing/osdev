@@ -16,7 +16,7 @@
 #include <ringbuffer.h>
 #include <strings.h>
 
-#define PROCFS_MAX_FILES 32
+#define PROCFS_MAX_FILES (MAX_PCI_DEVICES + 8)
 
 static procfs_entry_t *proc_files[PROCFS_MAX_FILES];
 static int proc_file_count = 0;
@@ -230,6 +230,83 @@ int procfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
 
 void procfs_close(vfs_file_t *file) {
     (void)file;
+}
+
+int procfs_getdent(const char *path, uint64_t index, const char **out_name, procfs_type_t *out_type) {
+    if (!path || !out_name || !out_type)
+        return 0;
+
+    size_t plen = strlen(path);
+    uint64_t seen = 0;
+
+    for (int i = 0; i < proc_file_count; i++) {
+        const char *name = proc_files[i]->name;
+
+        if (plen) {
+            if (strncmp(name, path, plen) != 0)
+                continue;
+
+            name += plen;
+
+            if (*name == '/')
+                name++;
+            else if (*name != '\0')
+                continue;
+        }
+
+        if (*name == '\0')
+            continue;
+
+        const char *slash = strchr(name, '/');
+        size_t child_len = slash ? (size_t)(slash - name) : strlen(name);
+
+        bool duplicate = false;
+        for (int j = 0; j < i; j++) {
+            const char *prev = proc_files[j]->name;
+
+            if (plen) {
+                if (strncmp(prev, path, plen) != 0)
+                    continue;
+
+                prev += plen;
+
+                if (*prev == '/')
+                    prev++;
+                else if (*prev != '\0')
+                    continue;
+            }
+
+            if (*prev == '\0')
+                continue;
+
+            const char *prev_slash = strchr(prev, '/');
+            size_t prev_len = prev_slash ? (size_t)(prev_slash - prev) : strlen(prev);
+
+            if (prev_len == child_len && strncmp(prev, name, child_len) == 0) {
+                duplicate = true;
+                break;
+            }
+        }
+
+        if (duplicate)
+            continue;
+
+        if (seen++ == index) {
+            static char dent_name[64];
+
+            if (child_len >= sizeof(dent_name))
+                child_len = sizeof(dent_name) - 1;
+
+            memcpy(dent_name, name, child_len);
+            dent_name[child_len] = '\0';
+
+            *out_name = dent_name;
+            *out_type = slash ? PROC_DIR : proc_files[i]->type;
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 int procfs_ls(const char *path) {

@@ -197,12 +197,17 @@ static bool userland_pop_frame(void) {
         return false;
     }
 
-    userland_saved_frame_t *finished = &userland_frame_stack[userland_depth];
-    userland_restore_snapshot(finished->user_pages);
-    userland_free_snapshot(finished->user_pages);
-    finished->user_pages = NULL;
+    userland_saved_frame_t *f = &userland_frame_stack[userland_depth];
 
-    userland_saved_frame_t *f = &userland_frame_stack[userland_depth - 1];
+    /*
+     * The slot at the depth we just popped is the snapshot of the outer
+     * userland_exec() frame that was active when this nested frame was
+     * started. Restore from that same slot. Using userland_depth - 1 here
+     * restores the state from before the outer frame existed, which clears
+     * userland_resume_rip/userland_resume_rsp. The next exit syscall then
+     * falls through as a normal syscall return and the supposedly exited
+     * process resumes in userspace, usually ending in a page fault.
+     */
     userland_saved_kernel_stack_top = f->saved_kernel_stack_top;
     userland_saved_tss_rsp0 = f->saved_tss_rsp0;
     userland_resume_rip = f->resume_rip;
@@ -216,6 +221,10 @@ static bool userland_pop_frame(void) {
     userland_resume_ret_rip = f->resume_ret_rip;
     userland_resume_ret_rsp = f->resume_ret_rsp;
     userland_last_exit_code = f->last_exit_code;
+
+    userland_restore_snapshot(f->user_pages);
+    userland_free_snapshot(f->user_pages);
+    f->user_pages = NULL;
     return true;
 }
 
