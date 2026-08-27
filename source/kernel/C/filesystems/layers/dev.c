@@ -16,6 +16,7 @@
 #include <memory.h>
 #include <strings.h>
 #include <syslog.h>
+#include <tty.h>
 
 static uint64_t devfs_rng_state = 0x9E3779B97F4A7C15ULL;
 
@@ -68,7 +69,8 @@ int devfs_open(vfs_file_t *file) {
         strcmp(file->rel_path, "random") == 0 ||
         strcmp(file->rel_path, "urandom") == 0 ||
         strcmp(file->rel_path, "klog") == 0 ||
-        strcmp(file->rel_path, "syslog") == 0) {
+        strcmp(file->rel_path, "syslog") == 0 ||
+        strcmp(file->rel_path, "tty") == 0) {
 
         file->pos = 0;
         return 0;
@@ -88,6 +90,9 @@ int devfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
 
     if (strcmp(file->rel_path, "null") == 0)
         return 0;
+
+    if (strcmp(file->rel_path, "tty") == 0)
+        return tty_read((char *)buf, size);
 
     if (strcmp(file->rel_path, "zero") == 0) {
         memset(buf, 0, size);
@@ -159,6 +164,13 @@ int devfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
         return (int)size;
     }
 
+    if (strcmp(file->rel_path, "tty") == 0) {
+        for (uint32_t i = 0; i < size; ++i)
+            putc((char)buf[i]);
+        file->pos += size;
+        return (int)size;
+    }
+
     if (strcmp(file->rel_path, "zero") == 0)
         return -1;
 
@@ -224,6 +236,7 @@ int devfs_ls(void) {
     printfnoln(blue_color "urandom " reset_color);
     printfnoln(blue_color "klog " reset_color);
     printfnoln(blue_color "syslog " reset_color);
+    printfnoln(blue_color "tty " reset_color);
 
     for (int i = 0; i < block_device_count; i++) {
         block_device_info_t *dev = &block_devices[i];

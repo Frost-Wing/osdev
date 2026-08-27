@@ -20,6 +20,7 @@
 #define USER_MMAP_SIZE (4 * 1024 * 1024)
 
 #define USER_CODE_VADDR 0x0000400000000000ULL // canonical user space, isolated PML4 slot
+#define USER_INTERP_VADDR 0x0000400008000000ULL // dynamically-linked ELF interpreter base
 #define USER_HEAP_VADDR 0x0000400010000000ULL // user heap right above code region
 #define USER_MMAP_VADDR (USER_HEAP_VADDR + USER_HEAP_SIZE)
 #define USER_TLS_VADDR (USER_MMAP_VADDR + USER_MMAP_SIZE)
@@ -47,7 +48,7 @@
 #define LINUX_AT_RANDOM 25
 #define LINUX_AT_EXECFN 31
 #define IA32_FS_BASE_MSR 0xC0000100
-#define USER_AUXV_MAX 18
+#define USER_AUXV_MAX 20
 
 typedef struct {
     int i[4];
@@ -115,6 +116,7 @@ void userland_exec_prepare(
 void userland_heap_init(void);
 uint64_t userland_brk(uint64_t requested_break);
 uint64_t userland_mmap_anon(uint64_t length);
+uint64_t userland_mmap_fixed(uint64_t addr, uint64_t length);
 bool userland_prepare_exit(syscall_frame_t *frame, uint64_t exit_code);
 int userland_exec(const userland_exec_ctx_t *ctx);
 bool userland_is_running(void);

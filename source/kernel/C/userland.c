@@ -393,7 +393,7 @@ static uint64_t build_initial_user_stack(const char *exec_path,
     auxv[auxc++] = (auxv_pair_t){LINUX_AT_PHENT, image_info ? image_info->phentsize : 0};
     auxv[auxc++] = (auxv_pair_t){LINUX_AT_PHNUM, image_info ? image_info->phnum : 0};
     auxv[auxc++] = (auxv_pair_t){LINUX_AT_PAGESZ, PAGE_SIZE};
-    auxv[auxc++] = (auxv_pair_t){LINUX_AT_BASE, 0};
+    auxv[auxc++] = (auxv_pair_t){LINUX_AT_BASE, image_info ? image_info->interp_base : 0};
     auxv[auxc++] = (auxv_pair_t){LINUX_AT_FLAGS, 0};
     auxv[auxc++] = (auxv_pair_t){LINUX_AT_ENTRY, image_info ? image_info->entry : 0};
     auxv[auxc++] = (auxv_pair_t){LINUX_AT_UID, 0};
@@ -578,6 +578,23 @@ uint64_t userland_brk(uint64_t requested_break) {
         requested_break,
         user_heap_break);
     return user_heap_break;
+}
+
+
+uint64_t userland_mmap_fixed(uint64_t addr, uint64_t length) {
+    if (addr == 0 || length == 0)
+        return 0;
+
+    uint64_t aligned_addr = addr & ~(PAGE_SIZE - 1);
+    uint64_t page_delta = addr - aligned_addr;
+    uint64_t aligned_len = (page_delta + length + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+    uint64_t end = aligned_addr + aligned_len;
+
+    if (end < aligned_addr || aligned_addr < USER_CODE_VADDR || aligned_addr >= USER_STACK_TOP)
+        return 0;
+
+    map_user_range(aligned_addr, end, USER_DATA_FLAGS);
+    return addr;
 }
 
 uint64_t userland_mmap_anon(uint64_t length) {
