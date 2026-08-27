@@ -180,7 +180,8 @@ typedef enum {
 
     // OS / Custom
     FS_PROC,
-    FS_DEV
+    FS_DEV,
+    FS_SYS
 } partition_fs_type_t;
 
 typedef enum {

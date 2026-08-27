@@ -27,6 +27,9 @@ extern cstring GPUName[2]; // Max 2 GPUs allowed
 extern cstring using_graphics_card;
 extern uint64 *graphics_base_Address;
 extern int total_devices;
+extern uint16 vendors[MAX_PCI_DEVICES];
+extern uint16 devices[MAX_PCI_DEVICES];
+extern char deviceNames[MAX_PCI_DEVICES][64];
 
 // Define the base address for the PCI configuration space
 #define PCI_CONFIG_ADDRESS 0xCF8
@@ -39,6 +42,8 @@ typedef struct {
     uint16 slot;
     uint16 func;
 } pci_location_t;
+
+extern pci_location_t pciLocations[MAX_PCI_DEVICES];
 
 /**
  * @brief Read a 16-bit value from a PCI configuration register.

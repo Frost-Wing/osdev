@@ -158,6 +158,8 @@ int vfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
     switch (file->mnt->type) {
         case FS_PROC:
             return procfs_read(file, buf, size);
+        case FS_SYS:
+            return sysfs_read(file, buf, size);
         case FS_DEV:
             return devfs_read(file, buf, size);
         case FS_FAT16:
@@ -188,6 +190,7 @@ int vfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
 
     switch (file->mnt->type) {
         case FS_PROC:
+        case FS_SYS:
             return -10; // not implemented
         case FS_DEV:
             return devfs_write(file, buf, size);
@@ -216,6 +219,7 @@ void vfs_close(vfs_file_t *file) {
 
     switch (file->mnt->type) {
         case FS_PROC:
+        case FS_SYS:
             return; // not implemented
         case FS_DEV:
             return devfs_close(file);
@@ -295,6 +299,9 @@ int vfs_path_is_dir(const char *path) {
             /* Layered filesystems: treat root as existing, else unsupported */
             return 0;
 
+        case FS_SYS:
+            return sysfs_is_dir(res.rel_path);
+
         default:
             return 0;
     }
@@ -328,6 +335,10 @@ int vfs_ls(const char *path) {
 
     if (res.mnt->type == FS_PROC) {
         procfs_ls(res.rel_path);
+        entries = true;
+    }
+    if (res.mnt->type == FS_SYS) {
+        sysfs_ls(res.rel_path);
         entries = true;
     }
     if (res.mnt->type == FS_DEV) {
@@ -456,6 +467,21 @@ int vfs_open(const char *path, int flags, vfs_file_t *out) {
         }
 
         if (procfs_open(out) != 0)
+            return -1;
+
+        return 0;
+    }
+
+    if (res.mnt->type == FS_SYS) {
+        strncpy(out->rel_path, res.rel_path, sizeof(out->rel_path));
+        out->mnt = res.mnt;
+        out->flags = flags;
+
+        if (res.rel_path[0] == '\0') {
+            return 0;
+        }
+
+        if (sysfs_open(out) != 0)
             return -1;
 
         return 0;
@@ -754,6 +780,16 @@ int vfs_cd(const char *path) {
         strncpy(vfs_cwd, norm, sizeof(vfs_cwd) - 1);
         vfs_cwd[sizeof(vfs_cwd) - 1] = '\0';
 
+        return 0;
+    }
+
+    if (res.mnt->type == FS_SYS) {
+        if (*res.rel_path && !sysfs_is_dir(res.rel_path))
+            return -4;
+
+        vfs_cwd_cluster = 0;
+        strncpy(vfs_cwd, norm, sizeof(vfs_cwd));
+        vfs_cwd[sizeof(vfs_cwd) - 1] = 0;
         return 0;
     }
 
@@ -1140,6 +1176,7 @@ int vfs_sync(bool kernel_call) {
             case FS_ISO9660:
             case FS_PROC:
             case FS_DEV:
+            case FS_SYS:
                 break;
         }
     }
@@ -1166,6 +1203,8 @@ const char *fs_type_to_string(int fs) {
             return "PROCFS";
         case FS_DEV:
             return "DEVFS";
+        case FS_SYS:
+            return "SYSFS";
         case FS_ISO9660:
             return "ISO9660";
         case FS_EXT2:
@@ -1254,6 +1293,34 @@ int vfs_mount(const char *diskname, const char *mount_point, bool is_kernel_call
             printf("mount: mounted " red_color "%s" reset_color " (%s) at '%s'",
                 device,
                 fs_type_to_string(FS_DEV),
+                mount_point);
+
+        return 0;
+    }
+
+    if (strcmp(device, "sys") == 0) {
+        mount_entry_t *new_mount = add_mount(mount_point, device, FS_SYS, NULL);
+        if (!new_mount) {
+            if (is_kernel_call)
+                error("mount: failed to add mount entry for %s.", __FILE__, device);
+            return 1;
+        }
+
+        sysfs_init();
+
+        if (strcmp(mount_point, "/sys") != 0) {
+            if (is_kernel_call)
+                warn("mount: warning mounting 'sys' on non-standard path.", __FILE__, mount_point);
+            else
+                printf("mount: warning mounting 'sys' on non-standard path.");
+        }
+
+        if (is_kernel_call)
+            done("mount: mounted %s (%s) at '%s'.", __FILE__, device, fs_type_to_string(FS_SYS), mount_point);
+        else
+            printf("mount: mounted " red_color "%s" reset_color " (%s) at '%s'",
+                device,
+                fs_type_to_string(FS_SYS),
                 mount_point);
 
         return 0;
@@ -1426,6 +1493,7 @@ int vfs_umount(const char *mount_point, bool is_kernel_call) {
             }
             break;
         case FS_PROC:
+        case FS_SYS:
             // procfs_shutdown(); /* or procfs_unmount() */
             break;
         case FS_DEV:
