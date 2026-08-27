@@ -741,9 +741,19 @@ int vfs_cd(const char *path) {
 
     /* ---------- PROCFS ---------- */
     if (res.mnt->type == FS_PROC) {
+        int is_dir = procfs_path_is_dir(res.rel_path);
+
+        if (is_dir < 0)
+            return -3; /* path doesn't exist */
+
+        if (is_dir == 0)
+            return -4; /* not a directory */
+
         vfs_cwd_cluster = 0;
-        strncpy(vfs_cwd, norm, sizeof(vfs_cwd));
-        vfs_cwd[sizeof(vfs_cwd) - 1] = 0;
+
+        strncpy(vfs_cwd, norm, sizeof(vfs_cwd) - 1);
+        vfs_cwd[sizeof(vfs_cwd) - 1] = '\0';
+
         return 0;
     }
 

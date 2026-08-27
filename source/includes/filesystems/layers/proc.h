@@ -52,5 +52,6 @@ int procfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size);
 void procfs_close(vfs_file_t *file);
 int procfs_getdent(const char *path, uint64_t index, const char **out_name, procfs_type_t *out_type);
 int procfs_ls(const char *path);
+int procfs_path_is_dir(const char *path);
 
 #endif

@@ -400,3 +400,20 @@ int procfs_ls(const char *path) {
 
     return 0;
 }
+
+int procfs_path_is_dir(const char *path)
+{
+    if (!path)
+        return -1;
+
+    /* /proc itself */
+    if (*path == '\0')
+        return 1;
+
+    procfs_entry_t *e = procfs_find(path);
+
+    if (!e)
+        return -1;
+
+    return e->type == PROC_DIR ? 1 : 0;
+}
