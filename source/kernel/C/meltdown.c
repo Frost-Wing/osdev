@@ -9,10 +9,64 @@
  *
  */
 #include <graphics.h>
+#include <crash_diagnostics.h>
+#include <crash_symbols.h>
 #include <isr.h> // For InterruptFrame
 #include <meltdown.h>
 
 #define clean_mode
+
+static void meltdown_print_source(const CrashSymbolResult *symbol) {
+    if (!symbol || !symbol->found) {
+        printf("SOURCE LOCATION UNAVAILABLE");
+        printf("    RIP = 0x%X", symbol ? symbol->rip : 0);
+        printf("    No debug/source mapping exists for this address.");
+        return;
+    }
+
+    printf("CRASH LOCATION");
+    printf("    %s:%d", symbol->file, symbol->line);
+    printf("    %s()", symbol->function);
+
+    printf("SOURCE");
+    if (!symbol->snippet || symbol->snippet_count == 0) {
+        printf("    Source snippet unavailable for this address.");
+        return;
+    }
+
+    for (uint32 i = 0; i < symbol->snippet_count; i++) {
+        const CrashSourceLine *line = &symbol->snippet[i];
+        if (line->line == symbol->line)
+            printf(" >> %d | %s", line->line, line->text ? line->text : "");
+        else
+            printf("    %d | %s", line->line, line->text ? line->text : "");
+    }
+}
+
+static void meltdown_print_diagnosis(cstring handler_file, int handler_line, const CrashSymbolResult *symbol, const CrashDiagnosis *diagnosis) {
+    if (!diagnosis) {
+        printf("[MELTDOWN] Crash diagnosis unavailable.");
+        printf("RIP = 0x%X", symbol ? symbol->rip : 0);
+        return;
+    }
+
+    printf("WHAT PROBABLY HAPPENED");
+    printf("    %s", diagnosis->what_happened);
+
+    printf("LIKELY CAUSE");
+    printf("    %s", diagnosis->likely_cause);
+
+    printf("WHAT TO FIX");
+    printf("    %s", diagnosis->what_to_fix);
+    if (symbol && symbol->found)
+        printf("    Inspect: %s:%d", symbol->file, symbol->line);
+    printf("    %s", diagnosis->source_hint);
+
+    printf("CONFIDENCE: %s", crash_confidence_string(diagnosis->confidence));
+
+    printf("PANIC HANDLER");
+    printf("    %s:%d", handler_file, handler_line);
+}
 
 void meltdown_screen(cstring message, cstring file, int line, uint64 error_code, uint64 cr2, uint64 int_no, InterruptFrame *frame) {
 #ifndef clean_mode
@@ -59,17 +113,16 @@ void meltdown_screen(cstring message, cstring file, int line, uint64 error_code,
     frost_compilation_information();
 #endif
 #ifdef clean_mode
-    eprintf("[MELTDOWN] %s (%s:%d) (int=%d err=0x%X cr2=0x%X rip=0x%X cs=0x%X rsp=0x%X rflags=0x%X)",
-        message,
-        file,
-        line,
-        int_no,
-        error_code,
-        cr2,
-        frame ? frame->rip : 0,
-        frame ? frame->cs : 0,
-        frame ? frame->rsp : 0,
-        frame ? frame->rflags : 0);
+    uint64 rip = frame ? frame->rip : 0;
+    CrashSymbolResult symbol;
+    CrashDiagnosis diagnosis;
+
+    crash_symbols_resolve(rip, &symbol);
+    crash_diagnostics_analyze(int_no, error_code, cr2, frame, &symbol, &diagnosis);
+
+    eprintf("[MELTDOWN] %s (int=%d err=0x%X cr2=0x%X rip=0x%X)", message, int_no, error_code, cr2, rip);
+    meltdown_print_source(&symbol);
+    meltdown_print_diagnosis(file, line, &symbol, &diagnosis);
 
     if (frame) {
         eprintf("[MELTDOWN] regs rax=0x%X rcx=0x%X rdx=0x%X rsi=0x%X rdi=0x%X r8=0x%X r9=0x%X r10=0x%X r11=0x%X",

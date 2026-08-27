@@ -23,3 +23,5 @@ keys/private_key.pem
 *.so
 *.img.tar.gz
 fwtoolchain
+# Generated crash-diagnosis source map
+source/kernel/C/crash_symbols.generated.c
