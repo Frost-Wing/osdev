@@ -339,9 +339,14 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
     vfs_file_t *file = fd_get_file(fd);
     switch (file->mnt->type) {
         case FS_PROC:
+            info->is_dir = (file->rel_path[0] == '\0');
+            info->size = 0;
+            break;
         case FS_DEV:
             info->is_dir = (file->rel_path[0] == '\0');
             info->size = 0;
+            info->mode = info->is_dir ? (LINUX_S_IFDIR | 0555) : (LINUX_S_IFCHR | 0666);
+            return true;
         case FS_FAT16:
             info->is_dir = (file->f.fat16.entry.attr & 0x10) != 0;
             info->size = file->f.fat16.entry.filesize;
@@ -986,15 +991,38 @@ static uint64 sys_write(uint64_t fd, const char *buf, uint64_t count) {
 }
 
 static uint64 sys_writev(uint64_t fd, const linux_iovec_t *iov, uint64_t iovcnt) {
-    if (iov == NULL)
+    if (iov == NULL || iovcnt > LINUX_IOV_MAX)
         return -LINUX_EINVAL;
 
     uint64 total = 0;
     for (uint64_t i = 0; i < iovcnt; ++i) {
-        uint64 written = sys_write(fd, (const char *)iov[i].iov_base, iov[i].iov_len);
+        int64_t written = (int64_t)sys_write(fd, (const char *)iov[i].iov_base, iov[i].iov_len);
         if (written < 0)
-            return written;
-        total += written;
+            return total ? total : (uint64_t)written;
+        total += (uint64_t)written;
+
+        /* A short write must not advance to a later vector. */
+        if ((uint64_t)written != iov[i].iov_len)
+            break;
+    }
+
+    return total;
+}
+
+static uint64 sys_readv(uint64_t fd, const linux_iovec_t *iov, uint64_t iovcnt) {
+    if (iov == NULL || iovcnt > LINUX_IOV_MAX)
+        return -LINUX_EINVAL;
+
+    uint64_t total = 0;
+    for (uint64_t i = 0; i < iovcnt; ++i) {
+        int64_t read_count = (int64_t)sys_read(fd, (char *)iov[i].iov_base, iov[i].iov_len);
+        if (read_count < 0)
+            return total ? total : (uint64_t)read_count;
+        total += (uint64_t)read_count;
+
+        /* EOF and short reads terminate one readv operation. */
+        if ((uint64_t)read_count != iov[i].iov_len)
+            break;
     }
 
     return total;
@@ -1926,6 +1954,8 @@ static const char *names[] = {
     [1] = "write",
     [2] = "open",
     [3] = "close",
+    [19] = "readv",
+    [20] = "writev",
     [41] = "socket",
     [42] = "connect",
     [44] = "sendto",
@@ -2028,6 +2058,9 @@ uint64_t syscall_dispatch(
 
         case LINUX_SYS_WRITEV:
             return sys_writev(arg1, (linux_iovec_t *)arg2, arg3);
+
+        case LINUX_SYS_READV:
+            return sys_readv(arg1, (const linux_iovec_t *)arg2, arg3);
 
         case LINUX_SYS_DUP:
             return sys_dup(arg1);
@@ -2194,13 +2227,6 @@ uint64_t syscall_dispatch(
             return sys_futex((uint32_t *)arg1, arg2, arg3,
                 (const linux_timespec_t *)arg4,
                 (uint32_t *)arg5, arg6);
-        case 19: {
-            linux_iovec_t *iov = (linux_iovec_t *)arg2;
-            if (arg3 > 0)
-                return sys_read(arg1, (char*)iov[0].iov_base, iov[0].iov_len);
-            return 0;
-        }
-
         case 7: {
             struct pollfd {
                 int fd;
