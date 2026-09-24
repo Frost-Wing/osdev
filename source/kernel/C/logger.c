@@ -13,12 +13,27 @@
 #include <klog.h>
 #include <opengl/glbackend.h>
 #include <ringbuffer.h>
+#include <spinlock.h>
 #include <stdarg.h>
 
 #define LOG_MSG_MAX 256
 
 extern struct flanterm_context *ft_ctx;
 static stream_t printf_stream;
+static spinlock_t console_lock = SPINLOCK_INITIALIZER;
+
+static void print_unlocked(cstring s) {
+    while (*s)
+        vputc(*s++);
+}
+
+static void putc_unlocked(char c) {
+    if (c == '\b') {
+        vputc('\b');
+        vputc(' ');
+    }
+    vputc(c);
+}
 
 string last_filename = "unknown"; // for warn, info, err, done
 string last_print_file = "unknown";
@@ -115,12 +130,9 @@ void done(cstring fmt, cstring file, ...) {
 }
 
 void putc(char c) {
-    if (c == '\b') {
-        vputc('\b');
-        vputc(' ');
-    }
-
-    vputc(c);
+    spinlock_lock(&console_lock);
+    putc_unlocked(c);
+    spinlock_unlock(&console_lock);
 }
 
 void vputc(char c) {
@@ -132,14 +144,20 @@ void vputc(char c) {
  *
  * @param value A pointer to the value that will be printed
  */
-void printbin(uint8_t value) {
+static void printbin_unlocked(uint8_t value) {
     static char binaryRepresentation[9];
     binaryRepresentation[8] = 0;
 
     for (int i = 0; i < 8; i++)
         binaryRepresentation[i] = (value & (0x80 >> i)) ? '1' : '0';
 
-    print(binaryRepresentation);
+    print_unlocked(binaryRepresentation);
+}
+
+void printbin(uint8_t value) {
+    spinlock_lock(&console_lock);
+    printbin_unlocked(value);
+    spinlock_unlock(&console_lock);
 }
 
 static void printstr_fmt(const char *s, int width) {
@@ -150,14 +168,15 @@ static void printstr_fmt(const char *s, int width) {
         len++;
 
     while (len < width) {
-        putc(' ');
+        putc_unlocked(' ');
         width--;
     }
 
-    print(s);
+    print_unlocked(s);
 }
 
 void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, bool newline, cstring format, va_list argp) {
+    spinlock_lock(&console_lock);
     if (enable_logging) {
         last_print_file = file;
         last_print_func = func;
@@ -189,7 +208,7 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, 
                     format_number(buf,
                         va_arg(argp, int),
                         10, width, zero_pad, false);
-                    print(buf);
+                    print_unlocked(buf);
                     break;
                 }
 
@@ -198,7 +217,7 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, 
                     format_number(buf,
                         va_arg(argp, unsigned),
                         10, width, zero_pad, false);
-                    print(buf);
+                    print_unlocked(buf);
                     break;
                 }
 
@@ -207,7 +226,7 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, 
                     format_number(buf,
                         va_arg(argp, unsigned),
                         16, width, zero_pad, false);
-                    print(buf);
+                    print_unlocked(buf);
                     break;
                 }
 
@@ -216,12 +235,12 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, 
                     format_number(buf,
                         va_arg(argp, unsigned),
                         16, width, zero_pad, true);
-                    print(buf);
+                    print_unlocked(buf);
                     break;
                 }
 
                 case 'b':
-                    printbin((uint8_t)va_arg(argp, int));
+                    printbin_unlocked((uint8_t)va_arg(argp, int));
                     break;
 
                 case 's': {
@@ -233,18 +252,18 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, 
                 }
 
                 case 'c':
-                    putc((char)va_arg(argp, int));
+                    putc_unlocked((char)va_arg(argp, int));
                     break;
 
                 default:
-                    putc('%');
-                    putc(*format);
+                    putc_unlocked('%');
+                    putc_unlocked(*format);
                     break;
             }
         } else {
             switch (*format) {
                 default:
-                    putc(*format);
+                    putc_unlocked(*format);
                     break;
             }
         }
@@ -252,7 +271,9 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, 
     }
 
     if (newline)
-        print("\n");
+        print_unlocked("\n");
+
+    spinlock_unlock(&console_lock);
 }
 
 void printf_internal(cstring file, cstring func, uint64 line, cstring format, ...) {
@@ -458,16 +479,18 @@ void print(cstring s) {
     if (!s)
         return;
 
-    while (*s) {
-        vputc(*s);
-        s++;
-    }
+    spinlock_lock(&console_lock);
+    print_unlocked(s);
+    spinlock_unlock(&console_lock);
 }
 
 void kprint(cstring msg) {
+    spinlock_lock(&console_lock);
     if (msg == null) {
         flanterm_write(ft_ctx, "null", 4);
+        spinlock_unlock(&console_lock);
         return;
     }
     flanterm_write(ft_ctx, msg, strlen(msg));
+    spinlock_unlock(&console_lock);
 }

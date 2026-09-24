@@ -54,6 +54,7 @@ void init_syscall(void);
 
 void remap_pic(void);
 void initIdt(void);
+void idt_activate(void);
 void setIdtEntry(IDTEntry *target, uint64_t offset, uint16_t selector, uint8_t ist, uint8_t type_attributes);
 
 #endif
