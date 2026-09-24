@@ -21,6 +21,7 @@
 #include <ringbuffer.h>
 #include <graphics.h>
 #include <syslog.h>
+#include <smp.h>
 #include <tty.h>
 
 int terminal_rows = 0;
@@ -64,24 +65,6 @@ struct limine_framebuffer *framebuffer = null;
 struct memory_context *limine_memory_ctx;
 
 bool isBufferReady = no;
-
-uint32 ctr = 0;
-
-static void ap_entry(struct limine_smp_info *info) {
-#if defined(__x86_64__)
-    printf("LAPIC ID: 0x%x", info->lapic_id);
-#elif defined(__aarch64__)
-    printf("GIC CPU Interface no.: 0x%x", info->gic_iface_no);
-    printf("MPIDR: 0x%x", info->mpidr);
-#elif defined(__riscv)
-    printf("Hart ID: 0x%x", info->hartid);
-#endif
-
-    __atomic_fetch_add(&ctr, 1, __ATOMIC_SEQ_CST);
-
-    while (1)
-        ;
-}
 
 #define MOUSE_COLOR_DEFAULT 0xffffffff
 #define MOUSE_COLOR_LEFT 0x00ff00ff
@@ -248,17 +231,15 @@ void main(void) {
         warn("Bad blocks of memory found, it is recommended to replace your RAM.", __FILE__);
     }
 
-    info("Total CPU(s): %d", __FILE__,smp_request.response->cpu_count);
-    for (uint64_t i = 0; i < smp_request.response->cpu_count; i++) {
-        print_processor_id(i, smp_request.response->cpus[i]->processor_id, smp_request.response->cpus[i]->lapic_id);
-
-        if (smp_request.response->cpus[i]->lapic_id != smp_request.response->bsp_lapic_id) {
-            uint32_t old_ctr = __atomic_load_n(&ctr, __ATOMIC_SEQ_CST);
-
-            __atomic_store_n(&smp_request.response->cpus[i]->goto_address, ap_entry, __ATOMIC_SEQ_CST);
-
-            while (__atomic_load_n(&ctr, __ATOMIC_SEQ_CST) == old_ctr);
+    if (smp_request.response == null) {
+        warn("Limine did not provide SMP topology; continuing on the BSP.", __FILE__);
+    } else {
+        info("Total CPU(s): %d", __FILE__, smp_request.response->cpu_count);
+        for (uint64_t i = 0; i < smp_request.response->cpu_count; i++) {
+            print_processor_id(i, smp_request.response->cpus[i]->processor_id, smp_request.response->cpus[i]->lapic_id);
         }
+        if (!smp_init(smp_request.response))
+            warn("SMP setup failed; continuing on the BSP.", __FILE__);
     }
     print_cpu_info();
     print_L1_cache_info();

@@ -12,12 +12,14 @@
 #define RINGBUFFER_H
 
 #include <basics.h>
+#include <spinlock.h>
 
 /**
  * @struct ring_buffer_t
  * @brief Structure representing a ring buffer.
  */
 typedef struct {
+    spinlock_t lock;
     uint8_t *buffer;  // Pointer to raw memory buffer
     size_t capacity;  // Max number of elements
     size_t elem_size; // Size of each element in bytes

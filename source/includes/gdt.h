@@ -42,4 +42,7 @@ extern struct gdt_ptr gdtp;
  *
  */
 void setup_gdt(void);
+
+/** Load the already-built kernel GDT on the calling CPU. */
+void gdt_activate(void);
 #endif
