@@ -19,6 +19,9 @@ extern uint64_t last_alloc;
 extern uint64_t alloc_count;
 extern uint64_t memory_used;
 
+#define HEAP_CANARY 0xDEADC0DECAFEBEEFULL
+#define HEAP_REDZONE 16
+
 /**
  * @brief Function to initlialize heap.
  *

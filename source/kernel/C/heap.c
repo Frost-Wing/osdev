@@ -11,6 +11,7 @@
 typedef struct alloc_t {
     uint64_t size;
     uint8_t status; // 0 = free, 1 = allocated
+    uint64_t magic;
 } __attribute__((packed)) alloc_t;
 
 typedef struct {
@@ -74,6 +75,82 @@ void mm_init(uintptr_t kernel_end, uint64 heap_size) {
 
     done("Heap initialized", __FILE__);
 }
+
+// Heap validation code
+
+static int heap_check_block(alloc_t *a)
+{
+    if (!a)
+        return 0;
+
+    uint8_t *left =
+        (uint8_t *)a + sizeof(alloc_t);
+
+    uint8_t *user =
+        left + HEAP_REDZONE;
+
+    uint64_t *right =
+        (uint64_t *)(user + a->size);
+
+    if (a->magic != HEAP_CANARY) {
+        warn("[heap] CORRUPTED HEADER: %p", __FILE__, a);
+        return 0;
+    }
+
+    for (int i = 0; i < HEAP_REDZONE / sizeof(uint64_t); i++) {
+        if (((uint64_t *)left)[i] != HEAP_CANARY) {
+            warn("[heap] BUFFER UNDERFLOW: %p", __FILE__, user);
+            return 0;
+        }
+    }
+
+    for (int i = 0; i < HEAP_REDZONE / sizeof(uint64_t); i++) {
+        if (right[i] != HEAP_CANARY) {
+            warn("[heap] BUFFER OVERFLOW: %p", __FILE__, user);
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+void kheap_check(void)
+{
+    uint8_t *mem = (uint8_t *)heap_begin;
+
+    while ((uintptr_t)mem < last_alloc) {
+
+        alloc_t *a = (alloc_t *)mem;
+
+        if (a->size == 0)
+            break;
+
+        if (a->magic != HEAP_CANARY) {
+            meltdown_screen(
+                "HEAP METADATA CORRUPTION",
+                __FILE__,
+                __LINE__,
+                0,
+                (uintptr_t)a,
+                0,
+                NULL
+            );
+
+            hcf();
+        }
+
+        heap_check_block(a);
+
+        mem += sizeof(alloc_t)
+             + HEAP_REDZONE
+             + a->size
+             + HEAP_REDZONE;
+
+        mem = (uint8_t *)ALIGN_UP((uintptr_t)mem, 8);
+    }
+}
+
+// heap validation code ends
 
 void *kmalloc(size_t size) {
     if (size == 0) {
