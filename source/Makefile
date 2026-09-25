@@ -50,7 +50,7 @@ CFLAGS := -std=gnu11 -ffreestanding \
           -fno-stack-protector -fno-stack-check \
           -fno-lto -fno-builtin \
           -fno-omit-frame-pointer \
-          -Og -g -fPIE \
+          -O0 -g -fPIE \
           -I includes -I src \
           -m64 -march=x86-64 \
           -mno-80387 -mno-mmx -mno-red-zone \
