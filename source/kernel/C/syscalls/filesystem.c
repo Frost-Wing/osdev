@@ -1,4 +1,4 @@
-#include "internal.h"
+#include <syscalls/internal.h>
 
 #include <multitasking.h>
 #include <net/net.h>
