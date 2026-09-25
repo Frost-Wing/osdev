@@ -21,6 +21,8 @@ static uint32_t cpu_count;
 static spinlock_t dispatch_lock = SPINLOCK_INITIALIZER;
 static bool cursor_blink_started;
 
+#define CURSOR_BLINK_TICKS (PIT_TICKS_PER_SECOND / 2)
+
 /*
  * This is deliberately a long-running AP function rather than a BSP timer
  * task. APs currently do not receive timer interrupts, so it polls the BSP's
@@ -31,7 +33,7 @@ static void smp_cursor_blink(void *context) {
     (void)context;
 
     uint64_t next_toggle = __atomic_load_n(&pit_ticks, __ATOMIC_ACQUIRE) +
-                           PIT_TICKS_PER_SECOND;
+                           CURSOR_BLINK_TICKS;
 
     for (;;) {
         uint64_t now = __atomic_load_n(&pit_ticks, __ATOMIC_ACQUIRE);
@@ -44,7 +46,7 @@ static void smp_cursor_blink(void *context) {
         terminal_toggle_cursor();
 
         /* Rebase after a pause so a delayed AP never toggles repeatedly. */
-        next_toggle = now + PIT_TICKS_PER_SECOND;
+        next_toggle = now + CURSOR_BLINK_TICKS;
     }
 }
 
