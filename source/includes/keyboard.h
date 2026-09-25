@@ -63,9 +63,9 @@ uint8_t getmodifiers(void);
 /**
  * @brief Gets the last pressed char.
  *
- * @return [uint8_t] Last scancode
+ * @return Decoded character or a CUR_* special-key value.
  */
-uint8_t getc(void);
+int getc(void);
 
 /**
  * @brief Non-blocking getc from keyboard buffer

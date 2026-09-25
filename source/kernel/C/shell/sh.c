@@ -202,9 +202,8 @@ int shell_main(int argc, char **argv) {
 
     show_prompt(argc, argv);
 
-    uint8_t commandPulledFromHistory = 0;
     command_list_entry *entry = NULL;
-    char c;
+    int c;
     while (running) {
         multitasking_pump();
         c = getc();
@@ -212,12 +211,55 @@ int shell_main(int argc, char **argv) {
         if (c == 0)
             continue;
 
+        if (c == CUR_UP) {
+            if (entry == NULL)
+                entry = commandHistory.end;
+            else if (entry->prev != NULL)
+                entry = entry->prev;
+
+            if (entry != NULL) {
+                while (commandSize > 0) {
+                    putc('\b');
+                    commandSize--;
+                }
+                commandSize = entry->length;
+                cursor = entry->length;
+                memcpy(command, entry->command, commandSize);
+                command[commandSize] = '\0';
+                print(command);
+            }
+            continue;
+        }
+
+        if (c == CUR_DOWN) {
+            if (entry != NULL)
+                entry = entry->next;
+
+            while (commandSize > 0) {
+                putc('\b');
+                commandSize--;
+            }
+            commandSize = 0;
+            cursor = 0;
+            command[0] = '\0';
+
+            if (entry != NULL) {
+                commandSize = entry->length;
+                cursor = entry->length;
+                memcpy(command, entry->command, commandSize);
+                command[commandSize] = '\0';
+                print(command);
+            }
+            continue;
+        }
+
         if (c == '\n') {
             command[cursor] = '\0'; // Null-terminate the string
 
             last_status_code = execute_chain(command);
 
             push_command_to_list(&commandHistory, command, cursor);
+            entry = NULL;
             cursor = 0;
             commandSize = 0;
             memset(command, 0, commandBufferSize);
