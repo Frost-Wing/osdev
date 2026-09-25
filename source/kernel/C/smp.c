@@ -1,5 +1,6 @@
 #include <gdt.h>
 #include <graphics.h>
+#include <heap.h>
 #include <idt.h>
 #include <smp.h>
 #include <spinlock.h>
@@ -38,6 +39,9 @@ static void smp_ap_entry(struct limine_smp_info *info) {
     gdt_activate();
     idt_activate();
     smp_enable_fpu();
+
+    /* Validate the shared heap before this core starts handling work. */
+    (void)kheap_check();
 
     /* The BSP has already loaded the sole TSS descriptor.  ltr marks that
      * descriptor busy, so loading it again on an AP raises #GP.  APs do not
