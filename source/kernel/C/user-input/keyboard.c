@@ -210,13 +210,13 @@ uint8_t getmodifiers(void) {
 
 extern volatile uint64_t pit_ticks;
 
-uint8_t getc(void) {
+int getc(void) {
     uint8_t sc;
     static uint64_t last_tick = 0;
 
     for (;;) {
         if (is_kbrb_ready && (rb_pop(&kb_rb, &sc) == 0)) {
-            return (uint8_t)handle_char_from_scancode(sc);
+            return handle_char_from_scancode(sc);
         }
 
         if (pit_ticks != last_tick) {
@@ -289,7 +289,11 @@ int handle_char_from_scancode(uint8_t data) {
                 modifiers |= MOD_RALT;
                 return 0;
 
-                // You can extend more extended keys here (arrows, etc.)
+            case 0x48: // Up arrow press
+                return CUR_UP;
+
+            case 0x50: // Down arrow press
+                return CUR_DOWN;
         }
 
         return 0;
