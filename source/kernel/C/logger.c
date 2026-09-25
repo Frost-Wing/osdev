@@ -9,6 +9,7 @@
  *
  */
 #include <debugger.h>
+#include <flanterm/flanterm.h>
 #include <graphics.h>
 #include <klog.h>
 #include <opengl/glbackend.h>
@@ -137,6 +138,15 @@ void putc(char c) {
 
 void vputc(char c) {
     stream_putc(printf_stream, c);
+}
+
+void terminal_toggle_cursor(void) {
+    spinlock_lock(&console_lock);
+    if (ft_ctx) {
+        ft_ctx->cursor_enabled = !ft_ctx->cursor_enabled;
+        ft_ctx->double_buffer_flush(ft_ctx);
+    }
+    spinlock_unlock(&console_lock);
 }
 
 /**
