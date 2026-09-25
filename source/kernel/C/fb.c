@@ -187,6 +187,75 @@ static void push_to_queue(struct flanterm_context *_ctx, struct flanterm_fb_char
     q->c = *c;
 }
 
+static struct flanterm_fb_char *current_char(struct flanterm_fb_context *ctx, size_t i) {
+    struct flanterm_fb_queue_item *q = ctx->map[i];
+    return q != NULL ? &q->c : &ctx->grid[i];
+}
+
+static void scrollback_save_top_line(struct flanterm_context *_ctx) {
+    struct flanterm_fb_context *ctx = (void *)_ctx;
+
+    /* Only full-screen scrolling creates terminal output history. */
+    if (ctx->scrollback == NULL || _ctx->scroll_top_margin != 0 ||
+        _ctx->scroll_bottom_margin != _ctx->rows) {
+        return;
+    }
+
+    size_t line = (ctx->scrollback_start + ctx->scrollback_count) % ctx->scrollback_size;
+    if (ctx->scrollback_count == ctx->scrollback_size) {
+        ctx->scrollback_start = (ctx->scrollback_start + 1) % ctx->scrollback_size;
+        line = (ctx->scrollback_start + ctx->scrollback_count - 1) % ctx->scrollback_size;
+    } else {
+        ctx->scrollback_count++;
+    }
+
+    for (size_t x = 0; x < _ctx->cols; x++)
+        ctx->scrollback[line * _ctx->cols + x] = *current_char(ctx, x);
+
+    /* Keep the same content visible if output arrives while reviewing logs. */
+    if (ctx->scrollback_offset != 0 && ctx->scrollback_offset < ctx->scrollback_count)
+        ctx->scrollback_offset++;
+}
+
+static void scrollback_redraw(struct flanterm_context *_ctx) {
+    struct flanterm_fb_context *ctx = (void *)_ctx;
+    size_t first_line = ctx->scrollback_count - ctx->scrollback_offset;
+
+    for (size_t y = 0; y < _ctx->rows; y++) {
+        size_t source = first_line + y;
+        struct flanterm_fb_char *line;
+        if (source < ctx->scrollback_count) {
+            size_t history_line = (ctx->scrollback_start + source) % ctx->scrollback_size;
+            line = &ctx->scrollback[history_line * _ctx->cols];
+        } else {
+            line = &ctx->grid[(source - ctx->scrollback_count) * _ctx->cols];
+        }
+        for (size_t x = 0; x < _ctx->cols; x++)
+            plot_char(_ctx, &line[x], x, y);
+    }
+}
+
+void flanterm_fb_scrollback_up(struct flanterm_context *_ctx) {
+    struct flanterm_fb_context *ctx = (void *)_ctx;
+    if (ctx == NULL || ctx->scrollback_offset == ctx->scrollback_count)
+        return;
+
+    ctx->scrollback_offset++;
+    scrollback_redraw(_ctx);
+}
+
+void flanterm_fb_scrollback_down(struct flanterm_context *_ctx) {
+    struct flanterm_fb_context *ctx = (void *)_ctx;
+    if (ctx == NULL || ctx->scrollback_offset == 0)
+        return;
+
+    ctx->scrollback_offset--;
+    if (ctx->scrollback_offset == 0)
+        _ctx->full_refresh(_ctx);
+    else
+        scrollback_redraw(_ctx);
+}
+
 static void flanterm_fb_revscroll(struct flanterm_context *_ctx) {
     struct flanterm_fb_context *ctx = (void *)_ctx;
 
@@ -217,6 +286,8 @@ static void flanterm_fb_revscroll(struct flanterm_context *_ctx) {
 
 static void flanterm_fb_scroll(struct flanterm_context *_ctx) {
     struct flanterm_fb_context *ctx = (void *)_ctx;
+
+    scrollback_save_top_line(_ctx);
 
     for (size_t i = (_ctx->scroll_top_margin + 1) * _ctx->cols;
         i < _ctx->scroll_bottom_margin * _ctx->cols; i++) {
@@ -394,6 +465,20 @@ static void draw_cursor(struct flanterm_context *_ctx) {
 static void flanterm_fb_double_buffer_flush(struct flanterm_context *_ctx) {
     struct flanterm_fb_context *ctx = (void *)_ctx;
 
+    /* Update the live terminal state without replacing the scrollback view. */
+    if (ctx->scrollback_offset != 0) {
+        for (size_t i = 0; i < ctx->queue_i; i++) {
+            struct flanterm_fb_queue_item *q = &ctx->queue[i];
+            size_t offset = q->y * _ctx->cols + q->x;
+            if (ctx->map[offset] != NULL) {
+                ctx->grid[offset] = q->c;
+                ctx->map[offset] = NULL;
+            }
+        }
+        ctx->queue_i = 0;
+        return;
+    }
+
     if (_ctx->cursor_enabled) {
         draw_cursor(_ctx);
     }
@@ -487,6 +572,7 @@ static void flanterm_fb_deinit(struct flanterm_context *_ctx, void (*_free)(void
     _free(ctx->font_bits, ctx->font_bits_size);
     _free(ctx->font_bool, ctx->font_bool_size);
     _free(ctx->grid, ctx->grid_size);
+    _free(ctx->scrollback, ctx->scrollback_size * _ctx->cols * sizeof(struct flanterm_fb_char));
     _free(ctx->queue, ctx->queue_size);
     _free(ctx->map, ctx->map_size);
 
@@ -674,6 +760,12 @@ struct flanterm_context *flanterm_fb_init(
         ctx->grid[i].c = ' ';
         ctx->grid[i].fg = ctx->text_fg;
         ctx->grid[i].bg = ctx->text_bg;
+    }
+
+    ctx->scrollback_size = FLANTERM_FB_SCROLLBACK_LINES;
+    ctx->scrollback = _malloc(ctx->scrollback_size * _ctx->cols * sizeof(struct flanterm_fb_char));
+    if (ctx->scrollback == NULL) {
+        goto fail;
     }
 
     ctx->queue_size = _ctx->rows * _ctx->cols * sizeof(struct flanterm_fb_queue_item);
