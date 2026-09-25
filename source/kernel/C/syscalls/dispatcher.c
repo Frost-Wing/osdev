@@ -1,4 +1,4 @@
-#include "internal.h"
+#include <syscalls/internal.h>
 
 void int80_handler(InterruptFrame *frame) {
     uint64_t ret = syscall_dispatch(

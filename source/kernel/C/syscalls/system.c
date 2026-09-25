@@ -1,4 +1,4 @@
-#include "internal.h"
+#include <syscalls/internal.h>
 
 uint64 sys_access_common(int dirfd, const char *path, int mode) {
     (void)mode;

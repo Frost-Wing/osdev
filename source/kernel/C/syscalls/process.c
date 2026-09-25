@@ -1,4 +1,4 @@
-#include "internal.h"
+#include <syscalls/internal.h>
 
 uint64 sys_execve(const char *target,
     char *const *argv,

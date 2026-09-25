@@ -1,4 +1,4 @@
-#include "internal.h"
+#include <syscalls/internal.h>
 
 
 #define LINUX_AF_INET 2
