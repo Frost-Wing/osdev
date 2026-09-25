@@ -264,7 +264,6 @@ void main(void) {
 
     mm_print_out();
     multitasking_init();
-    multitasking_start_cursor_blink_task();
     create_user_str("root", "prad");
 
     const char *cmdline = null;

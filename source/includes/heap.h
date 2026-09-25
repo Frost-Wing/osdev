@@ -11,6 +11,7 @@
 #pragma once
 
 #include <basics.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 extern uint64_t heap_begin;
@@ -81,3 +82,14 @@ void *kmalloc_aligned(size_t size, size_t align);
  * @param ptr Location in memory.
  */
 extern void kfree(void *ptr);
+
+/**
+ * @brief Validate the kernel heap's allocation metadata.
+ *
+ * This function serializes with all heap operations, so it may safely be
+ * called periodically by any core. It returns false when it detects damaged
+ * allocation metadata or inconsistent heap accounting.
+ *
+ * @return true if the heap is valid, otherwise false.
+ */
+bool kheap_check(void);

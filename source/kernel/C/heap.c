@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <meltdown.h>
 #include <cc-asm.h>
+#include <spinlock.h>
 
 typedef struct alloc_t {
     uint64_t size;
@@ -24,6 +25,8 @@ uint64_t heap_end = 0;
 uint64_t last_alloc = 0;
 uint64_t alloc_count = 0;
 uint64_t memory_used = 0;
+
+static spinlock_t heap_lock = SPINLOCK_INITIALIZER;
 
 #define ALIGN_UP(x, a) (((x) + ((a) - 1)) & ~((a) - 1))
 #define ALIGNED_ALLOC_MAGIC 0x46574B414C49474EULL /* "FWKALIGN" */
@@ -56,9 +59,55 @@ static alloc_t *heap_alloc_from_user_ptr(void *ptr) {
     return (alloc_t *)(user - sizeof(alloc_t));
 }
 
+static bool kheap_check_locked(void) {
+    if (heap_begin == 0 || heap_end <= heap_begin || last_alloc < heap_begin ||
+        last_alloc > heap_end || (last_alloc & 7) != 0) {
+        return false;
+    }
+
+    uint64_t checked_memory_used = 0;
+    uint64_t checked_alloc_count = 0;
+    uintptr_t cursor = heap_begin;
+
+    while (cursor < last_alloc) {
+        if (last_alloc - cursor < sizeof(alloc_t)) {
+            return false;
+        }
+
+        alloc_t *allocation = (alloc_t *)cursor;
+        if (allocation->status > 1 || allocation->size > last_alloc - cursor - sizeof(*allocation)) {
+            return false;
+        }
+
+        uintptr_t next = ALIGN_UP(cursor + sizeof(*allocation) + allocation->size, 8);
+        if (next <= cursor || next > last_alloc) {
+            return false;
+        }
+
+        if (allocation->status) {
+            checked_memory_used += allocation->size + sizeof(*allocation);
+            checked_alloc_count++;
+        }
+        cursor = next;
+    }
+
+    return cursor == last_alloc && checked_memory_used == memory_used &&
+           checked_alloc_count == alloc_count;
+}
+
+bool kheap_check(void) {
+    spinlock_lock(&heap_lock);
+    bool valid = kheap_check_locked();
+    spinlock_unlock(&heap_lock);
+
+    return valid;
+}
+
 void mm_init(uintptr_t kernel_end, uint64 heap_size) {
     LOG_SCOPE();
     info("Initializing heap", __FILE__);
+
+    spinlock_lock(&heap_lock);
 
     heap_begin = ALIGN_UP(kernel_end, 8);
     if (heap_size <= 0 || (uint64_t)heap_size > UINT64_MAX - heap_begin) {
@@ -67,8 +116,12 @@ void mm_init(uintptr_t kernel_end, uint64 heap_size) {
     }
     heap_end = heap_begin + (uint64_t)heap_size;
     last_alloc = heap_begin;
+    alloc_count = 0;
+    memory_used = 0;
 
     memset((void *)heap_begin, 0, (size_t)(heap_end - heap_begin));
+
+    spinlock_unlock(&heap_lock);
 
     printf("heap begin -> 0x%X", heap_begin);
     printf("heap end   -> 0x%X", heap_end);
@@ -76,91 +129,7 @@ void mm_init(uintptr_t kernel_end, uint64 heap_size) {
     done("Heap initialized", __FILE__);
 }
 
-// Heap validation code
-
-static int heap_check_block(alloc_t *a)
-{
-    if (!a)
-        return 0;
-
-    uint8_t *left =
-        (uint8_t *)a + sizeof(alloc_t);
-
-    uint8_t *user =
-        left + HEAP_REDZONE;
-
-    uint64_t *right =
-        (uint64_t *)(user + a->size);
-
-    if (a->magic != HEAP_CANARY) {
-        warn("[heap] CORRUPTED HEADER: %p", __FILE__, a);
-        return 0;
-    }
-
-    for (int i = 0; i < HEAP_REDZONE / sizeof(uint64_t); i++) {
-        if (((uint64_t *)left)[i] != HEAP_CANARY) {
-            warn("[heap] BUFFER UNDERFLOW: %p", __FILE__, user);
-            return 0;
-        }
-    }
-
-    for (int i = 0; i < HEAP_REDZONE / sizeof(uint64_t); i++) {
-        if (right[i] != HEAP_CANARY) {
-            warn("[heap] BUFFER OVERFLOW: %p", __FILE__, user);
-            return 0;
-        }
-    }
-
-    return 1;
-}
-
-void kheap_check(void)
-{
-    uint8_t *mem = (uint8_t *)heap_begin;
-
-    while ((uintptr_t)mem < last_alloc) {
-
-        alloc_t *a = (alloc_t *)mem;
-
-        if (a->size == 0)
-            break;
-
-        if (a->magic != HEAP_CANARY) {
-            meltdown_screen(
-                "HEAP METADATA CORRUPTION",
-                __FILE__,
-                __LINE__,
-                0,
-                (uintptr_t)a,
-                0,
-                NULL
-            );
-
-            hcf();
-        }
-
-        heap_check_block(a);
-
-        mem += sizeof(alloc_t)
-             + HEAP_REDZONE
-             + a->size
-             + HEAP_REDZONE;
-
-        mem = (uint8_t *)ALIGN_UP((uintptr_t)mem, 8);
-    }
-}
-
-// heap validation code ends
-
-void *kmalloc(size_t size) {
-    if (size == 0) {
-        LOG_SCOPE();
-        warn("kmalloc: Cannot allocate 0 bytes", __FILE__);
-        klog_printf("[heap] kmalloc called with zero size");
-        return NULL;
-    }
-
-    size = ALIGN_UP(size, 8);
+static void *kmalloc_locked(size_t size) {
 
     uint8_t *mem = (uint8_t *)heap_begin;
 
@@ -208,6 +177,39 @@ void *kmalloc(size_t size) {
     return user_ptr;
 }
 
+static bool kfree_locked(void *ptr) {
+    alloc_t *a = heap_alloc_from_user_ptr(ptr);
+    if (!a || (uintptr_t)a < heap_begin || (uintptr_t)a > heap_end - sizeof(*a)) {
+        return false;
+    }
+
+    if (a->status == 0) {
+        return false;
+    }
+
+    a->status = 0;
+    memory_used -= a->size + sizeof(alloc_t);
+    alloc_count--;
+    return true;
+}
+
+void *kmalloc(size_t size) {
+    if (size == 0) {
+        LOG_SCOPE();
+        warn("kmalloc: Cannot allocate 0 bytes", __FILE__);
+        klog_printf("[heap] kmalloc called with zero size");
+        return NULL;
+    }
+
+    size = ALIGN_UP(size, 8);
+
+    spinlock_lock(&heap_lock);
+    void *ptr = kmalloc_locked(size);
+    spinlock_unlock(&heap_lock);
+
+    return ptr;
+}
+
 void kfree(void *ptr) {
     if (!ptr) {
         LOG_SCOPE();
@@ -215,20 +217,13 @@ void kfree(void *ptr) {
         return;
     }
 
-    alloc_t *a = heap_alloc_from_user_ptr(ptr);
-    if (!a || (uintptr_t)a < heap_begin || (uintptr_t)a > heap_end - sizeof(*a)) {
-        warn("kfree: Pointer is outside heap.", __FILE__);
-        return;
-    }
+    spinlock_lock(&heap_lock);
+    bool freed = kfree_locked(ptr);
+    spinlock_unlock(&heap_lock);
 
-    if (a->status == 0) {
-        warn("kfree: Double free detected.", __FILE__);
-        return;
+    if (!freed) {
+        warn("kfree: Invalid or already freed pointer.", __FILE__);
     }
-
-    a->status = 0;
-    memory_used -= a->size + sizeof(alloc_t);
-    alloc_count--;
 }
 
 void *krealloc(void *ptr, size_t size) {
@@ -241,20 +236,25 @@ void *krealloc(void *ptr, size_t size) {
 
     size = ALIGN_UP(size, 8);
 
+    spinlock_lock(&heap_lock);
+
     alloc_t *old = heap_alloc_from_user_ptr(ptr);
     if (!old || old->status == 0) {
+        spinlock_unlock(&heap_lock);
         warn("krealloc: Invalid pointer", __FILE__);
         return NULL;
     }
-    if (old->size >= size)
+    if (old->size >= size) {
+        spinlock_unlock(&heap_lock);
         return ptr;
+    }
 
-    void *new_ptr = kmalloc(size);
-    if (!new_ptr)
-        return NULL;
+    void *new_ptr = kmalloc_locked(size);
 
     memcpy(new_ptr, ptr, old->size);
-    kfree(ptr);
+    (void)kfree_locked(ptr);
+    spinlock_unlock(&heap_lock);
+
     return new_ptr;
 }
 
@@ -270,8 +270,15 @@ void *kmalloc_aligned(size_t size, size_t align) {
     }
 
     size_t total = size + align - 1 + sizeof(aligned_alloc_header_t);
-    uintptr_t raw = (uintptr_t)kmalloc(total);
+    if (total > SIZE_MAX - 7) {
+        warn("kmalloc_aligned: invalid size", __FILE__);
+        return NULL;
+    }
+    total = ALIGN_UP(total, 8);
+    spinlock_lock(&heap_lock);
+    uintptr_t raw = (uintptr_t)kmalloc_locked(total);
     if (!raw) {
+        spinlock_unlock(&heap_lock);
         return NULL;
     }
 
@@ -281,12 +288,20 @@ void *kmalloc_aligned(size_t size, size_t align) {
     hdr->magic = ALIGNED_ALLOC_MAGIC;
     hdr->raw = raw;
 
+    spinlock_unlock(&heap_lock);
+
     return (void *)aligned;
 }
 
 void mm_print_out(void) {
+    spinlock_lock(&heap_lock);
+    uint64_t used = memory_used;
+    uint64_t free = heap_end - last_alloc;
+    uint64_t size = heap_end - heap_begin;
+    spinlock_unlock(&heap_lock);
+
     LOG_SCOPE();
-    info("%sMemory used :%s %u KiB", __FILE__, yellow_color, reset_color, memory_used / (1 KiB));
-    info("%sMemory free :%s %u KiB", __FILE__, yellow_color, reset_color, (heap_end - last_alloc) / (1 KiB));
-    info("%sHeap size   :%s %u KiB", __FILE__, yellow_color, reset_color, (heap_end - heap_begin) / (1 KiB));
+    info("%sMemory used :%s %u KiB", __FILE__, yellow_color, reset_color, used / (1 KiB));
+    info("%sMemory free :%s %u KiB", __FILE__, yellow_color, reset_color, free / (1 KiB));
+    info("%sHeap size   :%s %u KiB", __FILE__, yellow_color, reset_color, size / (1 KiB));
 }

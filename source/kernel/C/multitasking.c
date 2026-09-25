@@ -512,34 +512,6 @@ static void sweep_exited_tasks(void) {
     irq_restore(flags);
 }
 
-static bool cursor_blink_task(uint32_t pid, uint64_t now_ticks, void *ctx, int *exit_code) {
-    (void)pid;
-    (void)exit_code;
-
-    if (!ft_ctx)
-        return false;
-
-    uint64_t *next_toggle_tick = (uint64_t *)ctx;
-    if (!next_toggle_tick)
-        return false;
-
-    while (now_ticks >= *next_toggle_tick) {
-        ft_ctx->cursor_enabled = !ft_ctx->cursor_enabled;
-        *next_toggle_tick += 50;
-    }
-    return false;
-}
-
-void multitasking_start_cursor_blink_task(void) {
-    uint64_t *blink_ctx = (uint64_t *)kmalloc(sizeof(uint64_t));
-    if (!blink_ctx)
-        return;
-
-    *blink_ctx = 0;
-    if (multitasking_spawn_kernel("cursor-blink", cursor_blink_task, blink_ctx) == 0)
-        kfree(blink_ctx);
-}
-
 void multitasking_on_pit_tick(uint64_t now_ticks) {
     uint64_t flags = irq_save_disable();
     uint32_t saved_current_pid = g_current_pid;
