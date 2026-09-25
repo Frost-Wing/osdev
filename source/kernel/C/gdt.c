@@ -54,6 +54,14 @@ void setup_gdt(void) {
     gdtp.limit = (uint16_t)(sizeof(gdt) - 1U);
     gdtp.base = (uint64_t)&gdt;
 
+    gdt_activate();
+
+    done("GDT Successfully initialized!", __FILE__);
+
+    tss_load();
+}
+
+void gdt_activate(void) {
     /* Load GDT, reload data segments, then reload CS with lretq. */
     asm volatile(
         "cli\n"
@@ -70,8 +78,4 @@ void setup_gdt(void) {
         :
         : "m"(gdtp)
         : "rax", "memory");
-
-    done("GDT Successfully initialized!", __FILE__);
-
-    tss_load();
 }

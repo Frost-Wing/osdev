@@ -107,9 +107,13 @@ void initIdt(void) {
     outb(0xa1, 0xef); // 0xff for keyboard only and for mouse + keyboard 0xef
 
     idt_ptr.offset = (uintptr_t)&idt_entries[0];
-    __asm__ volatile("lidt %0" : : "m"(idt_ptr));
+    idt_activate();
     set_interrupts();
     init_syscall();
 
     done("Successfully initialized!", __FILE__);
+}
+
+void idt_activate(void) {
+    __asm__ volatile("lidt %0" : : "m"(idt_ptr));
 }
