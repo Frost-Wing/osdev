@@ -181,7 +181,7 @@ void main(void) {
      */
     mm_init(0x1000000, 64 MiB);
 
-    // Optional method of initializing heap, TODO make an VMM & PMM
+    // Optional method of initializing heap
     // void* heap_page = allocate_pages(64 MiB / PAGE_SIZE);
     // mm_init(heap_page, 64 MiB);
 
@@ -200,23 +200,6 @@ void main(void) {
 
     analyze_memory_map(limine_memory_ctx, memory_map_request);
 
-    uintptr_t page1 = allocate_page();
-    uintptr_t page2 = allocate_page();
-
-    printf("Page1 phys: 0x%x", page1);
-    printf("Page2 phys: 0x%x", page2);
-
-    uint64_t *test1 = (uint64_t *)(page1 + hhdm_request.response->offset);
-    uint64_t *test2 = (uint64_t *)(page2 + hhdm_request.response->offset);
-
-    // Write some values
-    *test1 = 0xDEADBEEFCAFEBABE;
-    *test2 = 0x123456789ABCDEF0;
-
-    // Read back
-    printf("Read back page1: 0x%x", *test1);
-    printf("Read back page2: 0x%x", *test2);
-
     probe_pci();
 
     printf(public_key);
@@ -227,9 +210,8 @@ void main(void) {
     display_memory_formatted(limine_memory_ctx);
     info(reset_color "Memory values end! =====", __FILE__);
 
-    if (limine_memory_ctx->bad != 0) {
+    if (limine_memory_ctx->bad != 0)
         warn("Bad blocks of memory found, it is recommended to replace your RAM.", __FILE__);
-    }
 
     if (smp_request.response == null) {
         warn("Limine did not provide SMP topology; continuing on the BSP.", __FILE__);
@@ -241,6 +223,7 @@ void main(void) {
         if (!smp_init(smp_request.response))
             warn("SMP setup failed; continuing on the BSP.", __FILE__);
     }
+
     print_cpu_info();
     print_L1_cache_info();
     print_L2_cache_info();
@@ -266,7 +249,8 @@ void main(void) {
     multitasking_init();
     if (smp_cpu_count() > 1 && !smp_start_cursor_blink())
         warn("No application processor available for cursor blinking.", __FILE__);
-    create_user_str("root", "prad");
+
+    create_user_str("root", "prad"); //ik this is unsafe, stfu
 
     const char *cmdline = null;
     if (kernel_file_request.response != null && kernel_file_request.response->kernel_file != null) {
@@ -276,6 +260,7 @@ void main(void) {
     }
 
     const char *rootdisk = cmdline_get(cmdline, "rootdisk");
+
     if (rootdisk) {
         info("Mounting root disk from cmdline: %s", __FILE__, rootdisk);
         int ret = vfs_mount(rootdisk, "/", true);

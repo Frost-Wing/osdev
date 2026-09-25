@@ -50,3 +50,5 @@ context_switch:
     # jump to new RIP
     movq 48(%rsi), %rax
     jmp *%rax
+
+.section .note.GNU-stack, "", @progbits

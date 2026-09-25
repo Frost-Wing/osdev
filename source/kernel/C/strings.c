@@ -10,6 +10,8 @@
  */
 #include <stdarg.h>
 #include <strings.h>
+#include <heap.h>
+#include <memory.h>
 
 const char hex_digits[] = "0123456789abcdef";
 const char caps_hex_digits[] = "0123456789ABCDEF";
