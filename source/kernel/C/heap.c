@@ -1,3 +1,14 @@
+/**
+ * @file heap.c
+ * @author Pradosh (pradoshgame@gmail.com)
+ * @brief Kernel heap implementation, a simple bump allocator with free list management.
+ * @version 0.1
+ * @date 2026-09-25
+ * 
+ * @copyright Copyright (c) Pradosh 2026
+ * 
+ */
+
 #include <debugger.h>
 #include <graphics.h>
 #include <heap.h>
