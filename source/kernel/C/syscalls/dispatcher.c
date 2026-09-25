@@ -1,4 +1,5 @@
 #include <syscalls/internal.h>
+#include <syscalls/sysnames.h>
 
 void int80_handler(InterruptFrame *frame) {
     uint64_t ret = syscall_dispatch(
@@ -43,41 +44,6 @@ void syscall_handler(syscall_frame_t *f) {
 
     f->rax = ret;
 }
-
-static const char *names[] = {
-    [0] = "read",
-    [1] = "write",
-    [2] = "open",
-    [3] = "close",
-    [41] = "socket",
-    [42] = "connect",
-    [44] = "sendto",
-    [45] = "recvfrom",
-    [54] = "setsockopt",
-    [9] = "mmap",
-    [11] = "munmap",
-    [12] = "brk",
-    [13] = "rt_sigaction",
-    [14] = "rt_sigprocmask",
-    [16] = "ioctl",
-    [24] = "sched_yield",
-    [39] = "getpid",
-    [57] = "fork",
-    [58] = "vfork",
-    [61] = "wait4",
-    [63] = "uname",
-    [72] = "fcntl",
-    [79] = "getcwd",
-    [80] = "chdir",
-    [95] = "umask",
-    [102] = "getuid",
-    [107] = "geteuid",
-    [110] = "getppid",
-    [158] = "arch_prctl",
-    [218] = "set_tid_address",
-    [228] = "clock_gettime",
-    [267] = "readlinkat",
-};
 
 uint64_t syscall_dispatch(
     uint64_t nr,
