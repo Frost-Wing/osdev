@@ -18,6 +18,9 @@ bool smp_call(uint32_t cpu_index, smp_call_fn_t fn, void *context);
 /* Run fn once on every online AP and wait for all calls to complete. */
 bool smp_call_all(smp_call_fn_t fn, void *context);
 
+/* Dedicate one online AP to the sample one-second terminal cursor blinker. */
+bool smp_start_cursor_blink(void);
+
 uint32_t smp_cpu_count(void);
 bool smp_cpu_is_online(uint32_t cpu_index);
 
