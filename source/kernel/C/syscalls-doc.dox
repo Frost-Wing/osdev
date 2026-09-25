@@ -3,7 +3,7 @@
  * @brief Linux syscall compatibility mapping for the FrostWing kernel.
  * @details
  * This document lists the syscall wrappers that are dispatched in
- * `syscalls.c` and the internal kernel entry points they use.
+ * `syscalls/` and the internal kernel entry points they use.
  *
  * ## Core mapping
  * - `read(2)`              -> `sys_read()`              -> `vfs_read()` / `tty_read()`
