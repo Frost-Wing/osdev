@@ -1,7 +1,9 @@
+#include <flanterm/flanterm.h>
 #include <gdt.h>
 #include <graphics.h>
 #include <heap.h>
 #include <idt.h>
+#include <pit.h>
 #include <smp.h>
 #include <spinlock.h>
 
@@ -17,6 +19,34 @@ typedef struct {
 static smp_cpu_t cpus[SMP_MAX_CPUS];
 static uint32_t cpu_count;
 static spinlock_t dispatch_lock = SPINLOCK_INITIALIZER;
+static bool cursor_blink_started;
+
+/*
+ * This is deliberately a long-running AP function rather than a BSP timer
+ * task. APs currently do not receive timer interrupts, so it polls the BSP's
+ * PIT tick counter while leaving interrupts disabled on the AP. The selected
+ * AP remains dedicated to this sample and cannot service smp_call() work.
+ */
+static void smp_cursor_blink(void *context) {
+    (void)context;
+
+    uint64_t next_toggle = __atomic_load_n(&pit_ticks, __ATOMIC_ACQUIRE) +
+                           PIT_TICKS_PER_SECOND;
+
+    for (;;) {
+        uint64_t now = __atomic_load_n(&pit_ticks, __ATOMIC_ACQUIRE);
+        if (now < next_toggle) {
+            __asm__ volatile("pause");
+            continue;
+        }
+
+        /* This redraws under the console lock, so it is safe alongside BSP output. */
+        terminal_toggle_cursor();
+
+        /* Rebase after a pause so a delayed AP never toggles repeatedly. */
+        next_toggle = now + PIT_TICKS_PER_SECOND;
+    }
+}
 
 /* AP startup must not log: the regular FPU setup path writes to the shared
  * logger while the BSP is still bringing the other CPUs online. */
@@ -86,6 +116,7 @@ bool smp_init(struct limine_smp_response *response) {
     }
 
     cpu_count = discovered_cpu_count;
+    cursor_blink_started = false;
     info("Initializing SMP for %u CPU(s)", __FILE__, cpu_count);
     for (uint32_t i = 0; i < cpu_count; ++i) {
         cpus[i].online = 0;
@@ -174,6 +205,31 @@ bool smp_call_all(smp_call_fn_t fn, void *context) {
 
     spinlock_unlock(&dispatch_lock);
     return called;
+}
+
+bool smp_start_cursor_blink(void) {
+    spinlock_lock(&dispatch_lock);
+    if (cursor_blink_started) {
+        spinlock_unlock(&dispatch_lock);
+        return false;
+    }
+
+    for (uint32_t i = 0; i < cpu_count; ++i) {
+        if (cpus[i].is_bsp || !__atomic_load_n(&cpus[i].online, __ATOMIC_ACQUIRE) ||
+            __atomic_load_n(&cpus[i].pending, __ATOMIC_ACQUIRE))
+            continue;
+
+        cpus[i].fn = smp_cursor_blink;
+        cpus[i].context = null;
+        __atomic_store_n(&cpus[i].complete, 0, __ATOMIC_RELAXED);
+        __atomic_store_n(&cpus[i].pending, 1, __ATOMIC_RELEASE);
+        cursor_blink_started = true;
+        spinlock_unlock(&dispatch_lock);
+        return true;
+    }
+
+    spinlock_unlock(&dispatch_lock);
+    return false;
 }
 
 uint32_t smp_cpu_count(void) {

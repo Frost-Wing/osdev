@@ -221,4 +221,11 @@ void print(cstring s);
  */
 void print_bitmap(int x, int y, int w, int h, const bool *pixels, uint32 color);
 
+/**
+ * @brief Toggle and redraw the terminal cursor while holding the console lock.
+ *
+ * This may be called by an AP while the BSP is halted waiting for input.
+ */
+void terminal_toggle_cursor(void);
+
 #endif

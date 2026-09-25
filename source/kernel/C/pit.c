@@ -14,8 +14,6 @@
 
 volatile uint64_t pit_ticks = 0;
 
-#define pit_freq 100 // Hz
-
 void process_pit(InterruptFrame *frame) {
     (void)frame;
     pit_ticks++;
@@ -28,7 +26,7 @@ void process_pit(InterruptFrame *frame) {
 
 void init_pit(void) {
     LOG_SCOPE();
-    uint32_t divisor = 1193180 / pit_freq; // PIT operates at 1193180 Hz
+    uint32_t divisor = 1193180 / PIT_TICKS_PER_SECOND; // PIT operates at 1193180 Hz
 
     outb(0x43, 0x36);                            // Command byte: Channel 0, lobyte/hibyte, mode 3 (square wave generator)
     outb(0x40, (uint8)(divisor & 0xFFU));        // Set low byte of divisor
@@ -36,7 +34,7 @@ void init_pit(void) {
 }
 
 void pit_sleep(uint32_t milliseconds) {
-    uint32_t ms_per_tick = 1000U / pit_freq;
+    uint32_t ms_per_tick = 1000U / PIT_TICKS_PER_SECOND;
     uint64_t ticks_to_wait = ((uint64_t)milliseconds + ms_per_tick - 1) / ms_per_tick; // round up
     uint64_t target_ticks = pit_ticks + ticks_to_wait;
     while (pit_ticks < target_ticks) {
@@ -45,6 +43,6 @@ void pit_sleep(uint32_t milliseconds) {
 }
 
 uint64_t get_time_ms(void) {
-    // pit_ticks increments at pit_freq (100 Hz) => each tick = 1000/pit_freq ms
-    return pit_ticks * (1000ULL / pit_freq);
+    // pit_ticks increments at PIT_TICKS_PER_SECOND => each tick is 10 ms.
+    return pit_ticks * (1000ULL / PIT_TICKS_PER_SECOND);
 }

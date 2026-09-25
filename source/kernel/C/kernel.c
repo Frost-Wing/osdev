@@ -264,6 +264,8 @@ void main(void) {
 
     mm_print_out();
     multitasking_init();
+    if (smp_cpu_count() > 1 && !smp_start_cursor_blink())
+        warn("No application processor available for cursor blinking.", __FILE__);
     create_user_str("root", "prad");
 
     const char *cmdline = null;

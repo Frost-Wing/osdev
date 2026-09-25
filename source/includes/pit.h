@@ -13,6 +13,9 @@
 #include <isr.h>
 #include <stdint.h>
 
+/* Channel 0 is programmed at this frequency by init_pit(). */
+#define PIT_TICKS_PER_SECOND 100U
+
 extern volatile uint64_t pit_ticks;
 
 /**
