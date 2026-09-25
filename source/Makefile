@@ -55,11 +55,12 @@ CFLAGS := -std=gnu11 -ffreestanding \
           -m64 -march=x86-64 \
           -mno-80387 -mno-mmx -mno-red-zone \
           -mno-sse -mno-sse2 \
-          -msoft-float
+          -msoft-float \
+		  -Wa,--noexecstack
 
 CPPFLAGS := -MMD -MP
 LDFLAGS := -nostdlib -static --no-dynamic-linker -z text -z max-page-size=0x1000 -T ./linker/linker.ld -m elf_x86_64
-NASMFLAGS := -Wall -f elf64
+NASMFLAGS := -Wall -f elf64 -w-reloc-abs-qword -w-reloc-rel-dword
 
 # Sources
 CFILES := $(filter-out $(CRASH_SYMBOLS_C),$(shell find -L $(SRC_DIRS) -type f -name '*.c'))
