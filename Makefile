@@ -119,6 +119,7 @@ endif
 
 QEMU_COMMON = \
     -vga std \
+	-smp 4 \
     -debugcon stdio \
     -serial file:serial.log \
     $(AUDIO) \
