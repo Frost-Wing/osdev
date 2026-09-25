@@ -1,6 +1,6 @@
 #include <gdt.h>
+#include <graphics.h>
 #include <idt.h>
-#include <math/fpu.h>
 #include <smp.h>
 #include <spinlock.h>
 
@@ -17,6 +17,18 @@ static smp_cpu_t cpus[SMP_MAX_CPUS];
 static uint32_t cpu_count;
 static spinlock_t dispatch_lock = SPINLOCK_INITIALIZER;
 
+/* AP startup must not log: the regular FPU setup path writes to the shared
+ * logger while the BSP is still bringing the other CPUs online. */
+static void smp_enable_fpu(void) {
+    uint64_t cr4;
+    const uint16_t control_word = 0x037f;
+
+    __asm__ volatile("mov %%cr4, %0" : "=r"(cr4));
+    cr4 |= 0x200;
+    __asm__ volatile("mov %0, %%cr4" : : "r"(cr4));
+    __asm__ volatile("fldcw %0" : : "m"(control_word));
+}
+
 static void smp_ap_entry(struct limine_smp_info *info) {
     uint32_t cpu = (uint32_t)info->extra_argument;
     if (cpu >= cpu_count)
@@ -24,9 +36,14 @@ static void smp_ap_entry(struct limine_smp_info *info) {
             __asm__ volatile("hlt");
 
     gdt_activate();
-    tss_load();
     idt_activate();
-    enable_fpu();
+    smp_enable_fpu();
+
+    /* The BSP has already loaded the sole TSS descriptor.  ltr marks that
+     * descriptor busy, so loading it again on an AP raises #GP.  APs do not
+     * enable interrupts or enter a lower privilege level yet, therefore they
+     * do not use the TSS.  Give every CPU a private TSS/GDT before enabling
+     * either of those features on APs. */
 
     __atomic_store_n(&cpus[cpu].online, 1, __ATOMIC_RELEASE);
 
@@ -50,10 +67,22 @@ static void smp_ap_entry(struct limine_smp_info *info) {
 }
 
 bool smp_init(struct limine_smp_response *response) {
-    if (!response || response->cpu_count == 0 || response->cpu_count > SMP_MAX_CPUS)
+    LOG_SCOPE();
+    if (!response || !response->cpus || response->cpu_count == 0 || response->cpu_count > SMP_MAX_CPUS)
         return false;
 
-    cpu_count = (uint32_t)response->cpu_count;
+    const uint32_t discovered_cpu_count = (uint32_t)response->cpu_count;
+
+    /* Validate every bootloader-owned CPU-info pointer before publishing an
+     * AP entry address.  Once an address is published, that AP may execute
+     * concurrently with this function. */
+    for (uint32_t i = 0; i < discovered_cpu_count; ++i) {
+        if (!response->cpus[i])
+            return false;
+    }
+
+    cpu_count = discovered_cpu_count;
+    info("Initializing SMP for %u CPU(s)", __FILE__, cpu_count);
     for (uint32_t i = 0; i < cpu_count; ++i) {
         cpus[i].online = 0;
         cpus[i].is_bsp = false;
@@ -72,12 +101,21 @@ bool smp_init(struct limine_smp_response *response) {
         __atomic_store_n(&response->cpus[i]->goto_address, smp_ap_entry, __ATOMIC_RELEASE);
     }
 
+    uint32_t online_count = 0;
     for (uint32_t i = 0; i < cpu_count; ++i) {
-        if (response->cpus[i]->lapic_id == response->bsp_lapic_id)
-            continue;
-        while (!__atomic_load_n(&cpus[i].online, __ATOMIC_ACQUIRE))
-            __asm__ volatile("pause");
+        if (response->cpus[i]->lapic_id != response->bsp_lapic_id){
+            while (!__atomic_load_n(&cpus[i].online, __ATOMIC_ACQUIRE))
+                __asm__ volatile("pause");
+        }
+
+        ++online_count;
+        info("CPU %u (LAPIC ID 0x%x)%s initialized", __FILE__, i,
+             response->cpus[i]->lapic_id,
+             cpus[i].is_bsp ? " [BSP]" : "");
+
     }
+
+    info("SMP initialization complete: " green_color "%u" reset_color "/" red_color "%u " reset_color " CPU(s) " green_color "online" reset_color, __FILE__, online_count, cpu_count);
 
     return true;
 }
