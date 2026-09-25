@@ -10,8 +10,11 @@
  */
 
 #include <commands/login.h>
+#include <fb.h>
 #include <graphics.h>
 #include <keyboard.h>
+
+extern struct flanterm_context *ft_ctx;
 
 uint64 usernames_total[MAX_USERS_ALLOWED];
 uint64 passwords_total[MAX_USERS_ALLOWED];
@@ -75,6 +78,15 @@ int login_request(char *userbuf, int max) {
         if (k == 0)
             continue;
 
+        if (k == CUR_UP) {
+            flanterm_fb_scrollback_up(ft_ctx);
+            continue;
+        }
+        if (k == CUR_DOWN) {
+            flanterm_fb_scrollback_down(ft_ctx);
+            continue;
+        }
+
         temp = (char)k;
 
         if (temp == '\n' || temp == '\r')
@@ -104,6 +116,15 @@ int login_request(char *userbuf, int max) {
 
         if (k == 0)
             continue;
+
+        if (k == CUR_UP) {
+            flanterm_fb_scrollback_up(ft_ctx);
+            continue;
+        }
+        if (k == CUR_DOWN) {
+            flanterm_fb_scrollback_down(ft_ctx);
+            continue;
+        }
 
         temp = (char)k;
 
@@ -147,7 +168,7 @@ int login_request(char *userbuf, int max) {
 }
 
 int ask_password(const char *username) {
-    char temp;
+    int key;
     int i;
 
     uint64 username_hash = baranium_hash(username);
@@ -156,7 +177,10 @@ int ask_password(const char *username) {
 
     print("Password: ");
     i = 0;
-    while ((temp = getc()) != '\n' && i < 20) {
+    while ((key = getc()) != '\n' && i < 20) {
+        if (key == CUR_UP || key == CUR_DOWN)
+            continue;
+        char temp = (char)key;
         if (temp == 0)
             continue;
         if (temp == '\b') {
