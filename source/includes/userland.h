@@ -87,6 +87,17 @@ typedef struct {
     glibc_dtv_t dtv[2];
 } glibc_tls_block_t;
 
+typedef struct {
+    uint64_t ret_rip; // offset 0
+    uint64_t ret_rsp; // offset 8
+    uint64_t rbx;     // offset 16
+    uint64_t rbp;     // offset 24
+    uint64_t r12;     // offset 32
+    uint64_t r13;     // offset 40
+    uint64_t r14;     // offset 48
+    uint64_t r15;     // offset 56
+} userland_caller_state_t;
+
 _Static_assert(__builtin_offsetof(glibc_tcb_head_t, stack_guard) == 0x28, "glibc stack_guard offset mismatch");
 _Static_assert(__builtin_offsetof(glibc_tcb_head_t, pointer_guard) == 0x30, "glibc pointer_guard offset mismatch");
 _Static_assert(__builtin_offsetof(glibc_tcb_head_t, __private_ss) == 0x70, "glibc __private_ss offset mismatch");

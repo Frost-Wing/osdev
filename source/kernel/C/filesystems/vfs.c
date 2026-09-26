@@ -1498,6 +1498,8 @@ int vfs_umount(const char *mount_point, bool is_kernel_call) {
             break;
         case FS_DEV:
             break;
+        case FS_ISO9660:
+            break;
         default:
             if (is_kernel_call)
                 error("umount: unsupported filesystem.", __FILE__, mount_point);
