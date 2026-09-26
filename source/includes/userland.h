@@ -112,7 +112,7 @@ typedef struct {
     const char *path;
     int argc;
     const char *argv[32];
-    const char *envp;
+    const char *const *envp;
 } userland_exec_ctx_t;
 
 void enter_userland_at(uint64_t entry_point);
