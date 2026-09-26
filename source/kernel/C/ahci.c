@@ -751,6 +751,7 @@ static int ahci_issue_packet_command(
     cfis[0] = 0x27;
     cfis[1] = 1 << 7;
     cfis[2] = 0xA0; // ATA PACKET command
+    cfis[3] = 0x01; // Features: bit0 = 1 -> DMA transfer (required for DMA PACKET commands)
 
     port->serr = 0xFFFFFFFF;
     port->is = 0xFFFFFFFF;
