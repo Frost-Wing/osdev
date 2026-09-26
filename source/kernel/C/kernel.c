@@ -294,10 +294,6 @@ void main(void) {
 
     enable_fpu();
 
-    volatile uint32_t *ptr = (volatile uint32_t *)0xFFFFFFFFFFFFF000;
-    uint32_t value = *ptr;
-
-
     info("Welcome to FrostWing Operating System! %s", __FILE__, "(https://github.com/Frost-Wing)");
     frost_compilation_information();
 
