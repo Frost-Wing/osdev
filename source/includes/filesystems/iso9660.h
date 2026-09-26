@@ -13,6 +13,7 @@ typedef struct {
     uint16_t logical_block_size;
     uint32_t root_extent_lba;
     uint32_t root_size;
+    bool joliet;
 } iso9660_fs_t;
 
 typedef struct {

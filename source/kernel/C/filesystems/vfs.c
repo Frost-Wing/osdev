@@ -591,7 +591,7 @@ int vfs_open(const char *path, int flags, vfs_file_t *out) {
     }
 
     if (res.mnt->type == FS_ISO9660) {
-        if (flags & (VFS_CREATE | VFS_TRUNC | VFS_APPEND | VFS_WRONLY | VFS_RDWR)) {
+        if (flags & (VFS_CREATE | VFS_TRUNC | VFS_APPEND | VFS_WRONLY)) {
             eprintf("open: iso9660 is read-only");
             return -7;
         }

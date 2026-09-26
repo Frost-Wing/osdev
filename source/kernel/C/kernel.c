@@ -276,7 +276,27 @@ void main(void) {
         warn("No rootdisk= specified on kernel cmdline, root not mounted.", __FILE__, "main");
     }
 
+    if (module_request.response != null && module_request.response->module_count > 0) {
+        info("Total modules: %d", __FILE__, module_request.response->module_count);
+
+        for (uint64_t i = 0; i < module_request.response->module_count; i++) {
+            struct limine_file *mod = module_request.response->modules[i];
+
+            info("Module[%d]: %s, size: %d bytes", __FILE__, i, mod->path, mod->size);
+        }
+
+        // sample
+        struct limine_file *first_module = module_request.response->modules[0];
+        uint64_t first_module_addr = (uint64_t)first_module->address;
+    } else {
+        info("No modules provided by Limine", __FILE__);
+    }
+
     enable_fpu();
+
+    volatile uint32_t *ptr = (volatile uint32_t *)0xFFFFFFFFFFFFF000;
+    uint32_t value = *ptr;
+
 
     info("Welcome to FrostWing Operating System! %s", __FILE__, "(https://github.com/Frost-Wing)");
     frost_compilation_information();
