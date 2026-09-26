@@ -8,6 +8,10 @@
  * @copyright Copyright (c) Pradosh 2023
  *
  */
+
+#ifndef BASICS_H
+#define BASICS_H
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -54,3 +58,5 @@ typedef char *string;
     if (!(expression)) {                                                                                        \
         printf("\x1b[31mAssert Failed! at \x1b[36m%s:%d\x1b[0m => \x1b[32m%s\x1b[0m", file, line, #expression); \
     }
+
+#endif

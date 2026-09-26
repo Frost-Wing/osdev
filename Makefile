@@ -75,6 +75,7 @@ iso:
 		-efi-boot-part \
 		--efi-boot-image \
 		--protective-msdos-label \
+		-J \
 		$(ISO_ROOT) \
 		-o $(ISO_FILE)
 
