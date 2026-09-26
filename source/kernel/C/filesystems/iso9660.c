@@ -31,6 +31,45 @@ static int iso_read_block(iso9660_fs_t *fs, uint32_t block, uint8_t *out) {
     return ahci_read_sector(fs->portno, lba, out, sectors);
 }
 
+static void iso_name_to_vfs_joliet(const uint8_t *in, uint8_t in_len, char *out, size_t out_sz) {
+    size_t oi = 0;
+
+    for (uint8_t i = 0; (uint8_t)(i + 1) < in_len && oi + 1 < out_sz; i += 2) {
+        uint16_t wc = ((uint16_t)in[i] << 8) | in[i + 1];
+
+        if (wc == ';') // start of ";1" version suffix
+            break;
+
+        // Our VFS is byte-based; only pass through chars that fit in a byte.
+        out[oi++] = (wc <= 0xFF) ? (char)wc : '?';
+    }
+
+    if (oi > 0 && out[oi - 1] == '.')
+        oi--;
+
+    out[oi] = '\0';
+}
+
+static int iso_name_eq_joliet(const char *query, const uint8_t *rec_name, uint8_t rec_len) {
+    char lhs[128], rhs[128];
+    memset(lhs, 0, sizeof(lhs));
+    memset(rhs, 0, sizeof(rhs));
+
+    strncpy(lhs, query, sizeof(lhs) - 1);
+    for (size_t i = 0; lhs[i]; i++) {
+        if (lhs[i] >= 'a' && lhs[i] <= 'z')
+            lhs[i] = lhs[i] - ('a' - 'A');
+    }
+
+    iso_name_to_vfs_joliet(rec_name, rec_len, rhs, sizeof(rhs));
+    for (size_t i = 0; rhs[i]; i++) {
+        if (rhs[i] >= 'a' && rhs[i] <= 'z')
+            rhs[i] = rhs[i] - ('a' - 'A');
+    }
+
+    return strcmp(lhs, rhs) == 0;
+}
+
 static void iso_name_to_vfs(const char *in, uint8_t in_len, char *out, size_t out_sz) {
     size_t oi = 0;
 
@@ -102,7 +141,9 @@ static int iso_find_in_dir(iso9660_fs_t *fs,
                 continue;
             }
 
-            if (iso_name_eq(name, r->name, r->name_len)) {
+            if (fs->joliet
+                    ? iso_name_eq_joliet(name, (uint8_t *)r->name, r->name_len)
+                    : iso_name_eq(name, r->name, r->name_len)) {
                 out->extent_lba = r->extent_lba_le;
                 out->size = r->data_len_le;
                 out->flags = r->flags;
@@ -158,10 +199,39 @@ int iso9660_mount(int portno, uint32_t partition_lba, iso9660_fs_t *fs) {
     fs->logical_block_size = (uint16_t)(pvd[128] | (pvd[129] << 8));
     if (fs->logical_block_size == 0)
         fs->logical_block_size = ISO9660_SECTOR_SIZE;
+    fs->joliet = false;
 
     iso9660_dir_record_t *root = (iso9660_dir_record_t *)&pvd[156];
     fs->root_extent_lba = root->extent_lba_le;
     fs->root_size = root->data_len_le;
+
+    /* Walk the rest of the Volume Descriptor Set looking for a Joliet SVD.
+     * These sectors are ALWAYS 2048 bytes, independent of logical_block_size. */
+    uint8_t svd[ISO9660_SECTOR_SIZE];
+    for (uint32_t vd_lba = pvd_lba + (ISO9660_SECTOR_SIZE / SECTOR_SIZE);;
+         vd_lba += (ISO9660_SECTOR_SIZE / SECTOR_SIZE)) {
+
+        if (ahci_read_sector(portno, vd_lba, svd, ISO9660_SECTOR_SIZE / SECTOR_SIZE) != 0)
+            break;
+        if (memcmp(&svd[1], "CD001", 5) != 0)
+            break;
+        if (svd[0] == 255) // Volume Descriptor Set Terminator
+            break;
+
+        if (svd[0] == 2) { // Supplementary Volume Descriptor
+            uint8_t *esc = &svd[88];
+            bool is_joliet = (esc[0] == 0x25 && esc[1] == 0x2F &&
+                              (esc[2] == 0x40 || esc[2] == 0x43 || esc[2] == 0x45));
+
+            if (is_joliet) {
+                iso9660_dir_record_t *jroot = (iso9660_dir_record_t *)&svd[156];
+                fs->root_extent_lba = jroot->extent_lba_le;
+                fs->root_size = jroot->data_len_le;
+                fs->joliet = true;
+                break; // Joliet tree wins over the plain 8.3 tree
+            }
+        }
+    }
 
     return 0;
 }
@@ -303,7 +373,10 @@ int iso9660_list_dir(iso9660_fs_t *fs, const iso9660_dirent_t *dir) {
             }
 
             char name[128];
-            iso_name_to_vfs(r->name, r->name_len, name, sizeof(name));
+            if (fs->joliet)
+                iso_name_to_vfs_joliet((uint8_t *)r->name, r->name_len, name, sizeof(name));
+            else
+                iso_name_to_vfs(r->name, r->name_len, name, sizeof(name));
 
             if (r->flags & ISO9660_FLAG_DIR)
                 printfnoln(yellow_color "%s " reset_color, name);

@@ -13,8 +13,11 @@
 #include <crash_symbols.h>
 #include <isr.h> // For InterruptFrame
 #include <meltdown.h>
+#include <debugger.h>
+#include <rtc.h>
+#include <versions.h>
 
-#define clean_mode
+// #define clean_mode
 
 static void meltdown_print_source(const CrashSymbolResult *symbol) {
     if (!symbol || !symbol->found) {
@@ -24,11 +27,11 @@ static void meltdown_print_source(const CrashSymbolResult *symbol) {
         return;
     }
 
-    printf("CRASH LOCATION");
-    printf("    %s:%d", symbol->file, symbol->line);
-    printf("    %s()", symbol->function);
+    printf("Crash Location");
+    printfnoln("    %s:%d", symbol->file, symbol->line);
+    printf(" in %s()", symbol->function);
 
-    printf("SOURCE");
+    printf("Source code");
     if (!symbol->snippet || symbol->snippet_count == 0) {
         printf("    Source snippet unavailable for this address.");
         return;
@@ -50,23 +53,30 @@ static void meltdown_print_diagnosis(cstring handler_file, int handler_line, con
         return;
     }
 
-    printf("WHAT PROBABLY HAPPENED");
+    printf("Assuptions :");
     printf("    %s", diagnosis->what_happened);
 
-    printf("LIKELY CAUSE");
+    printf("Likely cause :");
     printf("    %s", diagnosis->likely_cause);
 
-    printf("WHAT TO FIX");
+    printf("Fix suggestions :");
     printf("    %s", diagnosis->what_to_fix);
-    if (symbol && symbol->found)
-        printf("    Inspect: %s:%d", symbol->file, symbol->line);
-    printf("    %s", diagnosis->source_hint);
 
-    printf("CONFIDENCE: %s", crash_confidence_string(diagnosis->confidence));
-
-    printf("PANIC HANDLER");
-    printf("    %s:%d", handler_file, handler_line);
+    printf("Confidence: %s", crash_confidence_string(diagnosis->confidence));
 }
+
+/**
+ * @brief An integer value which stores terminal's rows
+ *
+ */
+extern int terminal_rows;
+
+/**
+ * @brief An integer value which stores terminal's columns
+ *
+ */
+extern int terminal_columns;
+
 
 void meltdown_screen(cstring message, cstring file, int line, uint64 error_code, uint64 cr2, uint64 int_no, InterruptFrame *frame) {
 #ifndef clean_mode
@@ -83,7 +93,8 @@ void meltdown_screen(cstring message, cstring file, int line, uint64 error_code,
     print("\x1b[H");
     print("===[ Meltdown Occurred at Wing Kernel! ]===\n\n");
 
-    uint8_t second, minute, hour, day, month, year;
+    uint8 second, minute, hour, day, month;
+    uint16 year;
     update_system_time(&second, &minute, &hour, &day, &month, &year);
 
     printf("Timestamp     : %02d:%02d:%02d %02d/%02d/%02d", hour, minute, second, day, month, year);
@@ -110,7 +121,16 @@ void meltdown_screen(cstring message, cstring file, int line, uint64 error_code,
     interrupt_frame_dump(frame);
 
     print("\n");
-    frost_compilation_information();
+
+    uint64 rip = frame ? frame->rip : 0;
+    CrashSymbolResult symbol;
+    CrashDiagnosis diagnosis;
+
+    crash_symbols_resolve(rip, &symbol);
+    crash_diagnostics_analyze(int_no, error_code, cr2, frame, &symbol, &diagnosis);
+
+    meltdown_print_source(&symbol);
+    meltdown_print_diagnosis(file, line, &symbol, &diagnosis);
 #endif
 #ifdef clean_mode
     uint64 rip = frame ? frame->rip : 0;
