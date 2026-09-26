@@ -235,33 +235,30 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     uint64_t return_rsp = userland_resume_ret_rsp;
     int exit_code = userland_last_exit_code;
 
+    /* Snapshot this frame's caller-register state BEFORE popping -
+     * userland_pop_frame() overwrites these globals with the outer
+     * frame's values (or zeroes them if we're the outermost frame). */
+    uint64_t resume_regs[9] = {
+        userland_resume_rbx,
+        userland_resume_rbp,
+        userland_resume_r12,
+        userland_resume_r13,
+        userland_resume_r14,
+        userland_resume_r15,
+        (uint64_t)(uint32_t)exit_code,
+        return_rsp,
+        return_rip,
+    };
+
     userland_should_return_kernel = false;
 
-    /* Restore the kernel stack pointer this frame overwrote back to
-     * whatever it was before this frame started - the outer frame's own
-     * dedicated buffer (or the true original kernel stack, if this was
-     * the outermost frame). This must happen using *this* frame's saved
-     * values, before we pop and lose them. */
     kernel_stack_top = userland_saved_kernel_stack_top;
     tss.rsp0 = userland_saved_tss_rsp0;
 
-    /* Pop back to the outer frame's resume/exception state (if any). If
-     * there's still an outer frame active, a process is still logically
-     * "running" (blocked mid-syscall) even though nothing is in ring3
-     * right now, so keep userland_running true for it. Only the truly
-     * outermost exit clears it. */
     bool still_in_userland = userland_pop_frame();
     userland_running = still_in_userland;
 
     wrmsr64_local(IA32_FS_BASE_MSR, 0);
-    /*
-     * Nested userland_exec() happens while another user task is blocked in
-     * the kernel (for example toybox sh -> wait4() -> multitasking_pump()).
-     * Tearing down the global user mappings here destroys the suspended outer
-     * task's address space and causes a kernel/user return fault after the
-     * child exits. Only reclaim the user image when the outermost userland
-     * frame exits; inner exits merely unwind to their waiter.
-     */
     if (!still_in_userland) {
         userland_unmap_all();
         userland_heap_init();
@@ -271,12 +268,21 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     asm volatile("sti");
 
     asm volatile(
-        "xor %%rax, %%rax\n"
-        "mov %0, %%rsp\n"
-        "jmp *%1\n"
+        "mov 0(%0), %%rbx\n"
+        "mov 8(%0), %%rbp\n"
+        "mov 16(%0), %%r12\n"
+        "mov 24(%0), %%r13\n"
+        "mov 32(%0), %%r14\n"
+        "mov 40(%0), %%r15\n"
+        "mov 48(%0), %%eax\n"
+        "mov 56(%0), %%rcx\n"
+        "mov 64(%0), %%rdx\n"
+        "mov %%rcx, %%rsp\n"
+        "jmp *%%rdx\n"
         :
-        : "r"(return_rsp), "r"(return_rip)
-        : "memory", "rax");
+        : "r"(resume_regs)
+        : "memory", "rax", "rbx", "rcx", "rdx",
+          "r12", "r13", "r14", "r15" /* no rbp here */);
     __builtin_unreachable();
 }
 
@@ -753,15 +759,31 @@ void userland_exec_prepare(
         kfree(image_info.tls_template);
 }
 
-int userland_exec(const userland_exec_ctx_t *ctx) {
+__attribute__((noinline, used))
+int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_state_t *caller) {
     if (!ctx || !ctx->path)
         return -1;
 
+    // push_frame() FIRST - this correctly snapshots whatever the outer
+    // (still-suspended) frame's globals currently hold. Nothing below
+    // this line may touch userland_resume_* before this call runs.
     int frame_depth = userland_push_frame();
     if (frame_depth < 0) {
         eprintf("[userland] exec nesting too deep");
         return -1;
     }
+
+    // Only now is it safe to overwrite the globals with THIS frame's
+    // caller-return state - the outer frame's true values are already
+    // safely captured in frame_stack[].
+    userland_resume_ret_rip = caller->ret_rip;
+    userland_resume_ret_rsp = caller->ret_rsp;
+    userland_resume_rbx = caller->rbx;
+    userland_resume_rbp = caller->rbp;
+    userland_resume_r12 = caller->r12;
+    userland_resume_r13 = caller->r13;
+    userland_resume_r14 = caller->r14;
+    userland_resume_r15 = caller->r15;
 
     elf_image_info_t image_info = {0};
 
@@ -770,10 +792,6 @@ int userland_exec(const userland_exec_ctx_t *ctx) {
         userland_pop_frame();
         return -1;
     }
-
-    // ----------------------------------------------------
-    // DO NOT use any global exec context here anymore
-    // ----------------------------------------------------
 
     map_user_stack();
     userland_heap_init();
@@ -788,50 +806,30 @@ int userland_exec(const userland_exec_ctx_t *ctx) {
     if (image_info.tls_template)
         kfree(image_info.tls_template);
 
-    // ----------------------------------------------------
-    // SAFE ARGV SNAPSHOT (CRITICAL FIX)
-    // ----------------------------------------------------
     const char *safe_argv[32];
     int safe_argc = ctx->argc;
-
     if (safe_argc < 0)
         safe_argc = 0;
     if (safe_argc > 31)
         safe_argc = 31;
-
-    for (int i = 0; i < safe_argc; i++) {
+    for (int i = 0; i < safe_argc; i++)
         safe_argv[i] = ctx->argv[i] ? ctx->argv[i] : "";
-    }
     safe_argv[safe_argc] = NULL;
 
     const char *safe_envp = ctx->envp;
 
-    // ----------------------------------------------------
-    // BUILD USER STACK
-    // ----------------------------------------------------
     uint64_t stack_top =
         build_initial_user_stack(ctx->path, safe_argc, safe_argv, safe_envp, &image_info);
 
     debug_printf("userland exec: %s entry=%p stack=%p argc=%d\n",
         ctx->path, entry, (void *)stack_top, safe_argc);
-
     debug_dump_initial_stack(stack_top);
 
-    // ----------------------------------------------------
-    // SAVE KERNEL STATE FOR RETURN PATH
-    // ----------------------------------------------------
     uint64_t kernel_rsp = 0;
     asm volatile("mov %%rsp, %0" : "=r"(kernel_rsp));
-    asm volatile("mov %%rbx, %0" : "=r"(userland_resume_rbx));
-    asm volatile("mov %%rbp, %0" : "=r"(userland_resume_rbp));
-    asm volatile("mov %%r12, %0" : "=r"(userland_resume_r12));
-    asm volatile("mov %%r13, %0" : "=r"(userland_resume_r13));
-    asm volatile("mov %%r14, %0" : "=r"(userland_resume_r14));
-    asm volatile("mov %%r15, %0" : "=r"(userland_resume_r15));
 
-    userland_resume_ret_rip = (uint64_t)__builtin_return_address(0);
-    userland_resume_ret_rsp = (uint64_t)__builtin_frame_address(0) + 16;
-
+    // This frame's OWN kernel-mode resume point (unrelated to the
+    // caller-return state above) - unchanged, set fresh each call.
     userland_resume_rsp = kernel_rsp;
     userland_resume_rip = (uint64_t)userland_finish_exit;
 
@@ -845,12 +843,8 @@ int userland_exec(const userland_exec_ctx_t *ctx) {
     kernel_stack_top =
         (uint64_t)&userland_syscall_stacks[frame_depth]
                                           [sizeof(userland_syscall_stacks[frame_depth])];
-
     tss.rsp0 = kernel_stack_top;
 
-    // ----------------------------------------------------
-    // SWITCH TO USER MODE
-    // ----------------------------------------------------
     asm volatile(
         "cli\n"
         "mov %0, %%r11\n"
@@ -875,6 +869,40 @@ int userland_exec(const userland_exec_ctx_t *ctx) {
         "rsi", "rdi", "r8", "r9", "r10", "r11");
 
     __builtin_unreachable();
+}
+
+int userland_exec(const userland_exec_ctx_t *ctx) {
+    userland_caller_state_t caller;
+    userland_caller_state_t *cp = &caller;
+    int rc;
+
+    // Everything - register capture, return-context capture, and the
+    // actual call - happens in ONE atomic asm block so nothing the
+    // compiler does in between can shift rsp/ret_rip out from under us.
+    // caller is untouched-global-safe: it's a plain local, so capturing
+    // into it can happen any time before push_frame() runs inside impl.
+    asm volatile(
+        "mov %%rbx, 16(%[cp])\n"
+        "mov %%rbp, 24(%[cp])\n"
+        "mov %%r12, 32(%[cp])\n"
+        "mov %%r13, 40(%[cp])\n"
+        "mov %%r14, 48(%[cp])\n"
+        "mov %%r15, 56(%[cp])\n"
+        "lea 1f(%%rip), %%rax\n"
+        "mov %%rax, 0(%[cp])\n"
+        "mov %%rsp, 8(%[cp])\n"
+        "mov %[ctxv], %%rdi\n"
+        "mov %[cp], %%rsi\n"
+        "call userland_exec_impl\n"
+        "1:\n"
+        "mov %%eax, %[rc]\n"
+        : [rc] "=r"(rc)
+        : [cp] "r"(cp), [ctxv] "r"(ctx)
+        : "rax", "rdi", "rsi", "rdx", "rcx", "r8", "r9",
+          "r10", "r11", "memory", "cc"
+    );
+
+    return rc;
 }
 
 /**

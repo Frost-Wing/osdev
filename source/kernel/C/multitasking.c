@@ -547,7 +547,6 @@ void multitasking_on_pit_tick(uint64_t now_ticks) {
     g_current_pid = saved_current_pid;
     irq_restore(flags);
 }
-
 void multitasking_pump(void) {
     task_t *task_to_run = NULL;
 
@@ -570,6 +569,14 @@ void multitasking_pump(void) {
 
     if (!task_to_run)
         return;
+
+    // Capture the pid up front. Do NOT keep dereferencing task_to_run
+    // across userland_exec() below - that call runs a large amount of
+    // arbitrary C code, syscalls, IRQs, and a fake call/return trampoline
+    // (userland_finish_exit) in between, and there is no guarantee this
+    // pointer's register/stack slot survives all of that intact. A pid
+    // is a plain integer and can't be corrupted the same way.
+    uint32_t run_pid = task_to_run->pid;
 
     // ---------------------------
     // FIRST TIME RUN ONLY
@@ -596,9 +603,20 @@ void multitasking_pump(void) {
         // run ELF ONCE
         int rc = userland_exec(&ctx);
 
-        task_to_run->state = TASK_STATE_EXITED;
-        task_to_run->exit_code = rc;
-        task_to_run->user_runtime.started = 1;
+        debug_printf("[pump] post-exec run_pid=%u rc=%d\n", run_pid, rc);
+
+        // Re-fetch the task fresh by pid rather than trusting task_to_run
+        // still points at something valid after the call above.
+        uint64_t flags2 = irq_save_disable();
+        task_t *t = find_task_locked(run_pid);
+        if (t) {
+            t->state = TASK_STATE_EXITED;
+            t->exit_code = rc;
+            t->user_runtime.started = 1;
+        } else {
+            debug_printf("[multitasking] pump: task pid=%u vanished after exec\n", run_pid);
+        }
+        irq_restore(flags2);
 
         g_current_pid = saved_current_pid;
         return;
@@ -607,8 +625,15 @@ void multitasking_pump(void) {
     // ---------------------------
     // AFTER FIRST RUN: SHOULD NEVER RELOAD ELF
     // ---------------------------
-    task_to_run->state = TASK_STATE_EXITED;
-    task_to_run->exit_code = -LINUX_ENOSYS;
+    uint64_t flags3 = irq_save_disable();
+    task_t *t2 = find_task_locked(run_pid);
+    if (t2) {
+        t2->state = TASK_STATE_EXITED;
+        t2->exit_code = -LINUX_ENOSYS;
+    } else {
+        debug_printf("[multitasking] pump: task pid=%u vanished (already-started path)\n", run_pid);
+    }
+    irq_restore(flags3);
 
     g_current_pid = saved_current_pid;
 }
