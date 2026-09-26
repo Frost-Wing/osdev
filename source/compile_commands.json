@@ -211,6 +211,16 @@
   },
   {
     "directory": "/home/pradosh/osdev/source",
+    "file": "/home/pradosh/osdev/source/kernel/C/filesystems/layers/sys.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -O0 -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -msoft-float -Wa,--noexecstack -MMD -MP -c /home/pradosh/osdev/source/kernel/C/filesystems/layers/sys.c -o /dev/null"
+  },
+  {
+    "directory": "/home/pradosh/osdev/source",
+    "file": "/home/pradosh/osdev/source/kernel/C/filesystems/layers/namespace.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -O0 -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -msoft-float -Wa,--noexecstack -MMD -MP -c /home/pradosh/osdev/source/kernel/C/filesystems/layers/namespace.c -o /dev/null"
+  },
+  {
+    "directory": "/home/pradosh/osdev/source",
     "file": "/home/pradosh/osdev/source/kernel/C/filesystems/fwrfs.c",
     "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -O0 -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -msoft-float -Wa,--noexecstack -MMD -MP -c /home/pradosh/osdev/source/kernel/C/filesystems/fwrfs.c -o /dev/null"
   },
@@ -438,6 +448,11 @@
     "directory": "/home/pradosh/osdev/source",
     "file": "/home/pradosh/osdev/source/kernel/C/multitasking.c",
     "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -O0 -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -msoft-float -Wa,--noexecstack -MMD -MP -c /home/pradosh/osdev/source/kernel/C/multitasking.c -o /dev/null"
+  },
+  {
+    "directory": "/home/pradosh/osdev/source",
+    "file": "/home/pradosh/osdev/source/kernel/C/cmdline.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -O0 -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -msoft-float -Wa,--noexecstack -MMD -MP -c /home/pradosh/osdev/source/kernel/C/cmdline.c -o /dev/null"
   },
   {
     "directory": "/home/pradosh/osdev/source",

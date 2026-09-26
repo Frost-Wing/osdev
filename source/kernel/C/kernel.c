@@ -20,6 +20,7 @@
 #include <net/net.h>
 #include <ringbuffer.h>
 #include <graphics.h>
+#include <cmdline.h>
 #include <syslog.h>
 #include <smp.h>
 #include <tty.h>
@@ -83,40 +84,6 @@ __attribute__((unused)) static void mouseMovementHandler(int64_t xRel, int64_t y
     // glDrawLine((uvec2){0, 0}, (uvec2){mousePos.x, mousePos.y}, mouseColor);
     print_bitmap((int)lastMousePos.x, (int)lastMousePos.y, 8, 16, mouse_cursor, 0x000000);
     print_bitmap((int)mousePos.x, (int)mousePos.y, 8, 16, mouse_cursor, mouseColor);
-}
-
-static char cmdline_value_buf[128];
-
-const char *cmdline_get(const char *cmdline, const char *key) {
-    if (!cmdline)
-        return null;
-
-    size_t key_len = strlen(key);
-    const char *p = cmdline;
-
-    while (*p) {
-        while (*p == ' ')
-            p++;
-        if (!*p)
-            break;
-
-        const char *tok_start = p;
-        while (*p && *p != ' ')
-            p++;
-        size_t tok_len = (size_t)(p - tok_start);
-
-        if (tok_len > key_len && tok_start[key_len] == '=' &&
-            strncmp(tok_start, key, key_len) == 0) {
-            size_t val_len = tok_len - key_len - 1;
-            if (val_len >= sizeof(cmdline_value_buf))
-                val_len = sizeof(cmdline_value_buf) - 1;
-            memcpy(cmdline_value_buf, tok_start + key_len + 1, val_len);
-            cmdline_value_buf[val_len] = '\0';
-            return cmdline_value_buf;
-        }
-    }
-
-    return null;
 }
 
 __attribute__((unused)) static void mouseButtonHandler(uint8_t button, uint8_t action) {
@@ -259,9 +226,10 @@ void main(void) {
         warn("Limine failed to give command-line data", __FILE__);
     }
 
-    const char *rootdisk = cmdline_get(cmdline, "rootdisk");
+    char rootdisk[64];
+    char bootdisk[64];
 
-    if (rootdisk) {
+    if (cmdline_get(cmdline, "rootdisk", rootdisk, sizeof(rootdisk))) {
         info("Mounting root disk from cmdline: %s", __FILE__, rootdisk);
         int ret = vfs_mount(rootdisk, "/", true);
         if (ret != 0) {
@@ -271,9 +239,19 @@ void main(void) {
         vfs_mount("proc", "/proc", true);
         vfs_mount("dev", "/dev", true);
         vfs_mount("sys", "/sys", true);
-
     } else {
         warn("No rootdisk= specified on kernel cmdline, root not mounted.", __FILE__, "main");
+    }
+
+    if (cmdline_get(cmdline, "bootdisk", bootdisk, sizeof(bootdisk))) {
+        info("Mounting boot disk from cmdline: %s", __FILE__, bootdisk);
+        int ret = vfs_mount(bootdisk, "/boot", true);
+        if (ret != 0) {
+            error("Failed to mount boot disk '%s' specified via cmdline.", __FILE__, bootdisk);
+            hcf2();
+        }
+    } else {
+        warn("No bootdisk= specified on kernel cmdline, boot not mounted.", __FILE__, "main");
     }
 
     if (module_request.response != null && module_request.response->module_count > 0) {
