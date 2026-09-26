@@ -18,6 +18,7 @@
 #include <filesystems/iso9660.h>
 #include <filesystems/layers/dev.h>
 #include <filesystems/layers/proc.h>
+#include <filesystems/layers/sys.h>
 #include <filesystems/vfs.h>
 #include <graphics.h>
 #include <heap.h>

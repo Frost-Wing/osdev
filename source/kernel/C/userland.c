@@ -81,14 +81,19 @@ typedef struct {
     uint64_t resume_r15;
     uint64_t resume_ret_rip;
     uint64_t resume_ret_rsp;
+    uint64_t fs_base;
     int last_exit_code;
     saved_user_page_t *user_pages;
 } userland_saved_frame_t;
 
+static uint64_t userland_restore_fs_base = 0;
 static userland_saved_frame_t userland_frame_stack[USERLAND_MAX_DEPTH];
 static int userland_depth = 0; /* number of active (nested) userland_exec frames */
 
 __attribute__((aligned(16))) static uint8_t userland_syscall_stacks[USERLAND_MAX_DEPTH][0x4000];
+
+static inline void wrmsr64_local(uint32_t msr, uint64_t value);
+static inline uint64_t rdmsr64_local(uint32_t msr);
 
 /* Save whatever is currently in the "active frame" globals (the outer
  * frame we're about to supersede) and reserve a new depth slot. Returns
@@ -162,6 +167,7 @@ static int userland_push_frame(void) {
     f->resume_r15 = userland_resume_r15;
     f->resume_ret_rip = userland_resume_ret_rip;
     f->resume_ret_rsp = userland_resume_ret_rsp;
+    f->fs_base = rdmsr64_local(IA32_FS_BASE_MSR);
     f->last_exit_code = userland_last_exit_code;
     f->user_pages = (userland_depth > 0) ? userland_snapshot_mappings() : NULL;
 
@@ -194,6 +200,7 @@ static bool userland_pop_frame(void) {
         userland_saved_kernel_stack_top = 0;
         userland_saved_tss_rsp0 = 0;
         userland_last_exit_code = 0;
+        userland_restore_fs_base = 0;
         return false;
     }
 
@@ -220,6 +227,7 @@ static bool userland_pop_frame(void) {
     userland_resume_r15 = f->resume_r15;
     userland_resume_ret_rip = f->resume_ret_rip;
     userland_resume_ret_rsp = f->resume_ret_rsp;
+    userland_restore_fs_base = f->fs_base;
     userland_last_exit_code = f->last_exit_code;
 
     userland_restore_snapshot(f->user_pages);
@@ -227,8 +235,6 @@ static bool userland_pop_frame(void) {
     f->user_pages = NULL;
     return true;
 }
-
-static inline void wrmsr64_local(uint32_t msr, uint64_t value);
 
 __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     uint64_t return_rip = userland_resume_ret_rip;
@@ -258,7 +264,7 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     bool still_in_userland = userland_pop_frame();
     userland_running = still_in_userland;
 
-    wrmsr64_local(IA32_FS_BASE_MSR, 0);
+    wrmsr64_local(IA32_FS_BASE_MSR, userland_restore_fs_base);
     if (!still_in_userland) {
         userland_unmap_all();
         userland_heap_init();
@@ -309,6 +315,12 @@ static inline void wrmsr64_local(uint32_t msr, uint64_t value) {
     uint32_t low = (uint32_t)value;
     uint32_t high = (uint32_t)(value >> 32);
     asm volatile("wrmsr" : : "c"(msr), "a"(low), "d"(high));
+}
+
+static inline uint64_t rdmsr64_local(uint32_t msr) {
+    uint32_t low = 0, high = 0;
+    asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(msr));
+    return ((uint64_t)high << 32) | low;
 }
 
 static uint64_t align_up_u64(uint64_t value, uint64_t align) {

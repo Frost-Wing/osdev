@@ -43,6 +43,15 @@ uintptr_t allocate_page(void) {
         hcf2();
     }
 
+    // Prefer reclaiming a freed page over bump-allocating new memory.
+    if (free_list_head) {
+        uintptr_t page = free_list_head;
+        uint64_t *v = phys_to_virt_ptr(page);
+        free_list_head = *v;              // pop: next-pointer was stashed here by free_page()
+        memset(phys_to_virt_ptr(page), 0, PAGE_SIZE);
+        return page;
+    }
+
     if (!bump_ptr || bump_ptr + PAGE_SIZE > bump_end) {
         uintptr_t search_from = bump_ptr;
         uintptr_t best_start = 0, best_end = 0;
@@ -251,18 +260,16 @@ void unmap_user_page(uint64_t virt) {
     if (!(pt[pt_idx] & PAGE_PRESENT))
         return;
 
+    uint64_t data_phys = pt[pt_idx] & ~0xFFFULL;
     pt[pt_idx] = 0;
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
 
-    // Walk back up, freeing any level that's now completely empty
     if (table_is_empty(pt)) {
         pd[pd_idx] = 0;
         free_page(pt_phys);
-
         if (table_is_empty(pd)) {
             pdpt[pdpt_idx] = 0;
             free_page(pd_phys);
-
             if (table_is_empty(pdpt)) {
                 pml4[pml4_idx] = 0;
                 free_page(pdpt_phys);
