@@ -21,7 +21,7 @@
 #define MOD_CTRL 0x03U
 #define MOD_LSHIFT 0x04U
 #define MOD_RSHIFT 0x08U
-#define MOD_SHIFT 0x4CU
+#define MOD_SHIFT 0x0CU
 #define MOD_LALT 0x10U
 #define MOD_RALT 0x20U
 #define MOD_ALT 0x30U

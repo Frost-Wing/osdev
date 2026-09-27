@@ -228,4 +228,7 @@ void print_bitmap(int x, int y, int w, int h, const bool *pixels, uint32 color);
  */
 void terminal_toggle_cursor(void);
 
+/* Atomically select and redraw the framebuffer terminal used for console I/O. */
+void terminal_switch_context(struct flanterm_context *context);
+
 #endif
