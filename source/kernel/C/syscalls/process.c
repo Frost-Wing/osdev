@@ -139,6 +139,7 @@ uint64 sys_fork(void) {
     spec.argc = spawn_argc;
     spec.parent_pid = cur->pid;
     spec.fork_child = true;
+    spec.tty_index = cur->tty_index;
 
     for (int i = 0; i < spawn_argc; i++)
         spec.argv[i] = spawn_argv[i];

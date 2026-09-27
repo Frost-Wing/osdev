@@ -31,8 +31,9 @@ typedef struct {
 
 static bool print_task_row(const task_info_t *info, void *ctx_ptr) {
     list_ctx_t *ctx = (list_ctx_t *)ctx_ptr;
-    printf("%2u  %8s %10s    exit=%02d runtime_ticks=%02u  %s",
+    printf("%2u  tty%u  %8s %10s    exit=%02d runtime_ticks=%02u  %s",
         info->pid,
+        info->tty_index + 1,
         type_name(info->type),
         state_name(info->state),
         info->exit_code,
@@ -48,7 +49,7 @@ int cmd_tasks(int argc, char **argv) {
 
     list_ctx_t ctx = {0};
 
-    printf("PID     TYPE      STATE    DETAILS");
+    printf("PID  TTY     TYPE      STATE    DETAILS");
     multitasking_for_each_task(print_task_row, &ctx);
 
     printf("\ntotal=%02u active=%02u",

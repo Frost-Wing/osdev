@@ -9,6 +9,8 @@ struct flanterm_context;
 #define TTY_LINE_MAX 256
 #define TTY_COOKED_MAX 1024
 #define TTY_COUNT 7
+/* Ask the task layer to inherit its parent's terminal. */
+#define TTY_INDEX_CURRENT UINT8_MAX
 
 void tty_init(void);
 /* Attach seven virtual terminals to an already initialized framebuffer console. */
