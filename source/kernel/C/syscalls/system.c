@@ -433,3 +433,39 @@ uint64 sys_getrandom(void *buf, uint64_t buflen, uint64_t flags) {
     }
     return (uint64)buflen;
 }
+
+uint64 sys_statfs(const char *path, linux_statfs_t *buf) {
+    if (!path || !buf)
+        return -LINUX_EINVAL;
+
+    char norm[256];
+    if (!resolve_path_at(LINUX_AT_FDCWD, path, norm, sizeof(norm)))
+        return -LINUX_EINVAL;
+
+    if (strcmp(norm, "/") == 0) {
+        fill_statfs_for_mount(NULL, buf);
+        buf->f_type = LINUX_EXT2_SUPER_MAGIC; // adjust if root isn't ext2
+        return 0;
+    }
+
+    vfs_mount_res_t res;
+    if (vfs_resolve_mount(norm, &res) != 0)
+        return -LINUX_ENOENT;
+
+    fill_statfs_for_mount(res.mnt, buf);
+    return 0;
+}
+
+uint64 sys_fstatfs(uint64_t fd, linux_statfs_t *buf) {
+    if (!buf)
+        return -LINUX_EINVAL;
+    if (!fd_valid((int)fd))
+        return -LINUX_EBADF;
+
+    vfs_file_t *file = fd_get_file((int)fd);
+    if (!file || !file->mnt)
+        return -LINUX_EBADF;
+
+    fill_statfs_for_mount(file->mnt, buf);
+    return 0;
+}

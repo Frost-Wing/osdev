@@ -275,6 +275,12 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_UNLINK:
             return sys_unlink((const char *)arg1);
 
+        case 137: // statfs
+            return sys_statfs((const char *)arg1, (linux_statfs_t *)arg2);
+
+        case 138: // fstatfs
+            return sys_fstatfs(arg1, (linux_statfs_t *)arg2);
+
         case PRAD_MAGIC:
             info("Alive from userland", __FILE__);
             return 0;
