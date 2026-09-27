@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2025-12-31
  *
- * @copyright Copyright (c) Pradosh 2025
+ * @copyright Copyright (c) Pradosh 2025-2026
  *
  * Implements EXT2 revision 0 and revision 1 (dynamic) on-disk format,
  * compatible with the Linux ext2 driver. Designed to be used as a
