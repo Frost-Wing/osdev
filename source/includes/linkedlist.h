@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2023-12-20
  *
- * @copyright Copyright (c) Pradosh & GAMINGNOOBdev 2023
+ * @copyright Copyright (c) Pradosh 2026 & GAMINGNOOBdev 2023
  */
 #ifndef __LINKEDLIST_H_
 #define __LINKEDLIST_H_

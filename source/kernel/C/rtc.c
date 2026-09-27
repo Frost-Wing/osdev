@@ -5,7 +5,7 @@
  * @version 0.2
  * @date 2025-10-11
  *
- * @copyright Copyright (c) Pradosh 2025
+ * @copyright Copyright (c) Pradosh 2025-2026
  *
  */
 

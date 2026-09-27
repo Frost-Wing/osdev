@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2023-12-05
  *
- * @copyright Copyright (c) Pradosh 2023
+ * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
 #ifndef rtl8139_h

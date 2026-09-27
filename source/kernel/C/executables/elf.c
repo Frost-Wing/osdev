@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2024-01-02
  *
- * @copyright Copyright (c) Pradosh 2024
+ * @copyright Copyright (c) Pradosh 2024-2026
  *
  */
 #include <debugger.h>
