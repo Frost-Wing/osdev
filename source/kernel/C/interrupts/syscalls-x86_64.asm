@@ -21,9 +21,11 @@ section .text
 syscall_entry:
     swapgs
 
-    ; Preserve userland RBX and RSP across SYSCALL.
-    ; NOTE: single-slot scratch is fine for current single-core/single-threaded userspace,
-    ; but this should eventually be per-CPU/per-thread storage.
+    ; Preserve userland RBX and RSP while switching stacks.  RSP is consumed
+    ; immediately below to construct the iret frame.  RBX is copied into the
+    ; syscall frame after the switch, rather than restored from this scratch
+    ; slot: a wait4() can run a child recursively, whose syscalls would
+    ; otherwise overwrite the parent's saved RBX before it returns to ring 3.
     mov [rel saved_user_rbx], rbx
     mov [rel saved_user_rsp], rsp
 
@@ -46,12 +48,15 @@ syscall_entry:
     push r10
     push r8
     push r9
+    push qword [rel saved_user_rbx]
 
     ; Call C handler
     mov rdi, rsp
     call syscall_handler
 
-    ; Restore registers
+    ; Restore registers.  RBX comes from this invocation's frame, not the
+    ; global scratch slot, so nested userland execution cannot corrupt it.
+    pop rbx
     pop r9
     pop r8
     pop r10
@@ -59,9 +64,6 @@ syscall_entry:
     pop rsi
     pop rdi
     pop rax
-
-    ; Restore userland RBX prior to iretq.
-    mov rbx, [rel saved_user_rbx]
 
     cmp byte [rel userland_should_return_kernel], 0
     je .return_to_user
