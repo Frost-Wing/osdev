@@ -83,6 +83,10 @@ typedef struct {
     uint64_t resume_ret_rsp;
     uint64_t fs_base;
     int last_exit_code;
+    uint64_t heap_break;        // new
+    uint64_t heap_mapped_end;   // new
+    uint64_t mmap_cursor;       // new
+    uint64_t mmap_end;          // new
     saved_user_page_t *user_pages;
 } userland_saved_frame_t;
 
@@ -110,7 +114,7 @@ static void userland_free_snapshot(saved_user_page_t *pages) {
 
 static void userland_snapshot_range(saved_user_page_t **list, uint64_t start, uint64_t end) {
     for (uint64_t vaddr = start; vaddr < end; vaddr += PAGE_SIZE) {
-        uint64_t phys = virtual_to_physical(vaddr);
+        uint64_t phys = virt_to_phys((void *)vaddr);
         uint64_t flags = paging_user_page_flags(vaddr);
         if (!phys || !(flags & PAGE_PRESENT))
             continue;
@@ -169,6 +173,10 @@ static int userland_push_frame(void) {
     f->resume_ret_rsp = userland_resume_ret_rsp;
     f->fs_base = rdmsr64_local(IA32_FS_BASE_MSR);
     f->last_exit_code = userland_last_exit_code;
+    f->heap_break = user_heap_break;              // new
+    f->heap_mapped_end = user_heap_mapped_end;     // new
+    f->mmap_cursor = user_mmap_cursor;             // new
+    f->mmap_end = user_mmap_end;                   // new
     f->user_pages = (userland_depth > 0) ? userland_snapshot_mappings() : NULL;
 
     return userland_depth++;
@@ -229,6 +237,10 @@ static bool userland_pop_frame(void) {
     userland_resume_ret_rsp = f->resume_ret_rsp;
     userland_restore_fs_base = f->fs_base;
     userland_last_exit_code = f->last_exit_code;
+    user_heap_break = f->heap_break;               // new
+    user_heap_mapped_end = f->heap_mapped_end;      // new
+    user_mmap_cursor = f->mmap_cursor;              // new
+    user_mmap_end = f->mmap_end;                    // new
 
     userland_restore_snapshot(f->user_pages);
     userland_free_snapshot(f->user_pages);
