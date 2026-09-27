@@ -21,6 +21,7 @@
 #include <ringbuffer.h>
 #include <graphics.h>
 #include <cmdline.h>
+#include <stdint.h>
 #include <syslog.h>
 #include <smp.h>
 #include <tty.h>
@@ -143,11 +144,11 @@ void main(void) {
      * ! In memory, kernel is loaded at higher half and at 0x8000000.
      * ! Therefore heap, userland (and more..) can be in the range of 0x1000000 to <= 0x8000000
      */
-    mm_init(0x1000000, 64 MiB);
+    // mm_init(0x1000000, 64 MiB);
 
     // Optional method of initializing heap
-    // void* heap_page = allocate_pages(64 MiB / PAGE_SIZE);
-    // mm_init(heap_page, 64 MiB);
+    uintptr_t heap_page = allocate_pages_contiguous(64 MiB / PAGE_SIZE);
+    mm_init(heap_page, 64 MiB);
 
     limine_memory_ctx = (struct memory_context *)kmalloc(sizeof(struct memory_context));
 

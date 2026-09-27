@@ -109,6 +109,64 @@ uintptr_t allocate_pages(size_t count) {
     return base;
 }
 
+uintptr_t allocate_pages_contiguous(size_t count) {
+    if (!memmap) {
+        LOG_SCOPE();
+        error("Limine failed to give the memory map", __FILE__);
+        hcf2();
+    }
+    if (count == 0) return 0;
+
+    size_t needed = count * PAGE_SIZE;
+
+    // Fast path: current bump region already has enough room.
+    if (bump_ptr && bump_ptr + needed <= bump_end) {
+        uintptr_t base = bump_ptr;
+        bump_ptr += needed;
+        for (size_t i = 0; i < count; i++)
+            memset(phys_to_virt_ptr(base + i * PAGE_SIZE), 0, PAGE_SIZE);
+        return base;
+    }
+
+    // Otherwise scan for a usable region that fits `count` pages contiguously,
+    // never reusing physical memory already handed out below the bump pointer.
+    uintptr_t best_start = 0, best_end = 0;
+    int found = 0;
+
+    for (uint64_t i = 0; i < memmap->entry_count; i++) {
+        struct limine_memmap_entry *e = memmap->entries[i];
+        if (e->type != LIMINE_MEMMAP_USABLE)
+            continue;
+
+        uintptr_t region_start = (e->base + PAGE_SIZE - 1) & ~0xFFFULL;
+        uintptr_t region_end = e->base + e->length;
+        uintptr_t placement = region_start > bump_ptr ? region_start : bump_ptr;
+
+        if (placement + needed > region_end)
+            continue; // doesn't fit
+
+        if (!found || placement < best_start) {
+            best_start = placement;
+            best_end = region_end;
+            found = 1;
+        }
+    }
+
+    if (!found) {
+        LOG_SCOPE();
+        error("Out of contiguous physical memory", __FILE__);
+        hcf2();
+    }
+
+    bump_ptr = best_start + needed;
+    bump_end = best_end;
+
+    for (size_t i = 0; i < count; i++)
+        memset(phys_to_virt_ptr(best_start + i * PAGE_SIZE), 0, PAGE_SIZE);
+
+    return best_start;
+}
+
 static inline uint64_t get_kernel_pml4(void) {
     uint64_t cr3;
     asm volatile("mov %%cr3, %0" : "=r"(cr3));
