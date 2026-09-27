@@ -256,6 +256,15 @@ int handle_char_from_scancode(uint8_t data) {
     if (data & 0x80) {
         uint8_t key = data & 0x7F;
 
+        if (extended) {
+            extended = false;
+            if (key == 0x1D)
+                modifiers = (uint8_t)(modifiers & (uint8_t)~MOD_RCTRL);
+            else if (key == 0x38)
+                modifiers = (uint8_t)(modifiers & (uint8_t)~MOD_RALT);
+            return 0;
+        }
+
         switch (key) {
             case 0x2A: // LSHIFT release
                 modifiers = (uint8_t)(modifiers & (uint8_t)~MOD_LSHIFT);
@@ -330,6 +339,13 @@ int handle_char_from_scancode(uint8_t data) {
 
         case 0x0E: // Backspace
             return '\b';
+    }
+
+    /* Linux-style virtual terminal selection: Ctrl+Alt+F1 through F7. */
+    if (data >= 0x3B && data <= 0x41 &&
+        (modifiers & MOD_CTRL) != 0U && (modifiers & MOD_ALT) != 0U) {
+        tty_switch((uint8_t)(data - 0x3B));
+        return 0;
     }
 
     // -------- Ignore non-character keys --------

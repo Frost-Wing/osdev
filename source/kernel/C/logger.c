@@ -149,6 +149,16 @@ void terminal_toggle_cursor(void) {
     spinlock_unlock(&console_lock);
 }
 
+void terminal_switch_context(struct flanterm_context *context) {
+    if (!context)
+        return;
+
+    spinlock_lock(&console_lock);
+    ft_ctx = context;
+    ft_ctx->full_refresh(ft_ctx);
+    spinlock_unlock(&console_lock);
+}
+
 /**
  * @brief Prints a value in binary format
  *

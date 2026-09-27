@@ -150,6 +150,11 @@ void main(void) {
     uintptr_t heap_page = allocate_pages_contiguous(64 MiB / PAGE_SIZE);
     mm_init(heap_page, 64 MiB);
 
+    if (!tty_init_terminals(ft_ctx, framebuffer->address, framebuffer->width,
+                            framebuffer->height, framebuffer->pitch)) {
+        error("Unable to initialize all virtual terminals", __FILE__);
+    }
+
     limine_memory_ctx = (struct memory_context *)kmalloc(sizeof(struct memory_context));
 
     acpi_init();
