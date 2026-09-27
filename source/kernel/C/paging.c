@@ -35,6 +35,14 @@ static inline uint64_t *phys_to_virt_ptr(uint64_t phys_addr) {
     return (uint64_t *)(phys_addr + hhdm_offset);
 }
 
+uint64_t fast_virt_to_phys(void *v) {
+    return (uint64_t)v - hhdm_offset;
+}
+
+uint64_t virt_to_phys(void *v) {
+    return fast_virt_to_phys(v);
+}
+
 
 uintptr_t allocate_page(void) {
     if (!memmap) {
@@ -107,33 +115,6 @@ static inline uint64_t get_kernel_pml4(void) {
     return cr3;
 }
 
-uint64_t virtual_to_physical(uint64_t virt) {
-    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
-    uint64_t pml4_idx = (virt >> 39) & 0x1FF;
-    uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
-    uint64_t pd_idx = (virt >> 21) & 0x1FF;
-    uint64_t pt_idx = (virt >> 12) & 0x1FF;
-    uint64_t offset = virt & 0xFFF;
-
-    if (!(pml4[pml4_idx] & PAGE_PRESENT))
-        return 0;
-    uint64_t *pdpt = phys_to_virt_ptr(pml4[pml4_idx] & ~0xFFFULL);
-
-    if (!(pdpt[pdpt_idx] & PAGE_PRESENT))
-        return 0;
-    uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & ~0xFFFULL);
-
-    if (!(pd[pd_idx] & PAGE_PRESENT))
-        return 0;
-    uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & ~0xFFFULL);
-
-    if (!(pt[pt_idx] & PAGE_PRESENT))
-        return 0;
-
-    uint64_t phys = (pt[pt_idx] & ~0xFFF) | offset;
-    return phys;
-}
-
 uint64_t paging_user_page_flags(uint64_t virt) {
     uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
@@ -157,14 +138,6 @@ uint64_t paging_user_page_flags(uint64_t virt) {
         return 0;
 
     return pt[pt_idx] & 0xFFF0000000000FFFULL;
-}
-
-uint64_t fast_virt_to_phys(void *v) {
-    return (uint64_t)v - hhdm_offset;
-}
-
-uint64_t virt_to_phys(void *v) {
-    return fast_virt_to_phys(v);
 }
 
 void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {

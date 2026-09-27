@@ -138,9 +138,6 @@ void main(void) {
         probe_serial();
     }
 
-    debug_printf("KERNEL STR -> %z : %z\n", (uint64)virtual_to_physical((uint64_t)(uintptr_t)kstart), kstart);
-    debug_printf("KERNEL END -> %z : %z\n", (uint64)virtual_to_physical((uint64_t)(uintptr_t)kend), kend);
-
     info("Welcome to FrostWing kernel (getting stuff ready)", __FILE__);
     /**
      * ! In memory, kernel is loaded at higher half and at 0x8000000.
