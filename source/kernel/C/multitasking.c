@@ -4,6 +4,7 @@
 #include <memory.h>
 #include <multitasking.h>
 #include <strings.h>
+#include <tty.h>
 #include <userland.h>
 #include <debugger.h>
 
@@ -93,6 +94,7 @@ static void fill_info(const task_t *task, task_info_t *info) {
     info->runtime_ticks = task->runtime_ticks;
     info->wakeup_tick = task->wakeup_tick;
     info->parent_pid = task->parent_pid;
+    info->tty_index = task->tty_index;
     info->name = task->name;
     info->exe_path = task->user_spec.path;
 }
@@ -117,6 +119,14 @@ uint32_t multitasking_current_pid(void) {
     return pid;
 }
 
+uint8_t multitasking_current_tty(void) {
+    uint64_t flags = irq_save_disable();
+    task_t *task = find_task_locked(g_current_pid);
+    uint8_t tty_index = task ? task->tty_index : tty_active_index();
+    irq_restore(flags);
+    return tty_index;
+}
+
 uint32_t multitasking_spawn_kernel(const char *name, kernel_task_fn_t fn, void *ctx) {
     if (!fn)
         return 0;
@@ -134,6 +144,7 @@ uint32_t multitasking_spawn_kernel(const char *name, kernel_task_fn_t fn, void *
     task->exit_code = 0;
     task->created_at_tick = g_last_tick;
     task->parent_pid = g_current_pid;
+    task->tty_index = multitasking_current_tty();
     task->kernel_fn = fn;
     task->kernel_ctx = ctx;
     if (name)
@@ -169,6 +180,10 @@ uint32_t multitasking_spawn_userland(const char *name, const user_task_spec_t *s
     task->created_at_tick = g_last_tick;
     task->parent_pid = spec->parent_pid ? spec->parent_pid : g_current_pid;
     task->fork_child = spec->fork_child;
+    if (spec->tty_index < TTY_COUNT)
+        task->tty_index = spec->tty_index;
+    else
+        task->tty_index = multitasking_current_tty();
 
     if (name)
         snprintf(task->name, sizeof(task->name), "%s", name);

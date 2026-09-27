@@ -177,7 +177,8 @@ int tty_read(char *buf, uint64_t count) {
     if (!buf || count == 0)
         return 0;
 
-    tty_t *tty = &ttys[tty_active_index()];
+    /* Input belongs to the calling task, not whichever VT the user views. */
+    tty_t *tty = &ttys[multitasking_current_tty()];
     uint64_t read = 0;
     static uint64_t last_tick = 0;
 
@@ -206,7 +207,7 @@ int tty_read(char *buf, uint64_t count) {
 }
 
 void tty_flush_input(void) {
-    tty_t *tty = &ttys[tty_active_index()];
+    tty_t *tty = &ttys[multitasking_current_tty()];
     spinlock_lock(&tty->lock);
     rb_clear(&tty->cooked_rb);
     tty->line_len = 0;

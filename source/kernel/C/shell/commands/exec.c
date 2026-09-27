@@ -52,6 +52,8 @@ int cmd_exec(int argc, char **argv) {
     spec.path = path;
     spec.argc = user_argc;
     spec.parent_pid = 0;
+    /* Keep a program's stdin on the shell terminal that launched it. */
+    spec.tty_index = multitasking_current_tty();
 
     for (int i = 0; i < user_argc; i++)
         spec.argv[i] = user_argv[i];

@@ -25,6 +25,7 @@ typedef struct task_info {
     uint64_t runtime_ticks;
     uint64_t wakeup_tick;
     uint32_t parent_pid;
+    uint8_t tty_index;
     const char *name;
     const char *exe_path;
 } task_info_t;
@@ -35,6 +36,8 @@ typedef struct user_task_spec {
     const char *argv[32];
     uint32_t parent_pid;
     bool fork_child;
+    /* TTY_INDEX_CURRENT inherits the spawning task's terminal. */
+    uint8_t tty_index;
 } user_task_spec_t;
 
 typedef bool (*task_iter_cb_t)(const task_info_t *info, void *ctx);
@@ -56,6 +59,7 @@ typedef struct task {
     uint64_t wakeup_tick;
     uint32_t parent_pid;
     bool fork_child;
+    uint8_t tty_index;
     char name[64];
 
     kernel_task_fn_t kernel_fn;
@@ -92,6 +96,8 @@ bool multitasking_find_child(uint32_t parent_pid, int64_t pid_filter, bool exite
 bool multitasking_current_is_fork_child(void);
 bool multitasking_get_task(uint32_t pid, task_info_t *out_info);
 uint32_t multitasking_current_pid(void);
+/* The terminal owned by the current task, or the visible terminal outside a task. */
+uint8_t multitasking_current_tty(void);
 
 uint32_t multitasking_count_tasks(void);
 uint32_t multitasking_count_running(void);
