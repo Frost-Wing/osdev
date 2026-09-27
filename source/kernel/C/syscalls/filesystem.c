@@ -936,3 +936,58 @@ uint64 sys_writev(uint64_t fd, const linux_iovec_t *iov, uint64_t iovcnt) {
 
     return total;
 }
+
+static int64_t statfs_magic_for_type(partition_fs_type_t type) {
+    switch (type) {
+        case FS_PROC:    return LINUX_PROC_SUPER_MAGIC;
+        case FS_SYS:     return LINUX_SYSFS_MAGIC;
+        case FS_DEV:     return LINUX_TMPFS_MAGIC;
+        case FS_FAT16:
+        case FS_FAT32:   return LINUX_MSDOS_SUPER_MAGIC;
+        case FS_ISO9660: return LINUX_ISOFS_SUPER_MAGIC;
+        case FS_EXT2:    return LINUX_EXT2_SUPER_MAGIC;
+        default:         return 0;
+    }
+}
+
+void fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out) {
+    memset(out, 0, sizeof(*out));
+
+    if (!mnt) {
+        out->f_bsize = 512;
+        out->f_frsize = 512;
+        out->f_namelen = 255;
+        return;
+    }
+
+    out->f_type = statfs_magic_for_type(mnt->type);
+    out->f_bsize = 512;
+    out->f_frsize = 512;
+    out->f_namelen = 255;
+
+    general_partition_t *part = search_general_partition(mnt->part_name);
+    if (!part)
+        return; // proc/sys/dev aren't backed by a partition
+
+    block_device_info_t *dev = NULL;
+    for (int i = 0; i < block_device_count; i++) {
+        if (!block_devices[i].present)
+            continue;
+        if (block_devices[i].type == BLOCK_DEVICE_AHCI &&
+            block_devices[i].backend_index == (int)part->ahci_port) {
+            dev = &block_devices[i];
+            break;
+        }
+    }
+
+    uint32_t sector_size = dev ? dev->sector_size : 512;
+    out->f_bsize = sector_size;
+    out->f_frsize = sector_size;
+    out->f_blocks = part->sector_count;
+
+    /* No live free-space accounting per filesystem yet (would need a
+     * per-fs superblock query, e.g. reading ext2's free block/inode
+     * counters). Reporting 0 free rather than guessing. */
+    out->f_bfree = 0;
+    out->f_bavail = 0;
+}

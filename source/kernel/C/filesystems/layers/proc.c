@@ -12,6 +12,7 @@
  * is just: (1) the actual proc file bodies, and (2) thin wrappers handing
  * procfs's/sysfs's own arrays to that shared engine.
  */
+#include <ahci.h>
 #include <basics.h>
 #include <filesystems/layers/namespace.h>
 #include <filesystems/layers/proc.h>
@@ -27,6 +28,27 @@ static procfs_entry_t *proc_files[PROCFS_MAX_FILES];
 static int proc_file_count = 0;
 
 /* ============================== PROC FILES ============================= */
+
+static const char *proc_fs_type_name(partition_fs_type_t type) {
+    switch (type) {
+        case FS_ISO9660:
+            return "iso9660";
+        case FS_FAT16:
+            return "fat16";
+        case FS_FAT32:
+            return "fat32";
+        case FS_EXT2:
+            return "ext2";
+        case FS_PROC:
+            return "proc";
+        case FS_SYS:
+            return "sys";
+        case FS_DEV:
+            return "dev";
+        default:
+            return "unknown";
+    }
+}
 
 static int proc_stat_read(
     vfs_file_t *file,
@@ -69,6 +91,42 @@ static int proc_heap_read(
 static procfs_entry_t proc_heap = {
     .name = "heap",
     .read = proc_heap_read,
+    .write = NULL,
+    .priv = NULL};
+
+static int proc_mounts_read(
+    vfs_file_t *file,
+    uint8_t *buf,
+    uint32_t size,
+    void *priv) {
+    (void)priv;
+
+    char tmp[1024];
+    int len = 0;
+
+    for (int i = 0; i < mounted_partition_count; i++) {
+        mount_entry_t *m = &mounted_partitions[i];
+
+        const char *dev = (m->part_name && *m->part_name) ? m->part_name : "none";
+        const char *mnt = (m->mount_point && *m->mount_point) ? m->mount_point : "/";
+        const char *fst = proc_fs_type_name(m->type);
+
+        int n = snprintf(tmp + len, sizeof(tmp) - (size_t)len,
+            "%s %s %s rw 0 0\n",
+            dev, mnt, fst);
+
+        if (n < 0 || len + n >= (int)sizeof(tmp))
+            break; // ran out of scratch buffer, truncate cleanly
+
+        len += n;
+    }
+
+    return ns_reply(file, buf, size, tmp, len);
+}
+
+static procfs_entry_t proc_mounts = {
+    .name = "mounts",
+    .read = proc_mounts_read,
     .write = NULL,
     .priv = NULL};
 
@@ -142,6 +200,7 @@ void procfs_init(void) {
     procfs_register(&proc_stat);
     procfs_register(&proc_heap);
     procfs_register(&proc_meminfo);
+    procfs_register(&proc_mounts);
     procfs_register(&proc_pci);
     procfs_register(&proc_pci_devices);
 

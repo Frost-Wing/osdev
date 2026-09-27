@@ -16,6 +16,28 @@
 
 #define PRAD_MAGIC 0xBADF00D
 
+typedef struct {
+    int64_t  f_type;
+    int64_t  f_bsize;
+    uint64_t f_blocks;
+    uint64_t f_bfree;
+    uint64_t f_bavail;
+    uint64_t f_files;
+    uint64_t f_ffree;
+    int32_t  f_fsid[2];
+    int64_t  f_namelen;
+    int64_t  f_frsize;
+    int64_t  f_flags;
+    int64_t  f_spare[4];
+} linux_statfs_t;
+
+#define LINUX_PROC_SUPER_MAGIC   0x9fa0
+#define LINUX_SYSFS_MAGIC        0x62656572
+#define LINUX_TMPFS_MAGIC        0x01021994 /* stand-in for devfs, no real ram-fs magic exists for it */
+#define LINUX_MSDOS_SUPER_MAGIC  0x4d44
+#define LINUX_ISOFS_SUPER_MAGIC  0x9660
+#define LINUX_EXT2_SUPER_MAGIC   0xEF53
+
 #define LINUX_SYS_READ 0
 #define LINUX_SYS_WRITE 1
 #define LINUX_SYS_OPEN 2
