@@ -1,92 +1,118 @@
-#include <flanterm/flanterm.h>
+#include <debugger.h>
 #include <graphics.h>
 #include <heap.h>
-#include <memory.h>
 #include <multitasking.h>
 #include <strings.h>
 #include <tty.h>
 #include <userland.h>
-#include <debugger.h>
+#include <memory.h>
 
-extern struct flanterm_context *ft_ctx;
+#define ARGV_MAX 32
 
-static task_t *g_task_head = NULL;
-static task_t *g_task_tail = NULL;
+static task_t *g_task_head;
+static task_t *g_task_tail;
 static uint32_t g_next_pid = 1;
-static uint32_t g_current_pid = 0;
-static uint64_t g_last_tick = 0;
+static uint32_t g_current_pid;
+static uint64_t g_last_tick;
 
-static uint64_t irq_save_disable(void) {
-    uint64_t flags = 0;
+static inline uint64_t irq_save_disable(void) {
+    uint64_t flags;
     asm volatile("pushfq; popq %0; cli" : "=r"(flags)::"memory");
     return flags;
 }
 
-static void irq_restore(uint64_t flags) {
+static inline void irq_restore(uint64_t flags) {
     asm volatile("pushq %0; popfq" ::"r"(flags) : "memory", "cc");
 }
 
+static inline void irq_guard_release(uint64_t *flags) {
+    irq_restore(*flags);
+}
+
+#define IRQ_GUARD() uint64_t irq_guard_ __attribute__((cleanup(irq_guard_release))) = irq_save_disable()
+
+static void kfree_const(const void *p) {
+    if (p)
+        kfree((void *)p);
+}
+
+/* The list is sorted by pid: pids are assigned at push time under the lock. */
 static task_t *find_task_locked(uint32_t pid) {
-    for (task_t *task = g_task_head; task != NULL; task = task->next) {
-        if (task->pid == pid)
-            return task;
-    }
-
-    return NULL;
-}
-
-task_t *multitasking_find_task(uint32_t pid) {
-    return find_task_locked(pid);
-}
-
-task_t *multitasking_get_current_task(void) {
-    uint32_t pid = multitasking_current_pid();
-    if (!pid) {
-        debug_printf("\t[multitasking] invalid pid.\n");
-        return NULL;
-    }
-
-    for (task_t *t = g_task_head; t; t = t->next)
+    for (task_t *t = g_task_head; t && t->pid <= pid; t = t->next) {
         if (t->pid == pid)
             return t;
-
-    debug_printf("\t[multitasking] concluded failure.\n");
+    }
     return NULL;
 }
 
-static void push_task_locked(task_t *task) {
-    if (g_task_tail == NULL) {
-        g_task_head = g_task_tail = task;
-        return;
-    }
-
-    g_task_tail->next = task;
-    g_task_tail = task;
+static task_t *first_task_after(uint32_t pid) {
+    task_t *t = g_task_head;
+    while (t && t->pid <= pid)
+        t = t->next;
+    return t;
 }
 
+static uint32_t push_task_locked(task_t *task) {
+    task->pid = g_next_pid++;
+    task->next = NULL;
+    if (g_task_tail)
+        g_task_tail->next = task;
+    else
+        g_task_head = task;
+    g_task_tail = task;
+    return task->pid;
+}
+
+static void unlink_task_locked(task_t *prev, task_t *task) {
+    if (prev)
+        prev->next = task->next;
+    else
+        g_task_head = task->next;
+    if (task == g_task_tail)
+        g_task_tail = prev;
+}
+
+static void free_user_spec(user_task_spec_t *spec) {
+    for (int i = 0; i < ARGV_MAX; i++)
+        kfree_const(spec->argv[i]);
+    kfree_const(spec->path);
+    spec->path = NULL;
+    memset(spec->argv, 0, sizeof(spec->argv));
+}
+
+static bool copy_user_spec(user_task_spec_t *dst, const char *path, int argc, const char *const *argv) {
+    memset(dst, 0, sizeof(*dst));
+
+    dst->path = strdup(path);
+    if (!dst->path)
+        return false;
+
+    if (argc < 0)
+        argc = 0;
+    if (argc > ARGV_MAX - 1)
+        argc = ARGV_MAX - 1;
+    dst->argc = argc;
+
+    for (int i = 0; i < argc; i++) {
+        dst->argv[i] = strdup(argv && argv[i] ? argv[i] : "");
+        if (!dst->argv[i]) {
+            free_user_spec(dst);
+            return false;
+        }
+    }
+    return true;
+}
 
 static void free_task(task_t *task) {
     if (!task)
         return;
-
-    for (int i = 0; i < 32; i++) {
-        if (task->user_spec.argv[i])
-            kfree((void *)task->user_spec.argv[i]);
-    }
-
-    if (task->user_spec.path)
-        kfree((void *)task->user_spec.path);
-
-    if (task->kernel_ctx && strcmp(task->name, "cursor-blink") == 0)
+    free_user_spec(&task->user_spec);
+    if (task->owns_kernel_ctx)
         kfree(task->kernel_ctx);
-
     kfree(task);
 }
 
 static void fill_info(const task_t *task, task_info_t *info) {
-    if (!task || !info)
-        return;
-
     info->pid = task->pid;
     info->type = task->type;
     info->state = task->state;
@@ -95,199 +121,142 @@ static void fill_info(const task_t *task, task_info_t *info) {
     info->wakeup_tick = task->wakeup_tick;
     info->parent_pid = task->parent_pid;
     info->tty_index = task->tty_index;
-    info->name = task->name;
-    info->exe_path = task->user_spec.path;
+    snprintf(info->name, sizeof(info->name), "%s", task->name);
+    snprintf(info->exe_path, sizeof(info->exe_path), "%s", task->user_spec.path ? task->user_spec.path : "");
 }
 
 void multitasking_init(void) {
     LOG_SCOPE();
     info("Initializing multitasking", __FILE__);
-    uint64_t flags = irq_save_disable();
-    g_task_head = NULL;
-    g_task_tail = NULL;
-    g_next_pid = 1;
-    g_current_pid = 0;
-    g_last_tick = 0;
-    irq_restore(flags);
+    {
+        IRQ_GUARD();
+        g_task_head = g_task_tail = NULL;
+        g_next_pid = 1;
+        g_current_pid = 0;
+        g_last_tick = 0;
+    }
     done("Initialized multitasking", __FILE__);
 }
 
+task_t *multitasking_find_task(uint32_t pid) {
+    IRQ_GUARD();
+    return find_task_locked(pid);
+}
+
+task_t *multitasking_get_current_task(void) {
+    IRQ_GUARD();
+    return find_task_locked(g_current_pid);
+}
+
 uint32_t multitasking_current_pid(void) {
-    uint64_t flags = irq_save_disable();
-    uint32_t pid = g_current_pid;
-    irq_restore(flags);
-    return pid;
+    return g_current_pid;
 }
 
 uint8_t multitasking_current_tty(void) {
-    uint64_t flags = irq_save_disable();
+    IRQ_GUARD();
     task_t *task = find_task_locked(g_current_pid);
-    uint8_t tty_index = task ? task->tty_index : tty_active_index();
-    irq_restore(flags);
-    return tty_index;
+    return task ? task->tty_index : tty_active_index();
 }
 
-uint32_t multitasking_spawn_kernel(const char *name, kernel_task_fn_t fn, void *ctx) {
+static uint32_t spawn_kernel(const char *name, kernel_task_fn_t fn, void *ctx, bool owns_ctx) {
     if (!fn)
         return 0;
 
-    task_t *task = (task_t *)kmalloc(sizeof(task_t));
+    task_t *task = kmalloc(sizeof(*task));
     if (!task)
         return 0;
-
     memset(task, 0, sizeof(*task));
 
-    uint64_t flags = irq_save_disable();
-    task->pid = g_next_pid++;
     task->type = TASK_TYPE_KERNEL;
     task->state = TASK_STATE_READY;
-    task->exit_code = 0;
+    task->kernel_fn = fn;
+    task->kernel_ctx = ctx;
+    task->owns_kernel_ctx = owns_ctx;
+
+    IRQ_GUARD();
     task->created_at_tick = g_last_tick;
     task->parent_pid = g_current_pid;
     task->tty_index = multitasking_current_tty();
-    task->kernel_fn = fn;
-    task->kernel_ctx = ctx;
+
+    uint32_t pid = push_task_locked(task);
     if (name)
         snprintf(task->name, sizeof(task->name), "%s", name);
     else
-        snprintf(task->name, sizeof(task->name), "kernel-task-%u", task->pid);
+        snprintf(task->name, sizeof(task->name), "kernel-task-%u", pid);
+    return pid;
+}
 
-    push_task_locked(task);
-    irq_restore(flags);
+uint32_t multitasking_spawn_kernel(const char *name, kernel_task_fn_t fn, void *ctx) {
+    return spawn_kernel(name, fn, ctx, false);
+}
 
-    return task->pid;
+uint32_t multitasking_spawn_kernel_owned(const char *name, kernel_task_fn_t fn, void *ctx) {
+    return spawn_kernel(name, fn, ctx, true);
 }
 
 uint32_t multitasking_spawn_userland(const char *name, const user_task_spec_t *spec) {
     if (!spec || !spec->path)
         return 0;
 
-    task_t *task = (task_t *)kmalloc(sizeof(task_t));
+    task_t *task = kmalloc(sizeof(*task));
     if (!task)
         return 0;
-
     memset(task, 0, sizeof(*task));
 
-    // ---------------------------
-    // Basic task initialization
-    // ---------------------------
-    uint64_t flags = irq_save_disable();
-
-    task->pid = g_next_pid++;
-    task->type = TASK_TYPE_USERLAND;
-    task->state = TASK_STATE_READY;
-    task->exit_code = 0;
-    task->created_at_tick = g_last_tick;
-    task->parent_pid = spec->parent_pid ? spec->parent_pid : g_current_pid;
-    task->fork_child = spec->fork_child;
-    if (spec->tty_index < TTY_COUNT)
-        task->tty_index = spec->tty_index;
-    else
-        task->tty_index = multitasking_current_tty();
-
-    if (name)
-        snprintf(task->name, sizeof(task->name), "%s", name);
-    else
-        snprintf(task->name, sizeof(task->name), "%s", spec->path);
-
-    irq_restore(flags);
-
-    // ---------------------------
-    // Deep copy path
-    // ---------------------------
-    task->user_spec.path = strdup(spec->path);
-    if (!task->user_spec.path)
-        goto fail;
-
-    // ---------------------------
-    // Safe argc handling
-    // ---------------------------
-    int argc = spec->argc;
-    if (argc < 0)
-        argc = 0;
-    if (argc > 31)
-        argc = 31;
-
-    task->user_spec.argc = argc;
-    task->user_spec.parent_pid = task->parent_pid;
-    task->user_spec.fork_child = task->fork_child;
-
-    // ---------------------------
-    // Deep copy argv safely
-    // ---------------------------
-    for (int i = 0; i < argc; i++) {
-        if (spec->argv[i]) {
-            task->user_spec.argv[i] = strdup(spec->argv[i]);
-            if (!task->user_spec.argv[i])
-                goto fail;
-        } else {
-            task->user_spec.argv[i] = NULL;
-        }
+    if (!copy_user_spec(&task->user_spec, spec->path, spec->argc, spec->argv)) {
+        kfree(task);
+        return 0;
     }
 
-    task->user_spec.argv[argc] = NULL;
+    task->type = TASK_TYPE_USERLAND;
+    task->state = TASK_STATE_READY;
+    task->fork_child = spec->fork_child;
+    task->user_spec.fork_child = spec->fork_child;
+    snprintf(task->name, sizeof(task->name), "%s", name ? name : spec->path);
 
-    // optional safety padding (prevents garbage reads)
-    for (int i = argc + 1; i < 32; i++)
-        task->user_spec.argv[i] = NULL;
+    IRQ_GUARD();
+    task->created_at_tick = g_last_tick;
+    task->parent_pid = spec->parent_pid ? spec->parent_pid : g_current_pid;
+    task->user_spec.parent_pid = task->parent_pid;
+    task->tty_index = spec->tty_index < TTY_COUNT ? spec->tty_index : multitasking_current_tty();
 
-    // ---------------------------
-    // Queue task
-    // ---------------------------
-    flags = irq_save_disable();
-    push_task_locked(task);
-    irq_restore(flags);
-
-    return task->pid;
-
-fail:
-    // ---------------------------
-    // Cleanup on partial failure
-    // ---------------------------
-    free_task(task);
-    return 0;
+    return push_task_locked(task);
 }
 
 bool multitasking_exit_task(uint32_t pid, int exit_code) {
-    uint64_t flags = irq_save_disable();
+    IRQ_GUARD();
     task_t *task = find_task_locked(pid);
-    if (!task) {
-        irq_restore(flags);
+    if (!task)
         return false;
-    }
-
-    if (task->state == TASK_STATE_EXITED) {
-        irq_restore(flags);
+    if (task->state == TASK_STATE_EXITED)
         return true;
-    }
 
     task->state = TASK_STATE_EXITED;
     task->exit_code = exit_code;
-    for (task_t *child = g_task_head; child != NULL; child = child->next) {
-        if (child->parent_pid == pid)
-            child->parent_pid = 1;
+    for (task_t *t = g_task_head; t; t = t->next) {
+        if (t->parent_pid == pid)
+            t->parent_pid = 1;
     }
-    irq_restore(flags);
-
     return true;
 }
 
 bool multitasking_kill_task(uint32_t pid, int signal) {
     if (pid == 0 || signal < 0)
         return false;
+    if (signal == 0) {
+        IRQ_GUARD();
+        return find_task_locked(pid) != NULL;
+    }
     return multitasking_exit_task(pid, 128 + signal);
 }
 
 bool multitasking_sleep_task(uint32_t pid, uint64_t wakeup_tick) {
-    uint64_t flags = irq_save_disable();
+    IRQ_GUARD();
     task_t *task = find_task_locked(pid);
-    if (!task || task->state == TASK_STATE_EXITED) {
-        irq_restore(flags);
+    if (!task || task->state == TASK_STATE_EXITED)
         return false;
-    }
     task->wakeup_tick = wakeup_tick;
     task->state = TASK_STATE_SLEEPING;
-    irq_restore(flags);
     return true;
 }
 
@@ -299,356 +268,309 @@ bool multitasking_update_user_image(uint32_t pid, const char *path, int argc, co
     if (!path)
         return false;
 
-    if (argc < 0)
-        argc = 0;
-    if (argc > 31)
-        argc = 31;
-
-    char *new_path = strdup(path);
-    if (!new_path)
+    user_task_spec_t fresh;
+    if (!copy_user_spec(&fresh, path, argc, argv))
         return false;
 
-    const char *new_argv[32];
-    memset(new_argv, 0, sizeof(new_argv));
-
-    for (int i = 0; i < argc; i++) {
-        const char *arg = (argv && argv[i]) ? argv[i] : "";
-        new_argv[i] = strdup(arg);
-        if (!new_argv[i]) {
-            for (int j = 0; j < i; j++)
-                kfree((void *)new_argv[j]);
-            kfree(new_path);
-            return false;
+    user_task_spec_t old;
+    bool ok = false;
+    {
+        IRQ_GUARD();
+        task_t *task = find_task_locked(pid);
+        if (task && task->type == TASK_TYPE_USERLAND && task->state != TASK_STATE_EXITED) {
+            old = task->user_spec;
+            task->user_spec.path = fresh.path;
+            task->user_spec.argc = fresh.argc;
+            memcpy(task->user_spec.argv, fresh.argv, sizeof(fresh.argv));
+            snprintf(task->name, sizeof(task->name), "%s", path);
+            ok = true;
         }
     }
 
-    uint64_t flags = irq_save_disable();
-    task_t *task = find_task_locked(pid);
-    if (!task || task->type != TASK_TYPE_USERLAND || task->state == TASK_STATE_EXITED) {
-        irq_restore(flags);
-        for (int i = 0; i < argc; i++)
-            kfree((void *)new_argv[i]);
-        kfree(new_path);
-        return false;
-    }
-
-    const char *old_path = task->user_spec.path;
-    const char *old_argv[32];
-    for (int i = 0; i < 32; i++)
-        old_argv[i] = task->user_spec.argv[i];
-
-    task->user_spec.path = new_path;
-    task->user_spec.argc = argc;
-    for (int i = 0; i < 32; i++)
-        task->user_spec.argv[i] = (i < argc) ? new_argv[i] : NULL;
-    snprintf(task->name, sizeof(task->name), "%s", path);
-
-    irq_restore(flags);
-
-    for (int i = 0; i < 32; i++) {
-        if (old_argv[i])
-            kfree((void *)old_argv[i]);
-    }
-    if (old_path)
-        kfree((void *)old_path);
-
-    return true;
+    free_user_spec(ok ? &old : &fresh);
+    return ok;
 }
 
 bool multitasking_get_task(uint32_t pid, task_info_t *out_info) {
     if (!out_info)
         return false;
 
-    uint64_t flags = irq_save_disable();
+    IRQ_GUARD();
     task_t *task = find_task_locked(pid);
-    if (!task) {
-        irq_restore(flags);
+    if (!task)
         return false;
-    }
-
     fill_info(task, out_info);
-    irq_restore(flags);
     return true;
 }
 
 static bool child_matches_filter(const task_t *task, uint32_t parent_pid, int64_t pid_filter) {
-    if (!task || task->parent_pid != parent_pid)
+    if (task->parent_pid != parent_pid)
         return false;
-
-    if (pid_filter == -1)
-        return true;
-
     if (pid_filter > 0)
         return task->pid == (uint32_t)pid_filter;
-
     /* Process groups are not modelled yet; pid 0 and pid < -1 mean any child. */
     return true;
 }
 
 bool multitasking_find_child(uint32_t parent_pid, int64_t pid_filter, bool exited_only, task_info_t *out_info) {
-    uint64_t flags = irq_save_disable();
-
-    for (task_t *task = g_task_head; task != NULL; task = task->next) {
+    IRQ_GUARD();
+    for (task_t *task = g_task_head; task; task = task->next) {
         if (!child_matches_filter(task, parent_pid, pid_filter))
             continue;
         if (exited_only && task->state != TASK_STATE_EXITED)
             continue;
-
         if (out_info)
             fill_info(task, out_info);
-        irq_restore(flags);
         return true;
     }
-
-    irq_restore(flags);
     return false;
 }
 
 bool multitasking_reap_task(uint32_t pid, task_info_t *out_info) {
-    uint64_t flags = irq_save_disable();
-    task_t *prev = NULL;
-    task_t *task = g_task_head;
+    task_t *task;
+    {
+        IRQ_GUARD();
+        task_t *prev = NULL;
+        task = g_task_head;
+        while (task && task->pid != pid) {
+            prev = task;
+            task = task->next;
+        }
+        if (!task || task->state != TASK_STATE_EXITED)
+            return false;
 
-    while (task) {
-        if (task->pid == pid)
-            break;
-        prev = task;
-        task = task->next;
+        if (out_info)
+            fill_info(task, out_info);
+        unlink_task_locked(prev, task);
     }
-
-    if (!task || task->state != TASK_STATE_EXITED) {
-        irq_restore(flags);
-        return false;
-    }
-
-    if (out_info)
-        fill_info(task, out_info);
-
-    if (prev)
-        prev->next = task->next;
-    else
-        g_task_head = task->next;
-
-    if (task == g_task_tail)
-        g_task_tail = prev;
-
-    irq_restore(flags);
     free_task(task);
     return true;
 }
 
 bool multitasking_current_is_fork_child(void) {
-    uint64_t flags = irq_save_disable();
+    IRQ_GUARD();
     task_t *task = find_task_locked(g_current_pid);
-    bool is_child = task && task->fork_child;
-    if (task)
-        task->fork_child = false;
-    irq_restore(flags);
+    if (!task)
+        return false;
+    bool is_child = task->fork_child;
+    task->fork_child = false;
     return is_child;
 }
 
 uint32_t multitasking_count_tasks(void) {
     uint32_t count = 0;
-
-    uint64_t flags = irq_save_disable();
-    for (task_t *task = g_task_head; task != NULL; task = task->next)
+    IRQ_GUARD();
+    for (task_t *t = g_task_head; t; t = t->next)
         count++;
-    irq_restore(flags);
-
     return count;
 }
 
 uint32_t multitasking_count_running(void) {
     uint32_t count = 0;
-
-    uint64_t flags = irq_save_disable();
-    for (task_t *task = g_task_head; task != NULL; task = task->next) {
-        if (task->state != TASK_STATE_EXITED)
-            count++;
-    }
-    irq_restore(flags);
-
+    IRQ_GUARD();
+    for (task_t *t = g_task_head; t; t = t->next)
+        count += t->state != TASK_STATE_EXITED;
     return count;
 }
 
+/* Iterates by pid cursor so the callback may reap tasks, including the current one. */
 bool multitasking_for_each_task(task_iter_cb_t cb, void *ctx) {
     if (!cb)
         return false;
 
-    uint64_t flags = irq_save_disable();
-    task_t *current = g_task_head;
-
-    while (current != NULL) {
+    uint32_t last = 0;
+    for (;;) {
         task_info_t info;
-        fill_info(current, &info);
-
-        irq_restore(flags);
-        bool keep = cb(&info, ctx);
-        if (!keep)
-            return true;
-
-        flags = irq_save_disable();
-        current = current->next;
-    }
-
-    irq_restore(flags);
-    return true;
-}
-
-static void sweep_exited_tasks(void) {
-    uint64_t flags = irq_save_disable();
-
-    task_t *prev = NULL;
-    task_t *cur = g_task_head;
-
-    while (cur != NULL) {
-        if (cur->state == TASK_STATE_EXITED) {
-            task_t *dead = cur;
-            cur = cur->next;
-
-            if (prev)
-                prev->next = cur;
-            else
-                g_task_head = cur;
-
-            if (dead == g_task_tail)
-                g_task_tail = prev;
-
-            irq_restore(flags);
-            free_task(dead);
-            flags = irq_save_disable();
-            continue;
+        {
+            IRQ_GUARD();
+            task_t *task = first_task_after(last);
+            if (!task)
+                return true;
+            last = task->pid;
+            fill_info(task, &info);
         }
-
-        prev = cur;
-        cur = cur->next;
+        if (!cb(&info, ctx))
+            return true;
     }
-
-    irq_restore(flags);
 }
 
 void multitasking_on_pit_tick(uint64_t now_ticks) {
     uint64_t flags = irq_save_disable();
-    uint32_t saved_current_pid = g_current_pid;
+    uint32_t saved_pid = g_current_pid;
     g_last_tick = now_ticks;
 
-    for (task_t *task = g_task_head; task != NULL; task = task->next) {
+    task_t *task = g_task_head;
+    while (task) {
+        uint32_t pid = task->pid;
+
         if (task->state == TASK_STATE_SLEEPING && task->wakeup_tick <= now_ticks)
             task->state = TASK_STATE_READY;
-        if (task->type != TASK_TYPE_KERNEL || task->state != TASK_STATE_READY)
+
+        if (task->type != TASK_TYPE_KERNEL || task->state != TASK_STATE_READY) {
+            task = task->next;
             continue;
+        }
 
         task->state = TASK_STATE_RUNNING;
-        g_current_pid = task->pid;
+        g_current_pid = pid;
         kernel_task_fn_t fn = task->kernel_fn;
         void *kctx = task->kernel_ctx;
 
         irq_restore(flags);
-
         int exit_code = 0;
-        bool should_exit = fn(task->pid, now_ticks, kctx, &exit_code);
-
+        bool should_exit = fn(pid, now_ticks, kctx, &exit_code);
         flags = irq_save_disable();
 
-        task->runtime_ticks++;
-        if (should_exit) {
-            task->state = TASK_STATE_EXITED;
-            task->exit_code = exit_code;
-        } else {
-            task->state = TASK_STATE_READY;
+        /* fn may have run long enough for the task to be killed or reaped. */
+        task = find_task_locked(pid);
+        if (task) {
+            task->runtime_ticks++;
+            if (should_exit && task->state != TASK_STATE_EXITED) {
+                task->state = TASK_STATE_EXITED;
+                task->exit_code = exit_code;
+            } else if (task->state == TASK_STATE_RUNNING) {
+                task->state = TASK_STATE_READY;
+            }
         }
+        task = first_task_after(pid);
     }
 
-    g_current_pid = saved_current_pid;
+    g_current_pid = saved_pid;
     irq_restore(flags);
 }
+
 void multitasking_pump(void) {
-    task_t *task_to_run = NULL;
+    userland_exec_ctx_t ctx;
+    uint32_t pid;
+    uint32_t saved_pid;
 
-    uint64_t flags = irq_save_disable();
-    uint32_t saved_current_pid = g_current_pid;
+    {
+        IRQ_GUARD();
+        saved_pid = g_current_pid;
 
-    for (task_t *task = g_task_head; task; task = task->next) {
-        if (task->state == TASK_STATE_SLEEPING && task->wakeup_tick <= g_last_tick)
-            task->state = TASK_STATE_READY;
-        if (task->type == TASK_TYPE_USERLAND &&
-            task->state == TASK_STATE_READY) {
-            task->state = TASK_STATE_RUNNING;
-            g_current_pid = task->pid;
-            task_to_run = task;
-            break;
+        task_t *task = NULL;
+        for (task_t *t = g_task_head; t; t = t->next) {
+            if (t->state == TASK_STATE_SLEEPING && t->wakeup_tick <= g_last_tick)
+                t->state = TASK_STATE_READY;
+            if (t->type == TASK_TYPE_USERLAND && t->state == TASK_STATE_READY && !t->user_runtime.started) {
+                task = t;
+                break;
+            }
         }
-    }
+        if (!task)
+            return;
 
-    irq_restore(flags);
+        pid = task->pid;
+        task->state = TASK_STATE_RUNNING;
+        task->user_runtime.started = 1;
+        g_current_pid = pid;
 
-    if (!task_to_run)
-        return;
-
-    // Capture the pid up front. Do NOT keep dereferencing task_to_run
-    // across userland_exec() below - that call runs a large amount of
-    // arbitrary C code, syscalls, IRQs, and a fake call/return trampoline
-    // (userland_finish_exit) in between, and there is no guarantee this
-    // pointer's register/stack slot survives all of that intact. A pid
-    // is a plain integer and can't be corrupted the same way.
-    uint32_t run_pid = task_to_run->pid;
-
-    // ---------------------------
-    // FIRST TIME RUN ONLY
-    // ---------------------------
-    if (!task_to_run->user_runtime.started) {
-        userland_exec_ctx_t ctx;
-
-        ctx.path = task_to_run->user_spec.path;
-
-        int argc = task_to_run->user_spec.argc;
-        if (argc < 0)
-            argc = 0;
-        if (argc > 31)
-            argc = 31;
-
+        int argc = task->user_spec.argc;
+        ctx.path = task->user_spec.path;
         ctx.argc = argc;
         ctx.envp = NULL;
-
         for (int i = 0; i < argc; i++)
-            ctx.argv[i] = task_to_run->user_spec.argv[i];
-
+            ctx.argv[i] = task->user_spec.argv[i];
         ctx.argv[argc] = NULL;
-
-        // run ELF ONCE
-        int rc = userland_exec(&ctx);
-
-        printf("[pump] post-exec run_pid=%u rc=%u", run_pid, rc);
-
-        // Re-fetch the task fresh by pid rather than trusting task_to_run
-        // still points at something valid after the call above.
-        uint64_t flags2 = irq_save_disable();
-        task_t *t = find_task_locked(run_pid);
-        if (t) {
-            t->state = TASK_STATE_EXITED;
-            t->exit_code = rc;
-            t->user_runtime.started = 1;
-        } else {
-            printf("[multitasking] pump: task pid=%u vanished after exec", run_pid);
-        }
-        irq_restore(flags2);
-
-        g_current_pid = saved_current_pid;
-        return;
     }
 
-    // ---------------------------
-    // AFTER FIRST RUN: SHOULD NEVER RELOAD ELF
-    // ---------------------------
-    uint64_t flags3 = irq_save_disable();
-    task_t *t2 = find_task_locked(run_pid);
-    if (t2) {
-        t2->state = TASK_STATE_EXITED;
-        t2->exit_code = -LINUX_ENOSYS;
-    } else {
-        printf("[multitasking] pump: task pid=%u vanished (already-started path)", run_pid);
-    }
-    irq_restore(flags3);
+    int rc = userland_exec(&ctx);
 
-    g_current_pid = saved_current_pid;
+    IRQ_GUARD();
+    task_t *task = find_task_locked(pid);
+    if (task && task->state != TASK_STATE_EXITED) {
+        task->state = TASK_STATE_EXITED;
+        task->exit_code = rc;
+    }
+    g_current_pid = saved_pid;
+}
+
+// Multitasking testing ground below
+
+static bool idle_fn(uint32_t pid, uint64_t now, void *ctx, int *exit_code) {
+    (void)pid; (void)now; (void)ctx; (void)exit_code;
+    return false;
+}
+
+static bool suicide_fn(uint32_t pid, uint64_t now, void *ctx, int *exit_code) {
+    (void)now; (void)ctx; (void)exit_code;
+    multitasking_kill_task(pid, 9);
+    return false;
+}
+
+static bool reap_cb(const task_info_t *i, void *ctx) {
+    (void)ctx;
+    multitasking_exit_task(i->pid, 0);
+    multitasking_reap_task(i->pid, NULL);
+    return true;
+}
+
+void multitasking_selftest(void) {
+    LOG_SCOPE();
+    info("Multitasking self-test beginning", __FILE__);
+    task_info_t ti;
+
+    /* spawn / count */
+    uint32_t a = multitasking_spawn_kernel("a", idle_fn, NULL);
+    assert(a == 1);
+    assert(multitasking_count_tasks() == 1);
+
+    /* reaping a non-exited task must fail */
+    assert(!multitasking_reap_task(a, NULL));
+
+    /* signal 0 = existence check, must not kill */
+    assert(multitasking_kill_task(a, 0));
+    assert(multitasking_get_task(a, &ti));
+    assert(ti.state != TASK_STATE_EXITED);
+
+    /* kill -> exit code 128 + signal, info survives the free */
+    assert(multitasking_kill_task(a, 9));
+    assert(multitasking_reap_task(a, &ti));
+    assert(ti.exit_code == 137);
+    assert(strcmp(ti.name, "a") == 0);
+    assert(multitasking_count_tasks() == 0);
+
+    /* for_each with a callback that reaps the visited task */
+    for (int i = 0; i < 100; i++)
+        assert(multitasking_spawn_kernel("x", idle_fn, NULL) != 0);
+    assert(multitasking_count_tasks() == 100);
+    multitasking_for_each_task(reap_cb, NULL);
+    assert(multitasking_count_tasks() == 0);
+
+    /* a task that kills itself during its own fn must end up EXITED */
+    uint32_t s = multitasking_spawn_kernel("s", suicide_fn, NULL);
+    multitasking_on_pit_tick(1);
+    assert(multitasking_get_task(s, &ti));
+    assert(ti.state == TASK_STATE_EXITED);
+    assert(ti.exit_code == 137);
+    assert(multitasking_reap_task(s, NULL));
+
+    /* sleep / wake: must not run before wakeup_tick */
+    uint32_t z = multitasking_spawn_kernel("z", idle_fn, NULL);
+    multitasking_sleep_task(z, 50);
+    multitasking_on_pit_tick(10);
+    multitasking_get_task(z, &ti);
+    assert(ti.state == TASK_STATE_SLEEPING);
+    assert(ti.runtime_ticks == 0);
+    multitasking_on_pit_tick(50);
+    multitasking_get_task(z, &ti);
+    assert(ti.runtime_ticks == 1);
+    multitasking_kill_task(z, 9);
+    multitasking_reap_task(z, NULL);
+
+    /* orphan reparenting: killing a parent moves its children to pid 1 */
+    uint32_t p = multitasking_spawn_kernel("p", idle_fn, NULL);
+    user_task_spec_t spec = { .path = "/bin/x", .argc = 0, .parent_pid = p, .tty_index = 0xFF };
+    uint32_t c = multitasking_spawn_userland("c", &spec);
+    assert(c != 0);
+    multitasking_kill_task(p, 9);
+    multitasking_get_task(c, &ti);
+    assert(ti.parent_pid == 1);
+
+    /* clean up */
+    multitasking_reap_task(p, NULL);
+    multitasking_kill_task(c, 9);
+    multitasking_reap_task(c, NULL);
+
+    done("Multitasking self-test was successful", __FILE__);
 }
