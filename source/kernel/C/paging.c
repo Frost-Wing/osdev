@@ -251,7 +251,51 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
 }
 
+static int phys_page_is_usable(uintptr_t phys)
+{
+    if (!memmap)
+        return 0;
+
+    /* Physical pages must be page aligned. */
+    if (phys & (PAGE_SIZE - 1))
+        return 0;
+
+    for (uint64_t i = 0; i < memmap->entry_count; i++) {
+        struct limine_memmap_entry *e = memmap->entries[i];
+
+        if (e->type != LIMINE_MEMMAP_USABLE)
+            continue;
+
+        uintptr_t region_start = e->base;
+        uintptr_t region_end   = e->base + e->length;
+
+        /*
+         * Avoid overflow in base + length.
+         * If the addition wrapped, this entry is malformed.
+         */
+        if (region_end < region_start)
+            continue;
+
+        if (phys >= region_start &&
+            phys < region_end &&
+            phys + PAGE_SIZE <= region_end)
+            return 1;
+    }
+
+    return 0;
+}
+
 void free_page(uintptr_t phys) {
+    /*
+     * Never dereference phys through the HHDM until it has
+     * been proven to refer to a valid usable physical page.
+     */
+    if (!phys_page_is_usable(phys)) {
+        LOG_SCOPE();
+        error("free_page(): invalid physical page: %p", __FILE__, (void *)phys);
+        return;
+    }
+
     // Stash the next-pointer inside the freed page itself (via its HHDM mapping)
     uint64_t *v = phys_to_virt_ptr(phys);
     *v = free_list_head;
