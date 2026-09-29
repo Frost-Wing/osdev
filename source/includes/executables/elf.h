@@ -49,9 +49,6 @@ typedef int64_t Elf64_Sxword;
 // ELF data encoding
 #define ELFDATA2LSB 1
 
-// ELF type
-#define ET_EXEC 2
-
 // Machine type
 #define EM_X86_64 62
 
@@ -117,7 +114,11 @@ typedef struct {
 #define PT_TLS 7
 
 // Dynamic table tags
+#define SHN_UNDEF 0
+#define SHN_ABS 0xfff1
+
 #define DT_NULL 0
+#define DT_PLTRELSZ 2
 #define DT_HASH 4
 #define DT_STRTAB 5
 #define DT_SYMTAB 6
@@ -125,6 +126,8 @@ typedef struct {
 #define DT_RELASZ 8
 #define DT_RELAENT 9
 #define DT_SYMENT 11
+#define DT_JMPREL 23
+
 
 #define PF_X 0x1
 #define PF_W 0x2
@@ -186,6 +189,12 @@ typedef struct {
         uint64_t d_ptr;
     } d_un;
 } Elf64_Dyn;
+
+_Static_assert(sizeof(Elf64_Ehdr) == 64, "Elf64_Ehdr size");
+_Static_assert(sizeof(Elf64_Phdr) == 56, "Elf64_Phdr size");
+_Static_assert(sizeof(Elf64_Sym) == 24, "Elf64_Sym size");
+_Static_assert(sizeof(Elf64_Rela) == 24, "Elf64_Rela size");
+_Static_assert(sizeof(Elf64_Dyn) == 16, "Elf64_Dyn size");
 
 typedef struct {
     uint64_t entry;
