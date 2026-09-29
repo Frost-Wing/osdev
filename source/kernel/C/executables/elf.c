@@ -20,12 +20,8 @@
 #include <strings.h>
 #include <userland.h>
 
-#ifndef ELF_USER_VADDR_MIN
 #define ELF_USER_VADDR_MIN 0x1000ULL
-#endif
-#ifndef ELF_USER_VADDR_MAX
 #define ELF_USER_VADDR_MAX 0x0000800000000000ULL
-#endif
 
 #define ELF_MAX_IMAGE_SIZE (1ULL << 30)
 #define ELF_MAX_PHNUM 128
