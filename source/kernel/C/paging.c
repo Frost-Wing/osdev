@@ -251,7 +251,7 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
 }
 
-static void free_page(uintptr_t phys) {
+void free_page(uintptr_t phys) {
     // Stash the next-pointer inside the freed page itself (via its HHDM mapping)
     uint64_t *v = phys_to_virt_ptr(phys);
     *v = free_list_head;
@@ -291,9 +291,11 @@ void unmap_user_page(uint64_t virt) {
     if (!(pt[pt_idx] & PAGE_PRESENT))
         return;
 
-    uint64_t data_phys = pt[pt_idx] & ~0xFFFULL;
+    uint64_t data_phys = pt[pt_idx] & PAGE_PHYS_ADDR_MASK;
     pt[pt_idx] = 0;
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
+    if (data_phys)
+        free_page(data_phys);
 
     if (table_is_empty(pt)) {
         pd[pd_idx] = 0;
