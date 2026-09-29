@@ -128,4 +128,8 @@ void execute(const char *buffer, int argc, char **argv);
  */
 void user_main(char *buffer);
 
+int execute_chain(const char *line) ;
+int shell_main(int argc, char **argv);
+int split_args(const char *cmdline, char **argv, int max_args);
+
 #endif
