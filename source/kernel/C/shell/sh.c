@@ -15,6 +15,8 @@
 #include <multitasking.h>
 #include <sh_util.h>
 #include <strings.h>
+#include <cc-asm.h>
+#include <rtc.h>
 
 int last_status_code = 0;
 
@@ -96,7 +98,8 @@ void welcome_message(void) {
     printf(blue_color "This shell is under kernel mode (ring-0) you are responsible for your actions.");
     printf(blue_color "Root (/) and other VFS are not mounted, you need to mount them by youself. Check out" red_color " wiki " blue_color "for more details.\n" reset_color);
 
-    uint8_t second, minute, hour, day, month, year;
+    uint8_t second, minute, hour, day, month;
+    uint16_t year;
     update_system_time(&second, &minute, &hour, &day, &month, &year);
 
     printf("Time    : %02d:%02d:%02d %02d/%02d/%02d",

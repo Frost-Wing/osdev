@@ -35,8 +35,8 @@ void stream_init(void);
  *
  * @returns File descriptor of the given file.
  */
-// int stream_set_file(stream_t s, vfs_file_t* file);
-// vfs_file_t* stream_get_file(stream_t s);
+int stream_set_file(stream_t s, vfs_file_t* file);
+vfs_file_t* stream_get_file(stream_t s);
 
 void stream_write(stream_t s, const char *buf, size_t len);
 

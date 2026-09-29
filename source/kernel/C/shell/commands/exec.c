@@ -17,6 +17,7 @@
 #include <strings.h>
 #include <tty.h>
 #include <userland.h>
+#include <memory.h>
 
 extern char *global_envp[];
 
