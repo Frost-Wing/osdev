@@ -17,19 +17,6 @@ typedef enum {
     TASK_STATE_EXITED = 3
 } task_state_t;
 
-typedef struct task_info {
-    uint32_t pid;
-    task_type_t type;
-    task_state_t state;
-    int exit_code;
-    uint64_t runtime_ticks;
-    uint64_t wakeup_tick;
-    uint32_t parent_pid;
-    uint8_t tty_index;
-    const char *name;
-    const char *exe_path;
-} task_info_t;
-
 typedef struct user_task_spec {
     const char *path;
     int argc;
@@ -40,8 +27,25 @@ typedef struct user_task_spec {
     uint8_t tty_index;
 } user_task_spec_t;
 
-typedef bool (*task_iter_cb_t)(const task_info_t *info, void *ctx);
 typedef bool (*kernel_task_fn_t)(uint32_t pid, uint64_t now_ticks, void *ctx, int *exit_code);
+
+typedef struct task_info {
+    uint32_t pid;
+    task_type_t type;
+    task_state_t state;
+    int exit_code;
+    uint64_t runtime_ticks;
+    uint64_t wakeup_tick;
+    uint32_t parent_pid;
+    uint8_t tty_index;
+    char name[64];
+    char exe_path[128];
+} task_info_t;
+
+/* the task takes ownership of ctx and kfree()s it on cleanup */
+uint32_t multitasking_spawn_kernel_owned(const char *name, kernel_task_fn_t fn, void *ctx);
+
+typedef bool (*task_iter_cb_t)(const task_info_t *info, void *ctx);
 
 typedef struct {
     uint64_t rip;
@@ -64,6 +68,8 @@ typedef struct task {
 
     kernel_task_fn_t kernel_fn;
     void *kernel_ctx;
+
+    bool owns_kernel_ctx;
 
     user_task_spec_t user_spec;
     user_runtime_t user_runtime;
@@ -105,5 +111,7 @@ uint32_t multitasking_count_running(void);
 bool multitasking_for_each_task(task_iter_cb_t cb, void *ctx);
 
 task_t *multitasking_get_current_task(void);
+
+void multitasking_selftest(void);
 
 #endif

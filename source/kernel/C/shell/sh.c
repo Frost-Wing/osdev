@@ -56,7 +56,7 @@ void push_command_to_list(command_list *lst, const char *value, size_t length) {
         return;
 
     command_list_entry *entry = kmalloc(sizeof(command_list_entry));
-    assert(entry != NULL, __FILE__, __LINE__);
+    assert(entry != NULL);
     if (entry == NULL)
         return;
 
