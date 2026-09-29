@@ -515,7 +515,7 @@ static void sweep_exited_tasks(void) {
                 g_task_tail = prev;
 
             irq_restore(flags);
-            kfree(dead);
+            free_task(dead);
             flags = irq_save_disable();
             continue;
         }
@@ -618,7 +618,7 @@ void multitasking_pump(void) {
         // run ELF ONCE
         int rc = userland_exec(&ctx);
 
-        debug_printf("[pump] post-exec run_pid=%u rc=%d\n", run_pid, rc);
+        printf("[pump] post-exec run_pid=%u rc=%u", run_pid, rc);
 
         // Re-fetch the task fresh by pid rather than trusting task_to_run
         // still points at something valid after the call above.
@@ -629,7 +629,7 @@ void multitasking_pump(void) {
             t->exit_code = rc;
             t->user_runtime.started = 1;
         } else {
-            debug_printf("[multitasking] pump: task pid=%u vanished after exec\n", run_pid);
+            printf("[multitasking] pump: task pid=%u vanished after exec", run_pid);
         }
         irq_restore(flags2);
 
@@ -646,7 +646,7 @@ void multitasking_pump(void) {
         t2->state = TASK_STATE_EXITED;
         t2->exit_code = -LINUX_ENOSYS;
     } else {
-        debug_printf("[multitasking] pump: task pid=%u vanished (already-started path)\n", run_pid);
+        printf("[multitasking] pump: task pid=%u vanished (already-started path)", run_pid);
     }
     irq_restore(flags3);
 

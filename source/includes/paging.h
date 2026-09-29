@@ -25,6 +25,8 @@
 #define USER_CODE_FLAGS (PAGE_PRESENT | PAGE_USER | PAGE_RW)
 #define USER_DATA_FLAGS (PAGE_PRESENT | PAGE_USER | PAGE_RW | PAGE_NX)
 
+#define PAGE_PHYS_ADDR_MASK 0x000FFFFFFFFFF000ULL
+
 extern struct limine_memmap_response *memmap;
 
 /**
@@ -50,5 +52,6 @@ uintptr_t allocate_pages_contiguous(size_t count);
 uint64_t paging_user_page_flags(uint64_t virt);
 uint64_t fast_virt_to_phys(void *v);
 uint64_t virt_to_phys(void *v);
+void free_page(uintptr_t phys);
 
 #endif

@@ -10,6 +10,7 @@
 #include <tss.h>
 #include <tty.h>
 #include <userland.h>
+#include <syscalls/internal.h>
 
 // Defined in syscalls.c. Keeps sys_fork()'s notion of "what's currently
 // running" accurate - see the call site in userland_exec() below.
@@ -82,6 +83,7 @@ typedef struct {
     uint64_t resume_ret_rip;
     uint64_t resume_ret_rsp;
     uint64_t fs_base;
+    uint64_t current_fs_base;
     int last_exit_code;
     uint64_t heap_break;        // new
     uint64_t heap_mapped_end;   // new
@@ -114,9 +116,8 @@ static void userland_free_snapshot(saved_user_page_t *pages) {
 
 static void userland_snapshot_range(saved_user_page_t **list, uint64_t start, uint64_t end) {
     for (uint64_t vaddr = start; vaddr < end; vaddr += PAGE_SIZE) {
-        uint64_t phys = virt_to_phys((void *)vaddr);
         uint64_t flags = paging_user_page_flags(vaddr);
-        if (!phys || !(flags & PAGE_PRESENT))
+        if (!(flags & PAGE_PRESENT))
             continue;
 
         saved_user_page_t *page = (saved_user_page_t *)kmalloc(sizeof(saved_user_page_t));
@@ -172,6 +173,7 @@ static int userland_push_frame(void) {
     f->resume_ret_rip = userland_resume_ret_rip;
     f->resume_ret_rsp = userland_resume_ret_rsp;
     f->fs_base = rdmsr64_local(IA32_FS_BASE_MSR);
+    f->current_fs_base = current_fs_base;
     f->last_exit_code = userland_last_exit_code;
     f->heap_break = user_heap_break;              // new
     f->heap_mapped_end = user_heap_mapped_end;     // new
@@ -236,6 +238,7 @@ static bool userland_pop_frame(void) {
     userland_resume_ret_rip = f->resume_ret_rip;
     userland_resume_ret_rsp = f->resume_ret_rsp;
     userland_restore_fs_base = f->fs_base;
+    current_fs_base = f->current_fs_base;
     userland_last_exit_code = f->last_exit_code;
     user_heap_break = f->heap_break;               // new
     user_heap_mapped_end = f->heap_mapped_end;      // new
@@ -252,6 +255,12 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     uint64_t return_rip = userland_resume_ret_rip;
     uint64_t return_rsp = userland_resume_ret_rsp;
     int exit_code = userland_last_exit_code;
+
+     printf("finish_exit ENTER: depth=%u exit_code=%u ret_rip=%x ret_rsp=%x "
+                 "kstack_top=%x tss_rsp0=%x saved_kstack=%x saved_tss_rsp0=%x",
+        userland_depth, exit_code, return_rip, return_rsp,
+        kernel_stack_top, tss.rsp0,
+        userland_saved_kernel_stack_top, userland_saved_tss_rsp0);
 
     /* Snapshot this frame's caller-register state BEFORE popping -
      * userland_pop_frame() overwrites these globals with the outer
@@ -276,7 +285,17 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     bool still_in_userland = userland_pop_frame();
     userland_running = still_in_userland;
 
+    printf("finish_exit AFTER POP: depth=%u still_in_userland=%u "
+                 "resume_rip=%x resume_rsp=%x resume_rbx=%x resume_rbp=%x "
+                 "ret_rip=%x ret_rsp=%x kstack_top=%x tss_rsp0=%x fs_restore=%x",
+        userland_depth, still_in_userland,
+        userland_resume_rip, userland_resume_rsp,
+        userland_resume_rbx, userland_resume_rbp,
+        userland_resume_ret_rip, userland_resume_ret_rsp,
+        kernel_stack_top, tss.rsp0, userland_restore_fs_base);
+
     wrmsr64_local(IA32_FS_BASE_MSR, userland_restore_fs_base);
+    current_fs_base = userland_restore_fs_base;
     if (!still_in_userland) {
         userland_unmap_all();
         userland_heap_init();
@@ -284,6 +303,12 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     tty_flush_input();
     printf(blue_color "\n[process exited with code %d]" reset_color, exit_code);
     asm volatile("sti");
+
+    printf("finish_exit JUMPING: rbx=%x rbp=%x r12=%x r13=%x r14=%x r15=%x "
+                 "eax=%u rsp=%x rip=%x",
+        resume_regs[0], resume_regs[1], resume_regs[2], resume_regs[3],
+        resume_regs[4], resume_regs[5], (int)resume_regs[6],
+        resume_regs[7], resume_regs[8]);
 
     asm volatile(
         "mov 0(%0), %%rbx\n"
