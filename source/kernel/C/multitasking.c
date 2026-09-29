@@ -440,49 +440,132 @@ void multitasking_on_pit_tick(uint64_t now_ticks) {
 }
 
 void multitasking_pump(void) {
-    userland_exec_ctx_t ctx;
-    uint32_t pid;
-    uint32_t saved_pid;
+    debug_printf("[multitasking_pump] ENTER\n");
+
+    userland_exec_ctx_t ctx = {0};
+    uint32_t pid = 0;
+    uint32_t saved_pid = 0;
 
     {
         IRQ_GUARD();
+
         saved_pid = g_current_pid;
 
+        debug_printf("[multitasking_pump] saved_pid=%u\n", saved_pid);
+        debug_printf("[multitasking_pump] current_pid=%u\n", g_current_pid);
+        debug_printf("[multitasking_pump] last_tick=%u\n", g_last_tick);
+
         task_t *task = NULL;
+
         for (task_t *t = g_task_head; t; t = t->next) {
-            if (t->state == TASK_STATE_SLEEPING && t->wakeup_tick <= g_last_tick)
+            debug_printf("[multitasking_pump] scan pid=%u\n", t->pid);
+            debug_printf("[multitasking_pump] scan type=%u\n", (uint32_t)t->type);
+            debug_printf("[multitasking_pump] scan state=%u\n", (uint32_t)t->state);
+            debug_printf("[multitasking_pump] scan wakeup=%u\n", t->wakeup_tick);
+            debug_printf("[multitasking_pump] scan started=%u\n", (uint32_t)t->user_runtime.started);
+
+            if (t->state == TASK_STATE_SLEEPING && t->wakeup_tick <= g_last_tick) {
+                debug_printf("[multitasking_pump] waking pid=%u\n", t->pid);
                 t->state = TASK_STATE_READY;
+            }
+
             if (t->type == TASK_TYPE_USERLAND && t->state == TASK_STATE_READY && !t->user_runtime.started) {
+                debug_printf("[multitasking_pump] SELECT candidate pid=%u\n", t->pid);
                 task = t;
                 break;
             }
         }
-        if (!task)
+
+        if (!task) {
+            debug_printf("[multitasking_pump] no suitable task\n");
             return;
+        }
+
+        debug_printf("[multitasking_pump] selected pid=%u\n", task->pid);
+        debug_printf("[multitasking_pump] selected state=%u\n", (uint32_t)task->state);
+        debug_printf("[multitasking_pump] selected type=%u\n", (uint32_t)task->type);
+        debug_printf("[multitasking_pump] selected started=%u\n", (uint32_t)task->user_runtime.started);
 
         pid = task->pid;
+
+        debug_printf("[multitasking_pump] pid=%u setting RUNNING\n", pid);
         task->state = TASK_STATE_RUNNING;
+
+        debug_printf("[multitasking_pump] pid=%u setting started=1\n", pid);
         task->user_runtime.started = 1;
+
+        debug_printf("[multitasking_pump] current_pid %u -> %u\n", g_current_pid, pid);
         g_current_pid = pid;
 
         int argc = task->user_spec.argc;
+
+        debug_printf("[multitasking_pump] pid=%u argc=%u\n", pid, (uint32_t)argc);
+        debug_printf("[multitasking_pump] pid=%u argv[0] ptr=%u\n", pid, (uint32_t)(uintptr_t)task->user_spec.argv[0]);
+
         ctx.path = task->user_spec.path;
         ctx.argc = argc;
         ctx.envp = NULL;
-        for (int i = 0; i < argc; i++)
-            ctx.argv[i] = task->user_spec.argv[i];
-        ctx.argv[argc] = NULL;
+
+        debug_printf("[multitasking_pump] ctx argc=%u\n", (uint32_t)ctx.argc);
+        debug_printf("[multitasking_pump] ctx argv[0] ptr=%u\n", (uint32_t)(uintptr_t)ctx.argv[0]);
+
+        if (argc < 0 || argc >= (int)(sizeof(ctx.argv) / sizeof(ctx.argv[0]))) {
+            debug_printf("[multitasking_pump] INVALID argc=%u\n", (uint32_t)argc);
+            ctx.argc = 0;
+            ctx.argv[0] = NULL;
+        } else {
+            for (int i = 0; i < argc; i++) {
+                debug_printf("[multitasking_pump] copying argv index=%u\n", (uint32_t)i);
+                ctx.argv[i] = task->user_spec.argv[i];
+                debug_printf("[multitasking_pump] copied argv index=%u ptr=%u\n", (uint32_t)i, (uint32_t)(uintptr_t)ctx.argv[i]);
+            }
+
+            ctx.argv[argc] = NULL;
+            debug_printf("[multitasking_pump] argv terminator index=%u\n", (uint32_t)argc);
+        }
+
+        debug_printf("[multitasking_pump] BEFORE userland_exec pid=%u\n", pid);
+        debug_printf("[multitasking_pump] BEFORE exec current_pid=%u\n", g_current_pid);
+        debug_printf("[multitasking_pump] BEFORE exec saved_pid=%u\n", saved_pid);
     }
+
+    debug_printf("[multitasking_pump] CALL userland_exec pid=%u\n", pid);
 
     int rc = userland_exec(&ctx);
 
+    debug_printf("[multitasking_pump] RETURN userland_exec pid=%u\n", pid);
+    debug_printf("[multitasking_pump] RETURN rc=%u\n", (uint32_t)rc);
+    debug_printf("[multitasking_pump] RETURN current_pid=%u\n", g_current_pid);
+
     IRQ_GUARD();
+
+    debug_printf("[multitasking_pump] AFTER EXEC pid=%u\n", pid);
+    debug_printf("[multitasking_pump] AFTER EXEC current_pid=%u\n", g_current_pid);
+    debug_printf("[multitasking_pump] AFTER EXEC saved_pid=%u\n", saved_pid);
+
     task_t *task = find_task_locked(pid);
+
+    if (task) {
+        debug_printf("[multitasking_pump] found task pid=%u\n", task->pid);
+        debug_printf("[multitasking_pump] found task state=%u\n", (uint32_t)task->state);
+        debug_printf("[multitasking_pump] found task exit_code=%u\n", (uint32_t)task->exit_code);
+    } else {
+        debug_printf("[multitasking_pump] WARNING task not found pid=%u\n", pid);
+    }
+
     if (task && task->state != TASK_STATE_EXITED) {
+        debug_printf("[multitasking_pump] pid=%u -> EXITED\n", pid);
         task->state = TASK_STATE_EXITED;
         task->exit_code = rc;
+        debug_printf("[multitasking_pump] pid=%u exit_code=%u\n", pid, (uint32_t)rc);
     }
+
+    debug_printf("[multitasking_pump] restoring current_pid %u -> %u\n", g_current_pid, saved_pid);
+
     g_current_pid = saved_pid;
+
+    debug_printf("[multitasking_pump] FINAL pid=%u\n", pid);
+    debug_printf("[multitasking_pump] FINAL current_pid=%u\n", g_current_pid);
 }
 
 // Multitasking testing ground below
