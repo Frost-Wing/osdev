@@ -156,21 +156,21 @@ void detect_ahci_devices(ahci_hba_mem_t *ahci_ctrl) {
 
         switch (sig) {
             case sata_disk:
-                printf("[AHCI] SATA Disk detected on port %d", i);
+                info("[AHCI] SATA Disk detected on port %d", __FILE__, i);
                 handle_sata_disk(i);
                 break;
             case satapi_disk:
-                printf("[AHCI] SATAPI device detected on port %d", i);
+                info("[AHCI] SATAPI device detected on port %d", __FILE__, i);
                 handle_satapi_disk(i);
                 break;
             case semb_disk:
-                printf("[AHCI] SEMB device detected on port %d", i);
+                info("[AHCI] SEMB device detected on port %d", __FILE__, i);
                 break;
             case port_multiplier:
-                printf("[AHCI] Port Multiplier detected on port %d", i);
+                info("[AHCI] Port Multiplier detected on port %d", __FILE__, i);
                 break;
             default:
-                printf("[AHCI] Unknown device (sig=0x%X) on port %d", sig, i);
+                info("[AHCI] Unknown device (sig=0x%X) on port %d", __FILE__, sig, i);
                 break;
         }
     }
@@ -214,7 +214,7 @@ void handle_satapi_disk(int portno) {
             0,
             null);
 
-        printf("[AHCI] ISO9660 media detected on SATAPI port %d", portno);
+        info("[AHCI] ISO9660 media detected on SATAPI port %d", __FILE__, portno);
     }
 }
 
@@ -229,7 +229,7 @@ void handle_sata_disk(int portno) {
     }
 
     if (ahci_identify(portno, id) != 0) {
-        printf("[AHCI] IDENTIFY failed on port %d", portno);
+        error("[AHCI] IDENTIFY failed on port %d", __FILE__, portno);
         return;
     }
 
