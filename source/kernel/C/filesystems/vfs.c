@@ -66,10 +66,10 @@ int vfs_resolve_mount(const char *path, vfs_mount_res_t *out) {
     }
 
     if (!best) {
-        if (path)
-            eprintf("resolve_mount: no mount matches path: %s", path);
-        else
-            eprintf("resolve_mount: no mount matches the given path.");
+        // if (path)
+        //     eprintf("resolve_mount: no mount matches path: %s", path);
+        // else
+        //     eprintf("resolve_mount: no mount matches the given path.");
         return -2;
     }
 
