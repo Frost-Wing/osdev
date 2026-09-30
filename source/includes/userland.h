@@ -99,6 +99,17 @@ typedef struct {
     uint64_t r15;     // offset 56
 } userland_caller_state_t;
 
+/* Keep these offsets in sync with kernel/asm/userland_exec.S. */
+_Static_assert(__builtin_offsetof(userland_caller_state_t, ret_rip) == 0, "caller ret_rip offset mismatch");
+_Static_assert(__builtin_offsetof(userland_caller_state_t, ret_rsp) == 8, "caller ret_rsp offset mismatch");
+_Static_assert(__builtin_offsetof(userland_caller_state_t, rbx) == 16, "caller rbx offset mismatch");
+_Static_assert(__builtin_offsetof(userland_caller_state_t, rbp) == 24, "caller rbp offset mismatch");
+_Static_assert(__builtin_offsetof(userland_caller_state_t, r12) == 32, "caller r12 offset mismatch");
+_Static_assert(__builtin_offsetof(userland_caller_state_t, r13) == 40, "caller r13 offset mismatch");
+_Static_assert(__builtin_offsetof(userland_caller_state_t, r14) == 48, "caller r14 offset mismatch");
+_Static_assert(__builtin_offsetof(userland_caller_state_t, r15) == 56, "caller r15 offset mismatch");
+_Static_assert(sizeof(userland_caller_state_t) == 64, "caller state size mismatch");
+
 _Static_assert(__builtin_offsetof(glibc_tcb_head_t, stack_guard) == 0x28, "glibc stack_guard offset mismatch");
 _Static_assert(__builtin_offsetof(glibc_tcb_head_t, pointer_guard) == 0x30, "glibc pointer_guard offset mismatch");
 _Static_assert(__builtin_offsetof(glibc_tcb_head_t, __private_ss) == 0x70, "glibc __private_ss offset mismatch");

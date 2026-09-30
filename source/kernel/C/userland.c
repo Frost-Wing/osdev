@@ -166,28 +166,8 @@ static inline __attribute__((noreturn)) void userland_iret(uint64_t entry, uint6
           "r8", "r9", "r12", "r13", "r14", "r15");
     __builtin_unreachable();
 }
-/*
- * regs: rbx, rbp, r12, r13, r14, r15, eax, rsp, rip.
- * The base pointer is pinned to rdi, which is never loaded, and rbp/rsp are
- * loaded last, so no operand can be overwritten before it is read.
- */
-static inline __attribute__((noreturn)) void userland_jump_resume(const uint64_t *regs) {
-    asm volatile(
-        "mov 0(%0), %%rbx\n"
-        "mov 16(%0), %%r12\n"
-        "mov 24(%0), %%r13\n"
-        "mov 32(%0), %%r14\n"
-        "mov 40(%0), %%r15\n"
-        "mov 48(%0), %%eax\n"
-        "mov 64(%0), %%rdx\n"
-        "mov 8(%0), %%rbp\n"
-        "mov 56(%0), %%rsp\n"
-        "jmp *%%rdx\n"
-        :
-        : "D"(regs)
-        : "memory", "rax", "rbx", "rdx", "r12", "r13", "r14", "r15");
-    __builtin_unreachable();
-}
+/* Implemented in assembly: it restores RBP/RSP and never returns to C. */
+extern void userland_jump_resume(const uint64_t *regs) __attribute__((noreturn));
 
 /* -------------------------------------------------------- page mapping --- */
 
@@ -403,6 +383,8 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
         userland_resume_ret_rsp,
         userland_resume_ret_rip,
     };
+
+    debug_printf("[userland] finish depth=%u exit=%u ret_rsp=%u ret_rip=%u resume_rsp=%u resume_rip=%u\n", (uint32_t)userland_depth, (uint32_t)exit_code, (uint32_t)userland_resume_ret_rsp, (uint32_t)userland_resume_ret_rip, (uint32_t)userland_resume_rsp, (uint32_t)userland_resume_rip);
 
     userland_should_return_kernel = false;
 
@@ -822,6 +804,8 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
     if (!ctx || !ctx->path || !caller)
         return -1;
 
+    debug_printf("[userland] exec caller=%u depth=%u ret_rsp=%u ret_rip=%u rbp=%u rbx=%u r12=%u r13=%u r14=%u r15=%u\n", (uint32_t)(uintptr_t)caller, (uint32_t)userland_depth, (uint32_t)caller->ret_rsp, (uint32_t)caller->ret_rip, (uint32_t)caller->rbp, (uint32_t)caller->rbx, (uint32_t)caller->r12, (uint32_t)caller->r13, (uint32_t)caller->r14, (uint32_t)caller->r15);
+
     /* Cheap ENOENT check before any snapshot/unmap work. */
     if (!userland_path_exists(ctx->path))
         return -1;
@@ -901,35 +885,6 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
     tss.rsp0 = kernel_stack_top;
 
     userland_iret((uint64_t)entry, stack_top);
-}
-
-int userland_exec(const userland_exec_ctx_t *ctx) {
-    userland_caller_state_t caller;
-    userland_caller_state_t *cp = &caller;
-    int rc;
-
-    /* Capture + call in one asm block so the compiler can't shift rsp/ret_rip in between. */
-    asm volatile(
-        "mov %%rbx, 16(%[cp])\n"
-        "mov %%rbp, 24(%[cp])\n"
-        "mov %%r12, 32(%[cp])\n"
-        "mov %%r13, 40(%[cp])\n"
-        "mov %%r14, 48(%[cp])\n"
-        "mov %%r15, 56(%[cp])\n"
-        "lea 1f(%%rip), %%rax\n"
-        "mov %%rax, 0(%[cp])\n"
-        "mov %%rsp, 8(%[cp])\n"
-        "mov %[ctxv], %%rdi\n"
-        "mov %[cp], %%rsi\n"
-        "call userland_exec_impl\n"
-        "1:\n"
-        "mov %%eax, %[rc]\n"
-        : [rc] "=r"(rc)
-        : [cp] "r"(cp), [ctxv] "r"(ctx)
-        : "rax", "rdi", "rsi", "rdx", "rcx", "r8", "r9",
-          "r10", "r11", "memory", "cc");
-
-    return rc;
 }
 
 /* ------------------------------------------------------ execve (replace) -- */
