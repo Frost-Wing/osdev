@@ -90,4 +90,6 @@ void display_time(void);
  */
 void sleep(int seconds);
 
+uint64 rtc_get_unix_time(void);
+
 #endif
