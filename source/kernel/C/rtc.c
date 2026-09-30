@@ -148,3 +148,62 @@ void sleep(int seconds) {
         elapsed = diff;
     }
 }
+
+static int rtc_is_leap_year(uint16 year) {
+    return (year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0));
+}
+
+static uint8 rtc_days_in_month(uint16 year, uint8 month) {
+    static const uint8 days[] = {
+        31, 28, 31, 30, 31, 30,
+        31, 31, 30, 31, 30, 31
+    };
+
+    if (month < 1 || month > 12)
+        return 0;
+
+    if (month == 2 && rtc_is_leap_year(year))
+        return 29;
+
+    return days[month - 1];
+}
+
+static uint64 rtc_days_before_year(uint16 year) {
+    uint64 y;
+
+    if (year < 1970)
+        return 0;
+
+    y = year - 1;
+
+    return (uint64)365 * (year - 1970)
+         + (y / 4 - 1969 / 4)
+         - (y / 100 - 1969 / 100)
+         + (y / 400 - 1969 / 400);
+}
+
+uint64 rtc_get_unix_time(void) {
+    uint8 sec, min, hour, day, month;
+    uint16 year;
+    uint64 days;
+
+    update_system_time(&sec, &min, &hour, &day, &month, &year);
+
+    if (year < 1970 || month < 1 || month > 12)
+        return 0;
+
+    if (day < 1 || day > rtc_days_in_month(year, month))
+        return 0;
+
+    days = rtc_days_before_year(year);
+
+    for (uint8 i = 1; i < month; i++)
+        days += rtc_days_in_month(year, i);
+
+    days += day - 1;
+
+    return days * 86400ULL
+         + (uint64)hour * 3600ULL
+         + (uint64)min * 60ULL
+         + sec;
+}

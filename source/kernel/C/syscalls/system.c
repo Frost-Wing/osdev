@@ -115,21 +115,21 @@ uint64 sys_readlinkat(int dirfd,
     return -LINUX_ENOENT;
 }
 
-uint64 sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
+uint64_t sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
     if (!tp)
         return -LINUX_EINVAL;
+
     if (clockid != LINUX_CLOCK_REALTIME && clockid != LINUX_CLOCK_MONOTONIC)
         return -LINUX_EINVAL;
 
-    uint8 sec = 0, min = 0, hour = 0, day = 0, month = 0;
-    uint16 year = 0;
-    update_system_time(&sec, &min, &hour, &day, &month, &year);
+    if (clockid == LINUX_CLOCK_REALTIME) {
+        tp->tv_sec = rtc_get_unix_time();
+        tp->tv_nsec = 0;
+        return 0;
+    }
 
-    tp->tv_sec = (hour * 3600) + (min * 60) + sec;
-    tp->tv_nsec = 0;
-    return 0;
+    return -LINUX_EINVAL;
 }
-
 uint64 sys_nanosleep(const linux_timespec_t *req, linux_timespec_t *rem) {
     if (rem) {
         rem->tv_sec = 0;
