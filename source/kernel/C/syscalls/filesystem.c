@@ -467,10 +467,16 @@ typedef struct {
     uint32_t *pos;
     uint64_t entry_index; /* resume point, from *pos */
     uint64_t idx;         /* running count of entries seen so far */
+    int hide_lost_found;  /* set when listing the fs root */
 } ext2_getdents_ctx_t;
 
 static int ext2_getdents_cb(uint32_t ino, uint8_t file_type, const char *name, void *user) {
     ext2_getdents_ctx_t *ctx = (ext2_getdents_ctx_t *)user;
+
+    /* Must come BEFORE idx++, so hidden entries don't consume an offset.
+     * Otherwise the resume position in *pos would be off by one. */
+    if (ctx->hide_lost_found && strcmp(name, "lost+found") == 0)
+        return 0;
 
     if (ctx->idx++ < ctx->entry_index)
         return 0; /* not at resume point yet, keep going */
@@ -805,6 +811,7 @@ int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
             .pos = pos,
             .entry_index = entry_index,
             .idx = 0,
+            .hide_lost_found = (file->f.ext2.ino == EXT2_ROOT_INO),
         };
 
         int rc = ext2_readdir(file->f.ext2.fs, file->f.ext2.ino, ext2_getdents_cb, &ctx);

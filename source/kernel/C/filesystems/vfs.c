@@ -1432,6 +1432,18 @@ int vfs_mount(const char *diskname, const char *mount_point, bool is_kernel_call
             }
 
             ret = ext2_mount(partition->ahci_port, partition->lba_start, (ext2_fs_t *)fs_struct);
+
+            if (ret == 0) {
+                ext2_fs_t *efs = (ext2_fs_t *)fs_struct;
+                if (efs->was_clean)
+                    info("%s: clean, %u/%u files, %u/%u blocks", __FILE__, device,
+                           efs->sb.s_inodes_count - efs->sb.s_free_inodes_count,
+                           efs->sb.s_inodes_count,
+                           efs->sb.s_blocks_count - efs->sb.s_free_blocks_count,
+                           efs->sb.s_blocks_count);
+                else
+                    warn("%s: not cleanly unmounted, run e2fsck", __FILE__, device);
+            }
             break;
 
         default:

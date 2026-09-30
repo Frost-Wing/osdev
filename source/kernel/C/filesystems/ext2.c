@@ -21,6 +21,7 @@
 #include <filesystems/ext2.h>
 #include <graphics.h>
 #include <memory.h>
+#include <rtc.h>
 #include <strings.h>
 
 #define EXT2_MAX_BLOCK_SIZE 4096U
@@ -30,6 +31,12 @@
 
 static inline uint32_t ext2_block_to_lba(ext2_fs_t *fs, uint32_t block) {
     return fs->partition_lba + block * fs->sectors_per_block;
+}
+
+/* ===================== Time helper ===================== */
+
+static uint32_t ext2_now(void) {
+    return rtc_get_unix_time();
 }
 
 static int ext2_read_block(ext2_fs_t *fs, uint32_t block, void *buf) {
@@ -168,14 +175,27 @@ int ext2_mount(int portno, uint32_t partition_lba, ext2_fs_t *fs) {
     strcpy(fs->cwd_path, "/");
     fs->sb_dirty = 0;
 
+    fs->mount_state = fs->sb.s_state;
+    fs->was_clean = (fs->sb.s_state & EXT2_VALID_FS) && !(fs->sb.s_state & EXT2_ERROR_FS);
+
+    fs->sb.s_mnt_count++;
+    fs->sb.s_mtime = ext2_now();
+    fs->sb.s_state &= ~EXT2_VALID_FS; /* dirty while mounted */
+    if (ext2_write_superblock(fs) != EXT2_OK)
+        return EXT2_ERR_IO;
+
     return EXT2_OK;
 }
 
 void ext2_unmount(ext2_fs_t *fs) {
     if (!fs)
         return;
-    if (fs->sb_dirty)
-        ext2_write_superblock(fs);
+
+    /* Force the valid bit on clean unmount, regardless of the state found at mount. */
+    fs->sb.s_state |= EXT2_VALID_FS;
+    fs->sb.s_wtime = ext2_now();
+    ext2_write_superblock(fs);
+
     memset(fs, 0, sizeof(ext2_fs_t));
 }
 
@@ -692,17 +712,19 @@ static int list_cb(ext2_fs_t *fs, uint32_t block, uint32_t off, ext2_raw_dirent_
     (void)fs;
     (void)block;
     (void)off;
-    (void)user;
+    ext2_ls_ctx_t *ctx = user;
+
     if (de->inode == 0)
         return 0;
     if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
         return 0;
+    if (ctx && ctx->hide_lost_found && strcmp(name, "lost+found") == 0)
+        return 0;
 
-    if (de->file_type == EXT2_FT_DIR) {
+    if (de->file_type == EXT2_FT_DIR)
         printfnoln(yellow_color "%s " reset_color, name);
-    } else {
+    else
         printfnoln(blue_color "%s " reset_color, name);
-    }
     return 0;
 }
 
@@ -714,7 +736,8 @@ int ext2_list_dir(ext2_fs_t *fs, uint32_t dir_ino) {
     if ((dir.i_mode & EXT2_S_IFMT) != EXT2_S_IFDIR)
         return EXT2_ERR_NOTDIR;
 
-    ext2_iterate_dir(fs, &dir, list_cb, NULL);
+    ext2_ls_ctx_t ctx = {.hide_lost_found = (dir_ino == EXT2_ROOT_INO)};
+    ext2_iterate_dir(fs, &dir, list_cb, &ctx);
     return EXT2_OK;
 }
 
@@ -990,18 +1013,6 @@ static int ext2_find_parent(ext2_fs_t *fs, const char *path, uint32_t *out_paren
         strcpy(parent_path, "/");
 
     return ext2_find_path(fs, parent_path, out_parent_ino, NULL);
-}
-
-/* ===================== Time helper ===================== */
-
-extern uint32_t get_unix_time(void); /* provided elsewhere in kernel; fallback below if absent */
-
-static uint32_t ext2_now(void) {
-#if defined(EXT2_HAVE_RTC)
-    return get_unix_time();
-#else
-    return 0;
-#endif
 }
 
 /* ===================== open / create / read / write / close ===================== */

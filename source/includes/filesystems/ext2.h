@@ -42,6 +42,9 @@
 
 #define EXT2_NAME_LEN 255
 
+#define EXT2_VALID_FS 0x0001
+#define EXT2_ERROR_FS 0x0002
+
 /* i_mode values */
 #define EXT2_S_IFMT 0xF000
 #define EXT2_S_IFSOCK 0xC000
@@ -208,6 +211,8 @@ typedef struct {
     char cwd_path[128];
 
     int sb_dirty;
+    uint16_t mount_state; /* s_state as found at mount time */
+    int was_clean;        /* filesystem was cleanly unmounted before this mount */
 } ext2_fs_t;
 
 typedef struct {
@@ -217,6 +222,10 @@ typedef struct {
     uint32_t pos;
     uint16_t is_dir;
 } ext2_file_t;
+
+typedef struct {
+    int hide_lost_found;
+} ext2_ls_ctx_t;
 
 /* ===================== API ===================== */
 
