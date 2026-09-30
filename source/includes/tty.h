@@ -3,6 +3,7 @@
 
 #include <basics.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 struct flanterm_context;
 
@@ -22,5 +23,6 @@ int tty_read(char *buf, uint64_t count);
 void tty_flush_input(void);
 bool tty_switch(uint8_t index);
 uint8_t tty_active_index(void);
+void tty_input_key(int key);
 
 #endif

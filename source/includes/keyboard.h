@@ -33,6 +33,12 @@
 #define CUR_LEFT -3
 #define CUR_RIGHT -4
 
+#define KEY_HOME   0x112
+#define KEY_END    0x113
+#define KEY_DEL    0x114
+#define KEY_PGUP   0x115
+#define KEY_PGDN   0x116
+
 #define KB_BUFFER_SIZE 256
 
 /**

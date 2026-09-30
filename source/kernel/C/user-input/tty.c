@@ -16,12 +16,14 @@
 #include <ringbuffer.h>
 #include <sys/termios.h>
 #include <tty.h>
+#include <keyboard.h>
 
 typedef struct {
     ring_buffer_t cooked_rb;
     char cooked_storage[TTY_COOKED_MAX];
     char line_buf[TTY_LINE_MAX];
     size_t line_len;
+    bool eof;
     linux_termios_t termios;
     struct flanterm_context *display;
     spinlock_t lock;
@@ -46,6 +48,7 @@ void tty_init(void) {
         tty->termios.c_cc[LINUX_VMIN] = 1;
         tty->termios.c_cc[LINUX_VTIME] = 0;
         tty->line_len = 0;
+        tty->eof = false;
         tty->display = NULL;
         tty->lock = (spinlock_t)SPINLOCK_INITIALIZER;
     }
@@ -153,8 +156,18 @@ void tty_input_char(char c) {
         return;
     }
 
+    /* Ctrl+D: publish the pending line and signal EOF to the reader */
+    if (c == 4) {
+        for (size_t i = 0; i < tty->line_len; i++)
+            tty_push_cooked(tty, tty->line_buf[i]);
+        tty->line_len = 0;
+        tty->eof = true;
+        spinlock_unlock(&tty->lock);
+        return;
+    }
+
     /* Ignore other control chars */
-    if ((unsigned char)c < 32 || (unsigned char)c > 126) {
+    if (c != '\t' && ((unsigned char)c < 32 || (unsigned char)c > 126)) {
         spinlock_unlock(&tty->lock);
         return;
     }
@@ -171,41 +184,82 @@ void tty_input_char(char c) {
     spinlock_unlock(&tty->lock);
 }
 
+void tty_input_key(int key) {
+    const char *seq = NULL;
+    switch (key) {
+        case CUR_UP:    seq = "\033[A";  break;
+        case CUR_DOWN:  seq = "\033[B";  break;
+        case CUR_RIGHT: seq = "\033[C";  break;
+        case CUR_LEFT:  seq = "\033[D";  break;
+        case KEY_HOME:  seq = "\033[H";  break;
+        case KEY_END:   seq = "\033[F";  break;
+        case KEY_DEL:   seq = "\033[3~"; break;
+        case KEY_PGUP:  seq = "\033[5~"; break;
+        case KEY_PGDN:  seq = "\033[6~"; break;
+    }
+
+    if (!seq) {
+        tty_input_char((char)key);
+        return;
+    }
+
+    tty_t *tty = &ttys[tty_active_index()];
+    spinlock_lock(&tty->lock);
+    /* No line editing in canonical mode, so drop the sequence rather than echo junk. */
+    if (!(tty->termios.c_lflag & LINUX_ICANON)) {
+        for (const char *p = seq; *p; p++)
+            tty_push_cooked(tty, *p);
+    }
+    spinlock_unlock(&tty->lock);
+}
+
 extern volatile uint64_t pit_ticks;
 
 int tty_read(char *buf, uint64_t count) {
     if (!buf || count == 0)
         return 0;
 
-    /* Input belongs to the calling task, not whichever VT the user views. */
     tty_t *tty = &ttys[multitasking_current_tty()];
     uint64_t read = 0;
     static uint64_t last_tick = 0;
 
-    while (read < count) {
-        char c;
-        while (true) {
-            spinlock_lock(&tty->lock);
-            int empty = rb_pop(&tty->cooked_rb, &c);
-            spinlock_unlock(&tty->lock);
-            if (empty == 0)
+    for (;;) {
+        char c = 0;
+        bool got = false, eof = false;
+
+        spinlock_lock(&tty->lock);
+        bool canon = (tty->termios.c_lflag & LINUX_ICANON) != 0;
+        uint8_t vmin = tty->termios.c_cc[LINUX_VMIN];
+        if (rb_pop(&tty->cooked_rb, &c) == 0) {
+            got = true;
+        } else if (tty->eof) {
+            tty->eof = false;
+            eof = true;
+        }
+        spinlock_unlock(&tty->lock);
+
+        if (got) {
+            buf[read++] = c;
+            if (read >= count)
                 break;
-            if (pit_ticks != last_tick) {
-                last_tick = pit_ticks;
-                multitasking_on_pit_tick(last_tick);
-            }
-            asm volatile("hlt");
+            if (canon && c == '\n')
+                break;
+            continue;
         }
 
-        buf[read++] = c;
+        if (eof)
+            break;                      /* returns 0 if nothing was read: EOF */
+        if (!canon && read > 0)
+            break;                      /* raw mode: return what we have */
+        if (!canon && vmin == 0)
+            break;                      /* VMIN=0: poll, don't block */
 
-        if (c == '\n')
-            break;
+        if (pit_ticks != last_tick) {
+            last_tick = pit_ticks;
+            multitasking_on_pit_tick(last_tick);
+        }
+        asm volatile("hlt");
     }
-
-    debug_printf("[tty_read] pid=%u tty=%u count=%u -> n=%d first=%x\n",
-       multitasking_current_pid(), multitasking_current_tty(),
-       (uint32_t)count, (int)read, (uint8_t)buf[0]);
 
     return (int)read;
 }
