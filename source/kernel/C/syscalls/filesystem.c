@@ -224,6 +224,7 @@ bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *inf
         return true;
     }
 
+    /* Root of a real-fs mount point */
     if (res.rel_path[0] == '\0') {
         info->is_dir = true;
         info->mode = LINUX_S_IFDIR | 0755;
@@ -251,6 +252,23 @@ bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *inf
             return false;
         info->is_dir = (entry.flags & ISO9660_FLAG_DIR) != 0;
         info->size = entry.size;
+    } else if (res.mnt->type == FS_EXT2) {
+        /* THE FIX: ext2 was missing entirely */
+        ext2_fs_t *fs = (ext2_fs_t *)res.mnt->fs;
+        uint32_t ino = 0;
+        ext2_inode_t inode;
+        memset(&inode, 0, sizeof(inode));
+        if (ext2_find_path(fs, res.rel_path, &ino, &inode) != EXT2_OK)
+            return false;
+
+        info->inode = ino;
+        info->is_dir = (inode.i_mode & EXT2_S_IFMT) == EXT2_S_IFDIR;
+        info->size = inode.i_size;
+        /* ext2 i_mode uses the same bits as Linux st_mode */
+        info->mode = inode.i_mode;
+        if ((info->mode & 0xF000) == 0)
+            info->mode |= info->is_dir ? LINUX_S_IFDIR : LINUX_S_IFREG;
+        return true;
     } else {
         return false;
     }
@@ -278,9 +296,11 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
     vfs_file_t *file = fd_get_file(fd);
     switch (file->mnt->type) {
         case FS_PROC:
+        case FS_SYS:
         case FS_DEV:
             info->is_dir = (file->rel_path[0] == '\0');
             info->size = 0;
+            break; /* was missing: fell through into FAT16 */
         case FS_FAT16:
             info->is_dir = (file->f.fat16.entry.attr & 0x10) != 0;
             info->size = file->f.fat16.entry.filesize;
@@ -296,7 +316,9 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
         case FS_EXT2:
             info->is_dir = file->f.ext2.is_dir != 0;
             info->size = file->f.ext2.inode.i_size;
-            break;
+            info->inode = file->f.ext2.ino;
+            info->mode = file->f.ext2.inode.i_mode;
+            return true;
         default:
             return false;
     }
@@ -522,29 +544,10 @@ int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
     uint64_t used = 0;
     uint64_t entry_index = *pos;
 
-    if (file->flags & VFS_FILE_ROOT_DIR) {
-        uint64_t idx = 0;
-
-        for (int i = 1; i < mounted_partition_count; i++) {
-            if (idx++ < entry_index)
-                continue;
-
-            mount_entry_t *m = &mounted_partitions[i];
-            const char *name = vfs_basename(m->mount_point);
-
-            if (!emit_dirent(
-                    buf,
-                    buflen,
-                    &used,
-                    path_inode_hash(m->mount_point),
-                    4, // DT_DIR
-                    name,
-                    idx))
-                break;
-
-            *pos = (uint32_t)idx;
-        }
-    }
+    /* NOTE: the old VFS_FILE_ROOT_DIR block is gone. That flag collided with
+     * VFS_RDONLY (both 0x1), so it fired for every read-only open. Mount
+     * points already exist as real directories on the parent fs (vfs_mount
+     * enforces this), so the underlying fs listing already contains them. */
 
     if (file->mnt->type == FS_PROC) {
         uint64_t i = entry_index;
@@ -772,7 +775,7 @@ int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
         if (rc == EXT2_ERR_NOTDIR)
             return -LINUX_ENOTDIR;
         if (rc != EXT2_OK)
-            return -1;
+            return -LINUX_EIO;
 
         return (int)used;
     }
@@ -858,12 +861,13 @@ uint64 sys_statx(int dirfd, const char *path, int flags, unsigned int mask, linu
     if (!stx)
         return -LINUX_EINVAL;
     int compat_flags = flags & (LINUX_AT_SYMLINK_NOFOLLOW | LINUX_AT_EMPTY_PATH);
-    uint64 rc = sys_newfstatat(dirfd, path, &st, compat_flags);
+    int64_t rc = (int64_t)sys_newfstatat(dirfd, path, &st, compat_flags);
 
     if (rc < 0)
-        return rc;
+        return (uint64)rc;
 
     memset(stx, 0, sizeof(*stx));
+    stx->stx_mask = 0x7ff; /* STATX_BASIC_STATS */
     stx->stx_blksize = (uint32_t)st.st_blksize;
     stx->stx_nlink = (uint32_t)st.st_nlink;
     stx->stx_uid = st.st_uid;
@@ -928,10 +932,12 @@ uint64 sys_writev(uint64_t fd, const linux_iovec_t *iov, uint64_t iovcnt) {
 
     uint64 total = 0;
     for (uint64_t i = 0; i < iovcnt; ++i) {
-        uint64 written = sys_write(fd, (const char *)iov[i].iov_base, iov[i].iov_len);
+        int64_t written = (int64_t)sys_write(fd, (const char *)iov[i].iov_base, iov[i].iov_len);
         if (written < 0)
-            return written;
-        total += written;
+            return total > 0 ? total : (uint64)written;
+        total += (uint64)written;
+        if ((uint64_t)written < iov[i].iov_len)
+            break; /* short write, stop like Linux does */
     }
 
     return total;
