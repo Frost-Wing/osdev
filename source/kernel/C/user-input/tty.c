@@ -203,6 +203,10 @@ int tty_read(char *buf, uint64_t count) {
             break;
     }
 
+    debug_printf("[tty_read] pid=%u tty=%u count=%u -> n=%d first=%x\n",
+       multitasking_current_pid(), multitasking_current_tty(),
+       (uint32_t)count, (int)read, (uint8_t)buf[0]);
+
     return (int)read;
 }
 
