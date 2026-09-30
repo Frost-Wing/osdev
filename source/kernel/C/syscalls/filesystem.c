@@ -525,6 +525,81 @@ uint64_t sys_unlink(const char *user_path) {
 
     return 0;
 }
+static int getdents_iso9660(vfs_file_t *file, char *buf, uint64_t buflen, uint32_t *pos) {
+    iso9660_fs_t *fs = file->f.iso9660.fs;
+    iso9660_dirent_t dir = file->f.iso9660.entry;
+
+    if ((dir.flags & ISO9660_FLAG_DIR) == 0) {
+        dir.extent_lba = fs->root_extent_lba;
+        dir.size = fs->root_size;
+        dir.flags = ISO9660_FLAG_DIR;
+    }
+
+    uint32_t lbs = fs->logical_block_size;
+    uint32_t spb = lbs / SECTOR_SIZE; /* sectors per logical block */
+
+    uint8_t *block = kmalloc(lbs);
+    if (!block)
+        return -LINUX_ENOMEM;
+
+    uint64_t used = 0;
+    uint64_t idx = 0;
+    uint64_t entry_index = *pos;
+    uint32_t blocks = (dir.size + lbs - 1) / lbs;
+
+    for (uint32_t b = 0; b < blocks; ++b) {
+        /* extent_lba is in LOGICAL BLOCKS -> convert to sectors, add partition base */
+        uint32_t lba = fs->partition_lba + (dir.extent_lba + b) * spb;
+        if (ahci_read_sector(fs->portno, lba, block, spb) != 0)
+            break;
+
+        uint32_t off = 0;
+        while (off < lbs) {
+            linux_iso9660_dir_record_t *r = (linux_iso9660_dir_record_t *)(block + off);
+            if (r->length == 0)
+                break;
+
+            /* skip the "." (0x00) and ".." (0x01) records */
+            if (r->name_len == 1 && (uint8_t)r->name[0] <= 1) {
+                off += r->length;
+                continue;
+            }
+
+            if (idx++ >= entry_index) {
+                char name[128];
+
+                if (fs->joliet) {
+                    /* UTF-16BE -> bytes, same rules as iso9660.c */
+                    size_t oi = 0;
+                    const uint8_t *in = (const uint8_t *)r->name;
+                    for (uint8_t i = 0; (uint8_t)(i + 1) < r->name_len && oi + 1 < sizeof(name); i += 2) {
+                        uint16_t wc = ((uint16_t)in[i] << 8) | in[i + 1];
+                        if (wc == ';')
+                            break;
+                        name[oi++] = (wc <= 0xFF) ? (char)wc : '?';
+                    }
+                    if (oi > 0 && name[oi - 1] == '.')
+                        oi--;
+                    name[oi] = '\0';
+                } else {
+                    iso_name_to_vfs_local(r->name, r->name_len, name, sizeof(name));
+                }
+
+                if (!emit_dirent(buf, buflen, &used, path_inode_hash(name),
+                        (r->flags & ISO9660_FLAG_DIR) ? 4 : 8, name, idx))
+                    goto done;
+
+                *pos = (uint32_t)idx;
+            }
+
+            off += r->length;
+        }
+    }
+
+done:
+    kfree(block);
+    return (int)used;
+}
 
 int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
     if (!buf || buflen < sizeof(linux_dirent64_t))
@@ -719,47 +794,8 @@ int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
         return (int)used;
     }
 
-    if (file->mnt->type == FS_ISO9660) {
-        iso9660_fs_t *fs = file->f.iso9660.fs;
-        iso9660_dirent_t dir = file->f.iso9660.entry;
-        if ((dir.flags & ISO9660_FLAG_DIR) == 0) {
-            dir.extent_lba = fs->root_extent_lba;
-            dir.size = fs->root_size;
-            dir.flags = ISO9660_FLAG_DIR;
-        }
-
-        uint8_t *block = kmalloc(fs->logical_block_size);
-        if (!block)
-            return -LINUX_ENOMEM;
-
-        uint64_t idx = 0;
-        uint32_t blocks = (dir.size + fs->logical_block_size - 1) / fs->logical_block_size;
-        for (uint32_t b = 0; b < blocks; ++b) {
-            if (ahci_read_sector(fs->portno, dir.extent_lba + (b * (fs->logical_block_size / SECTOR_SIZE)), block, fs->logical_block_size / SECTOR_SIZE) != 0)
-                break;
-            uint32_t off = 0;
-            while (off < fs->logical_block_size) {
-                linux_iso9660_dir_record_t *r = (linux_iso9660_dir_record_t *)(block + off);
-                if (r->length == 0)
-                    break;
-                if (r->name_len == 1 && (uint8_t)r->name[0] <= 1) {
-                    off += r->length;
-                    continue;
-                }
-                if (idx++ >= entry_index) {
-                    char name[128];
-                    iso_name_to_vfs_local(r->name, r->name_len, name, sizeof(name));
-                    if (!emit_dirent(buf, buflen, &used, path_inode_hash(name), (r->flags & ISO9660_FLAG_DIR) ? 4 : 8, name, idx))
-                        goto iso_done;
-                    *pos = (uint32_t)idx;
-                }
-                off += r->length;
-            }
-        }
-    iso_done:
-        kfree(block);
-        return (int)used;
-    }
+    if (file->mnt->type == FS_ISO9660)
+        return getdents_iso9660(file, buf, buflen, pos);
 
     if (file->mnt->type == FS_EXT2) {
         ext2_getdents_ctx_t ctx = {

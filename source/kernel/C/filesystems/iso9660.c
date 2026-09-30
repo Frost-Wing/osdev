@@ -291,9 +291,9 @@ int iso9660_open(iso9660_fs_t *fs, const char *path, iso9660_file_t *out) {
     if (iso9660_find_path(fs, path, &e) != 0)
         return -2;
 
-    if (e.flags & ISO9660_FLAG_DIR)
-        return -3;
-
+    /* Directories are allowed: getdents64 needs an fd on them.
+     * iso9660_read() on a dir entry is the caller's problem (sys_read
+     * should reject it), same as the ext2 driver. */
     out->fs = fs;
     out->entry = e;
     out->pos = 0;
