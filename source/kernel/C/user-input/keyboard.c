@@ -199,7 +199,7 @@ void process_keyboard(InterruptFrame *frame) {
 
     int c = handle_char_from_scancode(scancode);
     if (c != 0)
-        tty_input_char((char)c);
+        tty_input_key(c);
 
     outb(0x20, 0x20);
 }
@@ -303,6 +303,14 @@ int handle_char_from_scancode(uint8_t data) {
 
             case 0x50: // Down arrow press
                 return CUR_DOWN;
+
+            case 0x4B: return CUR_LEFT;
+            case 0x4D: return CUR_RIGHT;
+            case 0x47: return KEY_HOME;
+            case 0x4F: return KEY_END;
+            case 0x53: return KEY_DEL;
+            case 0x49: return KEY_PGUP;
+            case 0x51: return KEY_PGDN;
         }
 
         return 0;
@@ -334,6 +342,12 @@ int handle_char_from_scancode(uint8_t data) {
             modifiers ^= MOD_NUMLOCK;
             return 0;
 
+        case 0x01: // Escape
+            return 27;
+
+        case 0x0F: // Tab
+            return '\t';
+
         case 0x1C: // Enter
             return '\n';
 
@@ -362,6 +376,15 @@ int handle_char_from_scancode(uint8_t data) {
 
     if (c == 0)
         return 0;
+
+    if (modifiers & MOD_CTRL) {
+        if (c >= 'a' && c <= 'z') return c - 'a' + 1;
+        if (c >= 'A' && c <= 'Z') return c - 'A' + 1;
+        if (c == '[')  return 27;
+        if (c == '\\') return 28;
+        if (c == ']')  return 29;
+        return 0;
+    }
 
     return c;
 }
