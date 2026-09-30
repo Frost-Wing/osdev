@@ -364,7 +364,6 @@ uint64 sys_munmap(uint64_t addr, uint64_t length) {
 }
 
 uint64 sys_arch_prctl(uint64_t code, uint64_t addr) {
-    printf("[arch_prctl] %u @ %u", code, addr);
     switch (code) {
         case LINUX_ARCH_SET_FS:
             current_fs_base = addr;

@@ -17,7 +17,7 @@
 #include <rtc.h>
 #include <versions.h>
 
-// #define clean_mode
+#define clean_mode
 
 static void meltdown_print_source(const CrashSymbolResult *symbol) {
     if (!symbol || !symbol->found) {
