@@ -402,8 +402,9 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
         userland_heap_init();
     }
 
-    tty_flush_input();
-    printf(blue_color "\n[process exited with code %d]" reset_color, exit_code);
+    if (!still_in_userland)
+       tty_flush_input();
+    // printf(blue_color "\n[process exited with code %d]" reset_color, exit_code);
     asm volatile("sti");
 
     userland_jump_resume(regs);
@@ -861,6 +862,9 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
 
     debug_printf("userland exec: %s entry=%p stack=%p argc=%d\n",
         ctx->path, entry, (void *)stack_top, safe_argc);
+
+    for (int i = 0; i < safe_argc; i++)
+        debug_printf("[userland] argv[%u]=%s\n", (uint32_t)i, safe_argv[i]);
     debug_dump_initial_stack(stack_top);
 
     uint64_t kernel_rsp = 0;

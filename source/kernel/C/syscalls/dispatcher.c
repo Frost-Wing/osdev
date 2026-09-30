@@ -56,7 +56,7 @@ uint64_t syscall_dispatch(
 
     const char *syscall_name = (nr < (sizeof(names) / sizeof(names[0])) && names[nr]) ? names[nr] : "?";
     syslog_printf("[syscall] %s(%u)", syscall_name, nr);
-    debug_printf("[syscall] %s(%u)\n", syscall_name, nr);
+    // debug_printf("[syscall] %s(%u)\n", syscall_name, nr);
 
     switch (nr) {
         case LINUX_SYS_READ:
