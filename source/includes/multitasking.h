@@ -81,6 +81,7 @@ void multitasking_init(void);
 void multitasking_on_pit_tick(uint64_t now_ticks);
 void multitasking_pump(void);
 task_t *multitasking_find_task(uint32_t pid);
+void multitasking_set_current_pid(uint32_t pid);
 
 uint32_t multitasking_spawn_kernel(const char *name, kernel_task_fn_t fn, void *ctx);
 uint32_t multitasking_spawn_userland(const char *name, const user_task_spec_t *spec);

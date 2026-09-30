@@ -1,6 +1,8 @@
 #include <syscalls/internal.h>
 #include <syscalls/sysnames.h>
 
+syscall_frame_t *current_syscall_frame;
+
 void int80_handler(InterruptFrame *frame) {
     uint64_t ret = syscall_dispatch(
         frame->rax,
@@ -32,6 +34,7 @@ void syscall_handler(syscall_frame_t *f) {
         if (userland_prepare_exit(f, f->rdi))
             return;
     }
+    current_syscall_frame = f;
 
     uint64_t ret = syscall_dispatch(
         f->rax,

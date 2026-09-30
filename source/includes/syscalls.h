@@ -241,6 +241,8 @@ typedef struct {
 #define LINUX_SYSLOG_ACTION_SIZE_BUFFER 10
 
 typedef struct syscall_frame {
+    uint64_t r15, r14, r13, r12, rbp;
+    
     /* Saved separately because RBX is not part of the syscall ABI. */
     uint64_t rbx;
     uint64_t r9;

@@ -49,13 +49,21 @@ syscall_entry:
     push r8
     push r9
     push qword [rel saved_user_rbx]
+    push rbp            ; NEW
+    push r12            ; NEW
+    push r13            ; NEW
+    push r14            ; NEW
+    push r15            ; NEW (last push = lowest address = first struct field)
 
     ; Call C handler
     mov rdi, rsp
     call syscall_handler
 
-    ; Restore registers.  RBX comes from this invocation's frame, not the
-    ; global scratch slot, so nested userland execution cannot corrupt it.
+    pop r15             ; NEW
+    pop r14             ; NEW
+    pop r13             ; NEW
+    pop r12             ; NEW
+    pop rbp             ; NEW
     pop rbx
     pop r9
     pop r8

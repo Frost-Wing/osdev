@@ -268,7 +268,7 @@ static void userland_restore_snapshot(saved_user_page_t *pages) {
 
 /* -------------------------------------------------------------- frames --- */
 
-static int userland_push_frame(void) {
+static int userland_push_frame(bool fresh_space) {
     if (userland_depth >= USERLAND_MAX_DEPTH)
         return -1;
 
@@ -303,7 +303,7 @@ static int userland_push_frame(void) {
     int index = userland_depth++;
 
     /* The child gets a clean address space; the parent's pages live in the snapshot. */
-    if (index > 0)
+    if (index > 0 && fresh_space)
         userland_unmap_all();
 
     return index;
@@ -812,7 +812,7 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
         return -1;
 
     /* push_frame() FIRST: it captures the outer frame's globals and address space. */
-    int frame_depth = userland_push_frame();
+    int frame_depth = userland_push_frame(true);
     if (frame_depth < 0) {
         eprintf("[userland] exec nesting too deep or out of memory");
         return -1;
@@ -889,6 +889,47 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
     tss.rsp0 = kernel_stack_top;
 
     userland_iret((uint64_t)entry, stack_top);
+}
+
+__attribute__((noinline, used))
+int userland_fork_impl(const userland_regs_t *regs, const userland_caller_state_t *caller) {
+    if (!regs || !caller || userland_depth == 0)
+        return USERLAND_FORK_FAILED;
+
+    int frame_depth = userland_push_frame(false);
+    if (frame_depth < 0) {
+        eprintf("[userland] fork nesting too deep or out of memory");
+        return USERLAND_FORK_FAILED;
+    }
+
+    userland_resume_ret_rip = caller->ret_rip;
+    userland_resume_ret_rsp = caller->ret_rsp;
+    userland_resume_rbx = caller->rbx;
+    userland_resume_rbp = caller->rbp;
+    userland_resume_r12 = caller->r12;
+    userland_resume_r13 = caller->r13;
+    userland_resume_r14 = caller->r14;
+    userland_resume_r15 = caller->r15;
+
+    uint64_t kernel_rsp = 0;
+    asm volatile("mov %%rsp, %0" : "=r"(kernel_rsp));
+    userland_resume_rsp = (kernel_rsp & ~0xFULL) - 8;
+    userland_resume_rip = (uint64_t)userland_finish_exit;
+
+    userland_should_return_kernel = false;
+    userland_last_exit_code = 0;
+    userland_running = true;
+
+    userland_saved_kernel_stack_top = kernel_stack_top;
+    userland_saved_tss_rsp0 = tss.rsp0;
+
+    kernel_stack_top = (uint64_t)&userland_syscall_stacks[frame_depth][sizeof(userland_syscall_stacks[frame_depth])];
+    tss.rsp0 = kernel_stack_top;
+
+    debug_printf("[userland] fork child depth=%u rip=%x rsp=%x\n",
+        (uint32_t)frame_depth, regs->rip, regs->rsp);
+
+    userland_iret_regs(regs);
 }
 
 /* ------------------------------------------------------ execve (replace) -- */
