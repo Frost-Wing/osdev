@@ -127,6 +127,17 @@ typedef struct {
     const char *const *envp;
 } userland_exec_ctx_t;
 
+typedef struct {
+    uint64_t rax, rbx, rcx, rdx, rsi, rdi, rbp;    /* 0..48   */
+    uint64_t r8, r9, r10, r11, r12, r13, r14, r15; /* 56..112 */
+    uint64_t rip, rflags, rsp;                     /* 120,128,136 */
+} userland_regs_t;
+
+#define USERLAND_FORK_FAILED (-2147483647 - 1)
+
+int  userland_fork(const userland_regs_t *regs);
+extern void userland_iret_regs(const userland_regs_t *regs) __attribute__((noreturn));
+
 void enter_userland_at(uint64_t entry_point);
 void userland_exec_prepare(
     const char *path,

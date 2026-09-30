@@ -47,4 +47,52 @@ userland_jump_resume:
     jmp *%rdx
     .size userland_jump_resume, .-userland_jump_resume
 
+    .globl userland_fork
+    .type userland_fork, @function
+userland_fork:
+    subq $72, %rsp
+    movq %rbx, 16(%rsp)
+    movq %rbp, 24(%rsp)
+    movq %r12, 32(%rsp)
+    movq %r13, 40(%rsp)
+    movq %r14, 48(%rsp)
+    movq %r15, 56(%rsp)
+    leaq .Luserland_fork_resume(%rip), %rax
+    movq %rax, 0(%rsp)
+    movq %rsp, 8(%rsp)
+    movq %rsp, %rsi
+    call userland_fork_impl
+.Luserland_fork_resume:
+    addq $72, %rsp
+    ret
+    .size userland_fork, .-userland_fork
+
+/* rdi = userland_regs_t* */
+    .globl userland_iret_regs
+    .type userland_iret_regs, @function
+userland_iret_regs:
+    cli
+    pushq $0x23
+    pushq 136(%rdi)
+    pushq 128(%rdi)
+    pushq $0x1B
+    pushq 120(%rdi)
+    movq 8(%rdi),  %rbx
+    movq 16(%rdi), %rcx
+    movq 24(%rdi), %rdx
+    movq 32(%rdi), %rsi
+    movq 48(%rdi), %rbp
+    movq 56(%rdi), %r8
+    movq 64(%rdi), %r9
+    movq 72(%rdi), %r10
+    movq 80(%rdi), %r11
+    movq 88(%rdi), %r12
+    movq 96(%rdi), %r13
+    movq 104(%rdi), %r14
+    movq 112(%rdi), %r15
+    movq 0(%rdi),  %rax
+    movq 40(%rdi), %rdi
+    iretq
+    .size userland_iret_regs, .-userland_iret_regs
+    
     .section .note.GNU-stack,"",@progbits

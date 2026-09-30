@@ -152,6 +152,11 @@ uint32_t multitasking_current_pid(void) {
     return g_current_pid;
 }
 
+void multitasking_set_current_pid(uint32_t pid) {
+    IRQ_GUARD();
+    g_current_pid = pid;
+}
+
 uint8_t multitasking_current_tty(void) {
     IRQ_GUARD();
     task_t *task = find_task_locked(g_current_pid);
@@ -209,9 +214,10 @@ uint32_t multitasking_spawn_userland(const char *name, const user_task_spec_t *s
     }
 
     task->type = TASK_TYPE_USERLAND;
-    task->state = TASK_STATE_READY;
-    task->fork_child = spec->fork_child;
-    task->user_spec.fork_child = spec->fork_child;
+    task->state = spec->fork_child ? TASK_STATE_RUNNING : TASK_STATE_READY;
+    task->user_runtime.started = spec->fork_child ? 1 : 0;
+    task->fork_child = false;
+    task->user_spec.fork_child = false;
     snprintf(task->name, sizeof(task->name), "%s", name ? name : spec->path);
 
     IRQ_GUARD();

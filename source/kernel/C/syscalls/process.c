@@ -81,74 +81,57 @@ uint64 sys_execve(const char *target,
     return (rc == 0) ? 0 : -LINUX_ENOEXEC;
 }
 
+extern syscall_frame_t *current_syscall_frame;
+
 uint64 sys_fork(void) {
-    if (multitasking_current_is_fork_child())
-        return 0;
-
+    /* Read the frame BEFORE the child runs: the child's syscalls overwrite this global. */
+    const syscall_frame_t *f = current_syscall_frame;
     task_t *cur = multitasking_get_current_task();
-    if (!cur) {
-        debug_printf("[syscall] failed, could not get the current task! (fork())\n");
-        syslog_printf("[syscall] failed, could not get the current task! (fork())");
+    if (!f || !cur || !cur->user_spec.path) {
+        debug_printf("[syscall] fork: no frame/task/path\n");
         return -LINUX_ENOSYS;
     }
 
-    if (!cur->user_spec.path) {
-        debug_printf("[syscall] user_spec.path is null!\n");
-        syslog_printf("[syscall] user_spec.path is null!");
-        return -LINUX_ENOSYS;
-    }
-
-    const char *spawn_path = cur->user_spec.path;
-
-    const char *spawn_argv[32];
-    int spawn_argc = cur->user_spec.argc;
-
-    if (spawn_argc < 0)
-        spawn_argc = 0;
-    if (spawn_argc > 31)
-        spawn_argc = 31;
-
-    for (int i = 0; i < spawn_argc; i++)
-        spawn_argv[i] = cur->user_spec.argv[i] ? cur->user_spec.argv[i] : "";
-
-    spawn_argv[spawn_argc] = NULL;
-
-    // toybox routing
-    if (should_route_to_toybox(spawn_path)) {
-        const char *toybox_argv[32];
-        int toybox_argc = build_toybox_argv(
-            spawn_path,
-            spawn_argc,
-            spawn_argv,
-            toybox_argv);
-
-        spawn_path = "/bin/toybox";
-        spawn_argc = toybox_argc;
-
-        for (int i = 0; i < toybox_argc && i < 32; i++)
-            spawn_argv[i] = toybox_argv[i];
-    }
-
-    if (!path_is_loadable_elf(spawn_path))
-        return -LINUX_ENOEXEC;
+    uint32_t parent_pid = cur->pid;
 
     user_task_spec_t spec;
     memset(&spec, 0, sizeof(spec));
-
-    spec.path = spawn_path;
-    spec.argc = spawn_argc;
-    spec.parent_pid = cur->pid;
-    spec.fork_child = true;
+    spec.path = cur->user_spec.path;
+    spec.argc = cur->user_spec.argc > 31 ? 31 : cur->user_spec.argc;
+    for (int i = 0; i < spec.argc; i++)
+        spec.argv[i] = cur->user_spec.argv[i] ? cur->user_spec.argv[i] : "";
+    spec.parent_pid = parent_pid;
     spec.tty_index = cur->tty_index;
+    spec.fork_child = true;              /* means "already running", see multitasking.c */
 
-    for (int i = 0; i < spawn_argc; i++)
-        spec.argv[i] = spawn_argv[i];
-
-    uint32_t child = multitasking_spawn_userland(spawn_path, &spec);
-
+    uint32_t child = multitasking_spawn_userland(NULL, &spec);
     if (!child)
         return -LINUX_EAGAIN;
 
+    /* Copy everything out of the frame now. */
+    userland_regs_t regs = {
+        .rax = 0,                        /* fork() returns 0 in the child */
+        .rbx = f->rbx, .rcx = f->rip, .rdx = f->rdx,
+        .rsi = f->rsi, .rdi = f->rdi, .rbp = f->rbp,
+        .r8 = f->r8, .r9 = f->r9, .r10 = f->r10,
+        .r11 = f->rflags,
+        .r12 = f->r12, .r13 = f->r13, .r14 = f->r14, .r15 = f->r15,
+        .rip = f->rip,
+        .rflags = f->rflags | 0x202,
+        .rsp = f->rsp,
+    };
+
+    multitasking_set_current_pid(child);     /* getpid()/tty/execve now see the child */
+    int rc = userland_fork(&regs);           /* returns only when the child has exited */
+    multitasking_set_current_pid(parent_pid);
+
+    if (rc == USERLAND_FORK_FAILED) {
+        multitasking_exit_task(child, 127);
+        multitasking_reap_task(child, NULL);
+        return -LINUX_EAGAIN;
+    }
+
+    multitasking_exit_task(child, rc);       /* no-op if the exit syscall already marked it */
     return child;
 }
 
