@@ -35,13 +35,9 @@ typedef struct {
     uint8_t zero[8];
 } linux_sockaddr_in_t;
 
-// char current_exec_path[256] = "/";
 uint64_t current_fs_base = 0;
 uint32_t current_umask = 022;
 uint64_t *clear_child_tid = NULL;
-// char current_exec_argv_storage[32][128];
-// const char* current_exec_argv[32];
-// int current_exec_argc = 0;
 
 #pragma pack(push, 1)
 
