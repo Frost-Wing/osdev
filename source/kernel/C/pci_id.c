@@ -267,6 +267,6 @@ void probe_rtl8139(uint8_t bus, uint8_t slot, uint8_t function) {
 
     uint8_t irq = (uint8_t)(pci_read_word(bus, slot, function, RTL8139_IRQ_LINE) & 0xFFU);
 
-    printf("Handler number : 0x%x", irq);
+    info("Handler number : 0x%x", __FILE__, irq);
     registerInterruptHandler(irq, rtl8139_handler);
 }

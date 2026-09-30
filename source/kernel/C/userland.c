@@ -384,7 +384,7 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
         userland_resume_ret_rip,
     };
 
-    debug_printf("[userland] finish depth=%u exit=%u ret_rsp=%u ret_rip=%u resume_rsp=%u resume_rip=%u\n", (uint32_t)userland_depth, (uint32_t)exit_code, (uint32_t)userland_resume_ret_rsp, (uint32_t)userland_resume_ret_rip, (uint32_t)userland_resume_rsp, (uint32_t)userland_resume_rip);
+    // debug_printf("[userland] finish depth=%u exit=%u ret_rsp=%u ret_rip=%u resume_rsp=%u resume_rip=%u\n", (uint32_t)userland_depth, (uint32_t)exit_code, (uint32_t)userland_resume_ret_rsp, (uint32_t)userland_resume_ret_rip, (uint32_t)userland_resume_rsp, (uint32_t)userland_resume_rip);
 
     userland_should_return_kernel = false;
 
@@ -411,18 +411,6 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
 }
 
 /* --------------------------------------------------------- user stack ---- */
-
-static void debug_dump_initial_stack(uint64_t stack_top) {
-    uint64_t *words = (uint64_t *)stack_top;
-    debug_printf("userland: initial rsp=%x argc=%u argv0=%x argv1=%x env0=%x aux0=%x aux1=%x\n",
-        stack_top,
-        (uint32_t)words[0],
-        words[1],
-        words[2],
-        words[(uint32_t)words[0] + 2],
-        words[(uint32_t)words[0] + 4],
-        words[(uint32_t)words[0] + 5]);
-}
 
 static uint64_t push_bytes_to_stack(uint64_t *stack_ptr, const void *src, uint64_t len) {
     *stack_ptr -= len;
@@ -805,7 +793,7 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
     if (!ctx || !ctx->path || !caller)
         return -1;
 
-    debug_printf("[userland] exec caller=%u depth=%u ret_rsp=%u ret_rip=%u rbp=%u rbx=%u r12=%u r13=%u r14=%u r15=%u\n", (uint32_t)(uintptr_t)caller, (uint32_t)userland_depth, (uint32_t)caller->ret_rsp, (uint32_t)caller->ret_rip, (uint32_t)caller->rbp, (uint32_t)caller->rbx, (uint32_t)caller->r12, (uint32_t)caller->r13, (uint32_t)caller->r14, (uint32_t)caller->r15);
+    // debug_printf("[userland] exec caller=%u depth=%u ret_rsp=%u ret_rip=%u rbp=%u rbx=%u r12=%u r13=%u r14=%u r15=%u\n", (uint32_t)(uintptr_t)caller, (uint32_t)userland_depth, (uint32_t)caller->ret_rsp, (uint32_t)caller->ret_rip, (uint32_t)caller->rbp, (uint32_t)caller->rbx, (uint32_t)caller->r12, (uint32_t)caller->r13, (uint32_t)caller->r14, (uint32_t)caller->r15);
 
     /* Cheap ENOENT check before any snapshot/unmap work. */
     if (!userland_path_exists(ctx->path))
@@ -859,13 +847,6 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
     }
 
     userland_heap_init();
-
-    debug_printf("userland exec: %s entry=%p stack=%p argc=%d\n",
-        ctx->path, entry, (void *)stack_top, safe_argc);
-
-    for (int i = 0; i < safe_argc; i++)
-        debug_printf("[userland] argv[%u]=%s\n", (uint32_t)i, safe_argv[i]);
-    debug_dump_initial_stack(stack_top);
 
     uint64_t kernel_rsp = 0;
     asm volatile("mov %%rsp, %0" : "=r"(kernel_rsp));
@@ -925,9 +906,6 @@ int userland_fork_impl(const userland_regs_t *regs, const userland_caller_state_
 
     kernel_stack_top = (uint64_t)&userland_syscall_stacks[frame_depth][sizeof(userland_syscall_stacks[frame_depth])];
     tss.rsp0 = kernel_stack_top;
-
-    debug_printf("[userland] fork child depth=%u rip=%x rsp=%x\n",
-        (uint32_t)frame_depth, regs->rip, regs->rsp);
 
     userland_iret_regs(regs);
 }
@@ -1028,10 +1006,6 @@ int userland_exec_replace(const userland_exec_ctx_t *ctx) {
         if (image_info.tls_template)
             kfree(image_info.tls_template);
         userland_free_snapshot(backup);
-
-        debug_printf("userland: exec (replace) path=%s entry=%p stack=%p\n",
-            c->path, entry, (void *)stack_top);
-        debug_dump_initial_stack(stack_top);
 
         exec_copy_free(copy);
         userland_heap_init();
