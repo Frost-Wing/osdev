@@ -14,6 +14,7 @@
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
+#include <filesystems/layers/sys.h>
 
 extern struct limine_framebuffer *framebuffer;
 extern uint64 *font_address;
@@ -296,11 +297,19 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
     vfs_file_t *file = fd_get_file(fd);
     switch (file->mnt->type) {
         case FS_PROC:
+            info->is_dir = (file->rel_path[0] == '\0') ||
+                        (procfs_path_is_dir(file->rel_path) > 0);
+            info->size = 0;
+            break;
         case FS_SYS:
+            info->is_dir = (file->rel_path[0] == '\0') ||
+                        sysfs_is_dir(file->rel_path);
+            info->size = 0;
+            break;
         case FS_DEV:
             info->is_dir = (file->rel_path[0] == '\0');
             info->size = 0;
-            break; /* was missing: fell through into FAT16 */
+            break;
         case FS_FAT16:
             info->is_dir = (file->f.fat16.entry.attr & 0x10) != 0;
             info->size = file->f.fat16.entry.filesize;
