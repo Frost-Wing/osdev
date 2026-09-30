@@ -20,6 +20,14 @@
  */
 
 void *memcpy(void *dest, const void *src, size_t n) {
+
+    if ((uint64_t)dest < 0x1000 && n) {
+        debug_printf("memcpy BAD dest=%x src=%x n=%u caller=%x",
+            (uint64_t)dest, (uint64_t)src, (uint32_t)n,
+            (uint64_t)__builtin_return_address(0));
+        hcf2();
+    }
+
     uint8_t *pdest = (uint8_t *)dest;
     const uint8_t *psrc = (const uint8_t *)src;
 

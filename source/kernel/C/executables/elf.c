@@ -434,9 +434,9 @@ static int elf_map_segment(const Elf64_Phdr *ph, const elf_src_t *src, uint64_t 
     uint64_t seg_start = vaddr & ELF_PAGE_MASK;
     uint64_t seg_end = (vaddr + ph->p_memsz + 0xFFFULL) & ELF_PAGE_MASK;
 
-    uint64_t page_flags = PAGE_PRESENT | PAGE_USER;
-    if (ph->p_flags & PF_W)
-        page_flags |= PAGE_RW;
+    debug_printf("seg vaddr=%x:%x filesz=%x", (uint32_t)(vaddr >> 32), (uint32_t)vaddr, (uint32_t)ph->p_filesz);
+
+    uint64_t page_flags = PAGE_PRESENT | PAGE_USER | PAGE_RW;
     if (!(ph->p_flags & PF_X))
         page_flags |= PAGE_NX;
 
