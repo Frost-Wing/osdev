@@ -25,7 +25,13 @@ typedef struct alloc_t {
     uint64_t size;
     uint8_t status; // 0 = free, 1 = allocated
     uint64_t magic;
-} __attribute__((packed)) alloc_t;
+} alloc_t;
+
+_Static_assert(sizeof(alloc_t) == 24,
+               "Unexpected allocation header size");
+
+_Static_assert(_Alignof(alloc_t) >= 8,
+               "Allocation header must be 8-byte aligned");
 
 typedef struct {
     uint64_t magic;
@@ -157,6 +163,7 @@ static void *kmalloc_locked(size_t size) {
         if (!a->status && a->size >= size) {
             a->status = 1;
             memory_used += a->size + sizeof(alloc_t);
+            alloc_count++;
             memset(mem + sizeof(alloc_t), 0, size);
             return mem + sizeof(alloc_t);
         }
@@ -177,6 +184,7 @@ static void *kmalloc_locked(size_t size) {
     alloc_t *new_alloc = (alloc_t *)last_alloc;
     new_alloc->size = size;
     new_alloc->status = 1;
+    new_alloc->magic = HEAP_CANARY;
 
     uint8_t *user_ptr = (uint8_t *)new_alloc + sizeof(alloc_t);
     memset(user_ptr, 0, size);
@@ -224,7 +232,7 @@ void *kmalloc(size_t size) {
     return ptr;
 }
 
-void kfree(void *ptr) {
+void ikfree(void *ptr, const char *function, const char* file, int line) {
     if (!ptr) {
         LOG_SCOPE();
         warn("kfree: Cannot free null pointer", __FILE__);
@@ -236,7 +244,7 @@ void kfree(void *ptr) {
     spinlock_unlock(&heap_lock);
 
     if (!freed) {
-        warn("kfree: Invalid or already freed pointer.", __FILE__);
+        warn("kfree: Invalid or already freed pointer attempted to free in %s() %s:%d", __FILE__, function, file, line);
     }
 }
 

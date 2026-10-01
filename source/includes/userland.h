@@ -15,7 +15,7 @@
 #include <executables/elf.h>
 #include <syscalls.h>
 
-#define USER_STACK_SIZE (1 MiB) // Matches Linux default stack size limit
+#define USER_STACK_SIZE (8 MiB) // Matches Linux default stack size limit
 #define USER_HEAP_SIZE (1 * 1024 * 1024)
 #define USER_MMAP_SIZE (4 * 1024 * 1024)
 
