@@ -53,7 +53,7 @@ extern struct tss_entry tss;
  * @brief 16 KB kernel stack
  *
  */
-extern uint8_t kernel_stack[0x4000];
+extern uint8_t kernel_stack[16 KiB];
 
 /**
  * @brief The starting address of kernel's stack.

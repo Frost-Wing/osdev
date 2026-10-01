@@ -180,6 +180,7 @@ void main(void) {
 
     // Optional method of initializing heap
     uintptr_t heap_page = allocate_pages_contiguous(64 MiB / PAGE_SIZE);
+    paging_reserve_range(heap_page, heap_page + 64 MiB);
     mm_init(heap_page + hhdm_request.response->offset, 64 MiB);
 
     if (!tty_init_terminals(ft_ctx, framebuffer->address, framebuffer->width,

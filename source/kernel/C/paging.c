@@ -2,7 +2,7 @@
  * @file paging.c
  * @author Pradosh (pradoshgame@gmail.com)
  * @brief The source for Paging
- * @version 0.2
+ * @version 0.3
  * @date 2023-12-17
  *
  * @copyright Copyright (c) Pradosh 2023-2026
@@ -10,11 +10,12 @@
  */
 #include <cc-asm.h>
 #include <graphics.h>
+#include <heap.h>
 #include <memory.h>
 #include <paging.h>
 
-/* Uncomment to catch double frees / frees of foreign pages. Costs a 2 MiB bitmap. */
-// #define PAGING_DEBUG
+/* Catches double frees / frees of foreign pages. Costs a 2 MiB bitmap. */
+#define PAGING_DEBUG
 
 uint64_t memory_start;
 uint64_t memory_end;
@@ -182,6 +183,23 @@ uint64_t virt_to_phys(void *v) {
     return fast_virt_to_phys(v);
 }
 
+static int phys_page_is_usable(uintptr_t phys);
+
+/*
+ * True if `phys` lies inside the kernel heap's physical backing. The heap
+ * pages must never be freed, recycled, or mapped into user space. This is
+ * checked directly against heap_begin/heap_end, so it works even if
+ * paging_reserve_range() was never called for the heap.
+ */
+static inline int phys_in_heap(uintptr_t phys) {
+    if (!heap_end || heap_end <= heap_begin)
+        return 0;
+
+    uintptr_t h0 = (uintptr_t)heap_begin - hhdm_offset;
+    uintptr_t h1 = (uintptr_t)heap_end - hhdm_offset;
+    return phys >= h0 && phys < h1;
+}
+
 /* ---------------------------------------------------------- allocation --- */
 
 uintptr_t allocate_page(void) {
@@ -194,13 +212,29 @@ uintptr_t allocate_page(void) {
     // Prefer reclaiming a freed page over bump-allocating new memory.
     if (free_list_head) {
         uintptr_t page = free_list_head;
-        uint64_t *v = phys_to_virt_ptr(page);
-        free_list_head = *v; // pop: next-pointer was stashed here by free_page()
-        memset(phys_to_virt_ptr(page), 0, PAGE_SIZE);
+
+        if (phys_in_heap(page) || !phys_page_is_usable(page)) {
+            /* The list is poisoned; abandon it rather than hand out a bad page. */
+            error("allocate_page(): free list head %p is not recyclable, dropping list",
+                __FILE__, (void *)page);
+            free_list_head = 0;
+        } else {
+            uintptr_t next = *phys_to_virt_ptr(page); // next-pointer stashed by free_page()
+
+            if (next && (phys_in_heap(next) || !phys_page_is_usable(next))) {
+                /* Something wrote to this page after it was freed. */
+                error("allocate_page(): page %p was written after free (next=%p), dropping list",
+                    __FILE__, (void *)page, (void *)next);
+                next = 0;
+            }
+
+            free_list_head = next;
+            memset(phys_to_virt_ptr(page), 0, PAGE_SIZE);
 #ifdef PAGING_DEBUG
-        dbg_set(page);
+            dbg_set(page);
 #endif
-        return page;
+            return page;
+        }
     }
 
     if (!bump_ptr || bump_ptr + PAGE_SIZE > bump_end) {
@@ -299,6 +333,11 @@ uint64_t paging_user_page_flags(uint64_t virt) {
 }
 
 void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
+    if (phys_in_heap(phys & PAGE_PHYS_ADDR_MASK)) {
+        error("map_user_page(): mapping HEAP phys %p at virt %p, caller=%p",
+            __FILE__, (void *)phys, (void *)virt, __builtin_return_address(0));
+    }
+
     // Traverse or create PML4 -> PDPT -> PD -> PT
     uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL); // kernel PML4
     uint64_t *pdpt, *pd, *pt;
@@ -388,10 +427,19 @@ static int phys_page_is_usable(uintptr_t phys) {
 }
 
 void free_page(uintptr_t phys) {
+    /* Heap pages are never recyclable, reserved or not. */
+    if (phys_in_heap(phys)) {
+        LOG_SCOPE();
+        error("free_page(): HEAP page %p freed, caller=%p",
+            __FILE__, (void *)phys, __builtin_return_address(0));
+        return;
+    }
+
     /* Never dereference phys through the HHDM until it is proven valid. */
     if (!phys_page_is_usable(phys)) {
         LOG_SCOPE();
-        error("free_page(): invalid or reserved physical page: %p", __FILE__, (void *)phys);
+        error("free_page(): invalid or reserved physical page: %p, caller=%p",
+            __FILE__, (void *)phys, __builtin_return_address(0));
         return;
     }
 
@@ -444,9 +492,16 @@ void unmap_user_page(uint64_t virt) {
     if (!(pt[pt_idx] & PAGE_PRESENT))
         return;
 
-    uint64_t data_phys = pt[pt_idx] & PAGE_PHYS_ADDR_MASK;
+    uint64_t pte = pt[pt_idx]; /* capture before clearing */
+    uint64_t data_phys = pte & PAGE_PHYS_ADDR_MASK;
     pt[pt_idx] = 0;
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
+
+    if (data_phys && phys_in_heap(data_phys)) {
+        error("unmap_user_page(): virt %p maps HEAP phys %p (pte=%p)",
+            __FILE__, (void *)virt, (void *)data_phys, (void *)pte);
+        data_phys = 0; /* never recycle a heap page */
+    }
     if (data_phys)
         free_page(data_phys);
 
