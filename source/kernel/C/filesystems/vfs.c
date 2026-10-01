@@ -25,6 +25,7 @@
 #include <memory.h>
 #include <strings.h>
 #include <klog.h>
+#include <multitasking.h>
 
 char vfs_cwd[256] = "/";
 uint16_t vfs_cwd_cluster = 0;
@@ -296,8 +297,9 @@ int vfs_path_is_dir(const char *path) {
         }
 
         case FS_PROC:
+            return procfs_path_is_dir(res.rel_path) == 1 ? 1 : 0;
+
         case FS_DEV:
-            /* Layered filesystems: treat root as existing, else unsupported */
             return 0;
 
         case FS_SYS:
@@ -1191,7 +1193,30 @@ int vfs_sync(bool kernel_call) {
 }
 
 int vfs_exec(const char *path, int argc, const char **argv) {
-    return userland_exec(path, argc, argv, NULL);
+    if (!path)
+        return -1;
+
+    user_task_spec_t spec;
+    memset(&spec, 0, sizeof(spec));
+    spec.path = path;
+    spec.argc = argc > 0 ? argc : 0;
+    for (int i = 0; i < spec.argc && i < 31; i++)
+        spec.argv[i] = argv ? argv[i] : NULL;
+    spec.fork_child = true;      /* start as RUNNING + started=1 so multitasking_pump() won't launch it a second time */
+    spec.tty_index = 0xFF;       /* inherit the current terminal; any value >= TTY_COUNT does this */
+
+    uint32_t saved_pid = multitasking_current_pid();
+    uint32_t pid = multitasking_spawn_userland(path, &spec);
+    if (!pid)
+        return userland_exec(path, argc, argv, NULL); /* out of memory: run untracked */
+
+    multitasking_set_current_pid(pid);
+    int rc = userland_exec(path, argc, argv, NULL);
+
+    multitasking_exit_task(pid, rc);
+    multitasking_set_current_pid(saved_pid);
+    multitasking_reap_task(pid, NULL);  /* nobody wait4()s a shell-launched exec, so reap it here */
+    return rc;
 }
 
 const char *fs_type_to_string(int fs) {

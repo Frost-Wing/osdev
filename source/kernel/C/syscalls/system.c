@@ -119,16 +119,22 @@ uint64_t sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
     if (!tp)
         return -LINUX_EINVAL;
 
-    if (clockid != LINUX_CLOCK_REALTIME && clockid != LINUX_CLOCK_MONOTONIC)
-        return -LINUX_EINVAL;
+    switch (clockid) {
+        case LINUX_CLOCK_REALTIME:
+            tp->tv_sec = rtc_get_unix_time();
+            tp->tv_nsec = 0;
+            return 0;
 
-    if (clockid == LINUX_CLOCK_REALTIME) {
-        tp->tv_sec = rtc_get_unix_time();
-        tp->tv_nsec = 0;
-        return 0;
+        case LINUX_CLOCK_MONOTONIC: {
+            uint64_t ticks = multitasking_now_ticks();
+            tp->tv_sec = ticks / 100; // PIT FREQUENCY HERE
+            tp->tv_nsec = (ticks % 100) * (1000000000ULL / 100);
+            return 0;
+        }
+
+        default:
+            return -LINUX_EINVAL;
     }
-
-    return -LINUX_EINVAL;
 }
 uint64 sys_nanosleep(const linux_timespec_t *req, linux_timespec_t *rem) {
     if (rem) {
@@ -475,7 +481,7 @@ extern uint64_t memory_used;            /* kernel heap bytes in use (from your p
 
 #define SYSINFO_MAX_PID 1024            /* set to your task table size */
 
-static uint64_t boot_unix_time;
+uint64_t boot_unix_time;
 
 /* Call once in kernel init, after the RTC is readable. */
 void sysinfo_mark_boot(void) {

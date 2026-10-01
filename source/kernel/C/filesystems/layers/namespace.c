@@ -153,12 +153,24 @@ int ns_is_dir(procfs_entry_t **entries, int count, const char *path) {
     if (!path)
         return -1;
 
-    if (*path == '\0')
+    char normalized[256];
+    ns_normalize_path(path, normalized, sizeof(normalized));
+
+    if (normalized[0] == '\0')
         return 1; /* the namespace root is always a directory */
 
-    procfs_entry_t *e = ns_find(entries, count, path);
-    if (!e)
-        return -1;
+    procfs_entry_t *e = ns_find(entries, count, normalized);
+    if (e)
+        return e->type == PROC_DIR ? 1 : 0;
 
-    return e->type == PROC_DIR ? 1 : 0;
+    /* No exact entry: it's still a directory if something lives beneath it. */
+    size_t plen = strlen(normalized);
+    for (int i = 0; i < count; i++) {
+        const char *child;
+        size_t child_len;
+        bool is_leaf;
+        if (ns_child_of(entries[i]->name, normalized, plen, &child, &child_len, &is_leaf))
+            return 1;
+    }
+    return -1;
 }

@@ -34,6 +34,7 @@ typedef struct task_info {
     task_type_t type;
     task_state_t state;
     int exit_code;
+    uint64_t created_at_tick;
     uint64_t runtime_ticks;
     uint64_t wakeup_tick;
     uint32_t parent_pid;
@@ -76,6 +77,11 @@ typedef struct task {
     struct task *next;
 
 } task_t;
+
+uint64_t multitasking_now_ticks(void);
+uint32_t multitasking_last_pid(void);
+/* Copies argv as NUL-separated strings (Linux cmdline format). Returns byte count, or -1 if no such pid. */
+int multitasking_get_cmdline(uint32_t pid, char *buf, size_t size);
 
 void multitasking_init(void);
 void multitasking_on_pit_tick(uint64_t now_ticks);
