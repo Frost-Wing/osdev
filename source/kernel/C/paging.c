@@ -25,7 +25,7 @@ struct limine_memmap_response *memmap;
 static uintptr_t bump_ptr = 0;
 static uintptr_t bump_end = 0;
 static uintptr_t free_list_head = 0;
-static uint64_t hhdm_offset = 0;
+uint64_t hhdm_offset = 0;
 
 void paging_set_hhdm_offset(uint64_t offset) {
     hhdm_offset = offset;

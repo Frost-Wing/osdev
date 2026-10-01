@@ -18,6 +18,7 @@
 #include <klog.h>
 #include <multitasking.h>
 #include <net/net.h>
+#include <paging.h>
 #include <ringbuffer.h>
 #include <graphics.h>
 #include <cmdline.h>
@@ -25,6 +26,7 @@
 #include <syslog.h>
 #include <smp.h>
 #include <tty.h>
+#include <ssfn.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
@@ -59,7 +61,7 @@ static volatile struct limine_boot_time_request boot_time_request = {
 static volatile struct limine_kernel_file_request kernel_file_request = {
     LIMINE_KERNEL_FILE_REQUEST, 0, null};
 
-struct limine_module_request module_request = {
+static volatile struct limine_module_request module_request = {
     LIMINE_MODULE_REQUEST, 0, null, 0, null};
 
 struct flanterm_context *ft_ctx = null;
@@ -67,6 +69,21 @@ struct limine_framebuffer *framebuffer = null;
 struct memory_context *limine_memory_ctx;
 
 bool isBufferReady = no;
+
+static bool ssfn_module_is_valid(const struct limine_file *module) {
+    const ssfn_font_t *font = module == NULL ? NULL : module->address;
+    if (font == NULL || module->size < sizeof(*font))
+        return false;
+
+    uint32_t size = font->size;
+    return font->magic[0] == 'S' && font->magic[1] == 'F' &&
+        font->magic[2] == 'N' && font->magic[3] == '2' &&
+        size >= sizeof(*font) && size <= module->size &&
+        ((const uint8_t *)font)[size - 4] == '2' &&
+        ((const uint8_t *)font)[size - 3] == 'N' &&
+        ((const uint8_t *)font)[size - 2] == 'F' &&
+        ((const uint8_t *)font)[size - 1] == 'S';
+}
 
 #define MOUSE_COLOR_DEFAULT 0xffffffff
 #define MOUSE_COLOR_LEFT 0x00ff00ff
@@ -122,8 +139,23 @@ void main(void) {
     memmap = memory_map_request.response;
     paging_set_hhdm_offset(hhdm_request.response->offset);
 
-    ft_ctx = flanterm_fb_simple_init(
-        framebuffer->address, framebuffer->width, framebuffer->height, framebuffer->pitch);
+    if (module_request.response == NULL || module_request.response->module_count != 1 ||
+        !ssfn_module_is_valid(module_request.response->modules[0])) {
+        hcf2();
+    }
+    const struct limine_file *ssfn_module = module_request.response->modules[0];
+    font_address = ssfn_module->address;
+
+    ft_ctx = flanterm_fb_init(NULL, NULL, framebuffer->address, framebuffer->width,
+        framebuffer->height, framebuffer->pitch,
+#ifndef FLANTERM_FB_DISABLE_CANVAS
+        NULL,
+#endif
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 1, 1, 1, 0,
+        ssfn_module->address, ssfn_module->size);
+    if (ft_ctx == NULL) {
+        hcf2();
+    }
     isBufferReady = yes;
 
     if (framebuffer_request.response->framebuffer_count > 1) {
@@ -144,14 +176,15 @@ void main(void) {
      * ! In memory, kernel is loaded at higher half and at 0x8000000.
      * ! Therefore heap, userland (and more..) can be in the range of 0x1000000 to <= 0x8000000
      */
-    // mm_init(0x1000000, 64 MiB);
+    mm_init(0x1000000, 64 MiB);
 
     // Optional method of initializing heap
-    uintptr_t heap_page = allocate_pages_contiguous(64 MiB / PAGE_SIZE);
-    mm_init(heap_page, 64 MiB);
+    // uintptr_t heap_page = allocate_pages_contiguous(64 MiB / PAGE_SIZE);
+    // mm_init(heap_page + hhdm_request.response->offset, 64 MiB);
 
     if (!tty_init_terminals(ft_ctx, framebuffer->address, framebuffer->width,
-                            framebuffer->height, framebuffer->pitch)) {
+                            framebuffer->height, framebuffer->pitch,
+                            ssfn_module->address, ssfn_module->size)) {
         error("Unable to initialize all virtual terminals", __FILE__);
     }
 

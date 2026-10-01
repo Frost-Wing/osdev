@@ -44,9 +44,12 @@ extern "C" {
 #include <flanterm/flanterm.h>
 
 #include <unifont.h>
+#include <ssfn.h>
 
 #define FLANTERM_FB_FONT_GLYPHS 256
 #define FLANTERM_FB_SCROLLBACK_LINES 1024
+
+#define FLANTERM_FB_SSFN_FONT_HEIGHT 20
 
 extern const uint8_t builtin_font[];
 extern const uint8_t thin_font[];
@@ -97,6 +100,13 @@ struct flanterm_fb_context {
     uint8_t *font_bits;    /**< The font bits data. */
     size_t font_bool_size; /**< The size of font boolean data. */
     bool *font_bool;       /**< The font boolean data. */
+
+    /* SSFN renderer state and a bounded cell-sized rendering surface. */
+    bool using_ssfn;
+    ssfn_t ssfn;
+    size_t ssfn_baseline;
+    size_t ssfn_cell_size;
+    uint32_t *ssfn_cell;
 
     uint32_t ansi_colours[8];                      /**< ANSI color palette. */
     uint32_t ansi_bright_colours[8];               /**< ANSI bright color palette. */
@@ -177,7 +187,8 @@ struct flanterm_context *flanterm_fb_init(
     uint32_t *default_bg_bright, uint32_t *default_fg_bright,
     void *font, size_t font_width, size_t font_height, size_t font_spacing,
     size_t font_scale_x, size_t font_scale_y,
-    size_t margin);
+    size_t margin,
+    const void *ssfn_font, size_t ssfn_font_size);
 
 /** Display one older or newer line of retained framebuffer output. */
 void flanterm_fb_scrollback_up(struct flanterm_context *ctx);
@@ -208,7 +219,7 @@ static inline struct flanterm_context *flanterm_fb_simple_init(
         NULL, NULL,
         NULL, 0, 0, 1,
         1, 1,
-        0);
+        0, NULL, 0);
 }
 #endif
 

@@ -51,6 +51,7 @@ iso:
 	@cp -v \
 		source/wing_kernel.elf \
 		source/boot/limine.cfg \
+		source/boot/font.sfn \
 		limine/limine-bios.sys \
 		limine/limine-bios-pxe.bin \
 		limine/limine-bios-cd.bin \

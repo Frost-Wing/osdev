@@ -1,5 +1,6 @@
+#include <flanterm/flanterm.h>
 #include <syscalls/internal.h>
-
+#include <limine.h>
 
 #define LINUX_AF_INET 2
 #define LINUX_SOCK_RAW 3
@@ -154,6 +155,8 @@ uint64 sys_setsockopt(uint64_t fd, uint64_t level, uint64_t optname,
     return 0;
 }
 
+extern struct flanterm_context *ft_ctx;
+
 uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
@@ -163,8 +166,8 @@ uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
             linux_winsize_t *ws = (linux_winsize_t *)arg;
             if (!ws)
                 return -LINUX_EINVAL;
-            ws->ws_row = 25;
-            ws->ws_col = 80;
+            ws->ws_row = ft_ctx->rows;
+            ws->ws_col = ft_ctx->cols;
             ws->ws_xpixel = 0;
             ws->ws_ypixel = 0;
             return 0;

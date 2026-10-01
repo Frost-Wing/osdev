@@ -192,6 +192,10 @@ typedef struct {
 #endif
 
 /* renderer context */
+#ifndef SSFN_MAXLINES
+/* Keep renderer state allocation-free and bounded in kernel builds. */
+#define SSFN_MAXLINES 256
+#endif
 typedef struct {
 #ifdef SSFN_MAXLINES
     const ssfn_font_t *fnt[5][16];    /* static font registry */
@@ -951,8 +955,13 @@ familyfound:
 int ssfn_render(ssfn_t *ctx, ssfn_buf_t *dst, const char *str)
 {
     ssfn_font_t **fl;
-    uint8_t *ptr = NULL, *frg, *end, *tmp, color, ci = 0, cb = 0, cs, dec[65536];
-    uint16_t r[640];
+    uint8_t *ptr = NULL, *frg, *end, *tmp, color, ci = 0, cb = 0, cs;
+#ifdef SSFN_MAXLINES
+    static uint8_t dec[65536];   /* was a 64 KiB stack array */
+#else
+    uint8_t dec[65536];
+#endif
+uint16_t r[640];
     uint32_t unicode, P, O, *Op, *Ol, sR, sG, sB, sA, bA;
     int ret = 0, i, j, k, l, p, m, n, o, s, x, y, w, h, H, a, A, b, B, nr, uix, uax;
     int ox, oy, y0, y1, Y0, Y1, x0, x1, X0, X1, X2, xs, ys, yp, pc, fB, fG, fR, fA, bB, bG, bR, dB, dG, dR, dA;
