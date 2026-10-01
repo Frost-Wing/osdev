@@ -8,6 +8,7 @@
  * @copyright Copyright (c) Pradosh 2025-2026
  *
  */
+
 #include <gdt.h>
 #include <graphics.h>
 #include <tss.h>
