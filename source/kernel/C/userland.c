@@ -99,7 +99,7 @@ static uint64_t userland_restore_fs_base = 0;
 static userland_saved_frame_t userland_frame_stack[USERLAND_MAX_DEPTH];
 static int userland_depth = 0;
 
-#define USERLAND_SYSCALL_STACK_SIZE 0x10000 /* 64 KiB */
+#define USERLAND_SYSCALL_STACK_SIZE 1 MiB
 
 __attribute__((aligned(16)))
 static uint8_t userland_syscall_stacks[USERLAND_MAX_DEPTH][USERLAND_SYSCALL_STACK_SIZE];
