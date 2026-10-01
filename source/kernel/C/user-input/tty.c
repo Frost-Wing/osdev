@@ -2,8 +2,11 @@
  * @file tty.c
  * @author Pradosh (pradoshgame@gmail.com)
  * @brief Source code for kernel's terminal output management. (TTY)
- * @version 0.1
+ * @version 0.2
  * @date 2026-04-02
+ *
+ * Single-terminal build: one tty backed by the boot framebuffer console.
+ * Nothing in here touches the heap.
  *
  * @copyright Copyright (c) Pradosh 2026
  *
@@ -11,7 +14,6 @@
 
 #include <graphics.h>
 #include <fb.h>
-#include <heap.h>
 #include <multitasking.h>
 #include <ringbuffer.h>
 #include <sys/termios.h>
@@ -31,6 +33,11 @@ typedef struct {
 
 static tty_t ttys[TTY_COUNT];
 static volatile uint8_t active_tty;
+
+/* Any out-of-range index (e.g. TTY_INDEX_CURRENT) falls back to tty0. */
+static inline tty_t *tty_get(uint8_t index) {
+    return &ttys[index < TTY_COUNT ? index : 0];
+}
 
 void tty_init(void) {
     for (uint8_t i = 0; i < TTY_COUNT; ++i) {
@@ -63,28 +70,22 @@ static void tty_push_cooked(tty_t *tty, char c) {
     }
 }
 
-static void tty_heap_free(void *ptr, size_t size) {
-    (void)size;
-    kfree(ptr);
-}
-
 bool tty_init_terminals(struct flanterm_context *default_terminal,
                         uint32_t *framebuffer, size_t width, size_t height,
-                        size_t pitch) {
-    if (!default_terminal || !framebuffer)
+                        size_t pitch, const void *ssfn_font,
+                        size_t ssfn_font_size) {
+    /* Kept for API compatibility; the boot terminal already exists. */
+    (void)framebuffer;
+    (void)width;
+    (void)height;
+    (void)pitch;
+    (void)ssfn_font;
+    (void)ssfn_font_size;
+
+    if (!default_terminal)
         return false;
 
     ttys[0].display = default_terminal;
-    for (uint8_t i = 1; i < TTY_COUNT; ++i) {
-        ttys[i].display = flanterm_fb_init(kmalloc, tty_heap_free, framebuffer,
-            width, height, pitch,
-#ifndef FLANTERM_FB_DISABLE_CANVAS
-            NULL,
-#endif
-            NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 1, 1, 1, 0);
-        if (!ttys[i].display)
-            return false;
-    }
     return tty_switch(0);
 }
 
@@ -105,7 +106,7 @@ void tty_input_char(char c) {
     if (c == '\0')
         return;
 
-    tty_t *tty = &ttys[tty_active_index()];
+    tty_t *tty = tty_get(tty_active_index());
     spinlock_lock(&tty->lock);
 
     /* CR -> NL if enabled */
@@ -203,7 +204,7 @@ void tty_input_key(int key) {
         return;
     }
 
-    tty_t *tty = &ttys[tty_active_index()];
+    tty_t *tty = tty_get(tty_active_index());
     spinlock_lock(&tty->lock);
     /* No line editing in canonical mode, so drop the sequence rather than echo junk. */
     if (!(tty->termios.c_lflag & LINUX_ICANON)) {
@@ -219,7 +220,7 @@ int tty_read(char *buf, uint64_t count) {
     if (!buf || count == 0)
         return 0;
 
-    tty_t *tty = &ttys[multitasking_current_tty()];
+    tty_t *tty = tty_get((uint8_t)multitasking_current_tty());
     uint64_t read = 0;
     static uint64_t last_tick = 0;
 
@@ -265,7 +266,7 @@ int tty_read(char *buf, uint64_t count) {
 }
 
 void tty_flush_input(void) {
-    tty_t *tty = &ttys[multitasking_current_tty()];
+    tty_t *tty = tty_get((uint8_t)multitasking_current_tty());
     spinlock_lock(&tty->lock);
     rb_clear(&tty->cooked_rb);
     tty->line_len = 0;
