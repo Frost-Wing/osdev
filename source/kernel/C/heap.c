@@ -19,6 +19,7 @@
 #include <meltdown.h>
 #include <cc-asm.h>
 #include <spinlock.h>
+#include <paging.h>
 
 typedef struct alloc_t {
     uint64_t size;
@@ -136,6 +137,8 @@ void mm_init(uintptr_t kernel_end, uint64 heap_size) {
 
     printf("heap begin -> 0x%X", heap_begin);
     printf("heap end   -> 0x%X", heap_end);
+
+    // paging_reserve_range(virt_to_phys((void *)heap_begin), virt_to_phys((void *)heap_end));
 
     done("Heap initialized", __FILE__);
 }
