@@ -45,6 +45,46 @@ static task_t *find_task_locked(uint32_t pid) {
     return NULL;
 }
 
+uint64_t multitasking_now_ticks(void) {
+    return g_last_tick;
+}
+
+uint32_t multitasking_last_pid(void) {
+    return g_next_pid - 1;
+}
+
+int multitasking_get_cmdline(uint32_t pid, char *buf, size_t size) {
+    if (!buf || size == 0)
+        return -1;
+
+    IRQ_GUARD();
+    task_t *task = find_task_locked(pid);
+    if (!task)
+        return -1;
+
+    /* Kernel threads have an empty cmdline, exactly like Linux. */
+    if (task->type != TASK_TYPE_USERLAND || !task->user_spec.path)
+        return 0;
+
+    size_t len = 0;
+    int argc = task->user_spec.argc;
+
+    for (int i = 0; i < (argc > 0 ? argc : 1); i++) {
+        const char *s = argc > 0 ? task->user_spec.argv[i] : task->user_spec.path;
+        if (!s)
+            s = "";
+
+        size_t n = strlen(s) + 1; /* include the NUL separator */
+        if (len + n > size)
+            n = size - len;       /* truncate, like Linux does */
+        memcpy(buf + len, s, n);
+        len += n;
+        if (len >= size)
+            break;
+    }
+    return (int)len;
+}
+
 static task_t *first_task_after(uint32_t pid) {
     task_t *t = g_task_head;
     while (t && t->pid <= pid)
@@ -117,6 +157,7 @@ static void fill_info(const task_t *task, task_info_t *info) {
     info->type = task->type;
     info->state = task->state;
     info->exit_code = task->exit_code;
+    info->created_at_tick = task->created_at_tick;
     info->runtime_ticks = task->runtime_ticks;
     info->wakeup_tick = task->wakeup_tick;
     info->parent_pid = task->parent_pid;
