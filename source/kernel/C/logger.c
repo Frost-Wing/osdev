@@ -145,6 +145,7 @@ void terminal_toggle_cursor(void) {
     if (ft_ctx) {
         ft_ctx->cursor_enabled = !ft_ctx->cursor_enabled;
         ft_ctx->double_buffer_flush(ft_ctx);
+        __asm__ volatile("sfence" ::: "memory");
     }
     spinlock_unlock(&console_lock);
 }
