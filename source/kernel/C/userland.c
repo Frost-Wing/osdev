@@ -99,7 +99,10 @@ static uint64_t userland_restore_fs_base = 0;
 static userland_saved_frame_t userland_frame_stack[USERLAND_MAX_DEPTH];
 static int userland_depth = 0;
 
-__attribute__((aligned(16))) static uint8_t userland_syscall_stacks[USERLAND_MAX_DEPTH][0x4000];
+#define USERLAND_SYSCALL_STACK_SIZE 0x10000 /* 64 KiB */
+
+__attribute__((aligned(16)))
+static uint8_t userland_syscall_stacks[USERLAND_MAX_DEPTH][USERLAND_SYSCALL_STACK_SIZE];
 
 /* ------------------------------------------------------------ cpu bits --- */
 
@@ -585,9 +588,6 @@ static int init_user_tls(const elf_image_info_t *image_info) {
     tcb->pointer_guard = guard ^ 0xfeedfacecafebeefULL;
     tcb->feature_1 = 0;
     tcb->ssp_base = 0;
-
-    debug_printf("userland: tls base=%x block=%x filesz=%u memsz=%u align=%u\n",
-        tcb_addr, tls_block_addr, tls_filesz, tls_memsz, tls_align);
 
     wrmsr64_local(IA32_FS_BASE_MSR, tcb_addr);
     current_fs_base = tcb_addr;

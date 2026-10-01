@@ -53,6 +53,6 @@ uint64_t paging_user_page_flags(uint64_t virt);
 uint64_t fast_virt_to_phys(void *v);
 uint64_t virt_to_phys(void *v);
 void free_page(uintptr_t phys);
-void paging_reserve_range(uintptr_t phys_start, uintptr_t phys_end);;
+void paging_reserve_range(uintptr_t phys_start, uintptr_t phys_end);
 
 #endif

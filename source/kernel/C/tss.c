@@ -16,9 +16,9 @@
 __attribute__((aligned(16))) struct tss_entry tss;
 
 __attribute__((aligned(16)))
-uint8_t kernel_stack[0x4000]; // 16 KB kernel stack
+uint8_t kernel_stack[16 KiB]; // 16 KB kernel stack
 
-uint64_t kernel_stack_top = (uint64_t)&kernel_stack[0x4000];
+uint64_t kernel_stack_top = (uint64_t)&kernel_stack[16 KiB];
 
 // Initialize TSS
 void kernel_tss_init(void) {
