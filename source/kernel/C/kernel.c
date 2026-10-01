@@ -233,6 +233,7 @@ void main(void) {
     print_L2_cache_info();
     print_L3_cache_info();
 
+    sysinfo_mark_boot();
     init_rtc();
     display_time();
 

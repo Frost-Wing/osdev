@@ -292,6 +292,8 @@ uint64_t syscall_dispatch(
             return sys_futex((uint32_t *)arg1, arg2, arg3,
                 (const linux_timespec_t *)arg4,
                 (uint32_t *)arg5, arg6);
+        case 99: 
+            return sys_sysinfo((linux_sysinfo_t *)arg1);
         case 19: {
             linux_iovec_t *iov = (linux_iovec_t *)arg2;
             if (arg3 > 0)

@@ -469,3 +469,46 @@ uint64 sys_fstatfs(uint64_t fd, linux_statfs_t *buf) {
     fill_statfs_for_mount(file->mnt, buf);
     return 0;
 }
+
+extern struct memory_context *limine_memory_ctx;
+extern uint64_t memory_used;            /* kernel heap bytes in use (from your proc heap file) */
+
+#define SYSINFO_MAX_PID 1024            /* set to your task table size */
+
+static uint64_t boot_unix_time;
+
+/* Call once in kernel init, after the RTC is readable. */
+void sysinfo_mark_boot(void) {
+    boot_unix_time = rtc_get_unix_time();
+}
+
+uint64 sys_sysinfo(linux_sysinfo_t *info) {
+    if (!info)
+        return -LINUX_EFAULT;
+
+    memset(info, 0, sizeof(*info));
+
+    /* uptime: wall clock now minus wall clock at boot */
+    uint64_t now = rtc_get_unix_time();
+    info->uptime = (now > boot_unix_time) ? (int64_t)(now - boot_unix_time) : 0;
+
+    /* RAM: Linux's totalram is usable RAM, not the whole memory map */
+    uint64_t total = limine_memory_ctx->total;
+    uint64_t used  = total - limine_memory_ctx->usable;
+    info->totalram = total;
+    info->freeram  = (used < total) ? total - used : 0;
+
+    /* process count: walk live pids */
+    uint16_t procs = 0;
+    for (uint32_t pid = 1; pid <= SYSINFO_MAX_PID; pid++) {
+        task_info_t t;
+        if (multitasking_get_task(pid, &t))
+            procs++;
+    }
+    info->procs = procs;
+
+    /* No page cache, shared memory, swap or highmem exist in FrostWing,
+       so these are genuinely zero (already cleared by memset). */
+    info->mem_unit = 1;                 /* every size above is in bytes */
+    return 0;
+}
