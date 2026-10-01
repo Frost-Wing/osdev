@@ -204,7 +204,7 @@ void ext2_unmount(ext2_fs_t *fs) {
 static int ext2_inode_location(ext2_fs_t *fs, uint32_t ino, uint32_t *out_block, uint32_t *out_offset) {
     if (ino == 0)
         return EXT2_ERR_INVAL;
-
+    
     uint32_t group = (ino - 1) / fs->inodes_per_group;
     uint32_t index = (ino - 1) % fs->inodes_per_group;
 
