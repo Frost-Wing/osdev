@@ -54,6 +54,26 @@ typedef struct {
     uint64_t inode;
 } vfs_stat_info_t;
 
+typedef struct {
+    int64_t  uptime;
+    uint64_t loads[3];
+    uint64_t totalram;
+    uint64_t freeram;
+    uint64_t sharedram;
+    uint64_t bufferram;
+    uint64_t totalswap;
+    uint64_t freeswap;
+    uint16_t procs;
+    uint16_t pad;
+    uint32_t pad2;
+    uint64_t totalhigh;
+    uint64_t freehigh;
+    uint32_t mem_unit;
+    uint8_t  _f[4];
+} linux_sysinfo_t;
+
+_Static_assert(sizeof(linux_sysinfo_t) == 112, "sysinfo ABI size");
+
 /* Cross-module helpers and implementations used by the central dispatcher. */
 bool resolve_path_at(int dirfd, const char *path, char *out, size_t out_sz);
 bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *info);
@@ -79,5 +99,7 @@ uint64 sys_execve(const char *, char *const *, char *const *); uint64 sys_fork(v
 void fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out);
 uint64 sys_statfs(const char *path, linux_statfs_t *buf);
 uint64 sys_fstatfs(uint64_t fd, linux_statfs_t *buf);
+void sysinfo_mark_boot(void);
+uint64 sys_sysinfo(linux_sysinfo_t *info);
 
 #endif
