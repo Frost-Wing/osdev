@@ -99,6 +99,12 @@ uint64 sys_execve(const char *, char *const *, char *const *); uint64 sys_fork(v
 void fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out);
 uint64 sys_statfs(const char *path, linux_statfs_t *buf);
 uint64 sys_fstatfs(uint64_t fd, linux_statfs_t *buf);
+uint64 sys_rename(const char *oldpath, const char *newpath);
+uint64 sys_copy_file_range(uint64_t in_fd, int64_t *off_in, uint64_t out_fd,
+    int64_t *off_out, uint64_t len, uint64_t flags);
+uint64 sys_mount(const char *source, const char *target, const char *filesystem,
+    uint64_t flags, const void *data);
+uint64 sys_umount2(const char *target, int flags);
 void sysinfo_mark_boot(void);
 uint64 sys_sysinfo(linux_sysinfo_t *info);
 

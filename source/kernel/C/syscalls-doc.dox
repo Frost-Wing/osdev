@@ -12,6 +12,10 @@
  * - `close(2)`             -> `sys_close()`             -> `fd_close()`
  * - `lseek(2)`             -> `sys_lseek()`             -> fd position pointer update
  * - `getdents64(2)`        -> `sys_getdents64()`        -> FAT16/FAT32/ISO9660/proc/dev walkers
+ * - `rename(2)`            -> `sys_rename()`            -> same-mount VFS rename
+ * - `copy_file_range(2)`   -> `sys_copy_file_range()`   -> bounded VFS read/write loop
+ * - `mount(2)`             -> `sys_mount()`             -> existing VFS mount backends
+ * - `umount2(2)`           -> `sys_umount2()`           -> existing VFS unmount path
  *
  * ## File metadata
  * - `stat(2)`              -> `sys_stat()`              -> `fill_vfs_stat_for_path_at()`
@@ -41,4 +45,6 @@
  * - `clock_gettime(2)`     -> `sys_clock_gettime()`     -> RTC-backed time fetch
  * - `nanosleep(2)`         -> `sys_nanosleep()`         -> `sleep()`
  * - `getrandom(2)`         -> `sys_getrandom()`         -> xorshift seeded from `rdtsc64()`
+ * - `ioctl(BLKGETSIZE64)`   -> block-device byte capacity from devfs
+ * - `ioctl(RTC_RD_TIME)`    -> CMOS RTC time from `/dev/rtc0`
  */

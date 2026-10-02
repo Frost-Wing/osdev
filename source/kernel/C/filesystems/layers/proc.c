@@ -155,6 +155,58 @@ static procfs_entry_t proc_mounts = {
     .write = NULL,
     .priv = NULL};
 
+static int proc_partitions_read(
+    vfs_file_t *file,
+    uint8_t *buf,
+    uint32_t size,
+    void *priv) {
+    (void)priv;
+
+    char tmp[8192];
+    int len = snprintf(tmp, sizeof(tmp),
+        "major minor  #blocks  name\n\n");
+
+    for (int i = 0; i < block_device_count; i++) {
+        block_device_info_t *dev = &block_devices[i];
+        if (!dev->present || dev->sector_size == 0)
+            continue;
+
+        unsigned int major = dev->type == BLOCK_DEVICE_NVME ? 259U : 8U;
+        unsigned int minor = (unsigned int)i * 16U;
+        unsigned int partition_minor = 1;
+        int n = snprintf(tmp + len, sizeof(tmp) - (size_t)len,
+            "%4u %7u %9llu %s\n",
+            major, minor,
+            (unsigned long long)((dev->total_sectors * dev->sector_size) / 1024U),
+            dev->name);
+        if (n < 0 || (size_t)n >= sizeof(tmp) - (size_t)len)
+            break;
+        len += n;
+
+        for (int p = 0; p < general_partition_count; p++) {
+            general_partition_t *part = &ahci_partitions[p];
+            if (part->ahci_port != (uint64)i)
+                continue;
+
+            n = snprintf(tmp + len, sizeof(tmp) - (size_t)len,
+                "%4u %7u %9llu %s\n",
+                major, minor + partition_minor++,
+                (unsigned long long)((part->sector_count * dev->sector_size) / 1024U),
+                part->name);
+            if (n < 0 || (size_t)n >= sizeof(tmp) - (size_t)len)
+                return ns_reply(file, buf, size, tmp, len);
+            len += n;
+        }
+    }
+
+    return ns_reply(file, buf, size, tmp, len);
+}
+
+static procfs_entry_t proc_partitions = {
+    .name = "partitions",
+    .type = PROC_FILE,
+    .read = proc_partitions_read};
+
 extern struct memory_context *limine_memory_ctx;
 
 static int proc_meminfo_read(vfs_file_t *file, uint8_t *buf, uint32_t size, void *priv) {
@@ -497,6 +549,7 @@ void procfs_init(void) {
     procfs_register(&proc_heap);
     procfs_register(&proc_meminfo);
     procfs_register(&proc_mounts);
+    procfs_register(&proc_partitions);
     procfs_register(&proc_uptime);
     procfs_register(&proc_loadavg);
     procfs_register(&proc_pid_max);

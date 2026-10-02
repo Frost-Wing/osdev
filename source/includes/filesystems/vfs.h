@@ -162,6 +162,7 @@ const char *vfs_getcwd(void);
  * @return 0 on success, negative on error
  */
 int vfs_cp(const char *src, const char *dst);
+int vfs_mv(const char *src, const char *dst);
 
 const char *vfs_basename(const char *path);
 int vfs_normalize_path(const char *in, char *out, size_t out_sz);

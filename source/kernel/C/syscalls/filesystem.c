@@ -536,6 +536,225 @@ uint64_t sys_unlink(const char *user_path) {
 
     return 0;
 }
+
+uint64 sys_rename(const char *oldpath, const char *newpath) {
+    if (!oldpath || !newpath)
+        return -LINUX_EFAULT;
+
+    char old_norm[256], new_norm[256];
+    if (!resolve_path_at(LINUX_AT_FDCWD, oldpath, old_norm, sizeof(old_norm)) ||
+        !resolve_path_at(LINUX_AT_FDCWD, newpath, new_norm, sizeof(new_norm)))
+        return -LINUX_EINVAL;
+
+    vfs_mount_res_t old_mount, new_mount;
+    if (vfs_resolve_mount(old_norm, &old_mount) != 0 ||
+        vfs_resolve_mount(new_norm, &new_mount) != 0)
+        return -LINUX_ENOENT;
+    vfs_stat_info_t source_info;
+    if (!fill_vfs_stat_for_path_at(LINUX_AT_FDCWD, old_norm, &source_info))
+        return -LINUX_ENOENT;
+    if (strcmp(old_norm, new_norm) == 0)
+        return 0;
+    if (old_mount.mnt != new_mount.mnt)
+        return -LINUX_EXDEV;
+    if (vfs_path_is_dir(new_norm) == 1)
+        return -LINUX_EISDIR;
+
+    return vfs_mv(old_norm, new_norm) == 0 ? 0 : -LINUX_EIO;
+}
+
+uint64 sys_copy_file_range(uint64_t in_fd, int64_t *off_in,
+    uint64_t out_fd, int64_t *off_out, uint64_t len, uint64_t flags) {
+    if (flags != 0)
+        return -LINUX_EINVAL;
+    if (!fd_valid((int)in_fd) || !fd_valid((int)out_fd))
+        return -LINUX_EBADF;
+    if (in_fd == out_fd)
+        return -LINUX_EINVAL;
+    if (!(fd_flags((int)in_fd) & (VFS_RDONLY | VFS_RDWR)) ||
+        !(fd_flags((int)out_fd) & (VFS_WRONLY | VFS_RDWR)))
+        return -LINUX_EBADF;
+
+    vfs_file_t *in_file = fd_get_file((int)in_fd);
+    vfs_file_t *out_file = fd_get_file((int)out_fd);
+    uint32_t *in_pos = fd_pos_ptr((int)in_fd);
+    uint32_t *out_pos = fd_pos_ptr((int)out_fd);
+    if (!in_file || !out_file || !in_file->mnt || !out_file->mnt ||
+        !in_pos || !out_pos)
+        return -LINUX_EBADF;
+    if (in_file == out_file)
+        return -LINUX_EINVAL;
+
+    if (in_file->mnt->type == FS_DEV || in_file->mnt->type == FS_PROC ||
+        in_file->mnt->type == FS_SYS || out_file->mnt->type == FS_DEV ||
+        out_file->mnt->type == FS_PROC || out_file->mnt->type == FS_SYS)
+        return -LINUX_EINVAL;
+
+    uint32_t saved_in_pos = *in_pos;
+    uint32_t saved_out_pos = *out_pos;
+    if (off_in && (*off_in < 0 || (uint64_t)*off_in > UINT32_MAX))
+        return -LINUX_EINVAL;
+    if (off_out && (*off_out < 0 || (uint64_t)*off_out > UINT32_MAX))
+        return -LINUX_EINVAL;
+
+    uint64_t read_offset = off_in ? (uint64_t)*off_in : saved_in_pos;
+    uint64_t write_offset = off_out ? (uint64_t)*off_out : saved_out_pos;
+    if (read_offset > UINT32_MAX || write_offset > UINT32_MAX)
+        return -LINUX_EINVAL;
+
+    uint64_t max_read = UINT32_MAX - read_offset;
+    uint64_t max_write = UINT32_MAX - write_offset;
+    if (len > max_read)
+        len = max_read;
+    if (len > max_write)
+        len = max_write;
+    if (len == 0)
+        return 0;
+
+    const char *in_path = fd_get_path((int)in_fd);
+    const char *out_path = fd_get_path((int)out_fd);
+    if (in_file->mnt == out_file->mnt && in_path && out_path &&
+        strcmp(in_path, out_path) == 0 &&
+        read_offset <= write_offset + len - 1 &&
+        write_offset <= read_offset + len - 1)
+        return -LINUX_EINVAL;
+
+    uint8_t *buffer = kmalloc(4096);
+    if (!buffer)
+        return -LINUX_ENOMEM;
+
+    uint64 copied = 0;
+    uint64 error = 0;
+    while (copied < len) {
+        uint64 remaining = len - copied;
+        uint32_t chunk = remaining > 4096 ? 4096 : (uint32_t)remaining;
+
+        if (off_in)
+            *in_pos = (uint32_t)(read_offset + copied);
+        if (off_out)
+            *out_pos = (uint32_t)(write_offset + copied);
+
+        int rd = vfs_read(in_file, buffer, chunk);
+        if (rd < 0) {
+            error = -LINUX_EIO;
+            break;
+        }
+        if (rd == 0)
+            break;
+
+        int wr = vfs_write(out_file, buffer, (uint32_t)rd);
+        if (wr < 0) {
+            error = -LINUX_EIO;
+            break;
+        }
+        copied += (uint32_t)wr;
+        if (wr != rd)
+            break;
+    }
+
+    if (off_in) {
+        *off_in = (int64_t)(read_offset + copied);
+        *in_pos = saved_in_pos;
+    } else
+        *in_pos = saved_in_pos + (uint32_t)copied;
+
+    if (off_out) {
+        *off_out = (int64_t)(write_offset + copied);
+        *out_pos = saved_out_pos;
+    } else
+        *out_pos = saved_out_pos + (uint32_t)copied;
+
+    kfree(buffer);
+    return copied ? copied : error;
+}
+
+uint64 sys_mount(const char *source, const char *target, const char *filesystem,
+    uint64_t flags, const void *data) {
+    (void)data;
+    if (!source || !target)
+        return -LINUX_EFAULT;
+    if (flags != 0)
+        return -LINUX_EOPNOTSUPP;
+
+    char target_norm[256];
+    if (!resolve_path_at(LINUX_AT_FDCWD, target, target_norm, sizeof(target_norm)))
+        return -LINUX_EINVAL;
+
+    if (filesystem && *filesystem &&
+        strcmp(filesystem, "auto") != 0) {
+        bool supported =
+            strcmp(filesystem, "proc") == 0 ||
+            strcmp(filesystem, "devtmpfs") == 0 ||
+            strcmp(filesystem, "dev") == 0 ||
+            strcmp(filesystem, "sysfs") == 0 ||
+            strcmp(filesystem, "sys") == 0 ||
+            strcmp(filesystem, "vfat") == 0 ||
+            strcmp(filesystem, "fat16") == 0 ||
+            strcmp(filesystem, "fat32") == 0 ||
+            strcmp(filesystem, "ext2") == 0 ||
+            strcmp(filesystem, "iso9660") == 0;
+        if (!supported)
+            return -LINUX_EOPNOTSUPP;
+
+        if (strcmp(filesystem, "proc") == 0 &&
+            strcmp(source, "proc") != 0 && strcmp(source, "none") != 0)
+            return -LINUX_EINVAL;
+        if ((strcmp(filesystem, "dev") == 0 || strcmp(filesystem, "devtmpfs") == 0) &&
+            strcmp(source, "dev") != 0 && strcmp(source, "devtmpfs") != 0 &&
+            strcmp(source, "none") != 0)
+            return -LINUX_EINVAL;
+        if ((strcmp(filesystem, "sys") == 0 || strcmp(filesystem, "sysfs") == 0) &&
+            strcmp(source, "sys") != 0 && strcmp(source, "sysfs") != 0 &&
+            strcmp(source, "none") != 0)
+            return -LINUX_EINVAL;
+
+        if (strcmp(source, "proc") != 0 && strcmp(source, "dev") != 0 &&
+            strcmp(source, "sys") != 0 && strcmp(source, "none") != 0 &&
+            strcmp(source, "devtmpfs") != 0 && strcmp(source, "sysfs") != 0) {
+            general_partition_t *part = search_general_partition(
+                strncmp(source, "/dev/", 5) == 0 ? source + 5 : source);
+            if (!part)
+                return -LINUX_ENOENT;
+            partition_fs_type_t expected = part->fs_type;
+            bool matches =
+                (expected == FS_FAT16 && (strcmp(filesystem, "fat16") == 0 ||
+                    strcmp(filesystem, "vfat") == 0)) ||
+                (expected == FS_FAT32 && (strcmp(filesystem, "fat32") == 0 ||
+                    strcmp(filesystem, "vfat") == 0)) ||
+                (expected == FS_EXT2 && strcmp(filesystem, "ext2") == 0) ||
+                (expected == FS_ISO9660 && strcmp(filesystem, "iso9660") == 0);
+            if (!matches)
+                return -LINUX_EINVAL;
+        }
+    }
+
+    const char *mount_source = source;
+    if (filesystem &&
+        ((strcmp(filesystem, "devtmpfs") == 0 &&
+                (strcmp(source, "devtmpfs") == 0 || strcmp(source, "none") == 0)) ||
+         (strcmp(filesystem, "sysfs") == 0 &&
+                (strcmp(source, "sysfs") == 0 || strcmp(source, "none") == 0))))
+        mount_source = strcmp(filesystem, "devtmpfs") == 0 ? "dev" : "sys";
+    if (filesystem && strcmp(filesystem, "proc") == 0 && strcmp(source, "none") == 0)
+        mount_source = "proc";
+
+    return vfs_mount(mount_source, target_norm, true) == 0 ? 0 : -LINUX_EINVAL;
+}
+
+uint64 sys_umount2(const char *target, int flags) {
+    if (!target)
+        return -LINUX_EFAULT;
+    if (flags != 0)
+        return -LINUX_EOPNOTSUPP;
+
+    char target_norm[256];
+    if (!resolve_path_at(LINUX_AT_FDCWD, target, target_norm, sizeof(target_norm)))
+        return -LINUX_EINVAL;
+    if (strcmp(target_norm, "/") == 0)
+        return -LINUX_EPERM;
+
+    return vfs_umount(target_norm, true) == 0 ? 0 : -LINUX_EINVAL;
+}
 static int getdents_iso9660(vfs_file_t *file, char *buf, uint64_t buflen, uint32_t *pos) {
     iso9660_fs_t *fs = file->f.iso9660.fs;
     iso9660_dirent_t dir = file->f.iso9660.entry;
