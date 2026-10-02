@@ -1,0 +1,72 @@
+8086  Intel Corporation
+	29c0  Express DRAM Controller
+	2918  LPC Interface Controller
+	2922  6 port SATA Controller [AHCI mode]
+	2930  SMBus Controller
+	1237  440FX - 82441FX PMC [Natoma]
+	7000  82371SB PIIX3 ISA [Natoma/Triton II]
+	7010  82371SB PIIX3 IDE [Natoma/Triton II]
+	7113  82371AB/EB/MB PIIX4 ACPI
+	5845  NVMe Controller
+	100e  82540EM Gigabit Ethernet Controller
+	1606  HD Graphics
+	1616  HD Graphics 5500
+	1912  HD Graphics 530
+	3e92  UHD Graphics 630
+	5917  UHD Graphics 620
+8087  Intel Corp.
+1022  Advanced Micro Devices, Inc. [AMD]
+	7800  SATA Controller [AHCI]
+	7801  SATA Controller [IDE]
+	7802  SATA Controller [RAID]
+	780b  SMBus Controller
+	780e  PCI Bridge
+	7812  USB EHCI Controller
+	7814  USB OHCI Controller
+	7901  Promontory SATA Controller
+	790b  Promontory SMBus Controller
+	790e  Promontory PCI Express Bridge
+1002  Advanced Micro Devices, Inc. [AMD/ATI]
+	1028  Radeon R7 M440/M445 (Radeon 530)
+	0128  Radeon R7 465X
+	6900  Radeon R7 Mobile Series
+10de  NVIDIA Corporation
+	0040  NV40 [GeForce 6800 Ultra]
+	0041  NV40 [GeForce 6800]
+	0042  NV40 [GeForce 6800 LE]
+	0043  NV40 [GeForce 6800 XE]
+	0044  NV40 [GeForce 6800 XT]
+	0045  NV40 [GeForce 6800 GT]
+	0046  NV40 [GeForce 6800 GS]
+	0090  G70 [GeForce 7800 GTX]
+	0091  G70 [GeForce 7800 GTX]
+	0092  G70 [GeForce 7800 GT]
+	0093  G70 [GeForce 7800 GS]
+	0094  G70 [GeForce 7800 SLI]
+	1b83  GP104 [GeForce GTX 1060 6GB]
+	1b84  GP104 [GeForce GTX 1060 3GB]
+10ec  Realtek Semiconductor Co., Ltd.
+	8139  RTL8139 Networking Card
+144d  Samsung Electronics Co Ltd
+	a808  NVMe Controller
+1d0f  Amazon.com, Inc.
+	8061  NVMe EBS Controller
+1af4  Red Hat, Inc.
+	1050  Virtio Graphics Card
+1b36  Red Hat, Inc.
+	0100  QXL Paravirtual Graphics Card
+5549  VMware Inc.
+	0405  SVGA Graphics
+1013  Cirrus Logic
+	00b8  Cirrus Graphics
+C 01  Mass storage controller
+	06  SATA controller
+	08  Non-Volatile memory controller
+C 02  Network controller
+C 03  Display controller
+C 06  Bridge
+	00  Host bridge
+	01  ISA bridge
+	04  PCI bridge
+C 0c  Serial bus controller
+	03  USB controller
