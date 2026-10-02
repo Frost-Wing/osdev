@@ -12,10 +12,6 @@
 #include <pit.h>
 #include <stdbool.h>
 
-/* Reuses the integer-only number formatter already defined in logger.c,
- * so klog needs no floating point of its own. */
-extern int format_number(char *out, long value, int base, int width, bool zero, bool upper);
-
 static uint8_t klog_storage[KLOG_BUFFER_SIZE];
 
 /* Defined here; logger.c declares this as extern and pushes into it from
@@ -58,16 +54,16 @@ static void klog_write_timestamp(void) {
 
     uint64_t frac = (rem * scale) / KLOG_TICKS_PER_SEC;
 
-    char buf[32];
+    char buf[FMT_BUF_SIZE];
 
     klog_putc('[');
 
-    format_number(buf, (long)secs, 10, 0, false, false);
+    format_number(buf, secs, false, 10, 0, false, false);
     klog_puts(buf);
 
     klog_putc('.');
 
-    format_number(buf, (long)frac, 10, KLOG_TS_FRAC_DIGITS, true, false);
+    format_number(buf, frac, false, 10, KLOG_TS_FRAC_DIGITS, true, false);
     klog_puts(buf);
 
     klog_putc(']');
@@ -84,74 +80,107 @@ void klog_printf(cstring format, ...) {
     klog_write_timestamp();
 
     while (*format != '\0') {
-        if (*format == '%') {
+        if (*format != '%') {
+            klog_putc(*format++);
+            continue;
+        }
+
+        format++; /* skip '%' */
+        if (*format == '\0') {
+            klog_putc('%');
+            break;
+        }
+
+        bool zero_pad = false;
+        bool is32 = false;
+        int width = 0;
+
+        if (*format == '0') {
+            zero_pad = true;
             format++;
+        }
 
-            bool zero_pad = false;
-            int width = 0;
+        while (*format >= '0' && *format <= '9') {
+            width = (width * 10) + (*format - '0');
+            format++;
+        }
 
-            if (*format == '0') {
-                zero_pad = true;
-                format++;
+        /* l, ll, z, j, t are all 64-bit (the default); h = 32-bit */
+        while (*format == 'l' || *format == 'z' || *format == 'j' || *format == 't')
+            format++;
+        if (*format == 'h') {
+            is32 = true;
+            format++;
+        }
+
+        char buf[FMT_BUF_SIZE];
+
+        switch (*format) {
+            case 'd':
+            case 'i':
+                format_number(buf, (uint64_t)FETCH_SIGNED(argp, is32),
+                              true, 10, width, zero_pad, false);
+                klog_puts(buf);
+                break;
+
+            case 'u':
+                format_number(buf, FETCH_UNSIGNED(argp, is32),
+                              false, 10, width, zero_pad, false);
+                klog_puts(buf);
+                break;
+
+            case 'x':
+                format_number(buf, FETCH_UNSIGNED(argp, is32),
+                              false, 16, width, zero_pad, false);
+                klog_puts(buf);
+                break;
+
+            case 'X':
+                format_number(buf, FETCH_UNSIGNED(argp, is32),
+                              false, 16, width, zero_pad, true);
+                klog_puts(buf);
+                break;
+
+            case 'b':
+                format_number(buf, FETCH_UNSIGNED(argp, is32),
+                              false, 2, width, zero_pad, false);
+                klog_puts(buf);
+                break;
+
+            case 'p':
+                klog_puts("0x");
+                format_number(buf, (uint64_t)va_arg(argp, void *),
+                              false, 16, 16, true, false);
+                klog_puts(buf);
+                break;
+
+            case 's': {
+                const char *s = va_arg(argp, char *);
+                if (!s)
+                    s = "(null)";
+
+                int len = 0;
+                while (s[len])
+                    len++;
+                for (int p = len; p < width; p++)
+                    klog_putc(' ');
+
+                klog_puts(s);
+                break;
             }
 
-            while (*format >= '0' && *format <= '9') {
-                width = (width * 10) + (*format - '0');
-                format++;
-            }
+            case 'c':
+                klog_putc((char)va_arg(argp, int));
+                break;
 
-            switch (*format) {
-                case 'd': {
-                    char buf[64];
-                    format_number(buf, va_arg(argp, int), 10, width, zero_pad, false);
-                    klog_puts(buf);
-                    break;
-                }
+            case '%':
+                klog_putc('%');
+                break;
 
-                case 'u': {
-                    char buf[64];
-                    format_number(buf, va_arg(argp, unsigned), 10, width, zero_pad, false);
-                    klog_puts(buf);
-                    break;
-                }
-
-                case 'x': {
-                    char buf[64];
-                    format_number(buf, va_arg(argp, unsigned), 16, width, zero_pad, false);
-                    klog_puts(buf);
-                    break;
-                }
-
-                case 'X': {
-                    char buf[64];
-                    format_number(buf, va_arg(argp, unsigned), 16, width, zero_pad, true);
-                    klog_puts(buf);
-                    break;
-                }
-
-                case 's': {
-                    const char *s = va_arg(argp, char *);
-                    if (!s)
-                        s = "(null)";
-                    klog_puts(s);
-                    break;
-                }
-
-                case 'c':
-                    klog_putc((char)va_arg(argp, int));
-                    break;
-
-                case '%':
-                    klog_putc('%');
-                    break;
-
-                default:
-                    klog_putc('%');
-                    klog_putc(*format);
-                    break;
-            }
-        } else {
-            klog_putc(*format);
+            default:
+                klog_putc('%');
+                klog_putc(*format);
+                break;
         }
 
         format++;

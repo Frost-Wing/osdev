@@ -207,86 +207,100 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, 
     printf_stream = stream;
 
     while (*format != '\0') {
-        if (*format == '%') {
+        if (*format != '%') {
+            putc_unlocked(*format++);
+            continue;
+        }
+
+        format++; /* skip '%' */
+        if (*format == '\0') {
+            putc_unlocked('%');
+            break;
+        }
+
+        bool zero_pad = false;
+        bool is32 = false;
+        int width = 0;
+
+        if (*format == '0') {
+            zero_pad = true;
             format++;
+        }
 
-            bool zero_pad = false;
-            int width = 0;
+        while (*format >= '0' && *format <= '9') {
+            width = (width * 10) + (*format - '0');
+            format++;
+        }
 
-            if (*format == '0') {
-                zero_pad = true;
-                format++;
+        /* length modifiers: l, ll, z, j, t are all 64-bit (the default); h = 32-bit */
+        while (*format == 'l' || *format == 'z' || *format == 'j' || *format == 't')
+            format++;
+        if (*format == 'h') {
+            is32 = true;
+            format++;
+        }
+
+        char buf[FMT_BUF_SIZE];
+
+        switch (*format) {
+            case 'd':
+            case 'i':
+                format_number(buf, (uint64_t)FETCH_SIGNED(argp, is32),
+                              true, 10, width, zero_pad, false);
+                print_unlocked(buf);
+                break;
+
+            case 'u':
+                format_number(buf, FETCH_UNSIGNED(argp, is32),
+                              false, 10, width, zero_pad, false);
+                print_unlocked(buf);
+                break;
+
+            case 'x':
+                format_number(buf, FETCH_UNSIGNED(argp, is32),
+                              false, 16, width, zero_pad, false);
+                print_unlocked(buf);
+                break;
+
+            case 'X':
+                format_number(buf, FETCH_UNSIGNED(argp, is32),
+                              false, 16, width, zero_pad, true);
+                print_unlocked(buf);
+                break;
+
+            case 'b':
+                format_number(buf, FETCH_UNSIGNED(argp, is32),
+                              false, 2, width, zero_pad, false);
+                print_unlocked(buf);
+                break;
+
+            case 'p':
+                print_unlocked("0x");
+                format_number(buf, (uint64_t)va_arg(argp, void *),
+                              false, 16, 16, true, false);
+                print_unlocked(buf);
+                break;
+
+            case 's': {
+                const char *s = va_arg(argp, char *);
+                if (!s)
+                    s = "(null)";
+                printstr_fmt(s, width);
+                break;
             }
 
-            while (*format >= '0' && *format <= '9') {
-                width = (width * 10) + (*format - '0');
-                format++;
-            }
+            case 'c':
+                putc_unlocked((char)va_arg(argp, int));
+                break;
 
-            switch (*format) {
-                case 'd': {
-                    char buf[64];
-                    format_number(buf,
-                        va_arg(argp, int),
-                        10, width, zero_pad, false);
-                    print_unlocked(buf);
-                    break;
-                }
+            case '%':
+                putc_unlocked('%');
+                break;
 
-                case 'u': {
-                    char buf[64];
-                    format_number(buf,
-                        va_arg(argp, unsigned),
-                        10, width, zero_pad, false);
-                    print_unlocked(buf);
-                    break;
-                }
-
-                case 'x': {
-                    char buf[64];
-                    format_number(buf,
-                        va_arg(argp, unsigned),
-                        16, width, zero_pad, false);
-                    print_unlocked(buf);
-                    break;
-                }
-
-                case 'X': {
-                    char buf[64];
-                    format_number(buf,
-                        va_arg(argp, unsigned),
-                        16, width, zero_pad, true);
-                    print_unlocked(buf);
-                    break;
-                }
-
-                case 'b':
-                    printbin_unlocked((uint8_t)va_arg(argp, int));
-                    break;
-
-                case 's': {
-                    const char *s = va_arg(argp, char *);
-                    if (!s)
-                        s = "(null)";
-                    printstr_fmt(s, width);
-                    break;
-                }
-
-                case 'c':
-                    putc_unlocked((char)va_arg(argp, int));
-                    break;
-
-                default:
-                    putc_unlocked('%');
-                    putc_unlocked(*format);
-                    break;
-            }
-        } else {
-            switch (*format) {
-                default:
-                    putc_unlocked(*format);
-                    break;
-            }
+            default:
+                putc_unlocked('%');
+                putc_unlocked(*format);
+                break;
         }
         format++;
     }
@@ -320,42 +334,49 @@ void eprintf_internal(cstring file, cstring func, uint64 line, cstring format, .
 
 int format_number(
     char *out,
-    long value,
+    uint64_t value,
+    bool is_signed,
     int base,
     int width,
     bool zero,
     bool upper) {
-    char tmp[64];
+    char tmp[65];
     const char *digits = upper
                              ? "0123456789ABCDEF"
                              : "0123456789abcdef";
 
-    int neg = 0;
+    bool neg = false;
     int i = 0;
 
-    if (base == 10 && value < 0) {
-        neg = 1;
-        value = -value;
+    if (width > FMT_WIDTH_MAX)
+        width = FMT_WIDTH_MAX;
+
+    if (is_signed && base == 10 && (int64_t)value < 0) {
+        neg = true;
+        value = (uint64_t)0 - value; /* safe even for INT64_MIN */
     }
 
     if (value == 0)
         tmp[i++] = '0';
 
     while (value > 0) {
-        tmp[i++] = digits[value % base];
-        value /= base;
+        tmp[i++] = digits[value % (uint64_t)base];
+        value /= (uint64_t)base;
     }
 
-    if (neg)
-        tmp[i++] = '-';
-
-    int len = i;
+    int len = i + (neg ? 1 : 0);
     int pad = (width > len) ? (width - len) : 0;
-    char padc = zero ? '0' : ' ';
 
     int pos = 0;
+
+    if (neg && zero)
+        out[pos++] = '-';
+
     while (pad--)
-        out[pos++] = padc;
+        out[pos++] = zero ? '0' : ' ';
+
+    if (neg && !zero)
+        out[pos++] = '-';
 
     while (i--)
         out[pos++] = tmp[i];
@@ -400,8 +421,13 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
         }
 
         fmt++; // skip '%'
+        if (*fmt == '\0') {
+            APPEND('%');
+            break;
+        }
 
         bool zero = false;
+        bool is32 = false;
         int width = 0;
 
         if (*fmt == '0') {
@@ -414,38 +440,52 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
             fmt++;
         }
 
-        char numbuf[64];
+        while (*fmt == 'l' || *fmt == 'z' || *fmt == 'j' || *fmt == 't')
+            fmt++;
+        if (*fmt == 'h') {
+            is32 = true;
+            fmt++;
+        }
+
+        char numbuf[FMT_BUF_SIZE];
 
         switch (*fmt) {
             case 'd':
-                format_number(
-                    numbuf,
-                    va_arg(ap, int),
-                    10, width, zero, false);
+            case 'i':
+                format_number(numbuf, (uint64_t)FETCH_SIGNED(ap, is32),
+                              true, 10, width, zero, false);
                 APPEND_STR(numbuf);
                 break;
 
             case 'u':
-                format_number(
-                    numbuf,
-                    va_arg(ap, unsigned),
-                    10, width, zero, false);
+                format_number(numbuf, FETCH_UNSIGNED(ap, is32),
+                              false, 10, width, zero, false);
                 APPEND_STR(numbuf);
                 break;
 
             case 'x':
-                format_number(
-                    numbuf,
-                    va_arg(ap, unsigned),
-                    16, width, zero, false);
+                format_number(numbuf, FETCH_UNSIGNED(ap, is32),
+                              false, 16, width, zero, false);
                 APPEND_STR(numbuf);
                 break;
 
             case 'X':
-                format_number(
-                    numbuf,
-                    va_arg(ap, unsigned),
-                    16, width, zero, true);
+                format_number(numbuf, FETCH_UNSIGNED(ap, is32),
+                              false, 16, width, zero, true);
+                APPEND_STR(numbuf);
+                break;
+
+            case 'b':
+                format_number(numbuf, FETCH_UNSIGNED(ap, is32),
+                              false, 2, width, zero, false);
+                APPEND_STR(numbuf);
+                break;
+
+            case 'p':
+                APPEND('0');
+                APPEND('x');
+                format_number(numbuf, (uint64_t)va_arg(ap, void *),
+                              false, 16, 16, true, false);
                 APPEND_STR(numbuf);
                 break;
 
@@ -457,6 +497,13 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
                 const char *s = va_arg(ap, char *);
                 if (!s)
                     s = "(null)";
+
+                int len = 0;
+                while (s[len])
+                    len++;
+                for (int p = len; p < width; p++)
+                    APPEND(' ');
+
                 APPEND_STR(s);
                 break;
             }
@@ -483,7 +530,10 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
             buf[outpos] = '\0';
     }
 
-    return outpos;
+    return (int)outpos;
+
+#undef APPEND
+#undef APPEND_STR
 }
 
 void print_bitmap(int x, int y, int w, int h, const bool *pixels, uint32 color) {

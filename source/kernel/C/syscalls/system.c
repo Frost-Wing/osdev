@@ -143,6 +143,91 @@ uint64_t sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
             return -LINUX_EINVAL;
     }
 }
+
+static uint64 sys_update_path_times(int dirfd, const char *path,
+    uint64_t atime, uint64_t mtime, bool atime_omit, bool mtime_omit) {
+    char normalized[256];
+    if (!resolve_path_at(dirfd, path, normalized, sizeof(normalized)))
+        return -LINUX_EINVAL;
+
+    if (atime_omit || mtime_omit) {
+        vfs_stat_info_t info;
+        if (!fill_vfs_stat_for_path_at(LINUX_AT_FDCWD, normalized, &info))
+            return -LINUX_ENOENT;
+        if (atime_omit)
+            atime = (uint64_t)info.atim.tv_sec;
+        if (mtime_omit)
+            mtime = (uint64_t)info.mtim.tv_sec;
+    }
+    return sys_set_file_times(normalized, atime, mtime);
+}
+
+uint64 sys_utimensat(int dirfd, const char *path,
+    const linux_timespec_t *times, int flags) {
+    if (!path)
+        return -LINUX_EFAULT;
+    if (flags & ~(LINUX_AT_SYMLINK_NOFOLLOW | LINUX_AT_EMPTY_PATH))
+        return -LINUX_EINVAL;
+
+    uint64_t now = rtc_get_unix_time();
+    uint64_t atime = now;
+    uint64_t mtime = now;
+    bool atime_omit = false;
+    bool mtime_omit = false;
+    if (times) {
+        const long UTIME_NOW_VALUE = 1073741823L;
+        const long UTIME_OMIT_VALUE = 1073741822L;
+        const linux_timespec_t *at = &times[0];
+        const linux_timespec_t *mt = &times[1];
+        if (at->tv_nsec == UTIME_NOW_VALUE)
+            atime = now;
+        else if (at->tv_nsec == UTIME_OMIT_VALUE)
+            atime_omit = true;
+        else if (at->tv_sec < 0 || at->tv_nsec < 0 || at->tv_nsec >= 1000000000L)
+            return -LINUX_EINVAL;
+        else
+            atime = (uint64_t)at->tv_sec;
+        if (mt->tv_nsec == UTIME_NOW_VALUE)
+            mtime = now;
+        else if (mt->tv_nsec == UTIME_OMIT_VALUE)
+            mtime_omit = true;
+        else if (mt->tv_sec < 0 || mt->tv_nsec < 0 || mt->tv_nsec >= 1000000000L)
+            return -LINUX_EINVAL;
+        else
+            mtime = (uint64_t)mt->tv_sec;
+    }
+    return sys_update_path_times(dirfd, path, atime, mtime,
+        atime_omit, mtime_omit);
+}
+
+static uint64 sys_update_timeval_path(int dirfd, const char *path,
+    const void *times) {
+    uint64_t now = rtc_get_unix_time();
+    uint64_t atime = now;
+    uint64_t mtime = now;
+    if (times) {
+        const int64_t *values = (const int64_t *)times;
+        if (values[0] < 0 || values[1] < 0 || values[1] >= 1000000 ||
+            values[2] < 0 || values[3] < 0 || values[3] >= 1000000)
+            return -LINUX_EINVAL;
+        atime = (uint64_t)values[0];
+        mtime = (uint64_t)values[2];
+    }
+    return sys_update_path_times(dirfd, path, atime, mtime, false, false);
+}
+
+uint64 sys_utimes(const char *path, const void *times) {
+    if (!path)
+        return -LINUX_EFAULT;
+    return sys_update_timeval_path(LINUX_AT_FDCWD, path, times);
+}
+
+uint64 sys_futimesat(int dirfd, const char *path, const void *times) {
+    if (!path)
+        return -LINUX_EFAULT;
+    return sys_update_timeval_path(dirfd, path, times);
+}
+
 uint64 sys_nanosleep(const linux_timespec_t *req, linux_timespec_t *rem) {
     if (rem) {
         rem->tv_sec = 0;
@@ -455,17 +540,43 @@ uint64 sys_statfs(const char *path, linux_statfs_t *buf) {
     if (!resolve_path_at(LINUX_AT_FDCWD, path, norm, sizeof(norm)))
         return -LINUX_EINVAL;
 
-    if (strcmp(norm, "/") == 0) {
-        fill_statfs_for_mount(NULL, buf);
-        buf->f_type = LINUX_EXT2_SUPER_MAGIC; // adjust if root isn't ext2
-        return 0;
-    }
-
     vfs_mount_res_t res;
     if (vfs_resolve_mount(norm, &res) != 0)
         return -LINUX_ENOENT;
 
     fill_statfs_for_mount(res.mnt, buf);
+    if (res.mnt->type == FS_DEV) {
+        int device_id = -1;
+        uint64_t sectors = 0;
+        general_partition_t *part = search_general_partition(res.rel_path);
+        if (part) {
+            device_id = (int)part->ahci_port;
+            sectors = part->sector_count;
+        } else {
+            for (int i = 0; i < block_device_count; ++i) {
+                if (block_devices[i].present &&
+                    strcmp(block_devices[i].name, res.rel_path) == 0) {
+                    device_id = i;
+                    break;
+                }
+            }
+        }
+        block_device_info_t *device = block_get_device(device_id);
+        if (device && device->type == BLOCK_DEVICE_USB &&
+            device->total_sectors == 0 &&
+            usb_msc_refresh_device(device->backend_index) != 0)
+            return -LINUX_EIO;
+        if (device_id >= 0)
+            device = block_get_device(device_id);
+        if (device && !part)
+            sectors = device->total_sectors;
+        if (device && device->sector_size != 0 &&
+            sectors <= UINT64_MAX / device->sector_size) {
+            buf->f_bsize = device->sector_size;
+            buf->f_frsize = device->sector_size;
+            buf->f_blocks = sectors;
+        }
+    }
     return 0;
 }
 

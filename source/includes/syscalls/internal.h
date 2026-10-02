@@ -81,6 +81,7 @@ _Static_assert(sizeof(linux_sysinfo_t) == 112, "sysinfo ABI size");
 /* Cross-module helpers and implementations used by the central dispatcher. */
 bool resolve_path_at(int dirfd, const char *path, char *out, size_t out_sz);
 bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *info);
+uint64 sys_set_file_times(const char *path, uint64_t atime, uint64_t mtime);
 uint64 copy_readlink_result(const char *target, char *buf, uint64_t bufsiz);
 bool path_is_loadable_elf(const char *path);
 bool should_route_to_toybox(const char *target);
@@ -97,12 +98,17 @@ uint64 sys_fstat(uint64_t, linux_stat_t *); uint64 sys_stat(const char *, linux_
 uint64 sys_newfstatat(int, const char *, linux_stat_t *, int); uint64 sys_statx(int, const char *, int, unsigned int, linux_statx_t *);
 uint64 sys_read(uint64_t, char *, uint64_t); uint64 sys_write(uint64_t, const char *, uint64_t); uint64 sys_writev(uint64_t, const linux_iovec_t *, uint64_t);
 uint64 sys_socket(uint64_t, uint64_t, uint64_t); uint64 sys_connect(uint64_t, const void *, uint64_t);
+uint64 sys_getsockname(uint64_t, void *, uint64_t *);
+uint64 sys_recvmsg(uint64_t, void *, uint64_t);
 uint64 sys_bind(uint64_t, const void *, uint64_t);
 uint64 sys_sendto(uint64_t, const void *, uint64_t, uint64_t, const void *, uint64_t); uint64 sys_recvfrom(uint64_t, void *, uint64_t, uint64_t, void *, uint64_t *); uint64 sys_setsockopt(uint64_t, uint64_t, uint64_t, const void *, uint64_t);
 uint64 sys_getsockopt(uint64_t, uint64_t, uint64_t, void *, uint64_t *);
 uint64 sys_ioctl(uint64_t, uint64_t, uint64_t); uint64 sys_fcntl(uint64_t, uint64_t, uint64_t);
 uint64 sys_access_common(int, const char *, int); uint64 sys_lseek(uint64_t, int64_t, uint64_t); uint64 sys_dup2(uint64_t, uint64_t); uint64 sys_dup(uint64_t); uint64 sys_getcwd(char *, uint64_t); uint64 sys_chdir(const char *); uint64 sys_readlinkat(int, const char *, char *, uint64_t);
 uint64 sys_clock_gettime(uint64_t, linux_timespec_t *); uint64 sys_nanosleep(const linux_timespec_t *, linux_timespec_t *);
+uint64 sys_utimes(const char *, const void *);
+uint64 sys_futimesat(int, const char *, const void *);
+uint64 sys_utimensat(int, const char *, const linux_timespec_t *, int);
 int sys_reboot(int, int, unsigned int, void *); int sys_kill(int, int); uint64 sys_syslog(int, char *, uint64_t);
 uint64 sys_mmap(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t); uint64 sys_mprotect(uint64_t, uint64_t, uint64_t); uint64 sys_brk(uint64_t); uint64 sys_munmap(uint64_t, uint64_t); uint64 sys_arch_prctl(uint64_t, uint64_t); uint64 sys_prlimit64(uint64_t, uint64_t, const linux_rlimit64_t *, linux_rlimit64_t *); uint64 sys_umask(uint64_t); uint64 sys_tgkill(uint64_t, uint64_t, uint64_t); uint64 sys_set_tid_address(uint64_t *); uint64 sys_set_robust_list(const void *, uint64_t); uint64 sys_getrandom(void *, uint64_t, uint64_t);
 uint64 sys_execve(const char *, char *const *, char *const *); uint64 sys_fork(void); uint64 sys_wait4(int64_t, int *, int, void *); uint64 sys_futex(uint32_t *, int, uint32_t, const linux_timespec_t *, uint32_t *, uint32_t);

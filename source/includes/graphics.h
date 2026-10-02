@@ -19,6 +19,15 @@
 #include <stream.h>
 #include <strings.h>
 
+#define FMT_WIDTH_MAX 64
+#define FMT_BUF_SIZE  80
+
+/* Default is 64-bit for everything. Use %h... if you really want 32-bit. */
+#define FETCH_SIGNED(ap, is32) \
+    ((is32) ? (int64_t)va_arg(ap, int) : (int64_t)va_arg(ap, int64_t))
+#define FETCH_UNSIGNED(ap, is32) \
+    ((is32) ? (uint64_t)va_arg(ap, unsigned int) : (uint64_t)va_arg(ap, uint64_t))
+
 // ANSI color codes for text formatting
 #define reset_color  "\x1b[38;2;248;248;242m" // Dracula foreground — warm off-white
 #define red_color    "\x1b[38;2;255;85;85m"   // Dracula red
@@ -123,13 +132,8 @@ void vputc(char c);
  */
 void printbin(uint8_t value);
 
-int format_number(
-    char *out,
-    long value,
-    int base,
-    int width,
-    bool zero,
-    bool upper);
+int format_number(char *out, uint64_t value, bool is_signed,
+                  int base, int width, bool zero, bool upper);
 
 /**
  * @brief Prints with formatting supported.

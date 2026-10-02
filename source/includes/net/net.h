@@ -40,7 +40,17 @@ struct net_config {
     net_ipv4_t dns;
 };
 
+typedef struct {
+    uint64 rx_bytes;
+    uint64 rx_packets;
+    uint64 rx_errors;
+    uint64 tx_bytes;
+    uint64 tx_packets;
+    uint64 tx_errors;
+} netif_stats_t;
+
 extern struct net_config net_cfg;
+extern netif_stats_t netif_stats;
 
 typedef void (*wget_progress_cb)(uint64 downloaded, uint64 total, void *ctx);
 
@@ -61,6 +71,7 @@ int net_packet_pull(net_packet_t *pkt, size_t len, void **hdr);
 
 void netif_init(void);
 int netif_send(const void *frame, size_t len);
+void netif_account_rx(size_t len);
 void netif_poll(void);
 void netif_set_rx_callback(net_rx_callback_t cb);
 void netif_get_mac(uint8 mac[6]);

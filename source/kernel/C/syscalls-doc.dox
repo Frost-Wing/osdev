@@ -23,6 +23,7 @@
  * - `fstat(2)`             -> `sys_fstat()`             -> `fill_vfs_stat_for_fd()`
  * - `newfstatat(2)`        -> `sys_newfstatat()`        -> `fill_vfs_stat_for_path_at()`
  * - `statx(2)`             -> `sys_statx()`             -> `sys_newfstatat()`
+ * - `utimes(2)` / `futimesat(2)` / `utimensat(2)` -> FAT and EXT2 timestamp updates
  *
  * ## Memory management
  * - `mmap(2)`              -> `sys_mmap()`              -> `userland_mmap_anon()`
@@ -42,6 +43,8 @@
  * - `socket(2)`            -> `sys_socket()`            -> IPv4 ICMP, UDP, and TCP sockets
  * - `connect(2)`           -> `sys_connect()`           -> UDP peer selection or TCP handshake
  * - `sendto(2)` / `recvfrom(2)` -> `sys_sendto()` / `sys_recvfrom()` -> ICMP, UDP, and TCP data paths
+ * - `recvmsg(2)` / `getsockname(2)` -> socket receive and local-address queries
+ * - `SIOCGIF*` ioctls       -> basic `lo` and `eth0` interface information
  * - socket `read(2)` / `write(2)` -> socket receive/send paths
  *
  * ## Time and randomness
@@ -51,4 +54,9 @@
  * - `ioctl(BLKGETSIZE64)`   -> block-device byte capacity from devfs
  * - `ioctl(RTC_RD_TIME)`    -> CMOS RTC time from `/dev/rtc0`
  * - terminal ioctls        -> accepted only for the kernel shell's tty descriptors and `/dev/tty`
+ *
+ * ## Procfs compatibility
+ * - `/proc/filesystems` lists the filesystem implementations supported by VFS
+ * - `/proc/modules` is empty because drivers are built into the kernel
+ * - `/proc/net/dev` provides the Linux interface/counter table for `lo` and `eth0`
  */

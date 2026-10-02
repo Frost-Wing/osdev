@@ -254,6 +254,17 @@ static int ext2_write_inode(ext2_fs_t *fs, uint32_t ino, ext2_inode_t *in) {
     return EXT2_OK;
 }
 
+int ext2_set_times(ext2_fs_t *fs, const char *path, uint32_t atime, uint32_t mtime) {
+    uint32_t ino;
+    ext2_inode_t inode;
+    if (ext2_find_path(fs, path, &ino, &inode) != EXT2_OK)
+        return EXT2_ERR_NOT_FOUND;
+    inode.i_atime = atime;
+    inode.i_mtime = mtime;
+    inode.i_ctime = (uint32_t)ext2_now();
+    return ext2_write_inode(fs, ino, &inode);
+}
+
 /* ===================== Bitmap allocation ===================== */
 
 static inline int bit_test(uint8_t *map, uint32_t bit) {

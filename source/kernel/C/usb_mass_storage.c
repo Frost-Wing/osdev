@@ -744,7 +744,7 @@ static void msc_interface_callback(usb_device_t *device,
         msc_unlock(transport);
         if (scan_partitions)
             msc_parse_partitions(target);
-        info("USB mass-storage LUN %u registered as %s (%llu blocks)",
+        info("USB mass-storage LUN %u registered as %s (%u blocks)",
             __FILE__, lun, name, (unsigned long long)target->block_count);
     }
 }

@@ -8,10 +8,8 @@
  *
  * The static part of that tree (bus/, bus/pci/, bus/pci/devices/) is just
  * regular entries served by the same shared namespace engine procfs uses.
- * Only the *leaves* under bus/pci/devices/<addr> are special: there's one
- * per live PCI device, generated on demand rather than registered up front,
- * so those two spots (sysfs_find_dynamic / the dynamic branch in
- * sysfs_getdent) are the only sysfs-specific code left in this file.
+ * Device directories and attributes are generated on demand for PCI and USB
+ * devices, so the dynamic lookup/getdent branches provide those live entries.
  * ==========================================================================*/
 #include <basics.h>
 #include <filesystems/layers/namespace.h>
@@ -24,13 +22,21 @@
 
 /* Attribute files that live inside bus/pci/devices/<addr>/ */
 enum { PCI_ATTR_VENDOR, PCI_ATTR_DEVICE, PCI_ATTR_CLASS, PCI_ATTR_REVISION, PCI_ATTR_UEVENT, PCI_ATTR_COUNT };
+enum {
+    USB_ATTR_VENDOR, USB_ATTR_PRODUCT, USB_ATTR_CLASS, USB_ATTR_SUBCLASS,
+    USB_ATTR_PROTOCOL, USB_ATTR_BUSNUM, USB_ATTR_DEVNUM, USB_ATTR_SPEED,
+    USB_ATTR_UEVENT, USB_ATTR_COUNT
+};
 
 static const char *pci_attr_names[PCI_ATTR_COUNT] = {
     "vendor", "device", "class", "revision", "uevent"};
+static const char *usb_attr_names[USB_ATTR_COUNT] = {
+    "idVendor", "idProduct", "bDeviceClass", "bDeviceSubClass",
+    "bDeviceProtocol", "busnum", "devnum", "speed", "uevent"};
 
 typedef struct {
-    int index; /* PCI device index */
-    int attr;  /* PCI_ATTR_*, or -1 for the device directory itself */
+    int index;
+    int attr;
 } sysfs_pci_priv_t;
 
 /* If pci.h doesn't already declare these, keep these lines */
@@ -105,6 +111,73 @@ static int sysfs_pci_attr_from_name(const char *name) {
             return a;
     }
     return -1;
+}
+
+static int sysfs_usb_index_from_name(const char *name) {
+    char expected[32];
+    for (size_t i = 0; i < usb_device_count(); ++i) {
+        usb_device_t *device = usb_get_device(i);
+        if (!device)
+            continue;
+        snprintf(expected, sizeof(expected), "1-%u", device->root_port);
+        if (strcmp(name, expected) == 0)
+            return (int)i;
+    }
+    return -1;
+}
+
+static int sysfs_usb_attr_read(vfs_file_t *file, uint8_t *buf,
+    uint32_t size, void *priv) {
+    sysfs_pci_priv_t *p = priv;
+    usb_device_t *device = usb_get_device((size_t)p->index);
+    if (!device || p->attr < 0 || p->attr >= USB_ATTR_COUNT)
+        return -1;
+
+    char tmp[128];
+    int len;
+    switch (p->attr) {
+        case USB_ATTR_VENDOR:
+            len = snprintf(tmp, sizeof(tmp), "%04x\n", device->descriptor.vendor_id);
+            break;
+        case USB_ATTR_PRODUCT:
+            len = snprintf(tmp, sizeof(tmp), "%04x\n", device->descriptor.product_id);
+            break;
+        case USB_ATTR_CLASS:
+            len = snprintf(tmp, sizeof(tmp), "%02x\n", device->descriptor.device_class);
+            break;
+        case USB_ATTR_SUBCLASS:
+            len = snprintf(tmp, sizeof(tmp), "%02x\n", device->descriptor.device_subclass);
+            break;
+        case USB_ATTR_PROTOCOL:
+            len = snprintf(tmp, sizeof(tmp), "%02x\n", device->descriptor.device_protocol);
+            break;
+        case USB_ATTR_BUSNUM:
+            len = snprintf(tmp, sizeof(tmp), "001\n");
+            break;
+        case USB_ATTR_DEVNUM:
+            len = snprintf(tmp, sizeof(tmp), "%03u\n", device->slot_id);
+            break;
+        case USB_ATTR_SPEED:
+            switch (device->speed) {
+                case 1: len = snprintf(tmp, sizeof(tmp), "12\n"); break;
+                case 2: len = snprintf(tmp, sizeof(tmp), "1.5\n"); break;
+                case 3: len = snprintf(tmp, sizeof(tmp), "480\n"); break;
+                case 4: len = snprintf(tmp, sizeof(tmp), "5000\n"); break;
+                case 5: len = snprintf(tmp, sizeof(tmp), "10000\n"); break;
+                default: len = snprintf(tmp, sizeof(tmp), "unknown\n"); break;
+            }
+            break;
+        case USB_ATTR_UEVENT:
+            len = snprintf(tmp, sizeof(tmp),
+                "DEVTYPE=usb_device\nBUSNUM=001\nDEVNUM=%03u\n"
+                "PRODUCT=%04x/%04x/%x\n",
+                device->slot_id, device->descriptor.vendor_id,
+                device->descriptor.product_id, device->descriptor.device_version);
+            break;
+        default:
+            return -1;
+    }
+    return ns_reply(file, buf, size, tmp, len);
 }
 
 /* Reads one attribute file (vendor, device, ...) of one PCI device. */
@@ -207,25 +280,42 @@ static procfs_entry_t *sysfs_find_dynamic(const char *normalized) {
     const char *usb_prefix = "bus/usb/devices/";
     size_t prefix_len = strlen(usb_prefix);
     if (strncmp(normalized, usb_prefix, prefix_len) == 0) {
-        const char *name = normalized + prefix_len;
-        for (size_t i = 0; i < usb_device_count(); ++i) {
-            usb_device_t *device = usb_get_device(i);
-            char expected[32];
-            if (!device)
-                continue;
-            snprintf(expected, sizeof(expected), "1-%u", device->root_port);
-            if (strcmp(name, expected) != 0)
-                continue;
+        const char *rest = normalized + prefix_len;
+        const char *slash = strchr(rest, '/');
+        size_t name_len = slash ? (size_t)(slash - rest) : strlen(rest);
+        char name[32];
+        if (name_len == 0 || name_len >= sizeof(name))
+            return NULL;
+        memcpy(name, rest, name_len);
+        name[name_len] = '\0';
+        int usb_index = sysfs_usb_index_from_name(name);
+        if (usb_index >= 0) {
+            int attr = -1;
+            if (slash) {
+                if (!slash[1])
+                    return NULL;
+                for (int i = 0; i < USB_ATTR_COUNT; ++i) {
+                    if (strcmp(slash + 1, usb_attr_names[i]) == 0) {
+                        attr = i;
+                        break;
+                    }
+                }
+                if (attr < 0)
+                    return NULL;
+            }
+            sys_pci_priv.index = usb_index;
+            sys_pci_priv.attr = attr;
             strncpy(sys_pci_entry_name, normalized,
                 sizeof(sys_pci_entry_name) - 1);
             sys_pci_entry_name[sizeof(sys_pci_entry_name) - 1] = '\0';
             sys_pci_entry.name = sys_pci_entry_name;
-            sys_pci_entry.type = PROC_DIR;
-            sys_pci_entry.read = NULL;
+            sys_pci_entry.type = attr < 0 ? PROC_DIR : PROC_FILE;
+            sys_pci_entry.read = attr < 0 ? NULL : sysfs_usb_attr_read;
             sys_pci_entry.write = NULL;
-            sys_pci_entry.priv = NULL;
+            sys_pci_entry.priv = &sys_pci_priv;
             return &sys_pci_entry;
         }
+        return NULL;
     }
     int index, attr;
     if (sysfs_pci_parse(normalized, &index, &attr) != 1)
@@ -233,7 +323,6 @@ static procfs_entry_t *sysfs_find_dynamic(const char *normalized) {
 
     sys_pci_priv.index = index;
     sys_pci_priv.attr = attr;
-
     /* Copy the name: `normalized` lives on the caller's stack. */
     strncpy(sys_pci_entry_name, normalized, sizeof(sys_pci_entry_name) - 1);
     sys_pci_entry_name[sizeof(sys_pci_entry_name) - 1] = '\0';
@@ -308,6 +397,17 @@ int sysfs_getdent(const char *path, uint64_t index, const char **out_name, procf
         *out_name = dent_name;
         *out_type = PROC_DIR;
         return 1;
+    }
+
+    if (strncmp(normalized, "bus/usb/devices/", 16) == 0) {
+        const char *name = normalized + 16;
+        if (strchr(name, '/') == NULL && sysfs_usb_index_from_name(name) >= 0) {
+            if (index >= USB_ATTR_COUNT)
+                return 0;
+            *out_name = usb_attr_names[index];
+            *out_type = PROC_FILE;
+            return 1;
+        }
     }
 
     /* bus/pci/devices -> one DIRECTORY per live PCI device */

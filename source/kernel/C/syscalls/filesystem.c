@@ -153,6 +153,97 @@ static void set_stat_times(vfs_stat_info_t *info, uint64_t atime, uint64_t mtime
     info->ctim.tv_sec = (int64_t)ctime;
 }
 
+static void unix_to_fat_datetime(uint64_t unix_time, uint16_t *date, uint16_t *time) {
+    if (unix_time < 315532800ULL)
+        unix_time = 315532800ULL;
+    if (unix_time > UINT32_MAX)
+        unix_time = UINT32_MAX;
+    uint64_t days = unix_time / 86400ULL;
+    uint32_t seconds = (uint32_t)(unix_time % 86400ULL);
+    uint32_t year = 1970;
+    while (days >= (((year % 4U) == 0U &&
+        ((year % 100U) != 0U || (year % 400U) == 0U)) ? 366U : 365U)) {
+        uint32_t year_days = ((year % 4U) == 0U &&
+            ((year % 100U) != 0U || (year % 400U) == 0U)) ? 366U : 365U;
+        days -= year_days;
+        year++;
+    }
+    static const uint8_t month_days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    uint32_t month = 0;
+    while (month < 11) {
+        uint32_t length = month_days[month];
+        if (month == 1 && (year % 4U) == 0U &&
+            ((year % 100U) != 0U || (year % 400U) == 0U))
+            length++;
+        if (days < length)
+            break;
+        days -= length;
+        month++;
+    }
+    if (year < 1980)
+        year = 1980;
+    if (year > 2107)
+        year = 2107;
+
+    uint32_t hour = seconds / 3600U;
+    uint32_t minute = (seconds / 60U) % 60U;
+    uint32_t second = (seconds % 60U) / 2U;
+    *date = (uint16_t)(((year - 1980U) << 9) |
+        ((month + 1U) << 5) | ((uint32_t)days + 1U));
+    *time = (uint16_t)((hour << 11) | (minute << 5) | second);
+}
+
+uint64 sys_set_file_times(const char *path, uint64_t atime, uint64_t mtime) {
+    if (!path)
+        return -LINUX_EINVAL;
+    vfs_mount_res_t res;
+    if (vfs_resolve_mount(path, &res) != 0)
+        return -LINUX_ENOENT;
+    if (!res.rel_path[0])
+        return -LINUX_EISDIR;
+
+    if (res.mnt->type == FS_EXT2) {
+        if (atime > UINT32_MAX || mtime > UINT32_MAX)
+            return -LINUX_EINVAL;
+        int rc = ext2_set_times((ext2_fs_t *)res.mnt->fs, res.rel_path,
+            (uint32_t)atime, (uint32_t)mtime);
+        if (rc == EXT2_ERR_NOT_FOUND)
+            return -LINUX_ENOENT;
+        return rc == EXT2_OK ? 0 : -LINUX_EIO;
+    }
+
+    uint16_t atime_date, atime_time, mtime_date, mtime_time;
+    unix_to_fat_datetime(atime, &atime_date, &atime_time);
+    unix_to_fat_datetime(mtime, &mtime_date, &mtime_time);
+    if (res.mnt->type == FS_FAT16) {
+        fat16_file_t file;
+        fat16_fs_t *fs = (fat16_fs_t *)res.mnt->fs;
+        if (fat16_open(fs, res.rel_path, &file) != 0)
+            return -LINUX_ENOENT;
+        file.entry.last_access_date = atime_date;
+        file.entry.last_mod_date = mtime_date;
+        file.entry.last_mod_time = mtime_time;
+        int rc = file.parent_cluster == FAT16_ROOT_CLUSTER ?
+            (fat16_update_root_entry(fs, &file.entry), 0) :
+            fat16_update_dir_entry(fs, file.parent_cluster, &file.entry);
+        return rc == 0 ? 0 : -LINUX_EIO;
+    }
+    if (res.mnt->type == FS_FAT32) {
+        fat32_file_t file;
+        fat32_fs_t *fs = (fat32_fs_t *)res.mnt->fs;
+        if (fat32_open(fs, res.rel_path, &file) != 0)
+            return -LINUX_ENOENT;
+        file.entry.access_date = atime_date;
+        file.entry.write_date = mtime_date;
+        file.entry.write_time = mtime_time;
+        fat32_update_entry(fs, &file.entry);
+        return 0;
+    }
+    if (res.mnt->type == FS_ISO9660)
+        return -LINUX_EROFS;
+    return -LINUX_EACCES;
+}
+
 bool resolve_path_at(int dirfd, const char *path, char *out, size_t out_sz) {
     if (!path || !out)
         return false;
@@ -180,6 +271,10 @@ bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *inf
         return false;
 
     memset(info, 0, sizeof(*info));
+    uint64_t now = rtc_get_unix_time();
+    info->atim.tv_sec = (int64_t)now;
+    info->mtim.tv_sec = (int64_t)now;
+    info->ctim.tv_sec = (int64_t)now;
 
     char norm[256];
     if (!resolve_path_at(dirfd, path, norm, sizeof(norm)))
@@ -1368,8 +1463,21 @@ void fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out) {
     out->f_namelen = 255;
 
     general_partition_t *part = search_general_partition(mnt->part_name);
-    if (!part)
+    if (!part) {
+        for (int i = 0; i < block_device_count; ++i) {
+            block_device_info_t *dev = &block_devices[i];
+            if (!dev->present || strcmp(dev->name, mnt->part_name) != 0)
+                continue;
+            if (dev->sector_size == 0 ||
+                dev->total_sectors > UINT64_MAX / dev->sector_size)
+                return;
+            out->f_bsize = dev->sector_size;
+            out->f_frsize = dev->sector_size;
+            out->f_blocks = dev->total_sectors;
+            return;
+        }
         return; // proc/sys/dev aren't backed by a partition
+    }
 
     block_device_info_t *dev = NULL;
     for (int i = 0; i < block_device_count; i++) {
