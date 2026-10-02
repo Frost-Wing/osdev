@@ -56,7 +56,7 @@ static volatile int userland_last_exit_code = 0;
 typedef struct saved_user_page {
     uint64_t vaddr;
     uint64_t flags;
-    uint8_t data[PAGE_SIZE];
+    uintptr_t data_phys;
     struct saved_user_page *next;
 } saved_user_page_t;
 
@@ -216,6 +216,7 @@ static void userland_unmap_all(void) {
 static void userland_free_snapshot(saved_user_page_t *pages) {
     while (pages) {
         saved_user_page_t *next = pages->next;
+        free_page(pages->data_phys);
         kfree(pages);
         pages = next;
     }
@@ -231,9 +232,15 @@ static bool userland_snapshot_range(saved_user_page_t **list, uint64_t start, ui
         if (!page)
             return false;
 
+        page->data_phys = allocate_page();
+        if (!page->data_phys) {
+            kfree(page);
+            return false;
+        }
         page->vaddr = vaddr;
         page->flags = flags;
-        memcpy(page->data, (const void *)vaddr, PAGE_SIZE);
+        memcpy(paging_phys_to_virt(page->data_phys), (const void *)vaddr,
+            PAGE_SIZE);
         page->next = *list;
         *list = page;
     }
@@ -265,7 +272,8 @@ static void userland_restore_snapshot(saved_user_page_t *pages) {
             continue;
         }
         map_user_page(page->vaddr, phys, page->flags);
-        memcpy((void *)page->vaddr, page->data, PAGE_SIZE);
+        memcpy((void *)page->vaddr, paging_phys_to_virt(page->data_phys),
+            PAGE_SIZE);
     }
 }
 
