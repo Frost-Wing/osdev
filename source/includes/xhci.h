@@ -132,6 +132,18 @@ int xhci_create_transfer_ring(uint8_t slot_id, uint8_t endpoint_id,
  */
 int xhci_queue_transfer(uint8_t slot_id, uint8_t endpoint_id,
     void *buffer, uint32_t length);
+/**
+ * Submit one synchronous bulk transfer.
+ * @param actual Receives the transferred byte count, including short packets.
+ */
+int xhci_bulk_transfer(uint8_t slot_id, uint8_t endpoint_id, void *buffer,
+    uint32_t length, uint32_t *actual);
+/** Submit a synchronous endpoint-zero control request. */
+int usb_control_request(usb_device_t *device, uint8_t request_type,
+    uint8_t request, uint16_t value, uint16_t index, void *data,
+    uint16_t length);
+/** Reset an xHCI endpoint after clearing its USB halt feature. */
+int xhci_reset_endpoint(uint8_t slot_id, uint8_t endpoint_id);
 /** Allocate a slot using the xHCI Enable Slot command. */
 int xhci_enable_slot(uint8_t *slot_id);
 

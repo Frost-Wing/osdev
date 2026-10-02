@@ -300,7 +300,7 @@ int vfs_path_is_dir(const char *path) {
             return procfs_path_is_dir(res.rel_path) == 1 ? 1 : 0;
 
         case FS_DEV:
-            return 0;
+            return res.rel_path[0] == '\0' ? 1 : 0;
 
         case FS_SYS:
             return sysfs_is_dir(res.rel_path);

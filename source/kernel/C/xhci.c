@@ -53,6 +53,7 @@
 #define XHCI_TRB_ADDRESS_DEVICE 11
 #define XHCI_TRB_CONFIGURE_ENDPOINT 12
 #define XHCI_TRB_EVALUATE_CONTEXT 13
+#define XHCI_TRB_RESET_ENDPOINT 14
 
 #define XHCI_TRB_CHAIN (1U << 4)
 #define XHCI_TRB_IDT (1U << 6)
@@ -144,6 +145,7 @@ typedef struct {
     uint8_t transfer_code;
     uint8_t transfer_slot;
     uint8_t transfer_endpoint;
+    uint32_t transfer_residual;
     uint8_t max_slots;
     uint8_t max_ports;
     uint8_t context_size;
@@ -323,11 +325,12 @@ static void xhci_process_event(xhci_controller_t *ctrl, const xhci_trb_t *event)
         if (slot == ctrl->transfer_slot &&
             endpoint == ctrl->transfer_endpoint) {
             ctrl->transfer_code = code;
+            ctrl->transfer_residual = event->status & 0x00FFFFFFU;
             ctrl->transfer_done = 1;
         }
-        info("xHCI transfer completion: %s (%u), slot %u endpoint %u", __FILE__,
-            xhci_completion_name(code), code, slot,
-            endpoint);
+        // info("xHCI transfer completion: %s (%u), slot %u endpoint %u", __FILE__,
+        //     xhci_completion_name(code), code, slot,
+        //     endpoint);
         if (code != 1 && code != 13)
             warn("xHCI transfer completed with a non-success code", __FILE__);
     } else {
@@ -495,6 +498,15 @@ static int xhci_control_transfer(xhci_controller_t *ctrl, uint8_t slot_id,
     if (xhci_ring_doorbell(slot_id, 1) != 0)
         return -1;
     return xhci_wait_transfer(ctrl, slot_id, 1);
+}
+
+int usb_control_request(usb_device_t *device, uint8_t request_type,
+    uint8_t request, uint16_t value, uint16_t index, void *data,
+    uint16_t length) {
+    if (!device || !controller_count || !controllers[0].initialized)
+        return -1;
+    return xhci_control_transfer(&controllers[0], device->slot_id,
+        request_type, request, value, index, data, length);
 }
 
 static int xhci_issue_slot_command(uint8_t command, uint64_t input_physical,
@@ -1552,6 +1564,76 @@ int xhci_queue_transfer(uint8_t slot_id, uint8_t endpoint_id,
         ring->cycle ^= 1U;
     }
     return xhci_ring_doorbell(slot_id, endpoint_id);
+}
+
+int xhci_bulk_transfer(uint8_t slot_id, uint8_t endpoint_id, void *buffer,
+    uint32_t length, uint32_t *actual) {
+    if (!controller_count || !controllers[0].initialized || slot_id == 0 ||
+        slot_id > controllers[0].max_slots || endpoint_id == 0 ||
+        endpoint_id > 31 || !buffer || length == 0 || length > 0x1FFFFU)
+        return -1;
+
+    xhci_controller_t *ctrl = &controllers[0];
+    xhci_ring_t *ring = ctrl->transfer[slot_id][endpoint_id];
+    if (!ring)
+        return -1;
+
+    uint64_t buffer_phys = fast_virt_to_phys(buffer);
+    if (buffer_phys > UINT64_MAX - (uint64_t)(length - 1U) ||
+        (!ctrl->address_64 && buffer_phys + length - 1U > UINT32_MAX))
+        return -1;
+
+    xhci_trb_t *trb = &ring->trbs[ring->enqueue];
+    uint16_t next = (uint16_t)(ring->enqueue + 1U);
+    if (next == XHCI_TRB_RING_ENTRIES - 1U)
+        next = 0;
+    if (next == ring->dequeue)
+        return -1;
+
+    trb->parameter = buffer_phys;
+    trb->status = length & 0x1FFFFU;
+    trb->control = (XHCI_TRB_NORMAL << XHCI_TRB_TYPE_SHIFT) |
+        XHCI_TRB_IOC | ring->cycle;
+    __atomic_thread_fence(__ATOMIC_RELEASE);
+    if (++ring->enqueue == XHCI_TRB_RING_ENTRIES - 1U) {
+        ring->enqueue = 0;
+        ring->trbs[XHCI_TRB_RING_ENTRIES - 1U].control =
+            (XHCI_TRB_LINK << XHCI_TRB_TYPE_SHIFT) | XHCI_TRB_TC |
+            ring->cycle;
+        ring->cycle ^= 1U;
+    }
+
+    ctrl->transfer_slot = slot_id;
+    ctrl->transfer_endpoint = endpoint_id;
+    ctrl->transfer_done = 0;
+    ctrl->transfer_residual = length;
+    if (xhci_ring_doorbell(slot_id, endpoint_id) != 0)
+        return -1;
+    if (xhci_wait_transfer(ctrl, slot_id, endpoint_id) != 0)
+        return -1;
+
+    if (ctrl->transfer_residual > length)
+        return -1;
+    if (actual)
+        *actual = length - ctrl->transfer_residual;
+    return 0;
+}
+
+int xhci_reset_endpoint(uint8_t slot_id, uint8_t endpoint_id) {
+    if (!controller_count || !controllers[0].initialized || slot_id == 0 ||
+        slot_id > controllers[0].max_slots || endpoint_id == 0 ||
+        endpoint_id > 31)
+        return -1;
+
+    uint32_t control = ((uint32_t)slot_id << 24) |
+        ((uint32_t)endpoint_id << 16);
+    if (xhci_submit_command(XHCI_TRB_RESET_ENDPOINT, 0, 0, control, NULL) != 0)
+        return -1;
+
+    xhci_ring_t *ring = controllers[0].transfer[slot_id][endpoint_id];
+    if (ring)
+        ring->dequeue = ring->enqueue;
+    return 0;
 }
 
 void xhci_interrupt_handler(InterruptFrame *frame) {

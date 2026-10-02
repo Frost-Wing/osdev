@@ -34,6 +34,7 @@ int cmd_help(int argc, char **argv);
 int cmd_lspci(int argc, char **argv);
 int cmd_clear(int argc, char **argv);
 int cmd_lsblk(int argc, char **argv);
+int cmd_lsusb(int argc, char **argv);
 int cmd_mount(int argc, char **argv);
 int cmd_mv(int argc, char **argv);
 int cmd_umount(int argc, char **argv);

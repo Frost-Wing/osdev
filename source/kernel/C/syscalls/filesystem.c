@@ -988,32 +988,55 @@ int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
     }
 
     if (file->mnt->type == FS_DEV) {
-        static const char *dev_entries[] = {"null", "zero", "random", "urandom", "klog", "syslog", "tty", "tty1"};
+        static const char *dev_entries[] = {
+            "null", "zero", "random", "urandom", "klog", "syslog",
+            "tty", "tty1", "rtc", "rtc0"};
         const uint64_t fixed = sizeof(dev_entries) / sizeof(dev_entries[0]);
         uint64_t total = fixed;
         for (int i = 0; i < block_device_count; i++) {
-            if (block_devices[i].present &&
-                (block_devices[i].type == BLOCK_DEVICE_AHCI || block_devices[i].type == BLOCK_DEVICE_NVME))
+            if (block_devices[i].present)
+                total++;
+        }
+        for (int i = 0; i < general_partition_count; i++) {
+            if (block_get_device((int)ahci_partitions[i].ahci_port))
                 total++;
         }
 
         for (uint64_t i = entry_index; i < total; ++i) {
             const char *name = NULL;
+            char dynamic_name[64];
 
             if (i < fixed) {
                 name = dev_entries[i];
+                if (!emit_dirent(buf, buflen, &used, path_inode_hash(name),
+                        8, name, i + 1))
+                    break;
+                *pos = (uint32_t)(i + 1);
+                continue;
             } else {
                 uint64_t disk_idx = i - fixed;
                 uint64_t seen = 0;
                 for (int j = 0; j < block_device_count; j++) {
                     if (!block_devices[j].present)
                         continue;
-                    if (block_devices[j].type != BLOCK_DEVICE_AHCI && block_devices[j].type != BLOCK_DEVICE_NVME)
-                        continue;
-
                     if (seen++ == disk_idx) {
                         name = block_devices[j].name;
                         break;
+                    }
+                }
+                if (!name) {
+                    disk_idx -= seen;
+                    seen = 0;
+                    for (int j = 0; j < general_partition_count; j++) {
+                        if (!block_get_device((int)ahci_partitions[j].ahci_port))
+                            continue;
+                        if (seen++ == disk_idx) {
+                            strncpy(dynamic_name, ahci_partitions[j].name,
+                                sizeof(dynamic_name) - 1);
+                            dynamic_name[sizeof(dynamic_name) - 1] = '\0';
+                            name = dynamic_name;
+                            break;
+                        }
                     }
                 }
             }
@@ -1021,7 +1044,7 @@ int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
             if (!name)
                 continue;
 
-            if (!emit_dirent(buf, buflen, &used, path_inode_hash(name), 2, name, i + 1))
+            if (!emit_dirent(buf, buflen, &used, path_inode_hash(name), 6, name, i + 1))
                 break;
 
             *pos = (uint32_t)(i + 1);
@@ -1352,8 +1375,7 @@ void fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out) {
     for (int i = 0; i < block_device_count; i++) {
         if (!block_devices[i].present)
             continue;
-        if (block_devices[i].type == BLOCK_DEVICE_AHCI &&
-            block_devices[i].backend_index == (int)part->ahci_port) {
+        if ((uint64_t)i == part->ahci_port) {
             dev = &block_devices[i];
             break;
         }

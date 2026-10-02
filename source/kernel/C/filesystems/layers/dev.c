@@ -29,9 +29,6 @@ static int devfs_disk_id_from_name(const char *name) {
         if (!dev->present)
             continue;
 
-        if (dev->type != BLOCK_DEVICE_AHCI && dev->type != BLOCK_DEVICE_NVME)
-            continue;
-
         if (strcmp(dev->name, name) == 0)
             return i;
     }
@@ -45,7 +42,9 @@ static bool devfs_is_block_node(const char *name) {
         return true;
 
     for (int i = 0; i < general_partition_count; i++) {
-        if (strcmp(ahci_partitions[i].name, name) == 0)
+        int device_id = (int)ahci_partitions[i].ahci_port;
+        if (strcmp(ahci_partitions[i].name, name) == 0 &&
+            block_get_device(device_id))
             return true;
     }
     return false;
@@ -137,6 +136,7 @@ int devfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
     int disk_id = devfs_disk_id_from_name(file->rel_path);
     uint64_t partition_start = 0;
     uint64_t total_sectors = 0;
+    bool is_partition = false;
     if (disk_id < 0) {
         for (int i = 0; i < general_partition_count; i++) {
             general_partition_t *part = &ahci_partitions[i];
@@ -145,6 +145,7 @@ int devfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
             disk_id = (int)part->ahci_port;
             partition_start = part->lba_start;
             total_sectors = part->sector_count;
+            is_partition = true;
             break;
         }
     }
@@ -154,8 +155,16 @@ int devfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
     block_device_info_t *dev = block_get_device(disk_id);
     if (!dev || dev->sector_size == 0)
         return -1;
+    if (dev->type == BLOCK_DEVICE_USB && dev->total_sectors == 0 &&
+        usb_msc_refresh_device(dev->backend_index) != 0)
+        return -1;
+    dev = block_get_device(disk_id);
+    if (!dev)
+        return -1;
     if (total_sectors == 0)
         total_sectors = dev->total_sectors;
+    if (total_sectors > UINT64_MAX / dev->sector_size)
+        return -1;
     uint64_t device_size = total_sectors * dev->sector_size;
     if (file->pos >= device_size)
         return 0;
@@ -169,14 +178,19 @@ int devfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
     uint32_t done = 0;
     while (done < size) {
         uint64_t abs = (uint64_t)file->pos + done;
-        uint64_t lba = partition_start + abs / dev->sector_size;
+        uint64_t local_lba = abs / dev->sector_size;
+        uint64_t lba = partition_start + local_lba;
         uint32_t off = abs % dev->sector_size;
         uint32_t chunk = dev->sector_size - off;
 
         if (chunk > (size - done))
             chunk = size - done;
 
-        if (block_read_sector(disk_id, lba, secbuf, 1) != 0) {
+        int read_result = is_partition ?
+            block_read_partition(disk_id, partition_start, total_sectors,
+                local_lba, 1, secbuf) :
+            block_read_sector(disk_id, lba, secbuf, 1);
+        if (read_result != 0) {
             kfree(secbuf);
             return done > 0 ? (int)done : -1;
         }
@@ -222,6 +236,7 @@ int devfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
     int disk_id = devfs_disk_id_from_name(file->rel_path);
     uint64_t partition_start = 0;
     uint64_t total_sectors = 0;
+    bool is_partition = false;
     if (disk_id < 0) {
         for (int i = 0; i < general_partition_count; i++) {
             general_partition_t *part = &ahci_partitions[i];
@@ -230,6 +245,7 @@ int devfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
             disk_id = (int)part->ahci_port;
             partition_start = part->lba_start;
             total_sectors = part->sector_count;
+            is_partition = true;
             break;
         }
     }
@@ -239,6 +255,12 @@ int devfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
     block_device_info_t *dev = block_get_device(disk_id);
     if (!dev || dev->sector_size == 0)
         return -1;
+    if (dev->type == BLOCK_DEVICE_USB && dev->total_sectors == 0 &&
+        usb_msc_refresh_device(dev->backend_index) != 0)
+        return -1;
+    dev = block_get_device(disk_id);
+    if (!dev)
+        return -1;
     for (int i = 0; i < general_partition_count; i++) {
         if (strcmp(ahci_partitions[i].name, file->rel_path) == 0 &&
             ahci_partitions[i].fs_type == FS_ISO9660)
@@ -246,6 +268,8 @@ int devfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
     }
     if (total_sectors == 0)
         total_sectors = dev->total_sectors;
+    if (total_sectors > UINT64_MAX / dev->sector_size)
+        return -1;
     uint64_t device_size = total_sectors * dev->sector_size;
     if (file->pos >= device_size)
         return 0;
@@ -259,7 +283,8 @@ int devfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
     uint32_t done = 0;
     while (done < size) {
         uint64_t abs = (uint64_t)file->pos + done;
-        uint64_t lba = partition_start + abs / dev->sector_size;
+        uint64_t local_lba = abs / dev->sector_size;
+        uint64_t lba = partition_start + local_lba;
         uint32_t off = abs % dev->sector_size;
         uint32_t chunk = dev->sector_size - off;
 
@@ -267,7 +292,11 @@ int devfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
             chunk = size - done;
 
         if (off != 0 || chunk != dev->sector_size) {
-            if (block_read_sector(disk_id, lba, secbuf, 1) != 0) {
+            int read_result = is_partition ?
+                block_read_partition(disk_id, partition_start, total_sectors,
+                    local_lba, 1, secbuf) :
+                block_read_sector(disk_id, lba, secbuf, 1);
+            if (read_result != 0) {
                 kfree(secbuf);
                 return done > 0 ? (int)done : -1;
             }
@@ -277,7 +306,11 @@ int devfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
 
         memcpy(secbuf + off, buf + done, chunk);
 
-        if (block_write_sector(disk_id, lba, secbuf, 1) != 0) {
+        int write_result = is_partition ?
+            block_write_partition(disk_id, partition_start, total_sectors,
+                local_lba, 1, secbuf) :
+            block_write_sector(disk_id, lba, secbuf, 1);
+        if (write_result != 0) {
             kfree(secbuf);
             return done > 0 ? (int)done : -1;
         }
@@ -303,6 +336,7 @@ int devfs_ls(void) {
     printfnoln(blue_color "syslog " reset_color);
     printfnoln(blue_color "tty " reset_color);
     printfnoln(blue_color "tty1 " reset_color);
+    printfnoln(blue_color "rtc " reset_color);
     printfnoln(blue_color "rtc0 " reset_color);
 
     for (int i = 0; i < block_device_count; i++) {
@@ -310,14 +344,13 @@ int devfs_ls(void) {
         if (!dev->present)
             continue;
 
-        if (dev->type != BLOCK_DEVICE_AHCI && dev->type != BLOCK_DEVICE_NVME)
-            continue;
-
         printfnoln(blue_color "%s " reset_color, dev->name);
     }
 
-    for (int i = 0; i < general_partition_count; i++)
-        printfnoln(blue_color "%s " reset_color, ahci_partitions[i].name);
+    for (int i = 0; i < general_partition_count; i++) {
+        if (block_get_device((int)ahci_partitions[i].ahci_port))
+            printfnoln(blue_color "%s " reset_color, ahci_partitions[i].name);
+    }
 
     return 0;
 }
