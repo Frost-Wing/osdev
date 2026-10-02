@@ -458,6 +458,9 @@ uint64 sys_munmap(uint64_t addr, uint64_t length) {
     if (!in_image && !in_heap && !in_mmap)
         return -LINUX_EINVAL;
 
+    if (in_mmap && !userland_mmap_unmap(addr, length))
+        return -LINUX_EINVAL;
+
     return 0;
 }
 
