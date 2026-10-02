@@ -259,6 +259,9 @@ void probe_pci(void) {
                 } else if (classid == 0x01 && subclassid == 0x08 && prog_if == 0x02) {
                     done("NVMe controller detected (generic)", __FILE__);
                     probe_nvme((uint8_t)bus, (uint8_t)slot, (uint8_t)function);
+                } else if (classid == 0x0C && subclassid == 0x03 && prog_if == 0x30) {
+                    done("xHCI controller detected (generic)", __FILE__);
+                    probe_xhci((uint8_t)bus, (uint8_t)slot, (uint8_t)function);
                 }
 
                 // info("%9s : Device : %9s -- Class : %9s", __FILE__, vendorName, deviceName, className);
