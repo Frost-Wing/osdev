@@ -175,6 +175,10 @@ static inline uint64_t *phys_to_virt_ptr(uint64_t phys_addr) {
     return (uint64_t *)(phys_addr + hhdm_offset);
 }
 
+void *paging_phys_to_virt(uintptr_t phys_addr) {
+    return (void *)(phys_addr + hhdm_offset);
+}
+
 uint64_t fast_virt_to_phys(void *v) {
     return (uint64_t)v - hhdm_offset;
 }

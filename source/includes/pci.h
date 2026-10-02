@@ -21,6 +21,7 @@
 #include <isr.h>
 #include <nvme.h>
 #include <pci_id.h>
+#include <xhci.h>
 
 extern cstring display_adapter_name;
 extern cstring GPUName[2]; // Max 2 GPUs allowed

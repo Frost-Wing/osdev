@@ -118,6 +118,10 @@ endif
 # To use disk.img as an NVMe device:
 #   -drive if=none,format=raw,file=disk.img,id=nvmedisk
 #   -device nvme,drive=nvmedisk,serial=FROSTNVME0
+# To use disk.img as a USB device:
+# -device qemu-xhci,id=xhci
+# -drive if=none,format=raw,file=disk.img,id=disk
+# -device usb-storage,bus=xhci.0,drive=disk
 
 QEMU_COMMON = \
     -vga std \
@@ -132,6 +136,9 @@ QEMU_COMMON = \
     -device ide-cd,drive=cd0,bus=ahci.0 \
 	-drive if=none,format=raw,file=disk.img,id=disk \
     -device ide-hd,drive=disk,bus=ahci.1 \
+	-device qemu-xhci,id=xhci \
+	-drive if=none,format=raw,file=usb.img,id=stick \
+	-device usb-storage,bus=xhci.0,drive=stick \
     -rtc base=localtime,clock=host \
     -boot order=d \
     $(KVM) \
