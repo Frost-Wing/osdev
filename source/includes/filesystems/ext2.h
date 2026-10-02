@@ -235,6 +235,7 @@ int ext2_mount(int portno, uint32_t partition_lba, ext2_fs_t *fs);
 void ext2_unmount(ext2_fs_t *fs);
 
 int ext2_find_path(ext2_fs_t *fs, const char *path, uint32_t *out_ino, ext2_inode_t *out_inode);
+int ext2_set_times(ext2_fs_t *fs, const char *path, uint32_t atime, uint32_t mtime);
 int ext2_list_dir(ext2_fs_t *fs, uint32_t dir_ino);
 
 int ext2_open(ext2_fs_t *fs, const char *path, ext2_file_t *f);

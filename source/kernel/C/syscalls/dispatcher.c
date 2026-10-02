@@ -143,6 +143,9 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_CONNECT:
             return sys_connect(arg1, (const void *)arg2, arg3);
 
+        case LINUX_SYS_GETSOCKNAME:
+            return sys_getsockname(arg1, (void *)arg2, (uint64_t *)arg3);
+
         case LINUX_SYS_BIND:
             return sys_bind(arg1, (const void *)arg2, arg3);
 
@@ -151,6 +154,9 @@ uint64_t syscall_dispatch(
 
         case LINUX_SYS_RECVFROM:
             return sys_recvfrom(arg1, (void *)arg2, arg3, arg4, (void *)arg5, (uint64_t *)arg6);
+
+        case LINUX_SYS_RECVMSG:
+            return sys_recvmsg(arg1, (void *)arg2, arg3);
 
         case LINUX_SYS_SETSOCKOPT:
             return sys_setsockopt(arg1, arg2, arg3, (const void *)arg4, arg5);
@@ -202,6 +208,9 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_UMASK:
             return sys_umask(arg1);
 
+        case LINUX_SYS_UTIMES:
+            return sys_utimes((const char *)arg1, (const void *)arg2);
+
         case LINUX_SYS_GETUID:
         case LINUX_SYS_GETEUID:
         case LINUX_SYS_GETGID:
@@ -239,6 +248,13 @@ uint64_t syscall_dispatch(
 
         case LINUX_SYS_NEWFSTATAT:
             return sys_newfstatat((int)arg1, (const char *)arg2, (linux_stat_t *)arg3, (int)arg4);
+
+        case LINUX_SYS_FUTIMESAT:
+            return sys_futimesat((int)arg1, (const char *)arg2, (const void *)arg3);
+
+        case LINUX_SYS_UTIMENSAT:
+            return sys_utimensat((int)arg1, (const char *)arg2,
+                (const linux_timespec_t *)arg3, (int)arg4);
 
         case LINUX_SYS_READLINKAT:
             return sys_readlinkat((int)arg1, (const char *)arg2, (char *)arg3, arg4);

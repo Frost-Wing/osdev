@@ -22,6 +22,7 @@
 #include <ringbuffer.h>
 #include <strings.h>
 #include <multitasking.h>
+#include <net/net.h>
 #include <xhci.h>
 
 #define PROCFS_MAX_FILES (MAX_PCI_DEVICES + 20)
@@ -176,7 +177,7 @@ static int proc_partitions_read(
         unsigned int minor = (unsigned int)i * 16U;
         unsigned int partition_minor = 1;
         int n = snprintf(tmp + len, sizeof(tmp) - (size_t)len,
-            "%4u %7u %9llu %s\n",
+            "%4u %7u %9u %s\n",
             major, minor,
             (unsigned long long)((dev->total_sectors * dev->sector_size) / 1024U),
             dev->name);
@@ -190,7 +191,7 @@ static int proc_partitions_read(
                 continue;
 
             n = snprintf(tmp + len, sizeof(tmp) - (size_t)len,
-                "%4u %7u %9llu %s\n",
+                "%4u %7u %9u %s\n",
                 major, minor + partition_minor++,
                 (unsigned long long)((part->sector_count * dev->sector_size) / 1024U),
                 part->name);
@@ -207,6 +208,62 @@ static procfs_entry_t proc_partitions = {
     .name = "partitions",
     .type = PROC_FILE,
     .read = proc_partitions_read};
+
+static int proc_filesystems_read(vfs_file_t *file, uint8_t *buf,
+    uint32_t size, void *priv) {
+    (void)priv;
+    const char *contents =
+        "nodev\tproc\n"
+        "nodev\tsysfs\n"
+        "nodev\tdevfs\n"
+        "\tvfat\n"
+        "\text2\n"
+        "\tiso9660\n";
+    return ns_reply(file, buf, size, contents, (int)strlen(contents));
+}
+
+static procfs_entry_t proc_filesystems = {
+    .name = "filesystems",
+    .type = PROC_FILE,
+    .read = proc_filesystems_read};
+
+static int proc_modules_read(vfs_file_t *file, uint8_t *buf,
+    uint32_t size, void *priv) {
+    (void)priv;
+    return ns_reply(file, buf, size, "", 0);
+}
+
+static procfs_entry_t proc_modules = {
+    .name = "modules",
+    .type = PROC_FILE,
+    .read = proc_modules_read};
+
+static int proc_net_dev_read(vfs_file_t *file, uint8_t *buf,
+    uint32_t size, void *priv) {
+    (void)priv;
+    char contents[512];
+    int len = snprintf(contents, sizeof(contents),
+        "Inter-|   Receive                                                |  Transmit\n"
+        " face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n"
+        "    lo: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n"
+        "  eth0: %u %u %u 0 0 0 0 0 %u %u %u 0 0 0 0 0\n",
+        (unsigned long long)netif_stats.rx_bytes,
+        (unsigned long long)netif_stats.rx_packets,
+        (unsigned long long)netif_stats.rx_errors,
+        (unsigned long long)netif_stats.tx_bytes,
+        (unsigned long long)netif_stats.tx_packets,
+        (unsigned long long)netif_stats.tx_errors);
+    if (len < 0)
+        return -1;
+    if ((size_t)len >= sizeof(contents))
+        len = sizeof(contents) - 1;
+    return ns_reply(file, buf, size, contents, len);
+}
+
+static procfs_entry_t proc_net_dev = {
+    .name = "net/dev",
+    .type = PROC_FILE,
+    .read = proc_net_dev_read};
 
 static int proc_usb_devices_read(vfs_file_t *file, uint8_t *buf,
     uint32_t size, void *priv) {
@@ -583,6 +640,9 @@ void procfs_init(void) {
     procfs_register(&proc_meminfo);
     procfs_register(&proc_mounts);
     procfs_register(&proc_partitions);
+    procfs_register(&proc_filesystems);
+    procfs_register(&proc_modules);
+    procfs_register(&proc_net_dev);
     procfs_register(&proc_usb_devices);
     procfs_register(&proc_uptime);
     procfs_register(&proc_loadavg);

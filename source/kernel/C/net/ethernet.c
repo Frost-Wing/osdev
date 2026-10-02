@@ -12,6 +12,7 @@ struct eth_hdr {
 void ethernet_input(const uint8 *frame, size_t len) {
     if (!frame || len < sizeof(struct eth_hdr))
         return;
+    netif_account_rx(len);
     const struct eth_hdr *h = (const struct eth_hdr *)frame;
     uint16 t = net_ntohs(h->type);
     const uint8 *p = frame + sizeof(*h);

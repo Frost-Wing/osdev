@@ -5,6 +5,7 @@
 #include <strings.h>
 
 struct net_config net_cfg;
+netif_stats_t netif_stats;
 net_rx_callback_t rx_cb;
 
 uint16 net_htons(uint16 v) {
@@ -125,6 +126,7 @@ int net_packet_pull(net_packet_t *pkt, size_t len, void **hdr) {
 void netif_init(void) {
     LOG_SCOPE();
     info("Initializing netif", __FILE__);
+    memset(&netif_stats, 0, sizeof(netif_stats));
     netif_get_mac(net_cfg.mac);
     netif_set_rx_callback(ethernet_input);
     // Enable interrupt-driven mode for RTL8139 if available
@@ -135,7 +137,18 @@ void netif_init(void) {
 int netif_send(const void *frame, size_t len) {
     if (!frame || len > NET_FRAME_MAX)
         return NET_EINVAL;
-    return rtl8139_send_packet((const uint8 *)frame, (uint16)len) ? NET_OK : NET_ERR;
+    if (!rtl8139_send_packet((const uint8 *)frame, (uint16)len)) {
+        netif_stats.tx_errors++;
+        return NET_ERR;
+    }
+    netif_stats.tx_packets++;
+    netif_stats.tx_bytes += len;
+    return NET_OK;
+}
+
+void netif_account_rx(size_t len) {
+    netif_stats.rx_packets++;
+    netif_stats.rx_bytes += len;
 }
 
 /**

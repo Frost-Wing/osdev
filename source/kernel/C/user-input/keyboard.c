@@ -21,7 +21,42 @@
 bool enable_keyboard = yes;
 static ring_buffer_t kb_rb;
 bool is_kbrb_ready = false;
-static uint8_t kb_storage[KB_BUFFER_SIZE];
+static int kb_storage[KB_BUFFER_SIZE];
+
+static bool ps2_wait_input_clear(void) {
+    for (uint32_t i = 0; i < 100000; ++i) {
+        if ((inb(0x64) & 0x02U) == 0)
+            return true;
+    }
+    return false;
+}
+
+static bool ps2_wait_output_full(void) {
+    for (uint32_t i = 0; i < 100000; ++i) {
+        if ((inb(0x64) & 0x01U) != 0)
+            return true;
+    }
+    return false;
+}
+
+static void ps2_enable_set1_translation(void) {
+    if (!ps2_wait_input_clear())
+        return;
+    outb(0x64, 0x20);
+    if (!ps2_wait_output_full())
+        return;
+
+    uint8_t command_byte = inb(0x60);
+    command_byte = (uint8_t)((command_byte | 0x41U) & (uint8_t)~0x10U);
+    if (!ps2_wait_input_clear())
+        return;
+    outb(0x64, 0x60);
+    if (!ps2_wait_input_clear())
+        return;
+    outb(0x60, command_byte);
+    if (ps2_wait_input_clear())
+        outb(0x64, 0xAE);
+}
 
 /**
  * @brief All the chars for specific scan codes
@@ -179,8 +214,9 @@ char scancode_to_char(int scancode, bool uppercase) {
 }
 
 void keyboard_init(void) {
-    rb_init(&kb_rb, kb_storage, KB_BUFFER_SIZE, sizeof(uint8_t));
+    rb_init(&kb_rb, kb_storage, KB_BUFFER_SIZE, sizeof(int));
     is_kbrb_ready = true;
+    ps2_enable_set1_translation();
 }
 
 bool shift = no;
@@ -194,13 +230,12 @@ void process_keyboard(InterruptFrame *frame) {
     }
 
     uint8_t scancode = inb(0x60);
+    int key = handle_char_from_scancode(scancode);
 
-    if (is_kbrb_ready)
-        rb_push(&kb_rb, &scancode);
-
-    int c = handle_char_from_scancode(scancode);
-    if (c != 0)
-        tty_input_key(c);
+    if (is_kbrb_ready && key != 0)
+        rb_push(&kb_rb, &key);
+    if (key != 0)
+        tty_input_key(key);
 
     outb(0x20, 0x20);
 }
@@ -212,13 +247,12 @@ uint8_t getmodifiers(void) {
 extern volatile uint64_t pit_ticks;
 
 int getc(void) {
-    uint8_t sc;
+    int key;
     static uint64_t last_tick = 0;
 
     for (;;) {
-        if (is_kbrb_ready && (rb_pop(&kb_rb, &sc) == 0)) {
-            return handle_char_from_scancode(sc);
-        }
+        if (is_kbrb_ready && (rb_pop(&kb_rb, &key) == 0))
+            return key;
 
         if (pit_ticks != last_tick) {
             last_tick = pit_ticks;
@@ -231,11 +265,10 @@ int getc(void) {
 }
 
 int getc_nonblock(void) {
-    uint8_t sc;
+    int key;
 
-    if (is_kbrb_ready && (rb_pop(&kb_rb, &sc) == 0)) {
-        return handle_char_from_scancode(sc);
-    }
+    if (is_kbrb_ready && (rb_pop(&kb_rb, &key) == 0))
+        return key;
 
     return 0; // no key available
 }
