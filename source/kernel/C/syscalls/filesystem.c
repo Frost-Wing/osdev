@@ -4,6 +4,8 @@
 #include <net/net.h>
 #include <rtc.h>
 #include <tty.h>
+#include <ahci.h>
+#include <filesystems/layers/dev.h>
 
 // sys headers
 #include <sys/dirent.h>
@@ -343,8 +345,48 @@ bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *inf
         if (devfs_open(&devf) != 0)
             return false;
         info->is_dir = false;
-        info->mode = LINUX_S_IFCHR | 0666;
-        info->size = 0;
+        
+        bool is_block = false;
+        int disk_id = -1;
+        
+        for (int i = 0; i < block_device_count; i++) {
+            block_device_info_t *dev = &block_devices[i];
+            if (!dev->present)
+                continue;
+            if (strcmp(dev->name, res.rel_path) == 0) {
+                is_block = true;
+                disk_id = i;
+                break;
+            }
+        }
+        
+        if (!is_block) {
+            for (int i = 0; i < general_partition_count; i++) {
+                if (strcmp(ahci_partitions[i].name, res.rel_path) == 0) {
+                    is_block = true;
+                    break;
+                }
+            }
+        }
+        
+        if (is_block) {
+            info->mode = LINUX_S_IFBLK | 0666;
+            if (disk_id >= 0) {
+                block_device_info_t *dev = &block_devices[disk_id];
+                info->size = dev->total_sectors * dev->sector_size;
+            } else {
+                for (int i = 0; i < general_partition_count; i++) {
+                    if (strcmp(ahci_partitions[i].name, res.rel_path) == 0) {
+                        info->size = ahci_partitions[i].sector_count * 512;
+                        break;
+                    }
+                }
+            }
+        } else {
+            info->mode = LINUX_S_IFCHR | 0666;
+            info->size = 0;
+        }
+        
         if (strcmp(res.rel_path, "tty") == 0)
             info->rdev = 0x500; /* /dev/tty: major 5, minor 0 */
         else if (strcmp(res.rel_path, "tty1") == 0)
