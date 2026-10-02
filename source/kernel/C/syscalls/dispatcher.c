@@ -278,6 +278,20 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_UNLINK:
             return sys_unlink((const char *)arg1);
 
+        case LINUX_SYS_RENAME:
+            return sys_rename((const char *)arg1, (const char *)arg2);
+
+        case LINUX_SYS_MOUNT:
+            return sys_mount((const char *)arg1, (const char *)arg2,
+                (const char *)arg3, arg4, (const void *)arg5);
+
+        case LINUX_SYS_UMOUNT2:
+            return sys_umount2((const char *)arg1, (int)arg2);
+
+        case LINUX_SYS_COPY_FILE_RANGE:
+            return sys_copy_file_range(arg1, (int64_t *)arg2, arg3,
+                (int64_t *)arg4, arg5, arg6);
+
         case 137: // statfs
             return sys_statfs((const char *)arg1, (linux_statfs_t *)arg2);
 

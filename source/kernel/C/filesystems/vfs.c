@@ -1391,6 +1391,7 @@ int vfs_mount(const char *diskname, const char *mount_point, bool is_kernel_call
             }
             mount_entry_t *mount1 = add_mount(mount_point, device, partition->fs_type, fs_struct);
             if (!mount1) {
+                kfree(fs_struct);
                 if (is_kernel_call)
                     error("mount: failed to add mount entry for %s.", __FILE__, device);
                 return 1;
@@ -1410,6 +1411,7 @@ int vfs_mount(const char *diskname, const char *mount_point, bool is_kernel_call
             }
             mount_entry_t *mount2 = add_mount(mount_point, device, partition->fs_type, fs_struct);
             if (!mount2) {
+                kfree(fs_struct);
                 if (is_kernel_call)
                     error("mount: failed to add mount entry for %s.", __FILE__, device);
                 return 1;
@@ -1429,6 +1431,7 @@ int vfs_mount(const char *diskname, const char *mount_point, bool is_kernel_call
             }
             mount_entry_t *mount3 = add_mount(mount_point, device, mount_fs, fs_struct);
             if (!mount3) {
+                kfree(fs_struct);
                 if (is_kernel_call)
                     error("mount: failed to add mount entry for %s.", __FILE__, device);
                 return 1;
@@ -1451,6 +1454,7 @@ int vfs_mount(const char *diskname, const char *mount_point, bool is_kernel_call
             }
             mount_entry_t *mount4 = add_mount(mount_point, device, partition->fs_type, fs_struct);
             if (!mount4) {
+                kfree(fs_struct);
                 if (is_kernel_call)
                     error("mount: failed to add mount entry for %s.", __FILE__, device);
                 return 1;
@@ -1480,6 +1484,8 @@ int vfs_mount(const char *diskname, const char *mount_point, bool is_kernel_call
     }
 
     if (ret != 0) {
+        remove_mount(mount_point);
+        kfree(fs_struct);
         if (is_kernel_call)
             error("mount: mounting of %s failed.", __FILE__, device);
         else
@@ -1503,8 +1509,10 @@ int vfs_umount(const char *mount_point, bool is_kernel_call) {
     if (strcmp(mount_point, "/") == 0) {
         if (is_kernel_call)
             warn("umount: unmounting root filesystem.", __FILE__, mount_point);
-        else
-            printf("umount: warn unmounting root filesystem");
+        else {
+            printf("umount: cannot unmount root filesystem");
+            return 1;
+        }
     }
 
     mount_entry_t *m = find_mount_by_point(mount_point);
@@ -1524,6 +1532,10 @@ int vfs_umount(const char *mount_point, bool is_kernel_call) {
                 kfree(m->fs);
             }
             break;
+        case FS_FAT32:
+            if (m->fs)
+                kfree(m->fs);
+            break;
         case FS_EXT2:
             if (m->fs) {
                 ext2_unmount((ext2_fs_t *)m->fs);
@@ -1537,6 +1549,8 @@ int vfs_umount(const char *mount_point, bool is_kernel_call) {
         case FS_DEV:
             break;
         case FS_ISO9660:
+            if (m->fs)
+                kfree(m->fs);
             break;
         default:
             if (is_kernel_call)

@@ -157,9 +157,124 @@ uint64 sys_setsockopt(uint64_t fd, uint64_t level, uint64_t optname,
 
 extern struct flanterm_context *ft_ctx;
 
+typedef struct {
+    int tm_sec;
+    int tm_min;
+    int tm_hour;
+    int tm_mday;
+    int tm_mon;
+    int tm_year;
+    int tm_wday;
+    int tm_yday;
+    int tm_isdst;
+} linux_rtc_time_t;
+
+static bool ioctl_get_block_device(vfs_file_t *file, block_device_info_t **device,
+    uint64_t *start_lba, uint64_t *sector_count, bool *read_only) {
+    if (!file || !file->mnt || file->mnt->type != FS_DEV)
+        return false;
+
+    *start_lba = 0;
+    *sector_count = 0;
+    *read_only = false;
+    for (int i = 0; i < block_device_count; i++) {
+        block_device_info_t *dev = &block_devices[i];
+        if (dev->present && strcmp(dev->name, file->rel_path) == 0) {
+            *device = dev;
+            *sector_count = dev->total_sectors;
+            return true;
+        }
+    }
+
+    for (int i = 0; i < general_partition_count; i++) {
+        general_partition_t *part = &ahci_partitions[i];
+        if (strcmp(part->name, file->rel_path) != 0)
+            continue;
+        block_device_info_t *dev = block_get_device((int)part->ahci_port);
+        if (!dev)
+            return false;
+        *device = dev;
+        *start_lba = part->lba_start;
+        *sector_count = part->sector_count;
+        *read_only = part->fs_type == FS_ISO9660;
+        return true;
+    }
+    return false;
+}
+
+static uint64 ioctl_rtc_read_time(vfs_file_t *file, uint64_t arg) {
+    if (!file || !file->mnt || file->mnt->type != FS_DEV ||
+        (strcmp(file->rel_path, "rtc") != 0 &&
+         strcmp(file->rel_path, "rtc0") != 0))
+        return -LINUX_ENOTTY;
+    if (!arg)
+        return -LINUX_EINVAL;
+
+    uint8_t sec, min, hour, day, month;
+    uint16_t year;
+    update_system_time(&sec, &min, &hour, &day, &month, &year);
+    if (month < 1 || month > 12 || day < 1 || day > 31)
+        return -LINUX_EIO;
+
+    linux_rtc_time_t *rtc = (linux_rtc_time_t *)arg;
+    memset(rtc, 0, sizeof(*rtc));
+    rtc->tm_sec = sec;
+    rtc->tm_min = min;
+    rtc->tm_hour = hour;
+    rtc->tm_mday = day;
+    rtc->tm_mon = (int)month - 1;
+    rtc->tm_year = (int)year - 1900;
+    rtc->tm_wday = (int)((rtc_get_unix_time() / 86400ULL + 4ULL) % 7ULL);
+    for (uint8_t m = 1; m < month; m++) {
+        static const uint8_t days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+        rtc->tm_yday += days[m - 1];
+        if (m == 2 && (year % 4 == 0) &&
+            ((year % 100 != 0) || (year % 400 == 0)))
+            rtc->tm_yday++;
+    }
+    rtc->tm_yday += day - 1;
+    rtc->tm_isdst = 0;
+    return 0;
+}
+
 uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
+
+    vfs_file_t *file = fd_get_file((int)fd);
+    if (req == LINUX_RTC_RD_TIME)
+        return ioctl_rtc_read_time(file, arg);
+
+    if (req == LINUX_BLKGETSIZE64 || req == LINUX_BLKGETSIZE ||
+        req == LINUX_BLKSSZGET || req == LINUX_BLKROGET) {
+        block_device_info_t *device = NULL;
+        uint64_t start_lba, sectors;
+        bool read_only;
+        if (!ioctl_get_block_device(file, &device, &start_lba, &sectors, &read_only))
+            return -LINUX_ENOTTY;
+        (void)start_lba;
+        if (!arg)
+            return -LINUX_EINVAL;
+        if (device->sector_size == 0 ||
+            sectors > UINT64_MAX / device->sector_size)
+            return -LINUX_EIO;
+
+        switch (req) {
+            case LINUX_BLKGETSIZE64:
+                *(uint64_t *)arg = sectors * device->sector_size;
+                break;
+            case LINUX_BLKGETSIZE:
+                *(uint64_t *)arg = (sectors * device->sector_size) / 512U;
+                break;
+            case LINUX_BLKSSZGET:
+                *(int *)arg = (int)device->sector_size;
+                break;
+            case LINUX_BLKROGET:
+                *(int *)arg = read_only ? 1 : 0;
+                break;
+        }
+        return 0;
+    }
 
     switch (req) {
         case LINUX_TIOCGWINSZ: {
