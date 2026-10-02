@@ -793,9 +793,9 @@ static void xhci_poll_ports(xhci_controller_t *ctrl) {
                 ctrl->port_pending[port] = 2;
             }
         }
-        if (status & (XHCI_PORT_PRC | (1U << 19)))
-            info("xHCI port %u reset completed; enabled=%u", __FILE__, port,
-                !!(status & XHCI_PORT_PED));
+        // if (status & (XHCI_PORT_PRC | (1U << 19)))
+        //     info("xHCI port %u reset completed; enabled=%u", __FILE__, port,
+        //         !!(status & XHCI_PORT_PED));
 
         *portsc = (status & XHCI_PORT_RW_MASK) | (status & XHCI_PORT_CHANGE_MASK);
     }

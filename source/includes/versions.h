@@ -8,6 +8,10 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+
+#ifndef VERSIONS_H
+#define VERSIONS_H
+
 #include <basics.h>
 #include <graphics.h>
 
@@ -60,3 +64,5 @@ static inline void frost_compilation_information(void)
 
     info("Compiled Time (Started at): %s", __FILE__, date);
 }
+
+#endif

@@ -28,6 +28,8 @@
 #include <tty.h>
 #include <ssfn.h>
 #include <usb_mass_storage.h>
+#include <pit.h>
+#include <syscalls/internal.h>
 
 int terminal_rows = 0;
 int terminal_columns = 0;
@@ -344,6 +346,7 @@ void main(void) {
     info("Welcome to FrostWing Operating System! %s", __FILE__, "(https://github.com/Frost-Wing)");
     frost_compilation_information();
 
+    pit_sleep(100);
     ksh_exec();
 }
 
