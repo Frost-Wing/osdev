@@ -14,6 +14,7 @@
 
 #include <graphics.h>
 #include <fb.h>
+#include <flanterm/flanterm.h>
 #include <multitasking.h>
 #include <ringbuffer.h>
 #include <sys/termios.h>
@@ -271,4 +272,40 @@ void tty_flush_input(void) {
     rb_clear(&tty->cooked_rb);
     tty->line_len = 0;
     spinlock_unlock(&tty->lock);
+}
+
+bool tty_get_termios(linux_termios_t *termios) {
+    if (!termios)
+        return false;
+    tty_t *tty = tty_get((uint8_t)multitasking_current_tty());
+    spinlock_lock(&tty->lock);
+    *termios = tty->termios;
+    spinlock_unlock(&tty->lock);
+    return true;
+}
+
+bool tty_set_termios(const linux_termios_t *termios, bool flush_input) {
+    if (!termios)
+        return false;
+    tty_t *tty = tty_get((uint8_t)multitasking_current_tty());
+    spinlock_lock(&tty->lock);
+    tty->termios = *termios;
+    if (flush_input) {
+        rb_clear(&tty->cooked_rb);
+        tty->line_len = 0;
+        tty->eof = false;
+    }
+    spinlock_unlock(&tty->lock);
+    return true;
+}
+
+bool tty_get_winsize(linux_winsize_t *winsize) {
+    if (!winsize)
+        return false;
+    tty_t *tty = tty_get((uint8_t)multitasking_current_tty());
+    winsize->ws_row = tty->display ? tty->display->rows : 25;
+    winsize->ws_col = tty->display ? tty->display->cols : 80;
+    winsize->ws_xpixel = 0;
+    winsize->ws_ypixel = 0;
+    return true;
 }

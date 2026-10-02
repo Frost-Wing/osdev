@@ -930,6 +930,7 @@ int vfs_unlink(const char *path) {
         eprintf("unlink:: path is null or undefined");
         return -1;
     }
+
     /* Normalize */
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
@@ -991,6 +992,58 @@ int vfs_unlink(const char *path) {
 
     /* Delete */
     return fat16_unlink_path(fs, parent_cluster, name);
+}
+
+int vfs_rmdir(const char *path) {
+    if (!path || !*path)
+        return -1;
+
+    char norm[256];
+    if (vfs_normalize_path(path, norm, sizeof(norm)) != 0 || strcmp(norm, "/") == 0)
+        return -1;
+
+    vfs_mount_res_t res;
+    if (vfs_resolve_mount(norm, &res) != 0)
+        return -1;
+
+    if (res.mnt->type == FS_EXT2)
+        return ext2_rmdir((ext2_fs_t *)res.mnt->fs, res.rel_path);
+
+    if (res.mnt->type == FS_FAT32) {
+        fat32_fs_t *fs = (fat32_fs_t *)res.mnt->fs;
+        fat32_dir_entry_t entry;
+        if (fat32_find_path(fs, res.rel_path, &entry) != FAT_OK)
+            return FAT_ERR_NOT_FOUND;
+        if (!(entry.attr & FAT_ATTR_DIRECTORY))
+            return FAT_ERR_NOT_DIR;
+
+        uint32_t cluster = ((uint32_t)entry.first_cluster_high << 16) |
+                           entry.first_cluster_low;
+        int rc = fat32_rmdir(fs, cluster);
+        if (rc != FAT_OK)
+            return rc;
+        return fat32_unlink_path(fs, res.rel_path);
+    }
+
+    if (res.mnt->type == FS_FAT16) {
+        fat16_fs_t *fs = (fat16_fs_t *)res.mnt->fs;
+        uint16_t parent_cluster;
+        char name[13];
+        if (fat16_find_parent(fs, res.rel_path, &parent_cluster, name) != FAT_OK)
+            return FAT_ERR_NOT_FOUND;
+
+        fat16_dir_entry_t entry;
+        if (fat16_find_in_dir(fs, parent_cluster, name, &entry) != FAT_OK)
+            return FAT_ERR_NOT_FOUND;
+        if (!(entry.attr & 0x10))
+            return FAT_ERR_NOT_DIR;
+        int rc = fat16_rmdir(fs, entry.first_cluster);
+        if (rc != FAT_OK)
+            return rc;
+        return fat16_unlink_path(fs, parent_cluster, name);
+    }
+
+    return -1;
 }
 
 int vfs_mv(const char *src, const char *dst) {

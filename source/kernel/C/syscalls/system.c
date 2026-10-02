@@ -46,7 +46,12 @@ uint64 sys_dup2(uint64_t oldfd, uint64_t newfd) {
     if (newfd >= STREAM_MAX_FDS)
         return -LINUX_EBADF;
 
+    if (oldfd == newfd)
+        return (uint64)newfd;
+    sys_socket_close((int)newfd);
     int rc = fd_dup2((int)oldfd, (int)newfd);
+    if (rc >= 0)
+        sys_socket_dup((int)oldfd, rc);
     return rc < 0 ? -LINUX_EBADF : (uint64)rc;
 }
 
@@ -55,6 +60,8 @@ uint64 sys_dup(uint64_t oldfd) {
         return -LINUX_EBADF;
 
     int newfd = fd_dup((int)oldfd);
+    if (newfd >= 0)
+        sys_socket_dup((int)oldfd, newfd);
     return newfd < 0 ? -LINUX_ENFILE : newfd;
 }
 

@@ -70,6 +70,30 @@ struct memory_context *limine_memory_ctx;
 
 bool isBufferReady = no;
 
+static void ensure_resolver_configuration(void) {
+    vfs_file_t file;
+    if (vfs_open("/etc/resolv.conf", VFS_RDONLY, &file) == 0) {
+        vfs_close(&file);
+        return;
+    }
+
+    char dns[16];
+    char config[32];
+    net_format_ipv4(net_cfg.dns, dns, sizeof(dns));
+    int length = snprintf(config, sizeof(config), "nameserver %s\n", dns);
+    if (length <= 0 || (size_t)length >= sizeof(config))
+        return;
+
+    if (vfs_open("/etc/resolv.conf", VFS_WRONLY | VFS_CREATE, &file) != 0) {
+        warn("Could not create /etc/resolv.conf", __FILE__);
+        return;
+    }
+    int written = vfs_write(&file, (const uint8_t *)config, (uint32_t)length);
+    vfs_close(&file);
+    if (written != length)
+        warn("Could not fully write /etc/resolv.conf", __FILE__);
+}
+
 static bool ssfn_module_is_valid(const struct limine_file *module) {
     const ssfn_font_t *font = module == NULL ? NULL : module->address;
     if (font == NULL || module->size < sizeof(*font))
@@ -277,6 +301,7 @@ void main(void) {
             error("Failed to mount root disk '%s' specified via cmdline.", __FILE__, rootdisk);
             hcf2();
         }
+        ensure_resolver_configuration();
         vfs_mount("proc", "/proc", true);
         vfs_mount("dev", "/dev", true);
         vfs_mount("sys", "/sys", true);

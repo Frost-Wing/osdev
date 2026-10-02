@@ -78,6 +78,7 @@ int devfs_open(vfs_file_t *file) {
         strcmp(file->rel_path, "klog") == 0 ||
         strcmp(file->rel_path, "syslog") == 0 ||
         strcmp(file->rel_path, "tty") == 0 ||
+        strcmp(file->rel_path, "tty1") == 0 ||
         strcmp(file->rel_path, "rtc") == 0 ||
         strcmp(file->rel_path, "rtc0") == 0) {
 
@@ -104,7 +105,8 @@ int devfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
         strcmp(file->rel_path, "rtc0") == 0)
         return 0;
 
-    if (strcmp(file->rel_path, "tty") == 0)
+    if (strcmp(file->rel_path, "tty") == 0 ||
+        strcmp(file->rel_path, "tty1") == 0)
         return tty_read((char *)buf, size);
 
     if (strcmp(file->rel_path, "zero") == 0) {
@@ -201,7 +203,8 @@ int devfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
         strcmp(file->rel_path, "rtc0") == 0)
         return -1;
 
-    if (strcmp(file->rel_path, "tty") == 0) {
+    if (strcmp(file->rel_path, "tty") == 0 ||
+        strcmp(file->rel_path, "tty1") == 0) {
         for (uint32_t i = 0; i < size; ++i)
             putc((char)buf[i]);
         file->pos += size;
@@ -299,6 +302,7 @@ int devfs_ls(void) {
     printfnoln(blue_color "klog " reset_color);
     printfnoln(blue_color "syslog " reset_color);
     printfnoln(blue_color "tty " reset_color);
+    printfnoln(blue_color "tty1 " reset_color);
     printfnoln(blue_color "rtc0 " reset_color);
 
     for (int i = 0; i < block_device_count; i++) {

@@ -52,6 +52,10 @@ typedef struct {
     uint64_t size;
     uint32_t mode;
     uint64_t inode;
+    uint64_t rdev;
+    linux_timespec_t atim;
+    linux_timespec_t mtim;
+    linux_timespec_t ctim;
 } vfs_stat_info_t;
 
 typedef struct {
@@ -82,14 +86,20 @@ bool path_is_loadable_elf(const char *path);
 bool should_route_to_toybox(const char *target);
 int build_toybox_argv(const char *target, int argc, char **argv, const char **out_argv);
 void sys_socket_close(int fd);
+void sys_socket_dup(int oldfd, int newfd);
+bool sys_socket_is_fd(int fd);
+uint64 sys_socket_read(uint64_t fd, void *buf, uint64_t len);
+uint64 sys_socket_write(uint64_t fd, const void *buf, uint64_t len);
 
-uint64 sys_mkdirat(int, const char *, int); uint64_t sys_unlink(const char *); int sys_getdents64(uint64_t, char *, uint64_t);
+uint64 sys_mkdirat(int, const char *, int); uint64_t sys_unlink(const char *); uint64 sys_unlinkat(int, const char *, int); int sys_getdents64(uint64_t, char *, uint64_t);
 uint64 sys_open_common(int, const char *, int, int); uint64 sys_close(uint64_t);
 uint64 sys_fstat(uint64_t, linux_stat_t *); uint64 sys_stat(const char *, linux_stat_t *);
 uint64 sys_newfstatat(int, const char *, linux_stat_t *, int); uint64 sys_statx(int, const char *, int, unsigned int, linux_statx_t *);
 uint64 sys_read(uint64_t, char *, uint64_t); uint64 sys_write(uint64_t, const char *, uint64_t); uint64 sys_writev(uint64_t, const linux_iovec_t *, uint64_t);
 uint64 sys_socket(uint64_t, uint64_t, uint64_t); uint64 sys_connect(uint64_t, const void *, uint64_t);
+uint64 sys_bind(uint64_t, const void *, uint64_t);
 uint64 sys_sendto(uint64_t, const void *, uint64_t, uint64_t, const void *, uint64_t); uint64 sys_recvfrom(uint64_t, void *, uint64_t, uint64_t, void *, uint64_t *); uint64 sys_setsockopt(uint64_t, uint64_t, uint64_t, const void *, uint64_t);
+uint64 sys_getsockopt(uint64_t, uint64_t, uint64_t, void *, uint64_t *);
 uint64 sys_ioctl(uint64_t, uint64_t, uint64_t); uint64 sys_fcntl(uint64_t, uint64_t, uint64_t);
 uint64 sys_access_common(int, const char *, int); uint64 sys_lseek(uint64_t, int64_t, uint64_t); uint64 sys_dup2(uint64_t, uint64_t); uint64 sys_dup(uint64_t); uint64 sys_getcwd(char *, uint64_t); uint64 sys_chdir(const char *); uint64 sys_readlinkat(int, const char *, char *, uint64_t);
 uint64 sys_clock_gettime(uint64_t, linux_timespec_t *); uint64 sys_nanosleep(const linux_timespec_t *, linux_timespec_t *);

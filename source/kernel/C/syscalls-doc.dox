@@ -10,6 +10,7 @@
  * - `write(2)`             -> `sys_write()`             -> `vfs_write()` / `putc()`
  * - `open(2)` / `openat(2)`-> `sys_open_common()`       -> `fd_open()`
  * - `close(2)`             -> `sys_close()`             -> `fd_close()`
+ * - `unlinkat(2)`          -> `sys_unlinkat()`          -> file unlink or empty-directory removal
  * - `lseek(2)`             -> `sys_lseek()`             -> fd position pointer update
  * - `getdents64(2)`        -> `sys_getdents64()`        -> FAT16/FAT32/ISO9660/proc/dev walkers
  * - `rename(2)`            -> `sys_rename()`            -> same-mount VFS rename
@@ -38,8 +39,10 @@
  * - `tgkill(2)`            -> `sys_tgkill()`            -> argument validation + stubbed signal path
  *
  * ## Socket compatibility
- * - `socket(2)`            -> `sys_socket()`            -> returns `-EAFNOSUPPORT` (not wired yet)
- * - `connect(2)`           -> `sys_connect()`           -> fd validation + `-ENOTSOCK`
+ * - `socket(2)`            -> `sys_socket()`            -> IPv4 ICMP, UDP, and TCP sockets
+ * - `connect(2)`           -> `sys_connect()`           -> UDP peer selection or TCP handshake
+ * - `sendto(2)` / `recvfrom(2)` -> `sys_sendto()` / `sys_recvfrom()` -> ICMP, UDP, and TCP data paths
+ * - socket `read(2)` / `write(2)` -> socket receive/send paths
  *
  * ## Time and randomness
  * - `clock_gettime(2)`     -> `sys_clock_gettime()`     -> RTC-backed time fetch
@@ -47,4 +50,5 @@
  * - `getrandom(2)`         -> `sys_getrandom()`         -> xorshift seeded from `rdtsc64()`
  * - `ioctl(BLKGETSIZE64)`   -> block-device byte capacity from devfs
  * - `ioctl(RTC_RD_TIME)`    -> CMOS RTC time from `/dev/rtc0`
+ * - terminal ioctls        -> accepted only for the kernel shell's tty descriptors and `/dev/tty`
  */

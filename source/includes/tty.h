@@ -2,6 +2,7 @@
 #define TTY_H
 
 #include <basics.h>
+#include <sys/termios.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -26,6 +27,9 @@ bool tty_init_terminals(struct flanterm_context *default_terminal,
 void tty_input_char(char c);
 int tty_read(char *buf, uint64_t count);
 void tty_flush_input(void);
+bool tty_get_termios(linux_termios_t *termios);
+bool tty_set_termios(const linux_termios_t *termios, bool flush_input);
+bool tty_get_winsize(linux_winsize_t *winsize);
 bool tty_switch(uint8_t index);
 uint8_t tty_active_index(void);
 void tty_input_key(int key);

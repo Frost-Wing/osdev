@@ -271,6 +271,7 @@ static const char *names[] = {
     [261] = "futimesat",
     [262] = "newfstatat",
     [263] = "unlinkat",
+    [263] = "unlinkat",
     [264] = "renameat",
     [265] = "linkat",
     [266] = "symlinkat",
