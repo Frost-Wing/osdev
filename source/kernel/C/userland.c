@@ -640,19 +640,60 @@ uint64_t userland_mmap_fixed(uint64_t addr, uint64_t length) {
 }
 
 uint64_t userland_mmap_anon(uint64_t length) {
-    if (length == 0 || length > user_mmap_end - user_mmap_cursor)
+    if (length == 0 || length > UINT64_MAX - (PAGE_SIZE - 1))
         return 0;
 
     uint64_t aligned_len = (length + PAGE_SIZE - 1) & ~(uint64_t)(PAGE_SIZE - 1);
-    if (aligned_len > user_mmap_end - user_mmap_cursor)
+    if (aligned_len > user_mmap_end - USER_MMAP_VADDR)
         return 0;
 
-    uint64_t mapping_base = user_mmap_cursor;
-    if (!map_user_range(mapping_base, mapping_base + aligned_len, USER_DATA_FLAGS))
-        return 0;
+    uint64_t pages = aligned_len / PAGE_SIZE;
+    uint64_t candidates[2] = {
+        user_mmap_cursor < user_mmap_end ? user_mmap_cursor : USER_MMAP_VADDR,
+        USER_MMAP_VADDR,
+    };
 
-    user_mmap_cursor += aligned_len;
-    return mapping_base;
+    for (size_t pass = 0; pass < 2; ++pass) {
+        uint64_t first = candidates[pass];
+        uint64_t limit = pass == 0 ? user_mmap_end : candidates[0];
+        if (first < USER_MMAP_VADDR)
+            first = USER_MMAP_VADDR;
+        first = (first + PAGE_SIZE - 1) & ~(uint64_t)(PAGE_SIZE - 1);
+        if (limit < first || limit - first < aligned_len)
+            continue;
+
+        for (uint64_t base = first; base <= limit - aligned_len; base += PAGE_SIZE) {
+            uint64_t page = 0;
+            while (page < pages &&
+                !(paging_user_page_flags(base + page * PAGE_SIZE) & PAGE_PRESENT))
+                ++page;
+            if (page != pages) {
+                base += page * PAGE_SIZE;
+                continue;
+            }
+
+            if (!map_user_range(base, base + aligned_len, USER_DATA_FLAGS))
+                return 0;
+            user_mmap_cursor = base + aligned_len;
+            if (user_mmap_cursor >= user_mmap_end)
+                user_mmap_cursor = USER_MMAP_VADDR;
+            return base;
+        }
+    }
+
+    return 0;
+}
+
+bool userland_mmap_unmap(uint64_t addr, uint64_t length) {
+    if (length == 0 || addr < USER_MMAP_VADDR || addr >= user_mmap_end ||
+        length > user_mmap_end - addr)
+        return false;
+
+    uint64_t end = addr + length;
+    unmap_user_range(addr, end);
+    if (addr < user_mmap_cursor)
+        user_mmap_cursor = addr;
+    return true;
 }
 
 /* ------------------------------------------------------ exit and faults --- */
