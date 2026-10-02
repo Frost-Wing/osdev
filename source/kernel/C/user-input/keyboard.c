@@ -16,6 +16,7 @@
 #include <ringbuffer.h>
 #include <stdint.h>
 #include <tty.h>
+#include <xhci.h>
 
 bool enable_keyboard = yes;
 static ring_buffer_t kb_rb;
@@ -224,6 +225,7 @@ int getc(void) {
             multitasking_on_pit_tick(last_tick);
         }
 
+        xhci_poll();
         asm volatile("hlt");
     }
 }

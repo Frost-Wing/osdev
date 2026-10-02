@@ -20,6 +20,7 @@
 #include <sys/termios.h>
 #include <tty.h>
 #include <keyboard.h>
+#include <xhci.h>
 
 typedef struct {
     ring_buffer_t cooked_rb;
@@ -260,6 +261,7 @@ int tty_read(char *buf, uint64_t count) {
             last_tick = pit_ticks;
             multitasking_on_pit_tick(last_tick);
         }
+        xhci_poll();
         asm volatile("hlt");
     }
 
