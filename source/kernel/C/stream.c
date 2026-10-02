@@ -315,6 +315,7 @@ uint32_t *fd_pos_ptr(int fd) {
         case FS_EXT2:
             return &file->f.ext2.pos;
         case FS_PROC:
+        case FS_SYS:
         case FS_DEV:
             return &file->pos;
         default:

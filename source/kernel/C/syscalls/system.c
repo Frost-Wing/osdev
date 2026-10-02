@@ -544,7 +544,8 @@ uint64 sys_statfs(const char *path, linux_statfs_t *buf) {
     if (vfs_resolve_mount(norm, &res) != 0)
         return -LINUX_ENOENT;
 
-    fill_statfs_for_mount(res.mnt, buf);
+    if (fill_statfs_for_mount(res.mnt, buf) != 0)
+        return -LINUX_EIO;
     if (res.mnt->type == FS_DEV) {
         int device_id = -1;
         uint64_t sectors = 0;
@@ -590,7 +591,8 @@ uint64 sys_fstatfs(uint64_t fd, linux_statfs_t *buf) {
     if (!file || !file->mnt)
         return -LINUX_EBADF;
 
-    fill_statfs_for_mount(file->mnt, buf);
+    if (fill_statfs_for_mount(file->mnt, buf) != 0)
+        return -LINUX_EIO;
     return 0;
 }
 

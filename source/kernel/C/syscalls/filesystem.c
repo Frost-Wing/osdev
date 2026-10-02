@@ -1489,14 +1489,98 @@ static int64_t statfs_magic_for_type(partition_fs_type_t type) {
     }
 }
 
-void fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out) {
+static int statfs_count_fat16_free(fat16_fs_t *fs, uint64_t clusters,
+    uint64_t *free_clusters) {
+    uint8_t sector[SECTOR_SIZE];
+    const uint64_t entries_per_sector = SECTOR_SIZE / sizeof(uint16_t);
+    uint64_t end = clusters + 2;
+    *free_clusters = 0;
+
+    for (uint64_t first = 2; first < end;) {
+        uint64_t sector_index =
+            (first * sizeof(uint16_t)) / SECTOR_SIZE;
+        if (ahci_read_sector(fs->portno, fs->fat_start + sector_index,
+                sector, 1) != 0)
+            return -1;
+
+        uint64_t sector_first = sector_index * entries_per_sector;
+        uint64_t begin = first > sector_first ? first : sector_first;
+        uint64_t limit = sector_first + entries_per_sector;
+        if (limit > end)
+            limit = end;
+        for (uint64_t cluster = begin; cluster < limit; ++cluster) {
+            uint16_t value;
+            memcpy(&value, sector + (cluster - sector_first) * sizeof(value),
+                sizeof(value));
+            if (value == 0)
+                ++*free_clusters;
+        }
+        first = limit;
+    }
+    return 0;
+}
+
+static int statfs_count_fat32_free(fat32_fs_t *fs, uint64_t clusters,
+    uint64_t *free_clusters) {
+    uint8_t sector[FAT32_SECTOR_SIZE];
+    const uint64_t entries_per_sector = FAT32_SECTOR_SIZE / sizeof(uint32_t);
+    uint64_t end = clusters + 2;
+    *free_clusters = 0;
+
+    for (uint64_t first = 2; first < end;) {
+        uint64_t sector_index = first / entries_per_sector;
+        if (ahci_read_sector(fs->portno, fs->fat_start_lba + sector_index,
+                sector, 1) != 0)
+            return -1;
+
+        uint64_t sector_first = sector_index * entries_per_sector;
+        uint64_t begin = first > sector_first ? first : sector_first;
+        uint64_t limit = sector_first + entries_per_sector;
+        if (limit > end)
+            limit = end;
+        for (uint64_t cluster = begin; cluster < limit; ++cluster) {
+            uint32_t value;
+            memcpy(&value, sector + (cluster - sector_first) * sizeof(value),
+                sizeof(value));
+            if ((value & 0x0FFFFFFF) == FAT32_CLUSTER_FREE)
+                ++*free_clusters;
+        }
+        first = limit;
+    }
+    return 0;
+}
+
+static int statfs_backing_geometry(mount_entry_t *mnt, uint64_t *sectors,
+    uint32_t *sector_size) {
+    general_partition_t *part = search_general_partition(mnt->part_name);
+    if (part) {
+        *sectors = part->sector_count;
+        block_device_info_t *device = block_get_device((int)part->ahci_port);
+        *sector_size = device && device->sector_size ? device->sector_size : SECTOR_SIZE;
+        return 0;
+    }
+
+    for (int i = 0; i < block_device_count; ++i) {
+        block_device_info_t *device = &block_devices[i];
+        if (!device->present || strcmp(device->name, mnt->part_name) != 0)
+            continue;
+        if (!device->sector_size)
+            return -1;
+        *sectors = device->total_sectors;
+        *sector_size = device->sector_size;
+        return 0;
+    }
+    return -1;
+}
+
+int fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out) {
     memset(out, 0, sizeof(*out));
 
     if (!mnt) {
         out->f_bsize = 512;
         out->f_frsize = 512;
         out->f_namelen = 255;
-        return;
+        return 0;
     }
 
     out->f_type = statfs_magic_for_type(mnt->type);
@@ -1504,41 +1588,106 @@ void fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out) {
     out->f_frsize = 512;
     out->f_namelen = 255;
 
-    general_partition_t *part = search_general_partition(mnt->part_name);
-    if (!part) {
-        for (int i = 0; i < block_device_count; ++i) {
-            block_device_info_t *dev = &block_devices[i];
-            if (!dev->present || strcmp(dev->name, mnt->part_name) != 0)
-                continue;
-            if (dev->sector_size == 0 ||
-                dev->total_sectors > UINT64_MAX / dev->sector_size)
-                return;
-            out->f_bsize = dev->sector_size;
-            out->f_frsize = dev->sector_size;
-            out->f_blocks = dev->total_sectors;
-            return;
-        }
-        return; // proc/sys/dev aren't backed by a partition
+    if (mnt->type == FS_FAT16) {
+        fat16_fs_t *fs = mnt->fs;
+        if (!fs || fs->bs.bytes_per_sector != SECTOR_SIZE ||
+            !fs->bs.sectors_per_cluster || !fs->bs.num_fats)
+            return -1;
+
+        uint64_t total_sectors = fs->bs.total_sectors_short ?
+            fs->bs.total_sectors_short : fs->bs.total_sectors_long;
+        uint64_t root_sectors =
+            ((uint64_t)fs->bs.max_root_dir_entries * 32 + SECTOR_SIZE - 1) /
+            SECTOR_SIZE;
+        uint64_t overhead = (uint64_t)fs->bs.reserved_sectors +
+            (uint64_t)fs->bs.num_fats * fs->bs.sectors_per_fat + root_sectors;
+        if (total_sectors < overhead)
+            return -1;
+
+        uint64_t clusters =
+            (total_sectors - overhead) / fs->bs.sectors_per_cluster;
+        uint64_t free_clusters;
+        if (statfs_count_fat16_free(fs, clusters, &free_clusters) != 0)
+            return -1;
+
+        uint64_t cluster_size =
+            (uint64_t)SECTOR_SIZE * fs->bs.sectors_per_cluster;
+        out->f_bsize = cluster_size;
+        out->f_frsize = cluster_size;
+        out->f_blocks = clusters;
+        out->f_bfree = free_clusters;
+        out->f_bavail = free_clusters;
+        return 0;
     }
 
-    block_device_info_t *dev = NULL;
-    for (int i = 0; i < block_device_count; i++) {
-        if (!block_devices[i].present)
-            continue;
-        if ((uint64_t)i == part->ahci_port) {
-            dev = &block_devices[i];
-            break;
-        }
+    if (mnt->type == FS_FAT32) {
+        fat32_fs_t *fs = mnt->fs;
+        if (!fs || fs->bpb.bytes_per_sector != FAT32_SECTOR_SIZE ||
+            !fs->sectors_per_cluster)
+            return -1;
+
+        uint64_t total_sectors = fs->bpb.total_sectors_32;
+        uint64_t overhead = (uint64_t)fs->bpb.reserved_sectors +
+            (uint64_t)fs->bpb.fat_count * fs->bpb.fat_size_32;
+        if (total_sectors < overhead)
+            return -1;
+
+        uint64_t clusters =
+            (total_sectors - overhead) / fs->sectors_per_cluster;
+        uint64_t free_clusters;
+        if (statfs_count_fat32_free(fs, clusters, &free_clusters) != 0)
+            return -1;
+
+        uint64_t cluster_size =
+            (uint64_t)FAT32_SECTOR_SIZE * fs->sectors_per_cluster;
+        out->f_bsize = cluster_size;
+        out->f_frsize = cluster_size;
+        out->f_blocks = clusters;
+        out->f_bfree = free_clusters;
+        out->f_bavail = free_clusters;
+        return 0;
     }
 
-    uint32_t sector_size = dev ? dev->sector_size : 512;
+    if (mnt->type == FS_EXT2) {
+        ext2_fs_t *fs = mnt->fs;
+        if (!fs || !fs->block_size)
+            return -1;
+        out->f_bsize = fs->block_size;
+        out->f_frsize = fs->block_size;
+        out->f_blocks = fs->sb.s_blocks_count;
+        out->f_bfree = fs->sb.s_free_blocks_count;
+        out->f_bavail = fs->sb.s_free_blocks_count > fs->sb.s_r_blocks_count ?
+            fs->sb.s_free_blocks_count - fs->sb.s_r_blocks_count : 0;
+        out->f_files = fs->sb.s_inodes_count;
+        out->f_ffree = fs->sb.s_free_inodes_count;
+        return 0;
+    }
+
+    if (mnt->type == FS_PROC || mnt->type == FS_SYS || mnt->type == FS_DEV)
+        return 0;
+
+    uint64_t sectors;
+    uint32_t sector_size;
+    if (statfs_backing_geometry(mnt, &sectors, &sector_size) != 0)
+        return 0;
+
+    if (mnt->type == FS_ISO9660) {
+        iso9660_fs_t *fs = mnt->fs;
+        uint32_t block_size = fs && fs->logical_block_size ?
+            fs->logical_block_size : ISO9660_SECTOR_SIZE;
+        if (sectors > UINT64_MAX / sector_size)
+            return -1;
+        uint64_t bytes = sectors * sector_size;
+        out->f_bsize = block_size;
+        out->f_frsize = block_size;
+        out->f_blocks = bytes / block_size;
+        return 0;
+    }
+
+    if (sectors > UINT64_MAX / sector_size)
+        return -1;
     out->f_bsize = sector_size;
     out->f_frsize = sector_size;
-    out->f_blocks = part->sector_count;
-
-    /* No live free-space accounting per filesystem yet (would need a
-     * per-fs superblock query, e.g. reading ext2's free block/inode
-     * counters). Reporting 0 free rather than guessing. */
-    out->f_bfree = 0;
-    out->f_bavail = 0;
+    out->f_blocks = sectors;
+    return 0;
 }
