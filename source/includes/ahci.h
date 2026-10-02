@@ -143,7 +143,8 @@ typedef struct {
 
 typedef enum {
     BLOCK_DEVICE_AHCI = 0,
-    BLOCK_DEVICE_NVME
+    BLOCK_DEVICE_NVME,
+    BLOCK_DEVICE_USB
 } block_device_type_t;
 
 typedef struct {
@@ -259,6 +260,19 @@ block_device_info_t *block_get_device(int device_id);
 const char *block_get_device_name(int device_id);
 int block_read_sector(int device_id, uint64_t lba, void *buffer, uint32_t count);
 int block_write_sector(int device_id, uint64_t lba, void *buffer, uint32_t count);
+int read_blocks(int device_id, uint64_t lba, uint32_t count, void *buffer);
+int write_blocks(int device_id, uint64_t lba, uint32_t count, const void *buffer);
+int block_read_partition(int device_id, uint64_t partition_start,
+    uint64_t partition_count, uint64_t lba, uint32_t count, void *buffer);
+int block_write_partition(int device_id, uint64_t partition_start,
+    uint64_t partition_count, uint64_t lba, uint32_t count,
+    const void *buffer);
+uint32_t get_block_size(int device_id);
+uint64_t get_block_count(int device_id);
+int block_unregister_device(int device_id);
+int usb_msc_read_blocks(int backend_index, uint64_t lba, uint32_t count, void *buffer);
+int usb_msc_write_blocks(int backend_index, uint64_t lba, uint32_t count, const void *buffer);
+int usb_msc_refresh_device(int backend_index);
 
 general_partition_t *add_general_partition(
     partition_table_type_t table_type,

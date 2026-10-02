@@ -18,8 +18,9 @@
 #include <filesystems/layers/proc.h>
 #include <pci.h>
 #include <memory.h>
+#include <xhci.h>
 
-#define SYSFS_STATIC_FILES 3
+#define SYSFS_STATIC_FILES 5
 
 /* Attribute files that live inside bus/pci/devices/<addr>/ */
 enum { PCI_ATTR_VENDOR, PCI_ATTR_DEVICE, PCI_ATTR_CLASS, PCI_ATTR_REVISION, PCI_ATTR_UEVENT, PCI_ATTR_COUNT };
@@ -60,12 +61,24 @@ static procfs_entry_t sys_bus_pci_devices_dir = {
     .type = PROC_DIR,
 };
 
+static procfs_entry_t sys_bus_usb = {
+    .name = "bus/usb",
+    .type = PROC_DIR,
+};
+
+static procfs_entry_t sys_bus_usb_devices_dir = {
+    .name = "bus/usb/devices",
+    .type = PROC_DIR,
+};
+
 void sysfs_init(void) {
     sys_static_file_count = 0;
     memset(sys_static_files, 0, sizeof(sys_static_files));
     sys_static_files[sys_static_file_count++] = &sys_bus;
     sys_static_files[sys_static_file_count++] = &sys_bus_pci;
     sys_static_files[sys_static_file_count++] = &sys_bus_pci_devices_dir;
+    sys_static_files[sys_static_file_count++] = &sys_bus_usb;
+    sys_static_files[sys_static_file_count++] = &sys_bus_usb_devices_dir;
 }
 
 static void sysfs_pci_name(int i, char *out, size_t out_sz) {
@@ -191,6 +204,29 @@ static int sysfs_pci_parse(const char *normalized, int *index, int *attr) {
 }
 
 static procfs_entry_t *sysfs_find_dynamic(const char *normalized) {
+    const char *usb_prefix = "bus/usb/devices/";
+    size_t prefix_len = strlen(usb_prefix);
+    if (strncmp(normalized, usb_prefix, prefix_len) == 0) {
+        const char *name = normalized + prefix_len;
+        for (size_t i = 0; i < usb_device_count(); ++i) {
+            usb_device_t *device = usb_get_device(i);
+            char expected[32];
+            if (!device)
+                continue;
+            snprintf(expected, sizeof(expected), "1-%u", device->root_port);
+            if (strcmp(name, expected) != 0)
+                continue;
+            strncpy(sys_pci_entry_name, normalized,
+                sizeof(sys_pci_entry_name) - 1);
+            sys_pci_entry_name[sizeof(sys_pci_entry_name) - 1] = '\0';
+            sys_pci_entry.name = sys_pci_entry_name;
+            sys_pci_entry.type = PROC_DIR;
+            sys_pci_entry.read = NULL;
+            sys_pci_entry.write = NULL;
+            sys_pci_entry.priv = NULL;
+            return &sys_pci_entry;
+        }
+    }
     int index, attr;
     if (sysfs_pci_parse(normalized, &index, &attr) != 1)
         return NULL;
@@ -260,6 +296,19 @@ int sysfs_is_dir(const char *path) {
 int sysfs_getdent(const char *path, uint64_t index, const char **out_name, procfs_type_t *out_type) {
     char normalized[256];
     ns_normalize_path(path, normalized, sizeof(normalized));
+
+    if (strcmp(normalized, "bus/usb/devices") == 0) {
+        if (index >= usb_device_count())
+            return 0;
+        usb_device_t *device = usb_get_device(index);
+        if (!device)
+            return 0;
+        static char dent_name[32];
+        snprintf(dent_name, sizeof(dent_name), "1-%u", device->root_port);
+        *out_name = dent_name;
+        *out_type = PROC_DIR;
+        return 1;
+    }
 
     /* bus/pci/devices -> one DIRECTORY per live PCI device */
     if (strcmp(normalized, "bus/pci/devices") == 0) {

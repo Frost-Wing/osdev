@@ -450,6 +450,7 @@ static command_t commands[] = {
     {"shutdown", cmd_shutdown},
     {"lspci", cmd_lspci},
     {"lsblk", cmd_lsblk},
+    {"lsusb", cmd_lsusb},
     {"mount", cmd_mount},
     {"mv", cmd_mv},
     {"umount", cmd_umount},

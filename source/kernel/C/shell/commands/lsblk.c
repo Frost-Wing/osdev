@@ -7,8 +7,8 @@
 #include <ahci.h>
 #include <commands/commands.h>
 
-void print_size(uint64_t sectors) {
-    uint64_t bytes = sectors * 512;
+void print_size(uint64_t sectors, uint32_t sector_size) {
+    uint64_t bytes = sectors * sector_size;
 
     if (bytes >= (1 GiB)) {
         printfnoln("%02uG", (uint32_t)(bytes / (1024ULL * 1024 * 1024)));
@@ -46,6 +46,8 @@ static const char *device_type_name(block_device_type_t type) {
             return "disk";
         case BLOCK_DEVICE_NVME:
             return "nvme";
+        case BLOCK_DEVICE_USB:
+            return " usb";
         default:
             return "block";
     }
@@ -87,7 +89,7 @@ int cmd_lsblk(int argc, char **argv) {
         printfnoln("%s", dev->name);
         for (int pad = (int)strlen(dev->name); pad < 15; pad++)
             printfnoln(" ");
-        print_size(disk_sectors);
+        print_size(disk_sectors, dev->sector_size);
         printf("      %s      -          -  -", device_type_name(dev->type));
 
         int part_count = 0;
@@ -111,7 +113,7 @@ int cmd_lsblk(int argc, char **argv) {
                 printfnoln("├─");
 
             printfnoln("%s      ", p->name);
-            print_size((uint64_t)p->sector_count);
+            print_size((uint64_t)p->sector_count, dev->sector_size);
             printf("      part     %10s  %s  %s",
                 fs_name(p->fs_type),
                 ro_flag_for_filesystem(p->fs_type),

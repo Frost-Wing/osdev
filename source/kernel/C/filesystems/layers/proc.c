@@ -22,8 +22,9 @@
 #include <ringbuffer.h>
 #include <strings.h>
 #include <multitasking.h>
+#include <xhci.h>
 
-#define PROCFS_MAX_FILES (MAX_PCI_DEVICES + 16)
+#define PROCFS_MAX_FILES (MAX_PCI_DEVICES + 20)
 
 #ifndef PIT_HZ
 #define PIT_HZ 100
@@ -206,6 +207,38 @@ static procfs_entry_t proc_partitions = {
     .name = "partitions",
     .type = PROC_FILE,
     .read = proc_partitions_read};
+
+static int proc_usb_devices_read(vfs_file_t *file, uint8_t *buf,
+    uint32_t size, void *priv) {
+    (void)priv;
+    char tmp[8192];
+    int len = 0;
+    for (size_t i = 0; i < usb_device_count(); ++i) {
+        usb_device_t *device = usb_get_device(i);
+        if (!device)
+            continue;
+        int n = snprintf(tmp + len, sizeof(tmp) - (size_t)len,
+            "T: Bus=001 Dev#=%03u Spd=%u\n"
+            "P: Vendor=%04x ProdID=%04x Rev=%x.%02x\n"
+            "S: Manufacturer=%u Product=%u SerialNumber=%u\n\n",
+            device->slot_id, device->speed,
+            device->descriptor.vendor_id, device->descriptor.product_id,
+            device->descriptor.device_version >> 8,
+            device->descriptor.device_version & 0xFFU,
+            device->descriptor.manufacturer_index,
+            device->descriptor.product_index,
+            device->descriptor.serial_index);
+        if (n < 0 || (size_t)n >= sizeof(tmp) - (size_t)len)
+            break;
+        len += n;
+    }
+    return ns_reply(file, buf, size, tmp, len);
+}
+
+static procfs_entry_t proc_usb_devices = {
+    .name = "bus/usb/devices",
+    .type = PROC_FILE,
+    .read = proc_usb_devices_read};
 
 extern struct memory_context *limine_memory_ctx;
 
@@ -550,6 +583,7 @@ void procfs_init(void) {
     procfs_register(&proc_meminfo);
     procfs_register(&proc_mounts);
     procfs_register(&proc_partitions);
+    procfs_register(&proc_usb_devices);
     procfs_register(&proc_uptime);
     procfs_register(&proc_loadavg);
     procfs_register(&proc_pid_max);

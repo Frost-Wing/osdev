@@ -61,10 +61,18 @@ int block_register_device(
     uint64_t total_sectors,
     uint32_t sector_size,
     const char *name) {
-    if (block_device_count >= MAX_BLOCK_DEVICES)
-        return -1;
-
-    int id = block_device_count++;
+    int id = -1;
+    for (int i = 0; i < block_device_count; ++i) {
+        if (!block_devices[i].present) {
+            id = i;
+            break;
+        }
+    }
+    if (id < 0) {
+        if (block_device_count >= MAX_BLOCK_DEVICES)
+            return -1;
+        id = block_device_count++;
+    }
     block_device_info_t *dev = &block_devices[id];
     memset(dev, 0, sizeof(*dev));
 
@@ -106,6 +114,11 @@ int block_read_sector(int device_id, uint64_t lba, void *buffer, uint32_t count)
     block_device_info_t *dev = block_get_device(device_id);
     if (!dev || !buffer || count == 0)
         return -1;
+    if (dev->type == BLOCK_DEVICE_USB)
+        return usb_msc_read_blocks(dev->backend_index, lba, count, buffer);
+    if (lba >= dev->total_sectors ||
+        (uint64_t)count > dev->total_sectors - lba)
+        return -1;
 
     switch (dev->type) {
         case BLOCK_DEVICE_AHCI:
@@ -121,6 +134,11 @@ int block_write_sector(int device_id, uint64_t lba, void *buffer, uint32_t count
     block_device_info_t *dev = block_get_device(device_id);
     if (!dev || !buffer || count == 0)
         return -1;
+    if (dev->type == BLOCK_DEVICE_USB)
+        return usb_msc_write_blocks(dev->backend_index, lba, count, buffer);
+    if (lba >= dev->total_sectors ||
+        (uint64_t)count > dev->total_sectors - lba)
+        return -1;
 
     switch (dev->type) {
         case BLOCK_DEVICE_AHCI:
@@ -130,6 +148,52 @@ int block_write_sector(int device_id, uint64_t lba, void *buffer, uint32_t count
         default:
             return -2;
     }
+}
+
+int read_blocks(int device_id, uint64_t lba, uint32_t count, void *buffer) {
+    return block_read_sector(device_id, lba, buffer, count);
+}
+
+int write_blocks(int device_id, uint64_t lba, uint32_t count, const void *buffer) {
+    return block_write_sector(device_id, lba, (void *)buffer, count);
+}
+
+int block_read_partition(int device_id, uint64_t partition_start,
+    uint64_t partition_count, uint64_t lba, uint32_t count, void *buffer) {
+    if (!partition_count || lba >= partition_count ||
+        (uint64_t)count > partition_count - lba ||
+        partition_start > UINT64_MAX - lba)
+        return -1;
+    return block_read_sector(device_id, partition_start + lba, buffer, count);
+}
+
+int block_write_partition(int device_id, uint64_t partition_start,
+    uint64_t partition_count, uint64_t lba, uint32_t count,
+    const void *buffer) {
+    if (!partition_count || lba >= partition_count ||
+        (uint64_t)count > partition_count - lba ||
+        partition_start > UINT64_MAX - lba)
+        return -1;
+    return block_write_sector(device_id, partition_start + lba, (void *)buffer,
+        count);
+}
+
+uint32_t get_block_size(int device_id) {
+    block_device_info_t *dev = block_get_device(device_id);
+    return dev ? dev->sector_size : 0;
+}
+
+uint64_t get_block_count(int device_id) {
+    block_device_info_t *dev = block_get_device(device_id);
+    return dev ? dev->total_sectors : 0;
+}
+
+int block_unregister_device(int device_id) {
+    block_device_info_t *dev = block_get_device(device_id);
+    if (!dev)
+        return -1;
+    dev->present = 0;
+    return 0;
 }
 
 void detect_ahci_devices(ahci_hba_mem_t *ahci_ctrl) {
@@ -197,9 +261,12 @@ void handle_satapi_disk(int portno) {
         SECTOR_SIZE,
         NULL);
 
-    if (iso9660_detect_at_lba(portno, 0)) {
+    int device_id = ahci_disks[portno].logical_device;
+    if (device_id < 0)
+        return;
+    if (iso9660_detect_at_lba(device_id, 0)) {
         char part_name[64];
-        const char *dev_name = block_get_device_name(ahci_disks[portno].logical_device);
+        const char *dev_name = block_get_device_name(device_id);
         snprintf(part_name, sizeof(part_name), "%sp1", dev_name ? dev_name : "disk");
 
         add_general_partition(
@@ -207,7 +274,7 @@ void handle_satapi_disk(int portno) {
             0,
             total_sectors_512 > 0 ? (uint64)(total_sectors_512 - 1U) : (uint64)0,
             (uint64)total_sectors_512,
-            (uint64)portno,
+            (uint64)device_id,
             false,
             FS_ISO9660,
             part_name,
@@ -697,17 +764,52 @@ out:
     return rc;
 }
 
+static bool usb_mounted_range_valid(int device_id, uint64_t lba,
+    uint32_t count) {
+    bool has_mounted_partition = false;
+    for (int i = 0; i < mounted_partition_count; ++i) {
+        general_partition_t *part =
+            search_general_partition(mounted_partitions[i].part_name);
+        if (!part || part->ahci_port != (uint64_t)device_id)
+            continue;
+        has_mounted_partition = true;
+        if (lba >= part->lba_start &&
+            lba - part->lba_start < part->sector_count &&
+            (uint64_t)count <= part->sector_count -
+                (lba - part->lba_start))
+            return true;
+    }
+    return !has_mounted_partition;
+}
+
 int ahci_read_sector(int portno, uint64_t lba, void *buffer, uint32_t count) {
-    if (!global_ahci_ctrl || portno < 0 || portno >= 32)
+    if (portno < 0)
         return -1;
 
-    if (global_ahci_ctrl->ports[portno].sig == satapi_disk)
-        return ahci_read_satapi_sector_raw(portno, lba, buffer, count);
+    block_device_info_t *dev = block_get_device(portno);
+    if (!dev)
+        return -1;
+    if (dev->type == BLOCK_DEVICE_USB &&
+        !usb_mounted_range_valid(portno, lba, count))
+        return -1;
+    if (dev->type == BLOCK_DEVICE_AHCI && global_ahci_ctrl &&
+        dev->backend_index >= 0 && dev->backend_index < 32 &&
+        global_ahci_ctrl->ports[dev->backend_index].sig == satapi_disk)
+        return ahci_read_satapi_sector_raw(dev->backend_index, lba, buffer,
+            count);
 
     return block_read_sector(portno, lba, buffer, count);
 }
 
 int ahci_write_sector(int portno, uint64_t lba, void *buffer, uint32_t count) {
+    if (portno < 0)
+        return -1;
+    block_device_info_t *dev = block_get_device(portno);
+    if (!dev)
+        return -1;
+    if (dev->type == BLOCK_DEVICE_USB &&
+        !usb_mounted_range_valid(portno, lba, count))
+        return -1;
     return block_write_sector(portno, lba, buffer, count);
 }
 
