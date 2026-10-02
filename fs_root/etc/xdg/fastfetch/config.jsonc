@@ -1,0 +1,75 @@
+// Dracula fastfetch config for FrostWing (pure ASCII frame)
+{
+"$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+
+"logo": {
+  "type": "file",
+  "source": "/usr/share/fastfetch/logo.txt",
+  "color": {
+    "1": "38;2;42;157;170",
+    "2": "38;2;139;233;253",
+    "3": "38;2;255;140;66",
+    "4": "38;2;139;69;19",
+    "5": "38;2;241;250;140"
+  },
+  "padding": { "top": 0, "right": 3 }
+},
+
+"display": {
+"separator": "",
+"color": {
+"keys": "38;2;189;147;249",
+"title": "38;2;80;250;123",
+"output": "38;2;248;248;242"
+},
+"constants": [
+"\u001b[38;2;98;114;164m",
+"\u001b[38;2;189;147;249m",
+"\u001b[38;2;80;250;123m",
+"\u001b[38;2;255;184;108m",
+"\u001b[38;2;255;85;85m",
+"\u001b[38;2;241;250;140m",
+"\u001b[38;2;248;248;242m"
+],
+"percent": {
+"type": 1,
+"green": "38;2;80;250;123",
+"yellow": "38;2;241;250;140",
+"red": "38;2;255;85;85"
+}
+},
+
+"modules": [
+{
+"type": "title",
+"key": "{$1}+- ",
+"format": "{user-name-colored}{$1}@{$4}{host-name}"
+},
+
+{ "type": "custom", "format": "{$1}+- {$2}system {$1}-----------------------------------" },
+{ "type": "os",       "key": "{$1}| {$2}OS      " },
+{ "type": "kernel",   "key": "{$1}| {$2}Kernel  " },
+{ "type": "shell",    "key": "{$1}| {$2}Shell   " },
+{ "type": "packages", "key": "{$1}| {$2}Pkgs    " },
+{ "type": "wm",       "key": "{$1}| {$2}WM      " },
+{ "type": "terminal", "key": "{$1}| {$2}Term    " },
+{ "type": "uptime",   "key": "{$1}| {$2}Uptime  " },
+{ "type": "locale",   "key": "{$1}| {$2}Locale  " },
+
+{ "type": "custom", "format": "{$1}+- {$4}hardware {$1}---------------------------------" },
+{ "type": "host",    "key": "{$1}| {$4}Host    " },
+{ "type": "cpu",     "key": "{$1}| {$4}CPU     " },
+{ "type": "gpu",     "key": "{$1}| {$4}GPU     " },
+{ "type": "memory",  "key": "{$1}| {$4}RAM     ", "percent": { "type": 1 } },
+{ "type": "disk",    "key": "{$1}| {$4}Disk    ", "folders": "/", "percent": { "type": 1 } },
+{ "type": "battery", "key": "{$1}| {$4}Power   " },
+
+{ "type": "custom", "format": "{$1}+- {$3}palette {$1}----------------------------------" },
+{
+"type": "custom",
+"key": "{$1}| ",
+"format": "\u001b[48;2;255;85;85m   \u001b[0m \u001b[48;2;255;184;108m   \u001b[0m \u001b[48;2;241;250;140m   \u001b[0m \u001b[48;2;80;250;123m   \u001b[0m \u001b[48;2;189;147;249m   \u001b[0m \u001b[48;2;248;248;242m   \u001b[0m"
+},
+{ "type": "custom", "format": "{$1}+--------------------------------------------" }
+]
+}
