@@ -28,9 +28,17 @@ Upper layers must not touch RTL8139 registers. `netif_send()` and `netif_poll()`
 * `arp_ipv4_icmp_udp.c` - ARP cache, IPv4, ICMP echo, UDP queues.
 * `dns_tcp_http_dhcp.c` - DNS over UDP, TCP/HTTP scaffolding, DHCP placeholder.
 
+The Linux x86-64 syscall adapter exposes the same IPv4 stack to userland for
+ICMP echo, UDP datagrams, and connected TCP streams. The default root filesystem
+includes `/etc/resolv.conf` for the QEMU user-networking DNS address (`10.0.2.3`),
+matching the kernel's default network configuration.
+
 ## Current limitations
 
-TCP contains the module boundary and shell integration but is marked as pending full wire-mode validation before real HTTP downloads can succeed. HTTPS/TLS is explicitly out of scope for this first kernel patch; `wget` reports that and requires `http://` URLs.
+TCP implements the basic SYN/SYN-ACK handshake, ordered receive buffering, ACKs,
+and FIN handling used by HTTP/1.x downloads. Retransmission, congestion control,
+fragment reassembly, DHCP, and HTTPS/TLS are not implemented. `wget` supports
+`http://` URLs only.
 
 ## QEMU validation assumptions
 

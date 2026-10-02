@@ -143,6 +143,9 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_CONNECT:
             return sys_connect(arg1, (const void *)arg2, arg3);
 
+        case LINUX_SYS_BIND:
+            return sys_bind(arg1, (const void *)arg2, arg3);
+
         case LINUX_SYS_SENDTO:
             return sys_sendto(arg1, (const void *)arg2, arg3, arg4, (const void *)arg5, arg6);
 
@@ -151,6 +154,9 @@ uint64_t syscall_dispatch(
 
         case LINUX_SYS_SETSOCKOPT:
             return sys_setsockopt(arg1, arg2, arg3, (const void *)arg4, arg5);
+
+        case LINUX_SYS_GETSOCKOPT:
+            return sys_getsockopt(arg1, arg2, arg3, (void *)arg4, (uint64_t *)arg5);
 
         case LINUX_SYS_CLONE: {
             /*
@@ -277,6 +283,9 @@ uint64_t syscall_dispatch(
 
         case LINUX_SYS_UNLINK:
             return sys_unlink((const char *)arg1);
+
+        case LINUX_SYS_UNLINKAT:
+            return sys_unlinkat((int)arg1, (const char *)arg2, (int)arg3);
 
         case LINUX_SYS_RENAME:
             return sys_rename((const char *)arg1, (const char *)arg2);

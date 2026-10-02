@@ -113,10 +113,44 @@ static void fill_stat_from_info(linux_stat_t *st, const vfs_stat_info_t *info) {
     st->st_mode = info->mode;
     st->st_uid = 0;
     st->st_gid = 0;
-    st->st_rdev = info->is_dir ? 0 : 1;
+    st->st_rdev = info->rdev ? info->rdev : (info->is_dir ? 0 : 1);
     st->st_size = (int64_t)info->size;
     st->st_blksize = 512;
     st->st_blocks = (info->size + 511) / 512;
+    st->st_atim = info->atim;
+    st->st_mtim = info->mtim;
+    st->st_ctim = info->ctim;
+}
+
+static uint64_t fat_datetime_to_unix(uint16_t date, uint16_t time) {
+    uint32_t year = 1980U + ((date >> 9) & 0x7FU);
+    uint32_t month = (date >> 5) & 0x0FU;
+    uint32_t day = date & 0x1FU;
+    uint32_t hour = (time >> 11) & 0x1FU;
+    uint32_t minute = (time >> 5) & 0x3FU;
+    uint32_t second = (time & 0x1FU) * 2U;
+
+    static const uint8_t month_days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if (month < 1 || month > 12 || day < 1 || day > 31 ||
+        hour > 23 || minute > 59 || second > 59)
+        return 0;
+
+    uint64_t days = 0;
+    for (uint32_t y = 1970; y < year; y++)
+        days += ((y % 4 == 0) && (y % 100 != 0 || y % 400 == 0)) ? 366 : 365;
+    for (uint32_t m = 1; m < month; m++) {
+        days += month_days[m - 1];
+        if (m == 2 && year % 4 == 0 && (year % 100 != 0 || year % 400 == 0))
+            days++;
+    }
+    days += day - 1;
+    return days * 86400ULL + hour * 3600ULL + minute * 60ULL + second;
+}
+
+static void set_stat_times(vfs_stat_info_t *info, uint64_t atime, uint64_t mtime, uint64_t ctime) {
+    info->atim.tv_sec = (int64_t)atime;
+    info->mtim.tv_sec = (int64_t)mtime;
+    info->ctim.tv_sec = (int64_t)ctime;
 }
 
 bool resolve_path_at(int dirfd, const char *path, char *out, size_t out_sz) {
@@ -174,13 +208,11 @@ bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *inf
             return true;
         }
 
-        vfs_file_t procf = {0};
-        snprintf(procf.rel_path, sizeof(procf.rel_path), "%s", res.rel_path);
-        procf.mnt = res.mnt;
-        if (procfs_open(&procf) != 0)
+        int proc_path_type = procfs_path_is_dir(res.rel_path);
+        if (proc_path_type < 0)
             return false;
-        info->is_dir = false;
-        info->mode = LINUX_S_IFREG | 0444;
+        info->is_dir = proc_path_type > 0;
+        info->mode = (info->is_dir ? LINUX_S_IFDIR : LINUX_S_IFREG) | 0555;
         info->size = 0;
         return true;
     }
@@ -218,6 +250,10 @@ bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *inf
         info->is_dir = false;
         info->mode = LINUX_S_IFCHR | 0666;
         info->size = 0;
+        if (strcmp(res.rel_path, "tty") == 0)
+            info->rdev = 0x500; /* /dev/tty: major 5, minor 0 */
+        else if (strcmp(res.rel_path, "tty1") == 0)
+            info->rdev = 0x401; /* /dev/tty1: major 4, minor 1 */
         return true;
     }
 
@@ -235,6 +271,11 @@ bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *inf
             return false;
         info->is_dir = (entry.attr & 0x10) != 0;
         info->size = entry.filesize;
+        uint64_t created = fat_datetime_to_unix(entry.creation_date, entry.creation_time);
+        set_stat_times(info,
+            fat_datetime_to_unix(entry.last_access_date, 0),
+            fat_datetime_to_unix(entry.last_mod_date, entry.last_mod_time),
+            created);
     } else if (res.mnt->type == FS_FAT32) {
         fat32_fs_t *fs = (fat32_fs_t *)res.mnt->fs;
         fat32_dir_entry_t entry = {0};
@@ -242,6 +283,11 @@ bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *inf
             return false;
         info->is_dir = (entry.attr & FAT_ATTR_DIRECTORY) != 0;
         info->size = entry.file_size;
+        uint64_t created = fat_datetime_to_unix(entry.creation_date, entry.creation_time);
+        set_stat_times(info,
+            fat_datetime_to_unix(entry.access_date, 0),
+            fat_datetime_to_unix(entry.write_date, entry.write_time),
+            created);
     } else if (res.mnt->type == FS_ISO9660) {
         iso9660_fs_t *fs = (iso9660_fs_t *)res.mnt->fs;
         iso9660_dirent_t entry = {0};
@@ -263,6 +309,7 @@ bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *inf
         info->size = inode.i_size;
         /* ext2 i_mode uses the same bits as Linux st_mode */
         info->mode = inode.i_mode;
+        set_stat_times(info, inode.i_atime, inode.i_mtime, inode.i_ctime);
         if ((info->mode & 0xF000) == 0)
             info->mode |= info->is_dir ? LINUX_S_IFDIR : LINUX_S_IFREG;
         return true;
@@ -282,11 +329,17 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
     info->exists = true;
     info->inode = (uint64_t)(fd + 1);
 
+    if (sys_socket_is_fd(fd)) {
+        info->mode = LINUX_S_IFSOCK | 0666;
+        return true;
+    }
+
     if (fd <= STDERR || fd_get_file(fd) == NULL) {
         info->is_dir = false;
         info->size = 0;
         info->mode = LINUX_S_IFCHR | 0666;
         info->inode = (uint64_t)(fd + 3);
+        info->rdev = 0x401; /* /dev/tty1: major 4, minor 1 */
         return true;
     }
 
@@ -309,10 +362,22 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
         case FS_FAT16:
             info->is_dir = (file->f.fat16.entry.attr & 0x10) != 0;
             info->size = file->f.fat16.entry.filesize;
+            set_stat_times(info,
+                fat_datetime_to_unix(file->f.fat16.entry.last_access_date, 0),
+                fat_datetime_to_unix(file->f.fat16.entry.last_mod_date,
+                    file->f.fat16.entry.last_mod_time),
+                fat_datetime_to_unix(file->f.fat16.entry.creation_date,
+                    file->f.fat16.entry.creation_time));
             break;
         case FS_FAT32:
             info->is_dir = (file->f.fat32.entry.attr & FAT_ATTR_DIRECTORY) != 0;
             info->size = file->f.fat32.entry.file_size;
+            set_stat_times(info,
+                fat_datetime_to_unix(file->f.fat32.entry.access_date, 0),
+                fat_datetime_to_unix(file->f.fat32.entry.write_date,
+                    file->f.fat32.entry.write_time),
+                fat_datetime_to_unix(file->f.fat32.entry.creation_date,
+                    file->f.fat32.entry.creation_time));
             break;
         case FS_ISO9660:
             info->is_dir = (file->f.iso9660.entry.flags & ISO9660_FLAG_DIR) != 0;
@@ -323,6 +388,8 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
             info->size = file->f.ext2.inode.i_size;
             info->inode = file->f.ext2.ino;
             info->mode = file->f.ext2.inode.i_mode;
+            set_stat_times(info, file->f.ext2.inode.i_atime,
+                file->f.ext2.inode.i_mtime, file->f.ext2.inode.i_ctime);
             return true;
         default:
             return false;
@@ -524,17 +591,47 @@ uint64 sys_mkdirat(int dirfd, const char *path, int mode) {
 }
 
 uint64_t sys_unlink(const char *user_path) {
-    char path[1024];
+    return sys_unlinkat(LINUX_AT_FDCWD, user_path, 0);
+}
 
-    if (strcpy(path, user_path) < 0)
+uint64 sys_unlinkat(int dirfd, const char *user_path, int flags) {
+    if (!user_path)
         return -LINUX_EFAULT;
+    if (flags & ~LINUX_AT_REMOVEDIR)
+        return -LINUX_EINVAL;
 
-    int ret = vfs_unlink(path);
+    char path[256];
+    if (!resolve_path_at(dirfd, user_path, path, sizeof(path)))
+        return -LINUX_EINVAL;
 
-    if (ret < 0)
-        return ret; // or translate to Linux errno if needed
+    vfs_stat_info_t info;
+    if (!fill_vfs_stat_for_path_at(LINUX_AT_FDCWD, path, &info))
+        return -LINUX_ENOENT;
+    if (strcmp(path, "/") == 0)
+        return -LINUX_EBUSY;
 
-    return 0;
+    int rc;
+    if (flags & LINUX_AT_REMOVEDIR) {
+        if (!info.is_dir)
+            return -LINUX_ENOTDIR;
+        rc = vfs_rmdir(path);
+    } else {
+        if (info.is_dir)
+            return -LINUX_EISDIR;
+        rc = vfs_unlink(path);
+    }
+
+    if (rc == 0)
+        return 0;
+    if (rc == EXT2_ERR_NOT_FOUND || rc == FAT_ERR_NOT_FOUND)
+        return -LINUX_ENOENT;
+    if (rc == EXT2_ERR_NOTEMPTY || rc == FAT_ERR_NOT_EMPTY)
+        return -LINUX_ENOTEMPTY;
+    if (rc == EXT2_ERR_ISDIR || rc == FAT_ERR_IS_DIR)
+        return -LINUX_EISDIR;
+    if (rc == EXT2_ERR_NOTDIR || rc == FAT_ERR_NOT_DIR)
+        return -LINUX_ENOTDIR;
+    return -LINUX_EIO;
 }
 
 uint64 sys_rename(const char *oldpath, const char *newpath) {
@@ -891,8 +988,8 @@ int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
     }
 
     if (file->mnt->type == FS_DEV) {
-        static const char *dev_entries[] = {"null", "zero", "random", "urandom", "klog", "syslog", "tty"};
-        const uint64_t fixed = 7;
+        static const char *dev_entries[] = {"null", "zero", "random", "urandom", "klog", "syslog", "tty", "tty1"};
+        const uint64_t fixed = sizeof(dev_entries) / sizeof(dev_entries[0]);
         uint64_t total = fixed;
         for (int i = 0; i < block_device_count; i++) {
             if (block_devices[i].present &&
@@ -1143,6 +1240,9 @@ uint64 sys_statx(int dirfd, const char *path, int flags, unsigned int mask, linu
     stx->stx_ino = st.st_ino;
     stx->stx_size = st.st_size;
     stx->stx_blocks = st.st_blocks;
+    stx->stx_atime = st.st_atim;
+    stx->stx_mtime = st.st_mtim;
+    stx->stx_ctime = st.st_ctim;
     return 0;
 }
 
@@ -1156,6 +1256,9 @@ uint64 sys_read(uint64_t fd, char *buf, uint64_t count) {
     int flags = fd_flags((int)fd);
     if (!(flags & VFS_RDONLY) && !(flags & VFS_RDWR))
         return -LINUX_EBADF;
+
+    if (sys_socket_is_fd((int)fd))
+        return sys_socket_read(fd, buf, count);
 
     vfs_file_t *file = fd_get_file((int)fd);
     if (fd == 0)
@@ -1178,6 +1281,9 @@ uint64 sys_write(uint64_t fd, const char *buf, uint64_t count) {
     int flags = fd_flags((int)fd);
     if (!(flags & VFS_WRONLY) && !(flags & VFS_RDWR))
         return -LINUX_EBADF;
+
+    if (sys_socket_is_fd((int)fd))
+        return sys_socket_write(fd, buf, count);
 
     vfs_file_t *file = fd_get_file((int)fd);
     if (file == NULL) {

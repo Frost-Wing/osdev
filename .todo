@@ -1,0 +1,17 @@
+1. acpi command
+    implement reading of battery and update the files
+
+==========
+3. Fix blodev command, it says
+    `blockdev: ioctl 80081272: Not a tty`
+
+4. Fix hwclock command it says,
+    `hwclock: ioctl 80247009: Not a tty`
+
+ping google.com inside the toybox results in
+Linux syscall: Unknown, returning -ENOSYS for (51)
+Linux syscall: Unknown, returning -ENOSYS for (47)
+
+5. in `ls -la` the time of virtual folders (like the place where disks in mounted) is wrong... its on default 1970-01-01, need make it current date or something ig
+
+=====
