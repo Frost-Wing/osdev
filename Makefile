@@ -224,10 +224,10 @@ root-disk:
 
 	@echo -e "$(INFO) $(WHITE)Creating GPT disk image...$(RESET)"
 	@rm -f disk.img
-	@truncate -s 80M disk.img
+	@truncate -s 4G disk.img
 
 	@parted -s disk.img mklabel gpt
-	@parted -s disk.img mkpart primary ext2 1MiB 65MiB
+	@parted -s disk.img mkpart primary ext2 1MiB 100%
 
 	@LOOP=$$(sudo losetup --find --show --partscan disk.img); \
 	echo -e "$(INFO) $(GRAY)Loop device: $$LOOP$(RESET)"; \

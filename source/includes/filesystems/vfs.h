@@ -59,6 +59,7 @@ extern char vfs_cwd[256];
  * @return 0 on success, negative on error
  */
 int vfs_open(const char *path, int flags, vfs_file_t *out_file);
+int vfs_readlink(const char *path, char *buf, uint32_t bufsiz);
 
 /**
  * @brief Read from an open file

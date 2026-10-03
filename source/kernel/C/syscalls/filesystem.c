@@ -268,7 +268,7 @@ bool resolve_path_at(int dirfd, const char *path, char *out, size_t out_sz) {
     return vfs_normalize_path(joined, out, out_sz) == 0;
 }
 
-bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *info) {
+static bool fill_vfs_stat_for_path_at_impl(int dirfd, const char *path, vfs_stat_info_t *info, bool nofollow) {
     if (!path || !info)
         return false;
 
@@ -438,7 +438,7 @@ bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *inf
         uint32_t ino = 0;
         ext2_inode_t inode;
         memset(&inode, 0, sizeof(inode));
-        if (ext2_find_path(fs, res.rel_path, &ino, &inode) != EXT2_OK)
+        if (ext2_find_path_ex(fs, res.rel_path, &ino, &inode, !nofollow) != EXT2_OK)
             return false;
 
         info->inode = ino;
@@ -456,6 +456,14 @@ bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *inf
 
     info->mode = (info->is_dir ? LINUX_S_IFDIR | 0755 : LINUX_S_IFREG | 0644);
     return true;
+}
+
+bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *info) {
+    return fill_vfs_stat_for_path_at_impl(dirfd, path, info, false);
+}
+
+bool fill_vfs_lstat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *info) {
+    return fill_vfs_stat_for_path_at_impl(dirfd, path, info, true);
 }
 
 static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
@@ -1379,7 +1387,9 @@ uint64 sys_newfstatat(int dirfd, const char *path, linux_stat_t *st, int flags) 
     if (!path)
         return -LINUX_EINVAL;
     vfs_stat_info_t info;
-    if (!fill_vfs_stat_for_path_at(dirfd, path, &info))
+    bool nofollow = (known & LINUX_AT_SYMLINK_NOFOLLOW) != 0;
+    if (!(nofollow ? fill_vfs_lstat_for_path_at(dirfd, path, &info) :
+              fill_vfs_stat_for_path_at(dirfd, path, &info)))
         return -LINUX_ENOENT;
     fill_stat_from_info(st, &info);
     return 0;

@@ -29,6 +29,7 @@
  * ## Memory management
  * - `mmap(2)`              -> `sys_mmap()`              -> `userland_mmap_anon()`
  * - `mprotect(2)`          -> `sys_mprotect()`          -> validation + no-op (current VM model)
+ * - `madvise(2)`           -> `sys_madvise()`           -> validates ranges and accepts basic access-pattern hints
  * - `munmap(2)`            -> `sys_munmap()`            -> validation + no-op (current VM model)
  * - `brk(2)`               -> `sys_brk()`               -> `userland_brk()`
  *

@@ -27,4 +27,8 @@ keys/private_key.pem
 fwtoolchain
 # Generated crash-diagnosis source map
 source/kernel/C/crash_symbols.generated.c
+
+# Get from separate repo in Frost-Wing Organization @ github
 fs_root
+fs_root.*
+disk.img

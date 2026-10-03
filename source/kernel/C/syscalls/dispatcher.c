@@ -87,6 +87,9 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_MPROTECT:
             return sys_mprotect(arg1, arg2, arg3);
 
+        case LINUX_SYS_MADVISE:
+            return sys_madvise(arg1, arg2, (int)arg3);
+
         case LINUX_SYS_RT_SIGACTION:
             return 0;
 

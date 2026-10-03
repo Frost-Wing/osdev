@@ -81,6 +81,7 @@ _Static_assert(sizeof(linux_sysinfo_t) == 112, "sysinfo ABI size");
 /* Cross-module helpers and implementations used by the central dispatcher. */
 bool resolve_path_at(int dirfd, const char *path, char *out, size_t out_sz);
 bool fill_vfs_stat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *info);
+bool fill_vfs_lstat_for_path_at(int dirfd, const char *path, vfs_stat_info_t *info);
 uint64 sys_set_file_times(const char *path, uint64_t atime, uint64_t mtime);
 uint64 copy_readlink_result(const char *target, char *buf, uint64_t bufsiz);
 bool path_is_loadable_elf(const char *path);
@@ -111,7 +112,7 @@ uint64 sys_utimes(const char *, const void *);
 uint64 sys_futimesat(int, const char *, const void *);
 uint64 sys_utimensat(int, const char *, const linux_timespec_t *, int);
 int sys_reboot(int, int, unsigned int, void *); int sys_kill(int, int); uint64 sys_syslog(int, char *, uint64_t);
-uint64 sys_mmap(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t); uint64 sys_mprotect(uint64_t, uint64_t, uint64_t); uint64 sys_brk(uint64_t); uint64 sys_munmap(uint64_t, uint64_t); uint64 sys_arch_prctl(uint64_t, uint64_t); uint64 sys_prlimit64(uint64_t, uint64_t, const linux_rlimit64_t *, linux_rlimit64_t *); uint64 sys_umask(uint64_t); uint64 sys_tgkill(uint64_t, uint64_t, uint64_t); uint64 sys_set_tid_address(uint64_t *); uint64 sys_set_robust_list(const void *, uint64_t); uint64 sys_getrandom(void *, uint64_t, uint64_t);
+uint64 sys_mmap(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t); uint64 sys_mprotect(uint64_t, uint64_t, uint64_t); uint64 sys_madvise(uint64_t, uint64_t, int); uint64 sys_brk(uint64_t); uint64 sys_munmap(uint64_t, uint64_t); uint64 sys_arch_prctl(uint64_t, uint64_t); uint64 sys_prlimit64(uint64_t, uint64_t, const linux_rlimit64_t *, linux_rlimit64_t *); uint64 sys_umask(uint64_t); uint64 sys_tgkill(uint64_t, uint64_t, uint64_t); uint64 sys_set_tid_address(uint64_t *); uint64 sys_set_robust_list(const void *, uint64_t); uint64 sys_getrandom(void *, uint64_t, uint64_t);
 uint64 sys_execve(const char *, char *const *, char *const *); uint64 sys_fork(void); uint64 sys_wait4(int64_t, int *, int, void *); uint64 sys_futex(uint32_t *, int, uint32_t, const linux_timespec_t *, uint32_t *, uint32_t);
 int fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out);
 uint64 sys_statfs(const char *path, linux_statfs_t *buf);

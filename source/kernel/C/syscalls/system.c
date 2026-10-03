@@ -120,7 +120,11 @@ uint64 sys_readlinkat(int dirfd,
         return copy_readlink_result(info.name, buf, bufsiz);
     }
 
-    return -LINUX_ENOENT;
+    if (!buf || bufsiz == 0)
+        return -LINUX_EINVAL;
+
+    int rc = vfs_readlink(resolved_path, buf, bufsiz > UINT32_MAX ? UINT32_MAX : (uint32_t)bufsiz);
+    return rc < 0 ? -LINUX_ENOENT : (uint64)rc;
 }
 
 uint64_t sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
@@ -380,8 +384,7 @@ uint64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, u
     bool anonymous = (flags & LINUX_MAP_ANONYMOUS) != 0;
 
     if (anonymous) {
-        if ((int64_t)fd != -1)
-            return -LINUX_EBADF;
+        /* Linux ignores fd for anonymous mappings. */
         mapped = (flags & LINUX_MAP_FIXED) ? userland_mmap_fixed(addr, length) : userland_mmap_anon(length);
     } else {
         if (!fd_valid((int)fd))
@@ -429,6 +432,42 @@ uint64 sys_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
     uint64_t end = addr + length;
     if (end < addr)
         return -LINUX_EINVAL;
+
+    bool in_image = (addr >= USER_CODE_VADDR && end <= USER_HEAP_VADDR);
+    bool in_heap = (addr >= USER_HEAP_VADDR && end <= (USER_HEAP_VADDR + USER_HEAP_SIZE));
+    bool in_mmap = (addr >= USER_MMAP_VADDR && end <= (USER_MMAP_VADDR + USER_MMAP_SIZE));
+    if (!in_image && !in_heap && !in_mmap)
+        return -LINUX_EINVAL;
+
+    return 0;
+}
+
+/**
+ * @brief Accept Linux's basic access-pattern hints for valid user mappings.
+ *
+ * The current VM layer has no page-replacement policy, so these hints do not
+ * change mapping behavior.
+ */
+uint64 sys_madvise(uint64_t addr, uint64_t length, int advice) {
+    switch (advice) {
+        case LINUX_MADV_NORMAL:
+        case LINUX_MADV_RANDOM:
+        case LINUX_MADV_SEQUENTIAL:
+        case LINUX_MADV_WILLNEED:
+            break;
+        default:
+            return -LINUX_EINVAL;
+    }
+
+    if ((addr & 0xFFFULL) != 0)
+        return -LINUX_EINVAL;
+
+    uint64_t end = addr + length;
+    if (end < addr)
+        return -LINUX_EINVAL;
+
+    if (length == 0)
+        return 0;
 
     bool in_image = (addr >= USER_CODE_VADDR && end <= USER_HEAP_VADDR);
     bool in_heap = (addr >= USER_HEAP_VADDR && end <= (USER_HEAP_VADDR + USER_HEAP_SIZE));

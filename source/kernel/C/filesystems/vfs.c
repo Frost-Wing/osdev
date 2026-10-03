@@ -240,6 +240,24 @@ void vfs_close(vfs_file_t *file) {
     }
 }
 
+int vfs_readlink(const char *path, char *buf, uint32_t bufsiz) {
+    if (!path || !buf || bufsiz == 0)
+        return -1;
+
+    char norm[256];
+    if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
+
+    vfs_mount_res_t res;
+    if (vfs_resolve_mount(norm, &res) != 0)
+        return -1;
+
+    if (res.mnt->type == FS_EXT2)
+        return ext2_readlink((ext2_fs_t *)res.mnt->fs, res.rel_path, buf, bufsiz);
+
+    return -1;
+}
+
 int vfs_path_is_dir(const char *path) {
     if (!path || !*path) {
         eprintf("path_is_dir: path is null or undefined");

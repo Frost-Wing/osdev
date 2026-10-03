@@ -943,48 +943,130 @@ static int ext2_split_first(const char *path, char *comp, size_t comp_sz, const 
     return 0;
 }
 
-int ext2_find_path(ext2_fs_t *fs, const char *path, uint32_t *out_ino, ext2_inode_t *out_inode) {
+int ext2_find_path_ex(ext2_fs_t *fs, const char *path, uint32_t *out_ino, ext2_inode_t *out_inode, bool follow_final) {
     if (!fs || !path)
         return EXT2_ERR_INVAL;
 
-    uint32_t cur_ino = EXT2_ROOT_INO;
+    char pending[256];
+    size_t path_len = strlen(path);
+    if (path_len >= sizeof(pending))
+        return EXT2_ERR_INVAL;
+    memcpy(pending, path, path_len + 1);
 
-    if (!*path || strcmp(path, "/") == 0) {
+    for (unsigned int followed = 0;;) {
+        uint32_t cur_ino = EXT2_ROOT_INO;
+        char resolved[256] = "/";
+        char comp[EXT2_NAME_LEN + 1];
+        const char *p = pending;
+        bool restart = false;
+
+        while (ext2_split_first(p, comp, sizeof(comp), &p) == 0) {
+            uint32_t next_ino;
+
+            int rc = ext2_find_in_dir(fs, cur_ino, comp, &next_ino, NULL);
+            if (rc != EXT2_OK)
+                return rc;
+
+            ext2_inode_t next;
+            if (ext2_read_inode(fs, next_ino, &next) != EXT2_OK)
+                return EXT2_ERR_IO;
+
+            if ((next.i_mode & EXT2_S_IFMT) == EXT2_S_IFLNK && (follow_final || *p)) {
+                if (followed++ >= 40)
+                    return EXT2_ERR_NOT_FOUND;
+
+                uint64_t target_size = ((uint64_t)next.i_size_high << 32) | next.i_size;
+                char target[256];
+                if (target_size == 0 || target_size >= sizeof(target))
+                    return EXT2_ERR_CORRUPT;
+
+                if (next.i_blocks == 0 && target_size <= sizeof(next.i_block)) {
+                    memcpy(target, next.i_block, (size_t)target_size);
+                } else {
+                    uint32_t copied = 0;
+                    while (copied < target_size) {
+                        uint32_t block = ext2_bmap(fs, &next, copied / fs->block_size, 0, 0);
+                        if (block == 0)
+                            return EXT2_ERR_IO;
+                        uint8_t block_data[EXT2_MAX_BLOCK_SIZE];
+                        if (ext2_read_block(fs, block, block_data) != EXT2_OK)
+                            return EXT2_ERR_IO;
+                        uint32_t in_block = copied % fs->block_size;
+                        uint32_t chunk = fs->block_size - in_block;
+                        if (chunk > target_size - copied)
+                            chunk = (uint32_t)(target_size - copied);
+                        memcpy(target + copied, block_data + in_block, chunk);
+                        copied += chunk;
+                    }
+                }
+                target[target_size] = '\0';
+                for (uint64_t i = 0; i < target_size; ++i) {
+                    if (target[i] == '\0')
+                        return EXT2_ERR_CORRUPT;
+                }
+
+                char rewritten[sizeof(pending)];
+                size_t used = 0;
+                if (target[0] == '/') {
+                    memcpy(rewritten, target, (size_t)target_size);
+                    used = (size_t)target_size;
+                } else {
+                    size_t resolved_len = strlen(resolved);
+                    size_t separator = resolved_len == 0 || resolved[resolved_len - 1] != '/';
+                    if (resolved_len + separator + target_size >= sizeof(rewritten))
+                        return EXT2_ERR_INVAL;
+                    memcpy(rewritten, resolved, resolved_len);
+                    used = resolved_len;
+                    if (separator)
+                        rewritten[used++] = '/';
+                    memcpy(rewritten + used, target, (size_t)target_size);
+                    used += (size_t)target_size;
+                }
+
+                if (*p) {
+                    if (rewritten[used - 1] != '/')
+                        rewritten[used++] = '/';
+                    size_t rest_len = strlen(p);
+                    if (rest_len >= sizeof(rewritten) - used)
+                        return EXT2_ERR_INVAL;
+                    memcpy(rewritten + used, p, rest_len);
+                    used += rest_len;
+                }
+                if (used >= sizeof(rewritten))
+                    return EXT2_ERR_INVAL;
+                rewritten[used] = '\0';
+                memcpy(pending, rewritten, used + 1);
+                restart = true;
+                break;
+            }
+
+            if (*p && (next.i_mode & EXT2_S_IFMT) != EXT2_S_IFDIR)
+                return EXT2_ERR_NOTDIR;
+
+            size_t resolved_len = strlen(resolved);
+            size_t comp_len = strlen(comp);
+            size_t separator = resolved_len > 1 ? 1 : 0;
+            if (resolved_len + separator + comp_len >= sizeof(resolved))
+                return EXT2_ERR_INVAL;
+            if (separator)
+                resolved[resolved_len++] = '/';
+            memcpy(resolved + resolved_len, comp, comp_len + 1);
+            cur_ino = next_ino;
+        }
+
+        if (restart)
+            continue;
+
         if (out_ino)
             *out_ino = cur_ino;
-        if (out_inode)
-            ext2_read_inode(fs, cur_ino, out_inode);
+        if (out_inode && ext2_read_inode(fs, cur_ino, out_inode) != EXT2_OK)
+            return EXT2_ERR_IO;
         return EXT2_OK;
     }
+}
 
-    char comp[EXT2_NAME_LEN + 1];
-    const char *p = path;
-
-    while (ext2_split_first(p, comp, sizeof(comp), &p) == 0) {
-        uint32_t next_ino;
-        uint8_t type;
-
-        int rc = ext2_find_in_dir(fs, cur_ino, comp, &next_ino, &type);
-        if (rc != EXT2_OK)
-            return rc;
-
-        cur_ino = next_ino;
-
-        /* If there's more path left, this component must be a directory */
-        if (*p) {
-            ext2_inode_t tmp;
-            if (ext2_read_inode(fs, cur_ino, &tmp) != EXT2_OK)
-                return EXT2_ERR_IO;
-            if ((tmp.i_mode & EXT2_S_IFMT) != EXT2_S_IFDIR)
-                return EXT2_ERR_NOTDIR;
-        }
-    }
-
-    if (out_ino)
-        *out_ino = cur_ino;
-    if (out_inode)
-        ext2_read_inode(fs, cur_ino, out_inode);
-    return EXT2_OK;
+int ext2_find_path(ext2_fs_t *fs, const char *path, uint32_t *out_ino, ext2_inode_t *out_inode) {
+    return ext2_find_path_ex(fs, path, out_ino, out_inode, true);
 }
 
 /* Resolve the parent directory of `path` and copy the final component into `name_out`. */
@@ -1024,6 +1106,51 @@ static int ext2_find_parent(ext2_fs_t *fs, const char *path, uint32_t *out_paren
         strcpy(parent_path, "/");
 
     return ext2_find_path(fs, parent_path, out_parent_ino, NULL);
+}
+
+int ext2_readlink(ext2_fs_t *fs, const char *path, char *buf, uint32_t bufsiz) {
+    if (!fs || !path || !buf || bufsiz == 0)
+        return EXT2_ERR_INVAL;
+
+    char name[EXT2_NAME_LEN + 1];
+    uint32_t parent_ino;
+    if (ext2_find_parent(fs, path, &parent_ino, name, sizeof(name)) != EXT2_OK)
+        return EXT2_ERR_NOT_FOUND;
+
+    uint32_t ino;
+    if (ext2_find_in_dir(fs, parent_ino, name, &ino, NULL) != EXT2_OK)
+        return EXT2_ERR_NOT_FOUND;
+
+    ext2_inode_t inode;
+    if (ext2_read_inode(fs, ino, &inode) != EXT2_OK)
+        return EXT2_ERR_IO;
+    if ((inode.i_mode & EXT2_S_IFMT) != EXT2_S_IFLNK)
+        return EXT2_ERR_INVAL;
+
+    uint64_t target_size = ((uint64_t)inode.i_size_high << 32) | inode.i_size;
+    if (target_size > bufsiz)
+        target_size = bufsiz;
+    if (inode.i_blocks == 0 && target_size <= sizeof(inode.i_block)) {
+        memcpy(buf, inode.i_block, (size_t)target_size);
+        return (int)target_size;
+    }
+
+    uint32_t copied = 0;
+    while (copied < target_size) {
+        uint32_t block = ext2_bmap(fs, &inode, copied / fs->block_size, 0, 0);
+        if (block == 0)
+            return EXT2_ERR_IO;
+        uint8_t block_data[EXT2_MAX_BLOCK_SIZE];
+        if (ext2_read_block(fs, block, block_data) != EXT2_OK)
+            return EXT2_ERR_IO;
+        uint32_t in_block = copied % fs->block_size;
+        uint32_t chunk = fs->block_size - in_block;
+        if (chunk > target_size - copied)
+            chunk = (uint32_t)(target_size - copied);
+        memcpy(buf + copied, block_data + in_block, chunk);
+        copied += chunk;
+    }
+    return (int)copied;
 }
 
 /* ===================== open / create / read / write / close ===================== */

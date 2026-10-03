@@ -7,8 +7,22 @@
     "doxdocgen.generic.authorTag": "@author {author} ({email})",
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/source",
-        "--background-index",
-        "--clang-tidy",
-        "--header-insertion=iwyu"
-    ]
+        "--background-index-priority=low",
+        "--limit-results=100",
+        "-j=4"
+    ],
+    "files.watcherExclude": {
+    "**/fs_root/**": true,
+    "**/fs_root.bak/**": true,
+    "**/docs/**": true,
+    "**/firmware/**": true,
+    "**/limine/**": true,
+    "**/obj/**": true,
+    "**/*.o": true,
+    "**/*.iso": true
+    },
+    "search.exclude": {
+    "**/fs_root": true,
+    "**/docs": true
+    }
 }
