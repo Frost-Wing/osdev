@@ -45,7 +45,7 @@
  * - `poll(2)`              -> `sys_poll()`              -> UDP/ICMP socket readiness and descriptor validation
  * - `connect(2)`           -> `sys_connect()`           -> UDP peer selection or TCP handshake
  * - `sendto(2)` / `recvfrom(2)` -> `sys_sendto()` / `sys_recvfrom()` -> ICMP, UDP, and TCP data paths
- * - `recvmsg(2)` / `getsockname(2)` -> socket receive and local-address queries
+ * - `recvmsg(2)` / `getsockname(2)` -> socket receive (including `IP_RECVTTL`) and local-address queries
  * - `SIOCGIF*` ioctls       -> basic `lo` and `eth0` interface information
  * - socket `read(2)` / `write(2)` -> socket receive/send paths
  *
