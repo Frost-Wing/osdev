@@ -620,10 +620,9 @@ static void *elf_load_image(const elf_src_t *src, uint64_t dyn_base, bool is_int
         goto out;
     }
 
-    if (!is_interp)
+    info->phdr_addr = elf_runtime_addr_for_offset(phdrs, header.e_phnum, header.e_phoff, bias);
+    if (!is_interp && info->phdr_addr == 0)
         info->phdr_addr = elf_stage_phdrs_for_user(phdrs, phdr_bytes);
-    if (info->phdr_addr == 0)
-        info->phdr_addr = elf_runtime_addr_for_offset(phdrs, header.e_phnum, header.e_phoff, bias);
 
     if (elf_load_tls_template(src, info) != 0)
         goto out;

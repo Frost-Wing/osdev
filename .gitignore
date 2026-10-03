@@ -21,6 +21,8 @@ keys/private_key.pem
 *.bin
 *.raw
 *.so
+!fs_root/lib/*.so
+!fs_root/lib64/*.so
 *.img.tar.gz
 fwtoolchain
 # Generated crash-diagnosis source map

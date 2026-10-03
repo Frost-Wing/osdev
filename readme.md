@@ -75,6 +75,29 @@ concept of the FrostWing Operating System.
 
 **AND MUCH MORE...**
 
+### Dynamically linked user programs
+
+FrostWing's ELF loader supports x86-64 ELF interpreters and starts the program's
+interpreter; dynamically linked programs must also have every `DT_NEEDED`
+library available in the root filesystem. Build a musl-linked program with its
+normal dynamic defaults, then stage it and its dependencies before creating the
+root disk:
+
+```sh
+musl-gcc input.c -o input
+./scripts/stage-elf.py ./input
+make root-disk
+```
+
+The staging helper inspects ELF metadata without executing the input, copies the
+program to `fs_root/bin`, and places its interpreter and recursive shared-library
+dependencies under `fs_root/lib` or `fs_root/lib64` according to the interpreter
+path. `make root-disk` replaces the existing `disk.img`, so back up any data on
+that image first. Review the staged files before distributing an image. This supports
+musl-linked x86-64 programs to the extent of FrostWing's Linux syscall
+compatibility; copying a glibc executable and its libraries does not make
+arbitrary Linux/glibc programs compatible.
+
 ### Getting started
 [*Please refer wiki for steps for compiling**](https://github.com/Frost-Wing/osdev/wiki)
 
