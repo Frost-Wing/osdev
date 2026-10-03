@@ -1,0 +1,15 @@
+E=$(printf '\033')
+
+# Prompt: green user, blue path
+PS1="${E}[1;32m\u${E}[0m ${E}[1;34m\w${E}[0m \$ "
+
+# ls and grep
+alias ls='ls --color=auto'
+alias ll='ls -l --color=auto'
+alias grep='grep --color=auto'
+
+# ls colors (dirs, links, executables, archives, images, etc.)
+LS_COLORS='di=1;34:ln=1;36:ex=1;32:or=1;31:*.tar=1;31:*.gz=1;31:*.zip=1;31:*.png=1;35:*.jpg=1;35:*.c=33:*.h=33:*.sh=1;32'
+export LS_COLORS
+
+unset E

@@ -121,6 +121,18 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_WRITEV:
             return sys_writev(arg1, (linux_iovec_t *)arg2, arg3);
 
+        case LINUX_SYS_PIPE: {
+            if (!arg1)
+                return -LINUX_EFAULT;
+            int fds[2];
+            int rc = fd_pipe_create(fds);
+            if (rc != 0)
+                return -LINUX_ENFILE;
+            ((int *)arg1)[0] = fds[0];
+            ((int *)arg1)[1] = fds[1];
+            return 0;
+        }
+
         case LINUX_SYS_DUP:
             return sys_dup(arg1);
 

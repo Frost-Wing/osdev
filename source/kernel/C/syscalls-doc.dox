@@ -8,6 +8,7 @@
  * ## Core mapping
  * - `read(2)`              -> `sys_read()`              -> `vfs_read()` / `tty_read()`
  * - `write(2)`             -> `sys_write()`             -> `vfs_write()` / `putc()`
+ * - `pipe(2)`              -> `fd_pipe_create()`        -> bounded in-kernel byte stream
  * - `open(2)` / `openat(2)`-> `sys_open_common()`       -> `fd_open()`
  * - `close(2)`             -> `sys_close()`             -> `fd_close()`
  * - `unlinkat(2)`          -> `sys_unlinkat()`          -> file unlink or empty-directory removal

@@ -466,6 +466,11 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
     info->exists = true;
     info->inode = (uint64_t)(fd + 1);
 
+    if (fd_is_pipe(fd)) {
+        info->mode = LINUX_S_IFIFO | 0600;
+        return true;
+    }
+
     if (sys_socket_is_fd(fd)) {
         info->mode = LINUX_S_IFSOCK | 0666;
         return true;
@@ -1417,6 +1422,11 @@ uint64 sys_read(uint64_t fd, char *buf, uint64_t count) {
     if (!(flags & VFS_RDONLY) && !(flags & VFS_RDWR))
         return -LINUX_EBADF;
 
+    if (fd_is_pipe((int)fd)) {
+        int rd = fd_pipe_read((int)fd, buf, count > INT32_MAX ? INT32_MAX : (size_t)count);
+        return rd < 0 ? (uint64)(int64_t)rd : (uint64)rd;
+    }
+
     if (sys_socket_is_fd((int)fd))
         return sys_socket_read(fd, buf, count);
 
@@ -1441,6 +1451,11 @@ uint64 sys_write(uint64_t fd, const char *buf, uint64_t count) {
     int flags = fd_flags((int)fd);
     if (!(flags & VFS_WRONLY) && !(flags & VFS_RDWR))
         return -LINUX_EBADF;
+
+    if (fd_is_pipe((int)fd)) {
+        int wr = fd_pipe_write((int)fd, buf, count > INT32_MAX ? INT32_MAX : (size_t)count);
+        return wr < 0 ? -LINUX_EPIPE : (uint64)wr;
+    }
 
     if (sys_socket_is_fd((int)fd))
         return sys_socket_write(fd, buf, count);
