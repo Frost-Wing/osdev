@@ -98,6 +98,7 @@ uint64 sys_fstat(uint64_t, linux_stat_t *); uint64 sys_stat(const char *, linux_
 uint64 sys_newfstatat(int, const char *, linux_stat_t *, int); uint64 sys_statx(int, const char *, int, unsigned int, linux_statx_t *);
 uint64 sys_read(uint64_t, char *, uint64_t); uint64 sys_write(uint64_t, const char *, uint64_t); uint64 sys_writev(uint64_t, const linux_iovec_t *, uint64_t);
 uint64 sys_socket(uint64_t, uint64_t, uint64_t); uint64 sys_connect(uint64_t, const void *, uint64_t);
+uint64 sys_poll(void *, uint64_t, int);
 uint64 sys_getsockname(uint64_t, void *, uint64_t *);
 uint64 sys_recvmsg(uint64_t, void *, uint64_t);
 uint64 sys_bind(uint64_t, const void *, uint64_t);

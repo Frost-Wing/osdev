@@ -94,11 +94,15 @@ int icmp_ping(net_ipv4_t dst, uint16 id, uint16 seq, uint32 timeout_ticks);
 void udp_input(net_ipv4_t src, const uint8 *payload, size_t len);
 int udp_send(net_ipv4_t dst, uint16 src_port, uint16 dst_port, const void *data, size_t len);
 int udp_recv(uint16 port, net_ipv4_t *src, uint16 *src_port, uint8 *buf, size_t *len, uint32 timeout_ticks);
+bool udp_has_data(uint16 port);
 
 int dns_resolve(const char *host, net_ipv4_t *out_ip);
 int tcp_connect(net_ipv4_t dst, uint16 dst_port);
 int tcp_send(int sock, const void *data, size_t len);
 int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout_ticks);
+bool tcp_has_data(int sock);
+bool tcp_is_closed(int sock);
+bool tcp_is_connected(int sock);
 void tcp_close(int sock);
 void tcp_input(net_ipv4_t src, const uint8 *payload, size_t len);
 

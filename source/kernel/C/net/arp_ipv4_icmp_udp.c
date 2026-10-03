@@ -310,13 +310,20 @@ int udp_send(net_ipv4_t dst, uint16 sport, uint16 dport, const void *data, size_
     return ipv4_send(dst, IP_UDP, b, len + 8);
 }
 
+bool udp_has_data(uint16 port) {
+    for (int i = 0; i < 8; i++)
+        if (udpq[i].used && udpq[i].dport == port)
+            return true;
+    return false;
+}
+
 // `timeout` is now a millisecond duration, measured against real pit_ticks.
 // IMPORTANT: dns_resolve() in net.c calls this -- make sure that call site
 // passes a real ms value (e.g. 400) rather than the old raw spin count
 // (400000), or DNS lookups will time out almost instantly.
 int udp_recv(uint16 port, net_ipv4_t *src, uint16 *sport, uint8 *buf, size_t *len, uint32 timeout) {
     uint64_t deadline = pit_ticks + ms_to_ticks(timeout);
-    while (pit_ticks < deadline) {
+    for (;;) {
         netif_poll();
         for (int i = 0; i < 8; i++)
             if (udpq[i].used && udpq[i].dport == port) {
@@ -332,6 +339,8 @@ int udp_recv(uint16 port, net_ipv4_t *src, uint16 *sport, uint8 *buf, size_t *le
                 udpq[i].used = false;
                 return NET_OK;
             }
+        if (timeout == 0 || pit_ticks >= deadline)
+            break;
         asm volatile("hlt");
     }
     return NET_ETIMEDOUT;
