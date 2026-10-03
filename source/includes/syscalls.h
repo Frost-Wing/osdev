@@ -54,6 +54,7 @@ typedef struct {
 #define LINUX_SYS_RT_SIGPROCMASK 14
 #define LINUX_SYS_IOCTL 16
 #define LINUX_SYS_ACCESS 21
+#define LINUX_SYS_PIPE 22
 #define LINUX_SYS_WRITEV 20
 #define LINUX_SYS_DUP 32
 #define LINUX_SYS_DUP2 33
@@ -143,6 +144,7 @@ typedef struct {
 #define LINUX_ENOTTY 25
 #define LINUX_ENOSPC 28
 #define LINUX_EIO 5
+#define LINUX_EPIPE 32
 #define LINUX_ENOSYS 38
 #define LINUX_ENFILE 23
 #define LINUX_ENOENT 2
@@ -182,6 +184,7 @@ typedef struct {
 #define LINUX_MAP_ANONYMOUS 0x20
 
 #define LINUX_S_IFMT 00170000
+#define LINUX_S_IFIFO 0010000
 #define LINUX_S_IFDIR 0040000
 #define LINUX_S_IFREG 0100000
 #define LINUX_S_IFCHR 0020000

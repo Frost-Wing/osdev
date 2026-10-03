@@ -14,6 +14,7 @@
 #include <flanterm/flanterm.h>
 #include <graphics.h> // flanterm
 #include <memory.h>
+#include <multitasking.h>
 #include <stream.h>
 
 extern struct flanterm_context *ft_ctx;
@@ -25,12 +26,24 @@ typedef struct {
 
 typedef struct {
     bool used;
+    size_t read_pos;
+    size_t write_pos;
+    size_t count;
+    size_t readers;
+    size_t writers;
+    uint8_t data[4096];
+} fd_pipe_t;
+
+typedef struct {
+    bool used;
     int ref_count;
     bool owns_file;
     int flags;
     vfs_file_t *file;
     vfs_file_t storage;
     char path[256];
+    fd_pipe_t *pipe;
+    bool pipe_reader;
 } fd_object_t;
 
 typedef struct {
@@ -41,6 +54,7 @@ typedef struct {
 static stream_impl_t streams[3];
 static fd_entry_t fd_table[STREAM_MAX_FDS];
 static fd_object_t fd_objects[STREAM_MAX_FDS];
+static fd_pipe_t fd_pipes[16];
 static bool fd_initialized = false;
 
 static fd_object_t *fd_object_alloc(vfs_file_t *file, bool owns_file, int flags) {
@@ -75,6 +89,15 @@ static void fd_object_release(fd_object_t *object) {
     object->ref_count--;
     if (object->ref_count > 0)
         return;
+
+    if (object->pipe) {
+        if (object->pipe_reader)
+            object->pipe->readers--;
+        else
+            object->pipe->writers--;
+        if (object->pipe->readers == 0 && object->pipe->writers == 0)
+            memset(object->pipe, 0, sizeof(*object->pipe));
+    }
 
     if (object->owns_file && object->file && object->file->mnt)
         vfs_close(object->file);
@@ -153,6 +176,7 @@ void fd_table_init(void) {
     memset(streams, 0, sizeof(streams));
     memset(fd_table, 0, sizeof(fd_table));
     memset(fd_objects, 0, sizeof(fd_objects));
+    memset(fd_pipes, 0, sizeof(fd_pipes));
 
     for (int i = STDIN; i <= STDERR; ++i) {
         streams[i].index = i;
@@ -321,4 +345,112 @@ uint32_t *fd_pos_ptr(int fd) {
         default:
             return NULL;
     }
+}
+
+int fd_pipe_create(int fds[2]) {
+    if (!fds)
+        return -1;
+
+    int read_fd = fd_alloc_slot();
+    if (read_fd < 0)
+        return -1;
+    int write_fd = -1;
+    for (int fd = read_fd + 1; fd < STREAM_MAX_FDS; ++fd) {
+        if (!fd_table[fd].used) {
+            write_fd = fd;
+            break;
+        }
+    }
+    if (write_fd < 0)
+        return -1;
+
+    fd_pipe_t *pipe = NULL;
+    for (size_t i = 0; i < sizeof(fd_pipes) / sizeof(fd_pipes[0]); ++i) {
+        if (!fd_pipes[i].used) {
+            pipe = &fd_pipes[i];
+            break;
+        }
+    }
+    if (!pipe)
+        return -1;
+
+    fd_object_t *reader = fd_object_alloc(NULL, false, VFS_RDONLY);
+    fd_object_t *writer = fd_object_alloc(NULL, false, VFS_WRONLY);
+    if (!reader || !writer) {
+        fd_object_release(reader);
+        fd_object_release(writer);
+        return -1;
+    }
+
+    memset(pipe, 0, sizeof(*pipe));
+    pipe->used = true;
+    pipe->readers = 1;
+    pipe->writers = 1;
+
+    reader->pipe = pipe;
+    reader->pipe_reader = true;
+    writer->pipe = pipe;
+    writer->pipe_reader = false;
+
+    fd_table[read_fd].used = true;
+    fd_table[read_fd].object = reader;
+    fd_table[write_fd].used = true;
+    fd_table[write_fd].object = writer;
+    fds[0] = read_fd;
+    fds[1] = write_fd;
+    return 0;
+}
+
+bool fd_is_pipe(int fd) {
+    return fd_valid(fd) && fd_table[fd].object &&
+        fd_table[fd].object->pipe != NULL;
+}
+
+int fd_pipe_read(int fd, void *buf, size_t count) {
+    if (!fd_is_pipe(fd) || !fd_table[fd].object->pipe_reader || !buf)
+        return -1;
+
+    fd_pipe_t *pipe = fd_table[fd].object->pipe;
+    while (pipe->count == 0 && pipe->writers > 0)
+        multitasking_yield();
+    if (pipe->count == 0)
+        return 0;
+
+    size_t bytes = count < pipe->count ? count : pipe->count;
+    uint8_t *out = (uint8_t *)buf;
+    for (size_t i = 0; i < bytes; ++i) {
+        out[i] = pipe->data[pipe->read_pos];
+        pipe->read_pos = (pipe->read_pos + 1) % sizeof(pipe->data);
+    }
+    pipe->count -= bytes;
+    return (int)bytes;
+}
+
+int fd_pipe_write(int fd, const void *buf, size_t count) {
+    if (!fd_is_pipe(fd) || fd_table[fd].object->pipe_reader || !buf)
+        return -1;
+
+    fd_pipe_t *pipe = fd_table[fd].object->pipe;
+    const uint8_t *in = (const uint8_t *)buf;
+    size_t written = 0;
+    while (written < count) {
+        if (pipe->readers == 0)
+            return written ? (int)written : -1;
+        while (pipe->count == sizeof(pipe->data) && pipe->readers > 0)
+            multitasking_yield();
+        if (pipe->readers == 0)
+            return written ? (int)written : -1;
+
+        size_t available = sizeof(pipe->data) - pipe->count;
+        size_t bytes = count - written;
+        if (bytes > available)
+            bytes = available;
+        for (size_t i = 0; i < bytes; ++i) {
+            pipe->data[pipe->write_pos] = in[written + i];
+            pipe->write_pos = (pipe->write_pos + 1) % sizeof(pipe->data);
+        }
+        pipe->count += bytes;
+        written += bytes;
+    }
+    return (int)written;
 }
