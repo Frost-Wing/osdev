@@ -27,3 +27,4 @@ keys/private_key.pem
 fwtoolchain
 # Generated crash-diagnosis source map
 source/kernel/C/crash_symbols.generated.c
+fs_root
