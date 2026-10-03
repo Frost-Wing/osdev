@@ -627,8 +627,9 @@ static void *elf_load_image(const elf_src_t *src, uint64_t dyn_base, bool is_int
     if (elf_load_tls_template(src, info) != 0)
         goto out;
 
-    /* With an interpreter, ld.so relocates the program itself. */
-    if (!info->has_interp && elf_apply_runtime_relocations(bias, phdrs, header.e_phnum, rlo, rhi) != 0)
+    /* The interpreter applies its own relocations and those of the main image. */
+    if (!is_interp && !info->has_interp &&
+        elf_apply_runtime_relocations(bias, phdrs, header.e_phnum, rlo, rhi) != 0)
         goto out;
 
     entry = (void *)info->entry;
