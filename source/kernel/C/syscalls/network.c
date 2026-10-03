@@ -1,6 +1,7 @@
 #include <flanterm/flanterm.h>
 #include <syscalls/internal.h>
 #include <limine.h>
+#include <pit.h>
 
 #define LINUX_AF_INET 2
 #define LINUX_SOCK_STREAM 1
@@ -20,6 +21,11 @@
 #define LINUX_SO_BROADCAST 6
 #define LINUX_SO_REUSEADDR 2
 #define LINUX_IP_TTL 2
+
+#define LINUX_POLLIN 0x001
+#define LINUX_POLLOUT 0x004
+#define LINUX_POLLHUP 0x010
+#define LINUX_POLLNVAL 0x020
 
 #define SOCKET_TIMEOUT_DEFAULT_MS 30000U
 #define SOCKET_TIMEOUT_MAX_MS 60000U
@@ -99,6 +105,12 @@ typedef struct {
 static linux_socket_t linux_sockets[16];
 static uint16_t next_socket_port = SOCKET_PORT_FIRST;
 
+typedef struct {
+    int fd;
+    short events;
+    short revents;
+} linux_pollfd_t;
+
 static uint16_t socket_allocate_port(void) {
     uint16_t port = next_socket_port++;
     if (next_socket_port < SOCKET_PORT_FIRST)
@@ -143,6 +155,66 @@ void sys_socket_dup(int oldfd, int newfd) {
 
 bool sys_socket_is_fd(int fd) {
     return linux_socket_by_fd(fd) != NULL;
+}
+
+static short socket_poll_events(linux_socket_t *sock, short events) {
+    short revents = 0;
+    if (sock->protocol == LINUX_IPPROTO_UDP) {
+        if ((events & LINUX_POLLIN) && udp_has_data(sock->local_port))
+            revents |= LINUX_POLLIN;
+        if (events & LINUX_POLLOUT)
+            revents |= LINUX_POLLOUT;
+    } else if (sock->protocol == LINUX_IPPROTO_ICMP) {
+        if ((events & LINUX_POLLIN) && sock->reply_len)
+            revents |= LINUX_POLLIN;
+        if (events & LINUX_POLLOUT)
+            revents |= LINUX_POLLOUT;
+    } else if (sock->tcp_id >= 0) {
+        if ((events & LINUX_POLLIN) &&
+            (tcp_has_data(sock->tcp_id) || tcp_is_closed(sock->tcp_id)))
+            revents |= LINUX_POLLIN;
+        if ((events & LINUX_POLLOUT) && tcp_is_connected(sock->tcp_id))
+            revents |= LINUX_POLLOUT;
+        if (tcp_is_closed(sock->tcp_id))
+            revents |= LINUX_POLLHUP;
+    }
+    return revents;
+}
+
+uint64 sys_poll(void *pollfds, uint64_t nfds, int timeout_ms) {
+    if (nfds && !pollfds)
+        return -LINUX_EFAULT;
+    if (nfds > STREAM_MAX_FDS)
+        return -LINUX_EINVAL;
+
+    linux_pollfd_t *fds = (linux_pollfd_t *)pollfds;
+    uint64_t deadline = pit_ticks;
+    if (timeout_ms > 0)
+        deadline += ((uint64_t)timeout_ms + 9) / 10;
+
+    for (;;) {
+        netif_poll();
+        uint64_t ready = 0;
+        for (uint64_t i = 0; i < nfds; i++) {
+            fds[i].revents = 0;
+            if (fds[i].fd < 0)
+                continue;
+
+            linux_socket_t *sock = linux_socket_by_fd(fds[i].fd);
+            if (sock) {
+                fds[i].revents = socket_poll_events(sock, fds[i].events);
+            } else if (!fd_valid(fds[i].fd)) {
+                fds[i].revents = LINUX_POLLNVAL;
+            } else {
+                fds[i].revents = fds[i].events;
+            }
+            if (fds[i].revents)
+                ready++;
+        }
+        if (ready || timeout_ms == 0 || (timeout_ms > 0 && pit_ticks >= deadline))
+            return ready;
+        asm volatile("hlt");
+    }
 }
 
 uint64 sys_socket(uint64_t domain, uint64_t type, uint64_t protocol) {

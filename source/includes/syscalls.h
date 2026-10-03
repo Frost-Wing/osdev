@@ -45,6 +45,7 @@ typedef struct {
 #define LINUX_SYS_STAT 4
 #define LINUX_SYS_FSTAT 5
 #define LINUX_SYS_LSTAT 6
+#define LINUX_SYS_POLL 7
 #define LINUX_SYS_LSEEK 8
 #define LINUX_SYS_MMAP 9
 #define LINUX_SYS_MPROTECT 10

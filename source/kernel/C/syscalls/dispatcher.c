@@ -352,21 +352,8 @@ uint64_t syscall_dispatch(
             return 0;
         }
 
-        case 7: {
-            struct pollfd {
-                int fd;
-                short events;
-                short revents;
-            };
-
-            struct pollfd *fds = (struct pollfd *)arg1;
-
-            for (int i = 0; i < arg2; i++) {
-                fds[i].revents = fds[i].events; // pretend ready
-            }
-
-            return arg2;
-        }
+        case LINUX_SYS_POLL:
+            return sys_poll((void *)arg1, arg2, (int)arg3);
         default:
             printf(linux_syscalls_prefix "Unknown, returning -ENOSYS for (%u)", nr);
             return -LINUX_ENOSYS;

@@ -237,6 +237,22 @@ int tcp_send(int sock, const void *data, size_t len) {
     return (int)sent;
 }
 
+bool tcp_has_data(int sock) {
+    return sock >= 0 && sock < NET_TCP_MAX_SOCKETS &&
+        tcp_socks[sock].used && tcp_socks[sock].rx_len != 0;
+}
+
+bool tcp_is_closed(int sock) {
+    return sock >= 0 && sock < NET_TCP_MAX_SOCKETS &&
+        tcp_socks[sock].used && tcp_socks[sock].fin;
+}
+
+bool tcp_is_connected(int sock) {
+    return sock >= 0 && sock < NET_TCP_MAX_SOCKETS &&
+        tcp_socks[sock].used && tcp_socks[sock].state == TCP_SOCK_ESTABLISHED &&
+        !tcp_socks[sock].fin;
+}
+
 // `timeout` is now a millisecond duration, measured against real pit_ticks
 // instead of a raw spin-loop iteration count.
 int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout) {
@@ -245,7 +261,7 @@ int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout) {
     struct tcp_sock *s = &tcp_socks[sock];
 
     uint64_t deadline = pit_ticks + ms_to_ticks(timeout);
-    while (pit_ticks < deadline) {
+    for (;;) {
         netif_poll();
         if (s->rx_len) {
             size_t n = s->rx_len;
@@ -259,6 +275,8 @@ int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout) {
             return NET_OK;
         }
         if (s->fin)
+            break;
+        if (timeout == 0 || pit_ticks >= deadline)
             break;
         asm volatile("hlt");
     }
