@@ -1,4 +1,5 @@
 #include <syscalls/internal.h>
+#include <pit.h>
 
 uint64 sys_access_common(int dirfd, const char *path, int mode) {
     (void)mode;
@@ -133,9 +134,10 @@ uint64_t sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
             return 0;
 
         case LINUX_CLOCK_MONOTONIC: {
-            uint64_t ticks = multitasking_now_ticks();
-            tp->tv_sec = ticks / 100; // PIT FREQUENCY HERE
-            tp->tv_nsec = (ticks % 100) * (1000000000ULL / 100);
+            uint64_t ticks = pit_ticks;
+            tp->tv_sec = ticks / PIT_TICKS_PER_SECOND;
+            tp->tv_nsec = (ticks % PIT_TICKS_PER_SECOND) *
+                (1000000000ULL / PIT_TICKS_PER_SECOND);
             return 0;
         }
 

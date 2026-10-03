@@ -13,6 +13,7 @@
 #define LINUX_IPPROTO_ICMP 1
 #define LINUX_IPPROTO_TCP 6
 #define LINUX_IPPROTO_UDP 17
+#define LINUX_IP_RECVTTL 12
 #define LINUX_SOL_SOCKET 1
 #define LINUX_SO_RCVTIMEO 20
 #define LINUX_SO_SNDTIMEO 21
@@ -26,6 +27,7 @@
 #define LINUX_POLLOUT 0x004
 #define LINUX_POLLHUP 0x010
 #define LINUX_POLLNVAL 0x020
+#define LINUX_MSG_CTRUNC 0x008
 
 #define SOCKET_TIMEOUT_DEFAULT_MS 30000U
 #define SOCKET_TIMEOUT_MAX_MS 60000U
@@ -96,6 +98,7 @@ typedef struct {
     int tcp_id;
     uint32_t recv_timeout_ms;
     uint32_t send_timeout_ms;
+    bool recv_ttl;
     uint8_t reply[128];
     size_t reply_len;
     net_ipv4_t reply_addr;
@@ -446,8 +449,38 @@ uint64 sys_recvfrom(uint64_t fd, void *buf, uint64_t len, uint64_t flags,
     } else {
         if (!sock->reply_len)
             return -LINUX_EAGAIN;
-        n = sock->reply_len < len ? sock->reply_len : len;
-        memcpy(buf, sock->reply, n);
+        if (sock->type == LINUX_SOCK_RAW) {
+            struct {
+                uint8_t version_ihl;
+                uint8_t tos;
+                uint16_t total_len;
+                uint16_t id;
+                uint16_t fragment;
+                uint8_t ttl;
+                uint8_t protocol;
+                uint16_t checksum;
+                uint32_t source;
+                uint32_t destination;
+            } __attribute__((packed)) ip_header;
+            uint8_t packet[sizeof(ip_header) + sizeof(sock->reply)];
+            size_t packet_len = sizeof(ip_header) + sock->reply_len;
+
+            memset(&ip_header, 0, sizeof(ip_header));
+            ip_header.version_ihl = 0x45;
+            ip_header.total_len = net_htons((uint16_t)packet_len);
+            ip_header.ttl = 64;
+            ip_header.protocol = LINUX_IPPROTO_ICMP;
+            ip_header.source = net_htonl(src_addr);
+            ip_header.destination = net_htonl(net_cfg.ip);
+            ip_header.checksum = net_htons(net_checksum(&ip_header, sizeof(ip_header)));
+            memcpy(packet, &ip_header, sizeof(ip_header));
+            memcpy(packet + sizeof(ip_header), sock->reply, sock->reply_len);
+            n = packet_len < len ? packet_len : len;
+            memcpy(buf, packet, n);
+        } else {
+            n = sock->reply_len < len ? sock->reply_len : len;
+            memcpy(buf, sock->reply, n);
+        }
         sock->reply_len = 0;
     }
 
@@ -472,6 +505,7 @@ uint64 sys_recvmsg(uint64_t fd, void *message, uint64_t flags) {
     linux_msghdr_t *msg = (linux_msghdr_t *)message;
     if (msg->iovlen > 16 || (msg->iovlen && !msg->iov))
         return -LINUX_EINVAL;
+    uint64_t control_capacity = msg->controllen;
 
     uint8_t data[NET_MTU];
     uint64_t capacity = 0;
@@ -511,6 +545,28 @@ uint64 sys_recvmsg(uint64_t fd, void *message, uint64_t flags) {
     }
     msg->controllen = 0;
     msg->flags = 0;
+    linux_socket_t *sock = linux_socket_by_fd((int)fd);
+    if (sock && sock->recv_ttl) {
+        struct {
+            uint64_t length;
+            int32_t level;
+            int32_t type;
+            int32_t ttl;
+        } __attribute__((packed)) cmsg = {
+            .length = sizeof(cmsg),
+            .level = LINUX_IPPROTO_IP,
+            .type = LINUX_IP_TTL,
+            .ttl = 64,
+        };
+        const uint64_t cmsg_space = 24;
+        if (msg->control && control_capacity >= sizeof(cmsg)) {
+            memcpy(msg->control, &cmsg, sizeof(cmsg));
+            msg->controllen = control_capacity < cmsg_space ?
+                sizeof(cmsg) : cmsg_space;
+        } else if (msg->control || control_capacity) {
+            msg->flags |= LINUX_MSG_CTRUNC;
+        }
+    }
     return received;
 }
 
@@ -546,6 +602,12 @@ uint64 sys_setsockopt(uint64_t fd, uint64_t level, uint64_t optname,
         return optval && optlen >= sizeof(int) ? 0 : -LINUX_EINVAL;
     if (level == LINUX_IPPROTO_IP && optname == LINUX_IP_TTL)
         return optval && optlen >= sizeof(int) ? 0 : -LINUX_EINVAL;
+    if (level == LINUX_IPPROTO_IP && optname == LINUX_IP_RECVTTL) {
+        if (!optval || optlen < sizeof(int))
+            return -LINUX_EINVAL;
+        sock->recv_ttl = *(const int *)optval != 0;
+        return 0;
+    }
     if (level == LINUX_IPPROTO_IP && (optname == 1 || optname == 3 ||
         optname == 8 || optname == 11 || optname == 12))
         return optval && optlen >= sizeof(int) ? 0 : -LINUX_EINVAL;
@@ -567,6 +629,8 @@ uint64 sys_getsockopt(uint64_t fd, uint64_t level, uint64_t optname,
         value = 0;
     else if (level == LINUX_IPPROTO_IP && optname == LINUX_IP_TTL)
         value = 64;
+    else if (level == LINUX_IPPROTO_IP && optname == LINUX_IP_RECVTTL)
+        value = sock->recv_ttl ? 1 : 0;
     else if (level == LINUX_SOL_SOCKET &&
         (optname == LINUX_SO_RCVTIMEO || optname == LINUX_SO_SNDTIMEO)) {
         if (*optlen < sizeof(int64_t) * 2)
