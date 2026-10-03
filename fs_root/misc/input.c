@@ -20,4 +20,4 @@ int main(void) {
     return 0;
 }
 
-// musl-gcc input.c -static -o input -fno-link-libatomic
+// musl-gcc input.c -o input
