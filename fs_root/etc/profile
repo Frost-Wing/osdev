@@ -1,7 +1,9 @@
 E=$(printf '\033')
 
+export PATH=/:/bin
+
 # Prompt: green user, blue path
-PS1="${E}[1;32m\u${E}[0m ${E}[1;34m\w${E}[0m \$ "
+PS1="${E}[1;32m\u${E}[0m ${E}[1;34m\w${E}[0m \$ ${E}[0m"
 
 # ls and grep
 alias ls='ls --color=auto'
