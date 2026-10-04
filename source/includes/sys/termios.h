@@ -96,4 +96,17 @@ typedef struct {
     uint8_t c_cc[19];
 } linux_termios_t;
 
+typedef struct {
+    uint32_t c_iflag;
+    uint32_t c_oflag;
+    uint32_t c_cflag;
+    uint32_t c_lflag;
+    uint8_t c_line;
+    uint8_t c_cc[19];
+    uint32_t c_ispeed;
+    uint32_t c_ospeed;
+} linux_termios2_t;
+
+_Static_assert(sizeof(linux_termios2_t) == 44, "linux_termios2_t size");
+
 #endif

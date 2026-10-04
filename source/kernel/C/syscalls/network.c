@@ -3,6 +3,7 @@
 #include <limine.h>
 #include <pit.h>
 #include <tty.h>
+#include <sys/termios.h>
 
 #define LINUX_AF_INET 2
 #define LINUX_SOCK_STREAM 1
@@ -894,6 +895,43 @@ static uint64 ioctl_network_request(int fd, uint64_t req, uint64_t arg) {
     }
 }
 
+static uint64 ioctl_tty_termios(vfs_file_t *file, int fd,
+    uint64_t req, uint64_t arg) {
+    if (!ioctl_fd_is_tty(file, fd))
+        return -LINUX_ENOTTY;
+    if (!arg)
+        return -LINUX_EINVAL;
+
+    if (req == LINUX_TCGETS2) {
+        linux_termios_t current;
+        if (!tty_get_termios(&current))
+            return -LINUX_EIO;
+
+        linux_termios2_t *termios = (linux_termios2_t *)arg;
+        termios->c_iflag = current.c_iflag;
+        termios->c_oflag = current.c_oflag;
+        termios->c_cflag = current.c_cflag;
+        termios->c_lflag = current.c_lflag;
+        termios->c_line = current.c_line;
+        memcpy(termios->c_cc, current.c_cc, sizeof(termios->c_cc));
+        termios->c_ispeed = 38400;
+        termios->c_ospeed = 38400;
+        return 0;
+    }
+
+    linux_termios2_t *termios = (linux_termios2_t *)arg;
+    linux_termios_t updated = {
+        .c_iflag = termios->c_iflag,
+        .c_oflag = termios->c_oflag,
+        .c_cflag = termios->c_cflag,
+        .c_lflag = termios->c_lflag,
+        .c_line = termios->c_line,
+    };
+    memcpy(updated.c_cc, termios->c_cc, sizeof(updated.c_cc));
+    bool flush_input = req == LINUX_TCSETSF2;
+    return tty_set_termios(&updated, flush_input) ? 0 : -LINUX_EIO;
+}
+
 uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
@@ -905,6 +943,10 @@ uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
 
     if (req == LINUX_RTC_RD_TIME)
         return ioctl_rtc_read_time(file, (int)fd, arg);
+
+    if (req == LINUX_TCGETS2 || req == LINUX_TCSETS2 ||
+        req == LINUX_TCSETSW2 || req == LINUX_TCSETSF2)
+        return ioctl_tty_termios(file, (int)fd, req, arg);
 
     if (req == LINUX_BLKGETSIZE64 || req == LINUX_BLKGETSIZE ||
         req == LINUX_BLKSSZGET || req == LINUX_BLKROGET) {

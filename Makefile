@@ -142,6 +142,7 @@ QEMU_COMMON = \
     -rtc base=localtime,clock=host \
     -boot order=d \
     $(KVM) \
+	-monitor tcp:127.0.0.1:4444,server,nowait \
 	-object filter-dump,id=f1,netdev=eth0,file=/tmp/dump.pcap \
     -m 2048
 
