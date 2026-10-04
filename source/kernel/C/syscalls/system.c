@@ -165,6 +165,8 @@ uint64 sys_chdir(const char *path) {
     return 0;
 }
 
+#define LINUX_S_IFLNK 0120000
+
 uint64 sys_readlinkat(int dirfd,
     const char *path,
     char *buf,
@@ -198,8 +200,19 @@ uint64 sys_readlinkat(int dirfd,
     if (!buf || bufsiz == 0)
         return -LINUX_EINVAL;
 
-    int rc = vfs_readlink(resolved_path, buf, bufsiz > UINT32_MAX ? UINT32_MAX : (uint32_t)bufsiz);
-    return rc < 0 ? -LINUX_ENOENT : (uint64)rc;
+    int rc = vfs_readlink(resolved_path, buf,
+        bufsiz > UINT32_MAX ? UINT32_MAX : (uint32_t)bufsiz);
+    if (rc >= 0)
+        return (uint64)rc;
+
+    /* Path exists but isn't a symlink -> EINVAL, like Linux.
+     * realpath() depends on this to walk path components. */
+    vfs_stat_info_t stat_info;
+    if (fill_vfs_lstat_for_path_at(LINUX_AT_FDCWD, resolved_path, &stat_info) &&
+        (stat_info.mode & 0xF000) != 0120000 /* S_IFLNK */)
+        return -LINUX_EINVAL;
+
+    return -LINUX_ENOENT;
 }
 
 uint64_t sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
