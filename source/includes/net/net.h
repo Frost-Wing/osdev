@@ -20,6 +20,8 @@
 #define NET_ETIMEDOUT (-4)
 #define NET_ENOTSUP (-5)
 #define NET_EINTR (-6)
+#define NET_ECONNRESET (-7)
+#define NET_EPIPE (-8)
 #define NET_EOF 1000
 
 typedef uint32 net_ipv4_t;
@@ -48,6 +50,19 @@ typedef struct {
     uint64 tx_bytes;
     uint64 tx_packets;
     uint64 tx_errors;
+    uint64 rx_resets;
+    uint64 rx_overflow;
+    uint64 rx_bad_header;
+    uint64 rx_queue_drops;
+    uint64 ip_bad_checksum;
+    uint64 udp_bad_checksum;
+    uint64 tcp_bad_checksum;
+    uint64 tcp_rst_rx;
+    uint64 tcp_rst_ignored;
+    uint64 tcp_ooo_drops;
+    uint64 tcp_rx_full_drops;
+    uint64 tcp_retransmits;
+    uint64 udp_no_socket_drops;
 } netif_stats_t;
 
 extern struct net_config net_cfg;

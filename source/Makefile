@@ -5,7 +5,7 @@
 SHELL := /bin/bash
 
 # Nuke built-in rules and variables
-override MAKEFLAGS += -rR
+override MAKEFLAGS += -rR -j$(shell nproc)
 
 # ================================================================
 #  FrostWing colour palette (kept consistent with the top-level Makefile)

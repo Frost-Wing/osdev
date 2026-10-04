@@ -160,7 +160,7 @@ static uint16 tcp_checksum(net_ipv4_t src, net_ipv4_t dst, const uint8 *seg, siz
 }
 
 static int tcp_send_segment(struct tcp_sock *s, uint8 flags, const void *data, size_t len) {
-    uint8 b[20 + TCP_MAX_PAYLOAD];
+    uint8 b[20 + 40 + TCP_MAX_PAYLOAD];
     if (!s || len > TCP_MAX_PAYLOAD)
         return NET_EINVAL;
     struct tcp_hdr *h = (struct tcp_hdr *)b;
@@ -169,14 +169,23 @@ static int tcp_send_segment(struct tcp_sock *s, uint8 flags, const void *data, s
     h->dst = net_htons(s->dport);
     h->seq = net_htonl(s->seq);
     h->ack = net_htonl(s->ack);
-    h->off = 5 << 4;
+    h->off = (flags & TCP_SYN) ? (6 << 4) : (5 << 4);
     h->flags = flags;
-    // Advertise our full receive buffer size to allow sender to pump data efficiently
-    h->win = net_htons(32768);
+    uint32 room = (uint32)sizeof(s->rx) - s->rx_len;
+    h->win = net_htons(room > 65535U ? 65535U : (uint16)room);
+    if (flags & TCP_SYN) {
+        uint8 *opts = b + sizeof(*h);
+        opts[0] = 2;
+        opts[1] = 4;
+        opts[2] = 5;
+        opts[3] = 180;
+        h->off = (6 << 4);
+    }
+    size_t total = sizeof(*h) + ((flags & TCP_SYN) ? 4 : 0) + len;
     if (len)
-        memcpy(b + sizeof(*h), data, len);
-    h->sum = net_htons(tcp_checksum(net_cfg.ip, s->dst, b, sizeof(*h) + len));
-    return ipv4_send(s->dst, IP_TCP, b, sizeof(*h) + len);
+        memcpy(b + sizeof(*h) + ((flags & TCP_SYN) ? 4 : 0), data, len);
+    h->sum = net_htons(tcp_checksum(net_cfg.ip, s->dst, b, total));
+    return ipv4_send(s->dst, IP_TCP, b, total);
 }
 
 static struct tcp_sock *tcp_by_port(uint16 port) {
@@ -200,7 +209,10 @@ int tcp_connect(net_ipv4_t dst, uint16 dport) {
     memset(s, 0, sizeof(*s));
     s->used = true;
     s->state = TCP_SOCK_SYN_SENT;
-    s->sport = tcp_port++;
+    s->sport = tcp_port;
+    tcp_port += 1;
+    if (tcp_port < 40000 || tcp_port == 0)
+        tcp_port = 40000;
     s->dport = dport;
     s->dst = dst;
     s->seq = tcp_next_iss();
@@ -268,7 +280,7 @@ bool tcp_is_connected(int sock) {
 // instead of a raw spin-loop iteration count.
 int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout) {
     if (!len || sock < 0 || sock >= NET_TCP_MAX_SOCKETS || !tcp_socks[sock].used)
-        return NET_ERR;
+        return NET_EINVAL;
     struct tcp_sock *s = &tcp_socks[sock];
 
     uint64_t deadline = pit_ticks + ms_to_ticks(timeout);
@@ -298,7 +310,7 @@ int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout) {
         asm volatile("hlt");
     }
     *len = 0;
-    return s->reset ? NET_ERR : (s->fin ? NET_EOF : NET_ETIMEDOUT);
+    return s->reset ? NET_ECONNRESET : (s->fin ? NET_EOF : NET_ETIMEDOUT);
 }
 
 void tcp_close(int sock) {
@@ -319,6 +331,10 @@ void tcp_input(net_ipv4_t src, const uint8 *p, size_t len) {
     size_t off = (h->off >> 4) * 4;
     if (off < sizeof(struct tcp_hdr) || off > len)
         return;
+    if (tcp_checksum(src, net_cfg.ip, p, len) != 0) {
+        netif_stats.tcp_bad_checksum++;
+        return;
+    }
     struct tcp_sock *s = tcp_by_port(net_ntohs(h->dst));
     if (!s || s->dst != src || s->dport != net_ntohs(h->src))
         return;
@@ -327,8 +343,15 @@ void tcp_input(net_ipv4_t src, const uint8 *p, size_t len) {
     const uint8 *data = p + off;
     size_t dlen = len - off;
     if (h->flags & TCP_RST) {
-        s->reset = true;
-        s->state = TCP_SOCK_CLOSING;
+        bool valid = (s->state == TCP_SOCK_ESTABLISHED && seq == s->ack) ||
+            (s->state == TCP_SOCK_SYN_SENT && (h->flags & TCP_ACK) && ack == s->seq);
+        if (valid) {
+            s->reset = true;
+            s->state = TCP_SOCK_CLOSING;
+            netif_stats.tcp_rst_rx++;
+        } else {
+            netif_stats.tcp_rst_ignored++;
+        }
         return;
     }
     if (s->state == TCP_SOCK_SYN_SENT && (h->flags & (TCP_SYN | TCP_ACK)) == (TCP_SYN | TCP_ACK) && ack == s->seq) {
@@ -347,6 +370,8 @@ void tcp_input(net_ipv4_t src, const uint8 *p, size_t len) {
             memcpy(s->rx + s->rx_len, data, dlen);
             s->rx_len += dlen;
             s->ack += dlen;
+        } else {
+            netif_stats.tcp_rx_full_drops++;
         }
     }
     if ((h->flags & TCP_FIN) && seq + dlen == s->ack) {

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse, bisect, os, re, subprocess, sys
+from functools import lru_cache
 from pathlib import Path
 
 ROOT_MARKERS = ("kernel/", "drivers/", "includes/")
@@ -7,25 +8,23 @@ ROOT_MARKERS = ("kernel/", "drivers/", "includes/")
 def q(s):
     return '"' + s.replace('\\','\\\\').replace('"','\\"').replace('\t','    ').rstrip('\n') + '"'
 
+@lru_cache(maxsize=None)
 def rel(path, root):
     """Resolve a path as it appears in DWARF/nm output to a path relative to `root`.
 
     Relative paths recorded in debug info are relative to the compiler's
     working directory (normally the project root for this build) - NOT
-    necessarily this script's own CWD. Resolve against `root` explicitly
-    instead of relying on the process CWD, which was the main reason
-    resolution used to fail whenever the generator wasn't invoked from
-    exactly the project root.
+    necessarily this script's own CWD. Resolve against `root` explicitly.
 
     A resolved candidate is only accepted if it actually exists on disk.
     DWARF `decodedline` rows are frequently a bare basename (e.g. "vfs.c")
     with no directory component - the directory only lives on the CU
     header line. Without an existence check, `root / "vfs.c"` would
     "resolve" successfully even when no such file exists at the project
-    root, silently returning the wrong path (e.g. masking the real
-    "kernel/fs/vfs.c") instead of falling through to the CU-directory or
-    rglob fallbacks. That was the cause of source-line snippets coming
-    back empty for nearly every symbol.
+    root, silently returning the wrong path.
+
+    Memoized: the same few hundred paths repeat across tens of thousands
+    of DWARF rows, so the filesystem is only touched once per unique path.
     """
     if not path or path == '??':
         return None
@@ -48,16 +47,7 @@ def rel(path, root):
 _basename_index = None
 
 def _build_basename_index(root):
-    """One-time full walk of the tree, building basename -> [paths].
-
-    rglob_basename() used to call root.rglob(name) fresh on every
-    invocation - a full tree walk per call. That was fine while the rel()
-    bug meant this fallback was rarely reached, but once rel() correctly
-    rejects bad guesses (see rel()'s docstring), far more DWARF rows fall
-    through to this fallback, and re-walking the whole tree per row turned
-    generation from O(rows) into O(rows * tree_size). Building the index
-    once and doing O(1) dict lookups after that fixes the blowup.
-    """
+    """One-time full walk of the tree, building basename -> [paths]."""
     index = {}
     for dirpath, _dirnames, filenames in os.walk(root):
         for fn in filenames:
@@ -79,14 +69,30 @@ def rglob_basename(root, name, verbose=False):
               f"'{Path(name).name}', picking {matches[0]}", file=sys.stderr)
     return matches[0].relative_to(root).as_posix()
 
-def load_lines(file, line, root, ctx=3):
-    rp = rel(file, root)
-    if not rp: return []
-    path = root / rp
-    try: lines = path.read_text(errors='replace').splitlines()
-    except Exception: return []
-    start=max(1,line-ctx); end=min(len(lines), line+ctx)
-    return [(n, lines[n-1][:160]) for n in range(start,end+1)]
+# Each source file is read and split once; each (file, line) snippet is built once.
+_file_cache = {}
+_snip_cache = {}
+
+def file_lines(root, rp):
+    lines = _file_cache.get(rp)
+    if lines is None:
+        try:
+            lines = (root / rp).read_text(errors='replace').splitlines()
+        except Exception:
+            lines = []
+        _file_cache[rp] = lines
+    return lines
+
+def snippet_for(root, rp, line, ctx=3):
+    key = (rp, line)
+    s = _snip_cache.get(key)
+    if s is None:
+        lines = file_lines(root, rp)
+        start = max(1, line - ctx)
+        end = min(len(lines), line + ctx)
+        s = [(n, lines[n-1][:160]) for n in range(start, end + 1)]
+        _snip_cache[key] = s
+    return s
 
 def main():
     ap=argparse.ArgumentParser()
@@ -111,10 +117,7 @@ def main():
     for raw in decoded.splitlines():
         line=raw.rstrip()
 
-        # CU headers look like "CU: ./path/to/file.c:". The previous version
-        # kept the "CU: " prefix in current_file, which broke every path
-        # lookup that fell back to it for that whole compilation unit - this
-        # was the main bug causing snippets to almost never resolve.
+        # CU headers look like "CU: ./path/to/file.c:".
         if line.startswith('CU:') and line.endswith(':'):
             current_file = line[len('CU:'):-1].strip()
             continue
@@ -135,9 +138,8 @@ def main():
         rp = rel(file_name, root) or rel(current_file, root)
         if not rp and current_file and not Path(file_name).is_absolute() and '/' not in file_name.replace('\\', '/'):
             # `file_name` is a bare basename that didn't resolve directly and
-            # didn't match the CU's primary file either (e.g. a header, or a
-            # secondary source file within the same compilation unit). Try it
-            # joined with the CU's own directory before giving up to rglob.
+            # didn't match the CU's primary file either. Try it joined with
+            # the CU's own directory before giving up to rglob.
             candidate = Path(current_file).parent / Path(file_name).name
             rp = rel(str(candidate), root)
         if not rp:
@@ -157,12 +159,24 @@ def main():
         if end_addr <= addr: continue
         idx=bisect.bisect_right(addrs, addr)-1
         func=funcs[idx][1] if idx>=0 else 'unknown'
-        snip=load_lines(str(root/rp),lno,root)
-        key=(rp,lno,tuple(snip))
+        snip=snippet_for(root,rp,lno)
+        key=(rp,lno)
         if key not in snip_names:
             snip_names[key]=f'snippet_{len(snip_names)}'
             snippets[snip_names[key]]=snip
         entries.append((addr,end_addr,func,rp,lno,snip_names[key],len(snip)))
+
+    # Coalesce contiguous entries that map to the same function, file and line.
+    # Lookup results are identical for every address; the table just gets smaller.
+    merged=[]
+    for e in entries:
+        if merged:
+            p=merged[-1]
+            if p[2]==e[2] and p[3]==e[3] and p[4]==e[4] and p[1]==e[0]:
+                merged[-1]=(p[0],e[1],p[2],p[3],p[4],p[5],p[6])
+                continue
+        merged.append(e)
+    entries=merged
 
     # If DWARF line decoding produced nothing, fall back to one entry per text
     # symbol. The panic screen will still make clear when only limited mapping
@@ -185,8 +199,8 @@ def main():
             except Exception: continue
             rp=rel(filepart, root) or rglob_basename(root, filepart, a.verbose)
             if not rp or lno<=0: continue
-            snip=load_lines(filepart,lno,root)
-            key=(rp,lno,tuple(snip))
+            snip=snippet_for(root,rp,lno)
+            key=(rp,lno)
             if key not in snip_names:
                 snip_names[key]=f'snippet_{len(snip_names)}'
                 snippets[snip_names[key]]=snip

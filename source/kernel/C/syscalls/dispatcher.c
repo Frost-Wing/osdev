@@ -33,10 +33,14 @@ void syscall_handler(syscall_frame_t *f) {
          * exits). Treat it as bookkeeping only for now rather than allowing a
          * best-effort compatibility write to panic the kernel.
          */
-        clear_child_tid = NULL;
-        uint32_t pid = multitasking_current_pid();
-        if (pid)
-            multitasking_exit_task(pid, (int)f->rdi);
+        if (sys_clone_thread_active()) {
+            sys_clone_thread_exit();
+        } else {
+            clear_child_tid = NULL;
+            uint32_t pid = multitasking_current_pid();
+            if (pid)
+                multitasking_exit_task(pid, (int)f->rdi);
+        }
         if (userland_prepare_exit(f, f->rdi))
             return;
     }
@@ -197,18 +201,8 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_GETSOCKOPT:
             return sys_getsockopt(arg1, arg2, arg3, (void *)arg4, (uint64_t *)arg5);
 
-        case LINUX_SYS_CLONE: {
-            const uint64_t LINUX_SIGCHLD = 17;
-            const uint64_t CLONE_CHILD_CLEARTID = 0x00200000ULL;
-            const uint64_t CLONE_CHILD_SETTID   = 0x01000000ULL;
-
-            uint64_t exit_sig = arg1 & 0xFFULL;
-            uint64_t extra = (arg1 & ~0xFFULL) & ~(CLONE_CHILD_CLEARTID | CLONE_CHILD_SETTID);
-
-            if (extra || exit_sig != LINUX_SIGCHLD || arg2 != 0 || arg3 != 0 || arg5 != 0)
-                return -LINUX_ENOSYS;
-            return sys_fork();   /* arg4 (child tid ptr) is now allowed */
-        }
+        case LINUX_SYS_CLONE:
+            return sys_clone(arg1, arg2, arg3, arg4, arg5);
 
         case LINUX_SYS_CLONE3:
             return sys_clone3((const void *)arg1, arg2);
@@ -283,7 +277,7 @@ uint64_t syscall_dispatch(
             return sys_arch_prctl(arg1, arg2);
 
         case LINUX_SYS_GETTID:
-            return multitasking_current_pid() ? multitasking_current_pid() : 1;
+            return sys_clone_thread_tid() ? sys_clone_thread_tid() : 1;
 
         case LINUX_SYS_TGKILL:
             return sys_tgkill(arg1, arg2, arg3);

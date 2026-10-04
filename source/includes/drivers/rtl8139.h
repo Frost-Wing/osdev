@@ -84,6 +84,9 @@ bool rtl8139_send_packet(const uint8 *data, uint16 length);
  * @return [false] Return false if a packet was not received
  */
 bool rtl8139_receive_packet(uint8 *buffer, uint16 *length);
+void rtl8139_rx_to_queue(void);
+bool rtl8139_receive_queued_packet(uint8 *buffer, uint16 *length);
+void rtl8139_service_pending_rx_reset(void);
 
 /**
  * @brief Interrupt handler for RTL8139 - processes incoming packets

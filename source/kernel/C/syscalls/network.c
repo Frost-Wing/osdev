@@ -86,6 +86,7 @@ typedef struct {
 #define LINUX_SIOCGIFMTU 0x8921
 #define LINUX_SIOCGIFHWADDR 0x8927
 #define LINUX_SIOCGIFINDEX 0x8933
+#define LINUX_FIONBIO 0x5421
 
 typedef struct {
     bool used;
@@ -390,7 +391,7 @@ uint64 sys_sendto(uint64_t fd, const void *buf, uint64_t len, uint64_t flags,
         if (sock->tcp_id < 0)
             return -LINUX_ENOTCONN;
         int sent = tcp_send(sock->tcp_id, buf, len);
-        return sent < 0 ? -LINUX_EIO : (uint64)sent;
+        return sent < 0 ? -LINUX_EPIPE : (uint64)sent;
     }
 
     if (sock->protocol == LINUX_IPPROTO_UDP) {
@@ -446,8 +447,14 @@ uint64 sys_recvfrom(uint64_t fd, void *buf, uint64_t len, uint64_t flags,
             sock->nonblocking ? 0 : sock->recv_timeout_ms);
         if (rc == NET_EOF)
             return 0;
+        if (rc == NET_EINTR)
+            return -LINUX_EINTR;
+        if (rc == NET_ECONNRESET)
+            return -LINUX_ECONNRESET;
         if (rc == NET_ETIMEDOUT)
             return sock->nonblocking ? -LINUX_EAGAIN : -LINUX_ETIMEDOUT;
+        if (rc == NET_EINVAL)
+            return -LINUX_EINVAL;
         if (rc != NET_OK)
             return -LINUX_EIO;
         src_addr = sock->peer_addr;
@@ -982,6 +989,16 @@ uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
         return 0;
     }
 
+    if (sys_socket_is_fd((int)fd) && req == LINUX_FIONBIO) {
+        linux_socket_t *s = linux_socket_by_fd((int)fd);
+        if (!s)
+            return -LINUX_EBADF;
+        if (!arg)
+            return -LINUX_EINVAL;
+        s->nonblocking = *(int *)arg != 0;
+        return 0;
+    }
+
     switch (req) {
         case LINUX_TIOCGWINSZ: {
             if (!ioctl_fd_is_tty(file, (int)fd))
@@ -1055,7 +1072,7 @@ uint64 sys_fcntl(uint64_t fd, uint64_t cmd, uint64_t arg) {
         }
         case LINUX_F_GETFL: {
             linux_socket_t *s = linux_socket_by_fd((int)fd);
-            return fd_flags((int)fd) | (s && s->nonblocking ? 0x800 : 0);
+            return fd_flags((int)fd) | (s && s->nonblocking ? LINUX_SOCK_NONBLOCK : 0);
         }
         default:
             return -LINUX_ENOSYS;

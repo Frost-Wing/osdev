@@ -22,6 +22,8 @@ static uint64_t fallback_rseq_area;
 static uint32_t fallback_rseq_signature;
 
 static void rseq_current_state(uint64_t **area, uint32_t **signature) {
+    if (sys_clone_thread_rseq_state(area, signature))
+        return;
     task_t *task = multitasking_get_current_task();
     if (task) {
         *area = &task->rseq_area;
@@ -887,7 +889,7 @@ uint64 sys_tgkill(uint64_t tgid, uint64_t tid, uint64_t sig) {
 
 uint64 sys_set_tid_address(uint64_t *tidptr) {
     clear_child_tid = tidptr;
-    return 1;
+    return sys_clone_thread_tid();
 }
 
 uint64 sys_set_robust_list(const void *head, uint64_t len) {

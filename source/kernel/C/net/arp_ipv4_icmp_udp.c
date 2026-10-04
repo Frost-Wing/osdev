@@ -179,7 +179,7 @@ void ipv4_init(net_ipv4_t ip, net_ipv4_t mask, net_ipv4_t gw, net_ipv4_t dns) {
     net_cfg.dns = dns;
     char dns_str[16];
     net_format_ipv4(dns, dns_str, sizeof(dns_str));
-    done("dns : %s", __FILE__, gw_str);
+    done("dns : %s", __FILE__, dns_str);
 
     netif_init();
     arp_init();
@@ -196,8 +196,10 @@ void ipv4_input(const uint8 *p, size_t len) {
     uint16 tot = net_ntohs(h->total_len);
     if (tot > len || tot < ihl)
         return;
-    if (net_checksum(p, ihl) != 0)
+    if (net_checksum(p, ihl) != 0) {
+        netif_stats.ip_bad_checksum++;
         return;
+    }
     net_ipv4_t src = net_ntohl(h->src);
     const uint8 *pl = p + ihl;
     size_t plen = tot - ihl;
@@ -290,7 +292,32 @@ void udp_input(net_ipv4_t src, const uint8 *p, size_t len) {
     size_t ulen = net_ntohs(h->len);
     if (ulen < 8 || ulen > len)
         return;
-    for (int i = 0; i < 8; i++)
+    if (h->sum != 0) {
+        struct udp_pseudo_hdr {
+            uint32 src;
+            uint32 dst;
+            uint8 zero;
+            uint8 protocol;
+            uint16 length;
+        } __attribute__((packed)) pseudo = {
+            .src = net_htonl(src),
+            .dst = net_htonl(net_cfg.ip),
+            .zero = 0,
+            .protocol = IP_UDP,
+            .length = net_htons((uint16)ulen),
+        };
+        uint8 checksum_data[sizeof(pseudo) + 1500];
+        if (ulen > sizeof(checksum_data) - sizeof(pseudo))
+            return;
+        memcpy(checksum_data, &pseudo, sizeof(pseudo));
+        memcpy(checksum_data + sizeof(pseudo), p, ulen);
+        if (net_checksum(checksum_data, sizeof(pseudo) + ulen) != 0) {
+            netif_stats.udp_bad_checksum++;
+            return;
+        }
+    }
+    bool queued = false;
+    for (int i = 0; i < 32; i++) {
         if (!udpq[i].used) {
             udpq[i].used = true;
             udpq[i].src = src;
@@ -300,8 +327,13 @@ void udp_input(net_ipv4_t src, const uint8 *p, size_t len) {
             if (udpq[i].len > sizeof(udpq[i].data))
                 udpq[i].len = sizeof(udpq[i].data);
             memcpy(udpq[i].data, p + 8, udpq[i].len);
+            queued = true;
             break;
         }
+    }
+    if (!queued) {
+        netif_stats.udp_no_socket_drops++;
+    }
 }
 
 int udp_send(net_ipv4_t dst, uint16 sport, uint16 dport, const void *data, size_t len) {
@@ -318,7 +350,7 @@ int udp_send(net_ipv4_t dst, uint16 sport, uint16 dport, const void *data, size_
 }
 
 bool udp_has_data(uint16 port) {
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 32; i++)
         if (udpq[i].used && udpq[i].dport == port)
             return true;
     return false;
@@ -340,7 +372,7 @@ int udp_recv(uint16 port, net_ipv4_t *src, uint16 *sport, uint8 *buf, size_t *le
         if (tty_interrupt_pending())
             return NET_EINTR;
         netif_poll();
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 32; i++)
             if (udpq[i].used && udpq[i].dport == port) {
                 size_t n = udpq[i].len;
                 if (*len < n)

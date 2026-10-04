@@ -102,6 +102,8 @@ void irqHandler(InterruptFrame *frame) {
  * Packets are processed in interrupt context for minimum latency.
  */
 void rtl8139_handler(InterruptFrame *frame) {
-    (void)frame;  // unused in this context
     rtl8139_interrupt_handler();
+    if (frame && frame->int_no >= 0x28 && frame->int_no <= 0x2F)
+        outb(0xA0, 0x20);
+    outb(0x20, 0x20);
 }

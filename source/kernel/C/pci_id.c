@@ -268,5 +268,13 @@ void probe_rtl8139(uint8_t bus, uint8_t slot, uint8_t function) {
     uint8_t irq = (uint8_t)(pci_read_word(bus, slot, function, RTL8139_IRQ_LINE) & 0xFFU);
 
     info("Handler number : 0x%x", __FILE__, irq);
-    registerInterruptHandler(irq, rtl8139_handler);
+    if (irq < 16) {
+        registerInterruptHandler((uint8_t)(0x20 + irq), rtl8139_handler);
+        if (irq < 8) {
+            outb(0x21, (uint8_t)(inb(0x21) & ~(1U << irq)));
+        } else {
+            outb(0x21, (uint8_t)(inb(0x21) & ~(1U << 2)));
+            outb(0xA1, (uint8_t)(inb(0xA1) & ~(1U << (irq - 8))));
+        }
+    }
 }

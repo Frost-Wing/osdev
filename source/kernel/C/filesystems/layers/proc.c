@@ -246,13 +246,27 @@ static int proc_net_dev_read(vfs_file_t *file, uint8_t *buf,
         "Inter-|   Receive                                                |  Transmit\n"
         " face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n"
         "    lo: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n"
-        "  eth0: %u %u %u 0 0 0 0 0 %u %u %u 0 0 0 0 0\n",
+        "  eth0: %u %u %u 0 0 0 0 0 %u %u %u 0 0 0 0 0\n"
+        "rx_resets=%u rx_overflow=%u rx_bad_header=%u rx_queue_drops=%u ip_bad_checksum=%u udp_bad_checksum=%u tcp_bad_checksum=%u tcp_rst_rx=%u tcp_rst_ignored=%u tcp_ooo_drops=%u tcp_rx_full_drops=%u tcp_retransmits=%u udp_no_socket_drops=%u\n",
         (unsigned long long)netif_stats.rx_bytes,
         (unsigned long long)netif_stats.rx_packets,
         (unsigned long long)netif_stats.rx_errors,
         (unsigned long long)netif_stats.tx_bytes,
         (unsigned long long)netif_stats.tx_packets,
-        (unsigned long long)netif_stats.tx_errors);
+        (unsigned long long)netif_stats.tx_errors,
+        (unsigned long long)netif_stats.rx_resets,
+        (unsigned long long)netif_stats.rx_overflow,
+        (unsigned long long)netif_stats.rx_bad_header,
+        (unsigned long long)netif_stats.rx_queue_drops,
+        (unsigned long long)netif_stats.ip_bad_checksum,
+        (unsigned long long)netif_stats.udp_bad_checksum,
+        (unsigned long long)netif_stats.tcp_bad_checksum,
+        (unsigned long long)netif_stats.tcp_rst_rx,
+        (unsigned long long)netif_stats.tcp_rst_ignored,
+        (unsigned long long)netif_stats.tcp_ooo_drops,
+        (unsigned long long)netif_stats.tcp_rx_full_drops,
+        (unsigned long long)netif_stats.tcp_retransmits,
+        (unsigned long long)netif_stats.udp_no_socket_drops);
     if (len < 0)
         return -1;
     if ((size_t)len >= sizeof(contents))

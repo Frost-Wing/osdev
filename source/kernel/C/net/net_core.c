@@ -161,15 +161,23 @@ void netif_account_rx(size_t len) {
  * 3. Safety margin to catch any missed packets
  */
 void netif_poll(void) {
+    static volatile int busy;
     uint8 buf[NET_FRAME_MAX];
     uint16 len = 0;
-    // Keep polling loop for backward compatibility and as safety fallback
-    // In interrupt-driven mode, most packets are handled by rtl8139_interrupt_handler
-    while (rtl8139_receive_packet(buf, &len)) {
+    uint64_t flags;
+    asm volatile("pushfq; popq %0; cli" : "=r"(flags) :: "memory");
+    rtl8139_rx_to_queue();
+    asm volatile("pushq %0; popfq" :: "r"(flags) : "memory", "cc");
+
+    if (__sync_lock_test_and_set(&busy, 1))
+        return;
+    while (rtl8139_receive_queued_packet(buf, &len)) {
         if (rx_cb && len >= 14 && len <= NET_FRAME_MAX)
             rx_cb(buf, len);
         len = 0;
     }
+    rtl8139_service_pending_rx_reset();
+    __sync_lock_release(&busy);
 }
 
 void netif_set_rx_callback(net_rx_callback_t cb) {
