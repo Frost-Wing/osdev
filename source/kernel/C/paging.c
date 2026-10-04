@@ -394,6 +394,38 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
 }
 
+bool paging_set_user_page_permissions(uint64_t virt, bool writable, bool executable) {
+    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
+    uint64_t pml4_idx = (virt >> 39) & 0x1FF;
+    uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
+    uint64_t pd_idx = (virt >> 21) & 0x1FF;
+    uint64_t pt_idx = (virt >> 12) & 0x1FF;
+
+    if (!(pml4[pml4_idx] & PAGE_PRESENT))
+        return false;
+    uint64_t *pdpt = phys_to_virt_ptr(pml4[pml4_idx] & ~0xFFFULL);
+    if (!(pdpt[pdpt_idx] & PAGE_PRESENT))
+        return false;
+    uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & ~0xFFFULL);
+    if (!(pd[pd_idx] & PAGE_PRESENT))
+        return false;
+    uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & ~0xFFFULL);
+    if (!(pt[pt_idx] & PAGE_PRESENT))
+        return false;
+
+    if (writable)
+        pt[pt_idx] |= PAGE_RW;
+    else
+        pt[pt_idx] &= ~((uint64_t)PAGE_RW);
+    if (executable)
+        pt[pt_idx] &= ~PAGE_NX;
+    else
+        pt[pt_idx] |= PAGE_NX;
+
+    asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
+    return true;
+}
+
 /* ------------------------------------------------------------- freeing --- */
 
 static int phys_page_is_usable(uintptr_t phys) {

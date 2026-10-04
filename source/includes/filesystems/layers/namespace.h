@@ -18,6 +18,15 @@
 #include <filesystems/layers/proc.h>
 #include <filesystems/vfs.h>
 
+#define NS_MAX_CHILDREN 128
+
+typedef struct {
+    const char    *name;   /* points into the entry's registered name */
+    size_t         len;    /* length of the child component */
+    bool           is_dir;
+    procfs_type_t  type;
+} ns_child_t;
+
 /* Normalize `in` (strip trailing slashes, truncate to out_sz) into the
  * caller-supplied `out` buffer. Unlike the old per-function `static char
  * normalized[256]` locals this replaces, this takes no ownership of any

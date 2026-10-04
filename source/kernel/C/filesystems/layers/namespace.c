@@ -9,6 +9,7 @@
 #include <filesystems/layers/namespace.h>
 #include <strings.h>
 #include <memory.h>
+#include <sort.h>
 
 void ns_normalize_path(const char *in, char *out, size_t out_sz) {
     if (!in || out_sz == 0) {
@@ -82,6 +83,24 @@ static bool ns_child_of(const char *name, const char *prefix, size_t prefix_len,
     return true;
 }
 
+/* Directories first, then files; alphabetical within each group. */
+static int ns_child_cmp(const void *a, const void *b) {
+    const ns_child_t *x = (const ns_child_t *)a;
+    const ns_child_t *y = (const ns_child_t *)b;
+
+    if (x->is_dir != y->is_dir)
+        return x->is_dir ? -1 : 1;
+
+    size_t min = x->len < y->len ? x->len : y->len;
+    int r = strncmp(x->name, y->name, min);
+    if (r != 0)
+        return r;
+
+    if (x->len == y->len)
+        return 0;
+    return x->len < y->len ? -1 : 1;
+}
+
 int ns_getdent(procfs_entry_t **entries, int count, const char *path,
                uint64_t index, const char **out_name, procfs_type_t *out_type) {
     if (!path || !out_name || !out_type)
@@ -91,8 +110,11 @@ int ns_getdent(procfs_entry_t **entries, int count, const char *path,
     ns_normalize_path(path, normalized, sizeof(normalized));
     size_t plen = strlen(normalized);
 
-    uint64_t seen = 0;
+    /* Static like dent_name below - not reentrant, keeps the kernel stack small. */
+    static ns_child_t children[NS_MAX_CHILDREN];
+    size_t n = 0;
 
+    /* 1) Collect unique direct children. */
     for (int i = 0; i < count; i++) {
         const char *child;
         size_t child_len;
@@ -101,39 +123,52 @@ int ns_getdent(procfs_entry_t **entries, int count, const char *path,
         if (!ns_child_of(entries[i]->name, normalized, plen, &child, &child_len, &is_leaf))
             continue;
 
-        /* Skip if an earlier entry in the array already produced this same
-         * direct child (e.g. two "pci/devices/xxx" entries both imply a
-         * single "devices" directory - only list it once). */
-        bool duplicate = false;
-        for (int j = 0; j < i; j++) {
-            const char *prev_child;
-            size_t prev_len;
-            bool prev_leaf;
+        /* It's a directory if it has anything nested beneath it, or the
+         * entry itself is registered as a directory. */
+        bool dir = !is_leaf || entries[i]->type == PROC_DIR;
 
-            if (!ns_child_of(entries[j]->name, normalized, plen, &prev_child, &prev_len, &prev_leaf))
-                continue;
-
-            if (prev_len == child_len && strncmp(prev_child, child, child_len) == 0) {
-                duplicate = true;
+        bool found = false;
+        for (size_t j = 0; j < n; j++) {
+            if (children[j].len == child_len &&
+                strncmp(children[j].name, child, child_len) == 0) {
+                /* Same name seen before: if any occurrence is a dir, it's a dir. */
+                if (dir) {
+                    children[j].is_dir = true;
+                    children[j].type = PROC_DIR;
+                }
+                found = true;
                 break;
             }
         }
-        if (duplicate)
+        if (found)
             continue;
 
-        if (seen++ == index) {
-            static char dent_name[64];
-            size_t len = (child_len >= sizeof(dent_name)) ? sizeof(dent_name) - 1 : child_len;
-            memcpy(dent_name, child, len);
-            dent_name[len] = '\0';
+        if (n >= NS_MAX_CHILDREN)
+            break;
 
-            *out_name = dent_name;
-            *out_type = is_leaf ? entries[i]->type : PROC_DIR;
-            return 1;
-        }
+        children[n].name   = child;
+        children[n].len    = child_len;
+        children[n].is_dir = dir;
+        children[n].type   = dir ? PROC_DIR : entries[i]->type;
+        n++;
     }
 
-    return 0;
+    if (index >= n)
+        return 0;
+
+    /* 2) Sort: dirs first, then files, alphabetical within each. */
+    qsort(children, n, sizeof(ns_child_t), ns_child_cmp);
+
+    /* 3) Hand back the requested one. */
+    static char dent_name[64];
+    const ns_child_t *c = &children[index];
+    size_t len = (c->len >= sizeof(dent_name)) ? sizeof(dent_name) - 1 : c->len;
+    memcpy(dent_name, c->name, len);
+    dent_name[len] = '\0';
+
+    *out_name = dent_name;
+    *out_type = c->type;
+    return 1;
 }
 
 int ns_ls(procfs_entry_t **entries, int count, const char *path) {

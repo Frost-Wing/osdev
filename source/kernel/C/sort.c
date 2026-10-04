@@ -8,9 +8,7 @@
  * @copyright Copyright (c) Pradosh 2026
  *
  */
-#include <basics.h>
-
-typedef int (*qsort_cmp_fn)(const void *, const void *);
+#include <sort.h>
 
 static void swap_bytes(char *a, char *b, size_t size) {
     while (size--) {

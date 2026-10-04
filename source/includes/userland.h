@@ -152,6 +152,7 @@ uint64_t userland_brk(uint64_t requested_break);
 uint64_t userland_mmap_anon(uint64_t length);
 bool userland_mmap_unmap(uint64_t addr, uint64_t length);
 uint64_t userland_mmap_fixed(uint64_t addr, uint64_t length);
+bool userland_mprotect(uint64_t addr, uint64_t length, uint64_t prot);
 bool userland_prepare_exit(syscall_frame_t *frame, uint64_t exit_code);
 int userland_exec(const userland_exec_ctx_t *ctx);
 bool userland_is_running(void);

@@ -468,14 +468,18 @@ uint64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, u
         if (mapped != 0) {
             vfs_file_t *file = fd_get_file((int)fd);
             uint32_t *pos = fd_pos_ptr((int)fd);
-            if (!file || !pos)
+            if (!file || !pos) {
+                userland_mmap_unmap(mapped, length);
                 return -LINUX_EBADF;
+            }
             uint32_t old_pos = *pos;
             *pos = (uint32_t)off;
             int rd = vfs_read(file, (uint8_t *)mapped, (uint32_t)length);
             *pos = old_pos;
-            if (rd < 0)
+            if (rd < 0) {
+                userland_mmap_unmap(mapped, length);
                 return -LINUX_EIO;
+            }
             if ((uint64_t)rd < length)
                 memset((uint8_t *)mapped + rd, 0, length - (uint64_t)rd);
         }
@@ -484,15 +488,16 @@ uint64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, u
     if (mapped == 0)
         return -LINUX_ENOMEM;
 
+    if (!userland_mprotect(mapped, length, prot)) {
+        userland_mmap_unmap(mapped, length);
+        return -LINUX_ENOMEM;
+    }
+
     return (uint64)mapped;
 }
 
 /**
  * @brief Linux-compatible mprotect validation wrapper.
- *
- * The current VM layer maps user pages with a single userspace permission
- * template, so mprotect is accepted as a successful no-op after validating
- * address, size, and protection mask.
  */
 uint64 sys_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
     if (length == 0)
@@ -508,13 +513,11 @@ uint64 sys_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
     if (end < addr)
         return -LINUX_EINVAL;
 
-    bool in_image = (addr >= USER_CODE_VADDR && end <= USER_HEAP_VADDR);
-    bool in_heap = (addr >= USER_HEAP_VADDR && end <= (USER_HEAP_VADDR + USER_HEAP_SIZE));
-    bool in_mmap = (addr >= USER_MMAP_VADDR && end <= (USER_MMAP_VADDR + USER_MMAP_SIZE));
-    if (!in_image && !in_heap && !in_mmap)
+    if (addr < USER_CODE_VADDR ||
+        end > USER_PHDR_VADDR + USER_PHDR_REGION_SIZE)
         return -LINUX_EINVAL;
 
-    return 0;
+    return userland_mprotect(addr, length, prot) ? 0 : -LINUX_EINVAL;
 }
 
 /**

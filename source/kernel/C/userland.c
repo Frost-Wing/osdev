@@ -272,8 +272,7 @@ static void userland_restore_snapshot(saved_user_page_t *pages) {
             continue;
         }
         map_user_page(page->vaddr, phys, page->flags);
-        memcpy((void *)page->vaddr, paging_phys_to_virt(page->data_phys),
-            PAGE_SIZE);
+        memcpy(paging_phys_to_virt(phys), paging_phys_to_virt(page->data_phys), PAGE_SIZE);
     }
 }
 
@@ -646,6 +645,35 @@ uint64_t userland_mmap_fixed(uint64_t addr, uint64_t length) {
         return 0;
 
     return addr;
+}
+
+bool userland_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
+    if (length == 0)
+        return true;
+
+    uint64_t end = addr + length;
+    if (end < addr || (addr & (PAGE_SIZE - 1)) ||
+        (prot & ~(LINUX_PROT_READ | LINUX_PROT_WRITE | LINUX_PROT_EXEC)))
+        return false;
+
+    uint64_t aligned_end = (end + PAGE_SIZE - 1) & ~(uint64_t)(PAGE_SIZE - 1);
+    if (aligned_end < end ||
+        addr < USER_CODE_VADDR ||
+        aligned_end > USER_PHDR_VADDR + USER_PHDR_REGION_SIZE)
+        return false;
+
+    for (uint64_t page = addr; page < aligned_end; page += PAGE_SIZE) {
+        if (!(paging_user_page_flags(page) & PAGE_PRESENT))
+            return false;
+    }
+
+    bool writable = (prot & LINUX_PROT_WRITE) != 0;
+    bool executable = (prot & LINUX_PROT_EXEC) != 0;
+    for (uint64_t page = addr; page < aligned_end; page += PAGE_SIZE) {
+        if (!paging_set_user_page_permissions(page, writable, executable))
+            return false;
+    }
+    return true;
 }
 
 uint64_t userland_mmap_anon(uint64_t length) {
