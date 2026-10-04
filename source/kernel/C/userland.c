@@ -861,14 +861,6 @@ void userland_exec_prepare(
         kfree(image_info.tls_template);
 }
 
-static bool userland_path_exists(const char *path) {
-    vfs_file_t file;
-    if (vfs_open(path, VFS_RDONLY, &file) != 0)
-        return false;
-    vfs_close(&file);
-    return true;
-}
-
 /* Undo a half-finished exec after push_frame(). Always returns -1. */
 static int userland_exec_fail(elf_image_info_t *info) {
     if (info && info->tls_template) {
@@ -893,10 +885,6 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
         return -1;
 
     // debug_printf("[userland] exec caller=%u depth=%u ret_rsp=%u ret_rip=%u rbp=%u rbx=%u r12=%u r13=%u r14=%u r15=%u\n", (uint32_t)(uintptr_t)caller, (uint32_t)userland_depth, (uint32_t)caller->ret_rsp, (uint32_t)caller->ret_rip, (uint32_t)caller->rbp, (uint32_t)caller->rbx, (uint32_t)caller->r12, (uint32_t)caller->r13, (uint32_t)caller->r14, (uint32_t)caller->r15);
-
-    /* Cheap ENOENT check before any snapshot/unmap work. */
-    if (!userland_path_exists(ctx->path))
-        return -1;
 
     /* push_frame() FIRST: it captures the outer frame's globals and address space. */
     int frame_depth = userland_push_frame(true);
@@ -1081,11 +1069,6 @@ int userland_exec_replace(const userland_exec_ctx_t *ctx) {
     if (!copy)
         return -1;
     const userland_exec_ctx_t *c = &copy->ctx;
-
-    if (!userland_path_exists(c->path)) {
-        exec_copy_free(copy);
-        return -1;
-    }
 
     saved_user_page_t *backup = NULL;
     if (!userland_snapshot_mappings(&backup)) {

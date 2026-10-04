@@ -20,12 +20,14 @@
 
 #include <filesystems/ext2.h>
 #include <graphics.h>
+#include <heap.h>
 #include <memory.h>
 #include <rtc.h>
 #include <strings.h>
 
 #define EXT2_MAX_BLOCK_SIZE 4096U
 #define EXT2_PTRS_PER_BLOCK_MAX (EXT2_MAX_BLOCK_SIZE / 4)
+#define EXT2_READ_BATCH_SIZE (64U * 1024U)
 
 /* ===================== Low level block I/O ===================== */
 
@@ -429,6 +431,28 @@ static void ext2_free_inode(ext2_fs_t *fs, uint32_t ino, int is_dir) {
 
 /* ===================== Block mapping (direct/indirect) ===================== */
 
+typedef struct {
+    uint32_t blocks[3];
+    uint32_t entries[3][EXT2_PTRS_PER_BLOCK_MAX];
+} ext2_bmap_cache_t;
+
+static uint32_t *ext2_bmap_table(ext2_fs_t *fs, uint32_t block,
+    ext2_bmap_cache_t *cache, uint32_t level,
+    uint32_t local_table[EXT2_PTRS_PER_BLOCK_MAX]) {
+    if (!cache) {
+        if (ext2_read_block(fs, block, local_table) != EXT2_OK)
+            return NULL;
+        return local_table;
+    }
+
+    if (cache->blocks[level] != block) {
+        if (ext2_read_block(fs, block, cache->entries[level]) != EXT2_OK)
+            return NULL;
+        cache->blocks[level] = block;
+    }
+    return cache->entries[level];
+}
+
 /*
  * Resolve logical block index -> physical block number for an inode.
  * If `alloc` is non-zero, missing blocks (including indirect blocks
@@ -436,7 +460,9 @@ static void ext2_free_inode(ext2_fs_t *fs, uint32_t ino, int is_dir) {
  * the caller after this returns (we write indirect blocks immediately
  * since they don't live in the inode struct).
  */
-static uint32_t ext2_bmap(ext2_fs_t *fs, ext2_inode_t *inode, uint32_t lblock, int alloc, uint32_t pref_group) {
+static uint32_t ext2_bmap_internal(ext2_fs_t *fs, ext2_inode_t *inode,
+    uint32_t lblock, int alloc, uint32_t pref_group,
+    ext2_bmap_cache_t *cache) {
     uint32_t ptrs = fs->block_size / 4;
 
     if (lblock < EXT2_NDIR_BLOCKS) {
@@ -462,16 +488,17 @@ static uint32_t ext2_bmap(ext2_fs_t *fs, ext2_inode_t *inode, uint32_t lblock, i
         }
 
         uint32_t tbl[EXT2_PTRS_PER_BLOCK_MAX];
-        if (ext2_read_block(fs, ind, tbl) != EXT2_OK)
+        uint32_t *table = ext2_bmap_table(fs, ind, alloc ? NULL : cache, 0, tbl);
+        if (!table)
             return 0;
 
-        uint32_t result = tbl[lblock];
+        uint32_t result = table[lblock];
         if (result == 0 && alloc) {
             result = ext2_alloc_block(fs, pref_group);
             if (result == 0)
                 return 0;
-            tbl[lblock] = result;
-            ext2_write_block(fs, ind, tbl);
+            table[lblock] = result;
+            ext2_write_block(fs, ind, table);
         }
         return result;
     }
@@ -489,13 +516,14 @@ static uint32_t ext2_bmap(ext2_fs_t *fs, ext2_inode_t *inode, uint32_t lblock, i
         }
 
         uint32_t l1[EXT2_PTRS_PER_BLOCK_MAX];
-        if (ext2_read_block(fs, dind, l1) != EXT2_OK)
+        uint32_t *table1 = ext2_bmap_table(fs, dind, alloc ? NULL : cache, 0, l1);
+        if (!table1)
             return 0;
 
         uint32_t idx1 = lblock / ptrs;
         uint32_t idx2 = lblock % ptrs;
 
-        uint32_t ind = l1[idx1];
+        uint32_t ind = table1[idx1];
         int wrote_l1 = 0;
         if (ind == 0) {
             if (!alloc)
@@ -503,23 +531,24 @@ static uint32_t ext2_bmap(ext2_fs_t *fs, ext2_inode_t *inode, uint32_t lblock, i
             ind = ext2_alloc_block(fs, pref_group);
             if (ind == 0)
                 return 0;
-            l1[idx1] = ind;
+            table1[idx1] = ind;
             wrote_l1 = 1;
         }
         if (wrote_l1)
-            ext2_write_block(fs, dind, l1);
+            ext2_write_block(fs, dind, table1);
 
         uint32_t l2[EXT2_PTRS_PER_BLOCK_MAX];
-        if (ext2_read_block(fs, ind, l2) != EXT2_OK)
+        uint32_t *table2 = ext2_bmap_table(fs, ind, alloc ? NULL : cache, 1, l2);
+        if (!table2)
             return 0;
 
-        uint32_t result = l2[idx2];
+        uint32_t result = table2[idx2];
         if (result == 0 && alloc) {
             result = ext2_alloc_block(fs, pref_group);
             if (result == 0)
                 return 0;
-            l2[idx2] = result;
-            ext2_write_block(fs, ind, l2);
+            table2[idx2] = result;
+            ext2_write_block(fs, ind, table2);
         }
         return result;
     }
@@ -537,7 +566,8 @@ static uint32_t ext2_bmap(ext2_fs_t *fs, ext2_inode_t *inode, uint32_t lblock, i
         }
 
         uint32_t l1[EXT2_PTRS_PER_BLOCK_MAX];
-        if (ext2_read_block(fs, tind, l1) != EXT2_OK)
+        uint32_t *table1 = ext2_bmap_table(fs, tind, alloc ? NULL : cache, 0, l1);
+        if (!table1)
             return 0;
 
         uint32_t idx1 = lblock / (ptrs * ptrs);
@@ -545,48 +575,55 @@ static uint32_t ext2_bmap(ext2_fs_t *fs, ext2_inode_t *inode, uint32_t lblock, i
         uint32_t idx2 = rem / ptrs;
         uint32_t idx3 = rem % ptrs;
 
-        uint32_t dind = l1[idx1];
+        uint32_t dind = table1[idx1];
         if (dind == 0) {
             if (!alloc)
                 return 0;
             dind = ext2_alloc_block(fs, pref_group);
             if (dind == 0)
                 return 0;
-            l1[idx1] = dind;
-            ext2_write_block(fs, tind, l1);
+            table1[idx1] = dind;
+            ext2_write_block(fs, tind, table1);
         }
 
         uint32_t l2[EXT2_PTRS_PER_BLOCK_MAX];
-        if (ext2_read_block(fs, dind, l2) != EXT2_OK)
+        uint32_t *table2 = ext2_bmap_table(fs, dind, alloc ? NULL : cache, 1, l2);
+        if (!table2)
             return 0;
 
-        uint32_t ind = l2[idx2];
+        uint32_t ind = table2[idx2];
         if (ind == 0) {
             if (!alloc)
                 return 0;
             ind = ext2_alloc_block(fs, pref_group);
             if (ind == 0)
                 return 0;
-            l2[idx2] = ind;
-            ext2_write_block(fs, dind, l2);
+            table2[idx2] = ind;
+            ext2_write_block(fs, dind, table2);
         }
 
         uint32_t l3[EXT2_PTRS_PER_BLOCK_MAX];
-        if (ext2_read_block(fs, ind, l3) != EXT2_OK)
+        uint32_t *table3 = ext2_bmap_table(fs, ind, alloc ? NULL : cache, 2, l3);
+        if (!table3)
             return 0;
 
-        uint32_t result = l3[idx3];
+        uint32_t result = table3[idx3];
         if (result == 0 && alloc) {
             result = ext2_alloc_block(fs, pref_group);
             if (result == 0)
                 return 0;
-            l3[idx3] = result;
-            ext2_write_block(fs, ind, l3);
+            table3[idx3] = result;
+            ext2_write_block(fs, ind, table3);
         }
         return result;
     }
 
     return 0; /* file too large */
+}
+
+static uint32_t ext2_bmap(ext2_fs_t *fs, ext2_inode_t *inode,
+    uint32_t lblock, int alloc, uint32_t pref_group) {
+    return ext2_bmap_internal(fs, inode, lblock, alloc, pref_group, NULL);
 }
 
 /* Recursively free all blocks referenced by an indirect block chain. */
@@ -1234,27 +1271,77 @@ int ext2_read(ext2_file_t *f, uint8_t *out, uint32_t size) {
 
     if (f->pos >= f->inode.i_size)
         return 0;
-    if (f->pos + size > f->inode.i_size)
-        size = f->inode.i_size - f->pos;
+    uint32_t available = f->inode.i_size - f->pos;
+    if (size > available)
+        size = available;
     if (size == 0)
         return 0;
 
     uint8_t buf[EXT2_MAX_BLOCK_SIZE];
+    ext2_bmap_cache_t *cache = NULL;
+    uint32_t direct_size = EXT2_NDIR_BLOCKS * fs->block_size;
+    if (f->pos >= direct_size || size > direct_size - f->pos) {
+        cache = kmalloc(sizeof(*cache));
+        if (cache)
+            memset(cache, 0xFF, sizeof(*cache));
+    }
+
     uint32_t total_read = 0;
+    int result = 0;
 
     while (total_read < size) {
         uint32_t lblock = f->pos / fs->block_size;
         uint32_t off_in_block = f->pos % fs->block_size;
+        uint32_t full_blocks = (size - total_read) / fs->block_size;
+        uint32_t max_batch_blocks = EXT2_READ_BATCH_SIZE / fs->block_size;
+        if (full_blocks > max_batch_blocks)
+            full_blocks = max_batch_blocks;
+
+        if (off_in_block == 0 && full_blocks > 0 &&
+            (cache || lblock < EXT2_NDIR_BLOCKS)) {
+            if (!cache && full_blocks > EXT2_NDIR_BLOCKS - lblock)
+                full_blocks = EXT2_NDIR_BLOCKS - lblock;
+
+            uint32_t first_block = ext2_bmap_internal(fs, &f->inode,
+                lblock, 0, 0, cache);
+            if (first_block != 0) {
+                uint32_t run_blocks = 1;
+                while (run_blocks < full_blocks) {
+                    if (first_block > UINT32_MAX - run_blocks)
+                        break;
+                    uint32_t next_block = ext2_bmap_internal(fs,
+                        &f->inode, lblock + run_blocks, 0, 0, cache);
+                    if (next_block != first_block + run_blocks)
+                        break;
+                    run_blocks++;
+                }
+
+                uint32_t sectors = run_blocks * fs->sectors_per_block;
+                uint32_t bytes = run_blocks * fs->block_size;
+                if (ahci_read_sector(fs->portno,
+                        ext2_block_to_lba(fs, first_block),
+                        out + total_read, sectors) != 0) {
+                    result = total_read > 0 ? (int)total_read : EXT2_ERR_IO;
+                    goto out;
+                }
+                f->pos += bytes;
+                total_read += bytes;
+                continue;
+            }
+        }
+
         uint32_t chunk = fs->block_size - off_in_block;
         if (chunk > size - total_read)
             chunk = size - total_read;
 
-        uint32_t pb = ext2_bmap(fs, &f->inode, lblock, 0, 0);
+        uint32_t pb = ext2_bmap_internal(fs, &f->inode, lblock, 0, 0, cache);
         if (pb == 0) {
             memset(out + total_read, 0, chunk); /* sparse hole */
         } else {
-            if (ext2_read_block(fs, pb, buf) != EXT2_OK)
-                return total_read > 0 ? (int)total_read : EXT2_ERR_IO;
+            if (ext2_read_block(fs, pb, buf) != EXT2_OK) {
+                result = total_read > 0 ? (int)total_read : EXT2_ERR_IO;
+                goto out;
+            }
             memcpy(out + total_read, buf + off_in_block, chunk);
         }
 
@@ -1262,7 +1349,12 @@ int ext2_read(ext2_file_t *f, uint8_t *out, uint32_t size) {
         total_read += chunk;
     }
 
-    return (int)total_read;
+    result = (int)total_read;
+
+out:
+    if (cache)
+        kfree(cache);
+    return result;
 }
 
 int ext2_write(ext2_file_t *f, const uint8_t *data, uint32_t size) {
