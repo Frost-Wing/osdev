@@ -518,6 +518,22 @@ uint64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, u
     return (uint64)mapped;
 }
 
+#define LINUX_EFD_SEMAPHORE 0x1
+#define LINUX_EFD_NONBLOCK 0x800
+#define LINUX_EFD_CLOEXEC 0x80000
+
+uint64 sys_eventfd2(uint64_t initial_value, uint64_t flags) {
+    const uint64_t supported_flags =
+        LINUX_EFD_SEMAPHORE | LINUX_EFD_NONBLOCK | LINUX_EFD_CLOEXEC;
+    if (flags & ~supported_flags)
+        return -LINUX_EINVAL;
+
+    int fd = fd_eventfd_create((uint32_t)initial_value,
+        (flags & LINUX_EFD_SEMAPHORE) != 0,
+        (flags & LINUX_EFD_NONBLOCK) != 0);
+    return fd < 0 ? -LINUX_EMFILE : (uint64)fd;
+}
+
 /**
  * @brief Linux-compatible mprotect validation wrapper.
  */

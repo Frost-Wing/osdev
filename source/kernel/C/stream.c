@@ -44,6 +44,10 @@ typedef struct {
     char path[256];
     fd_pipe_t *pipe;
     bool pipe_reader;
+    bool eventfd;
+    bool eventfd_semaphore;
+    bool eventfd_nonblocking;
+    uint64_t eventfd_counter;
 } fd_object_t;
 
 typedef struct {
@@ -482,4 +486,70 @@ int fd_pipe_poll(int fd) {
             r |= FD_POLLOUT;
     }
     return r;
+}
+
+int fd_eventfd_create(uint64_t initial_value, bool semaphore, bool nonblocking) {
+    int fd = fd_alloc_slot();
+    if (fd < 0)
+        return -1;
+
+    fd_object_t *object = fd_object_alloc(NULL, false, VFS_RDWR);
+    if (!object)
+        return -1;
+
+    object->eventfd = true;
+    object->eventfd_semaphore = semaphore;
+    object->eventfd_nonblocking = nonblocking;
+    object->eventfd_counter = initial_value;
+    fd_table[fd].used = true;
+    fd_table[fd].object = object;
+    return fd;
+}
+
+bool fd_is_eventfd(int fd) {
+    return fd_valid(fd) && fd_table[fd].object &&
+           fd_table[fd].object->eventfd;
+}
+
+bool fd_eventfd_nonblocking(int fd) {
+    return fd_is_eventfd(fd) &&
+           fd_table[fd].object->eventfd_nonblocking;
+}
+
+int fd_eventfd_read(int fd, uint64_t *value) {
+    if (!fd_is_eventfd(fd) || !value)
+        return -1;
+
+    fd_object_t *object = fd_table[fd].object;
+    if (object->eventfd_counter == 0)
+        return 0;
+
+    *value = object->eventfd_semaphore ? 1 : object->eventfd_counter;
+    object->eventfd_counter -= *value;
+    return 1;
+}
+
+int fd_eventfd_write(int fd, uint64_t value) {
+    if (!fd_is_eventfd(fd))
+        return -1;
+
+    fd_object_t *object = fd_table[fd].object;
+    if (value > UINT64_MAX - 1 - object->eventfd_counter)
+        return 0;
+
+    object->eventfd_counter += value;
+    return 1;
+}
+
+int fd_eventfd_poll(int fd, int events) {
+    if (!fd_is_eventfd(fd))
+        return 0;
+
+    fd_object_t *object = fd_table[fd].object;
+    int ready = 0;
+    if (object->eventfd_counter > 0)
+        ready |= events & FD_POLLIN;
+    if (object->eventfd_counter <= UINT64_MAX - 2)
+        ready |= events & FD_POLLOUT;
+    return ready;
 }

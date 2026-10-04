@@ -1437,6 +1437,25 @@ uint64 sys_read(uint64_t fd, char *buf, uint64_t count) {
         return rd < 0 ? (uint64)(int64_t)rd : (uint64)rd;
     }
 
+    if (fd_is_eventfd((int)fd)) {
+        if (count != sizeof(uint64_t))
+            return -LINUX_EINVAL;
+
+        uint64_t value;
+        for (;;) {
+            int rd = fd_eventfd_read((int)fd, &value);
+            if (rd > 0) {
+                memcpy(buf, &value, sizeof(value));
+                return sizeof(value);
+            }
+            if (rd < 0)
+                return -LINUX_EBADF;
+            if (fd_eventfd_nonblocking((int)fd))
+                return -LINUX_EAGAIN;
+            multitasking_yield();
+        }
+    }
+
     if (sys_socket_is_fd((int)fd))
         return sys_socket_read(fd, buf, count);
 
@@ -1465,6 +1484,27 @@ uint64 sys_write(uint64_t fd, const char *buf, uint64_t count) {
     if (fd_is_pipe((int)fd)) {
         int wr = fd_pipe_write((int)fd, buf, count > INT32_MAX ? INT32_MAX : (size_t)count);
         return wr < 0 ? -LINUX_EPIPE : (uint64)wr;
+    }
+
+    if (fd_is_eventfd((int)fd)) {
+        if (count != sizeof(uint64_t))
+            return -LINUX_EINVAL;
+
+        uint64_t value;
+        memcpy(&value, buf, sizeof(value));
+        if (value == UINT64_MAX)
+            return -LINUX_EINVAL;
+
+        for (;;) {
+            int wr = fd_eventfd_write((int)fd, value);
+            if (wr > 0)
+                return sizeof(value);
+            if (wr < 0)
+                return -LINUX_EBADF;
+            if (fd_eventfd_nonblocking((int)fd))
+                return -LINUX_EAGAIN;
+            multitasking_yield();
+        }
     }
 
     if (sys_socket_is_fd((int)fd))

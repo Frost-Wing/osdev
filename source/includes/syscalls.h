@@ -122,6 +122,7 @@ typedef struct {
 #define LINUX_SYS_EXIT_GROUP 231
 #define LINUX_SYS_TGKILL 234
 #define LINUX_SYS_MKDIRAT 258
+#define LINUX_SYS_EVENTFD2 290
 
 #define LINUX_EAGAIN 11
 
@@ -155,6 +156,7 @@ typedef struct {
 #define LINUX_EPIPE 32
 #define LINUX_ENOSYS 38
 #define LINUX_ENFILE 23
+#define LINUX_EMFILE 24
 #define LINUX_ENOENT 2
 #define LINUX_ENOMEM 12
 #define LINUX_ERANGE 34

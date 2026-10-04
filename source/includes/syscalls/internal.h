@@ -128,5 +128,6 @@ uint64 sys_mount(const char *source, const char *target, const char *filesystem,
 uint64 sys_umount2(const char *target, int flags);
 void sysinfo_mark_boot(void);
 uint64 sys_sysinfo(linux_sysinfo_t *info);
+uint64 sys_eventfd2(uint64_t initial_value, uint64_t flags);
 
 #endif

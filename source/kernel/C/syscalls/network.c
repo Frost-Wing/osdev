@@ -213,6 +213,8 @@ uint64 sys_poll(void *pollfds, uint64_t nfds, int timeout_ms) {
                 /* Only report what was asked for, but POLLERR/POLLHUP are always reported. */
                 fds[i].revents = (short)(fd_pipe_poll(fds[i].fd) &
                     (fds[i].events | LINUX_POLLERR | LINUX_POLLHUP));
+            } else if (fd_is_eventfd(fds[i].fd)) {
+                fds[i].revents = (short)fd_eventfd_poll(fds[i].fd, fds[i].events);
             } else {
                 fds[i].revents = fds[i].events;   /* regular files/devices: always ready */
             }

@@ -16,8 +16,8 @@
 #include <syscalls.h>
 
 #define USER_STACK_SIZE (8 MiB) // Matches Linux default stack size limit
-#define USER_HEAP_SIZE (64 MiB)  // Matches Linux default heap size limit
-#define USER_MMAP_SIZE (256 MiB)  // Matches Linux default mmap size limit
+#define USER_HEAP_SIZE (512 MiB)
+#define USER_MMAP_SIZE (1 GiB)
 
 #define USER_CODE_VADDR 0x0000400000000000ULL // canonical user space, isolated PML4 slot
 #define USER_INTERP_VADDR 0x0000400008000000ULL // dynamically-linked ELF interpreter base

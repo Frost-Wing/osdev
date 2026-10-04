@@ -32,6 +32,7 @@
  * - `madvise(2)`           -> `sys_madvise()`           -> validates ranges and accepts basic access-pattern hints
  * - `munmap(2)`            -> `sys_munmap()`            -> validation + no-op (current VM model)
  * - `brk(2)`               -> `sys_brk()`               -> `userland_brk()`
+ * - `eventfd2(2)`          -> `sys_eventfd2()`          -> shared counter descriptors with read/write/poll
  *
  * ## Process and thread compatibility
  * - `execve(2)`            -> `sys_execve()`            -> `userland_exec()` / `execute_chain()`
