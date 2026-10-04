@@ -752,7 +752,7 @@ static bool ioctl_path_matches(vfs_file_t *file, int fd, const char *name) {
 static bool ioctl_fd_is_tty(vfs_file_t *file, int fd) {
     if (sys_socket_is_fd(fd))
         return false;
-    return (fd <= STDERR && !file) ||
+    return fd_is_tty(fd) ||
         ioctl_path_matches(file, fd, "/dev/tty") ||
         ioctl_path_matches(file, fd, "tty") ||
         ioctl_path_matches(file, fd, "/dev/tty1") ||
@@ -1028,7 +1028,8 @@ uint64 sys_fcntl(uint64_t fd, uint64_t cmd, uint64_t arg) {
         return -LINUX_EBADF;
 
     switch (cmd) {
-        case LINUX_F_DUPFD: {
+        case LINUX_F_DUPFD:
+        case LINUX_F_DUPFD_CLOEXEC: {
             if (arg >= STREAM_MAX_FDS)
                 return -LINUX_EINVAL;
             for (int target = (int)arg; target < STREAM_MAX_FDS; ++target) {

@@ -100,7 +100,9 @@ uint64_t syscall_dispatch(
             return sys_madvise(arg1, arg2, (int)arg3);
 
         case LINUX_SYS_RT_SIGACTION:
-            return 0;
+            return sys_rt_sigaction((int)arg1,
+                (const task_signal_action_t *)arg2,
+                (task_signal_action_t *)arg3, arg4);
 
         case LINUX_SYS_RT_SIGPROCMASK:
             if (arg3) *(uint64_t *)arg3 = 0;
@@ -156,6 +158,9 @@ uint64_t syscall_dispatch(
 
         case LINUX_SYS_DUP2:
             return sys_dup2(arg1, arg2);
+
+        case LINUX_SYS_DUP3:
+            return sys_dup3(arg1, arg2, arg3);
 
         case LINUX_SYS_NANOSLEEP:
             return sys_nanosleep((const linux_timespec_t *)arg1, (linux_timespec_t *)arg2);

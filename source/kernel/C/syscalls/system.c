@@ -131,6 +131,12 @@ uint64 sys_dup2(uint64_t oldfd, uint64_t newfd) {
     return rc < 0 ? -LINUX_EBADF : (uint64)rc;
 }
 
+uint64 sys_dup3(uint64_t oldfd, uint64_t newfd, uint64_t flags) {
+    if (oldfd == newfd || (flags & ~LINUX_O_CLOEXEC) != 0)
+        return -LINUX_EINVAL;
+    return sys_dup2(oldfd, newfd);
+}
+
 uint64 sys_dup(uint64_t oldfd) {
     if (!fd_valid((int)oldfd))
         return -LINUX_EBADF;

@@ -106,7 +106,7 @@ uint64 sys_bind(uint64_t, const void *, uint64_t);
 uint64 sys_sendto(uint64_t, const void *, uint64_t, uint64_t, const void *, uint64_t); uint64 sys_recvfrom(uint64_t, void *, uint64_t, uint64_t, void *, uint64_t *); uint64 sys_setsockopt(uint64_t, uint64_t, uint64_t, const void *, uint64_t);
 uint64 sys_getsockopt(uint64_t, uint64_t, uint64_t, void *, uint64_t *);
 uint64 sys_ioctl(uint64_t, uint64_t, uint64_t); uint64 sys_fcntl(uint64_t, uint64_t, uint64_t);
-uint64 sys_access_common(int, const char *, int); uint64 sys_lseek(uint64_t, int64_t, uint64_t); uint64 sys_dup2(uint64_t, uint64_t); uint64 sys_dup(uint64_t); uint64 sys_getcwd(char *, uint64_t); uint64 sys_chdir(const char *); uint64 sys_readlinkat(int, const char *, char *, uint64_t);
+uint64 sys_access_common(int, const char *, int); uint64 sys_lseek(uint64_t, int64_t, uint64_t); uint64 sys_dup2(uint64_t, uint64_t); uint64 sys_dup3(uint64_t, uint64_t, uint64_t); uint64 sys_dup(uint64_t); uint64 sys_getcwd(char *, uint64_t); uint64 sys_chdir(const char *); uint64 sys_readlinkat(int, const char *, char *, uint64_t);
 uint64 sys_clock_gettime(uint64_t, linux_timespec_t *); uint64 sys_nanosleep(const linux_timespec_t *, linux_timespec_t *);
 uint64 sys_gettimeofday(linux_timeval_t *, linux_timezone_t *);
 uint64 sys_pselect6(int, uint64_t *, uint64_t *, uint64_t *,
@@ -119,6 +119,7 @@ int sys_reboot(int, int, unsigned int, void *); int sys_kill(int, int); uint64 s
 uint64 sys_mmap(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t); uint64 sys_mprotect(uint64_t, uint64_t, uint64_t); uint64 sys_madvise(uint64_t, uint64_t, int); uint64 sys_brk(uint64_t); uint64 sys_munmap(uint64_t, uint64_t); uint64 sys_arch_prctl(uint64_t, uint64_t); uint64 sys_prlimit64(uint64_t, uint64_t, const linux_rlimit64_t *, linux_rlimit64_t *); uint64 sys_umask(uint64_t); uint64 sys_tgkill(uint64_t, uint64_t, uint64_t); uint64 sys_set_tid_address(uint64_t *); uint64 sys_set_robust_list(const void *, uint64_t); uint64 sys_getrandom(void *, uint64_t, uint64_t);
 uint64 sys_rseq(void *, uint64_t, uint64_t, uint32_t);
 void sys_rseq_reset_current(void);
+uint64 sys_rt_sigaction(int, const task_signal_action_t *, task_signal_action_t *, uint64_t);
 uint64 sys_execve(const char *, char *const *, char *const *); uint64 sys_fork(void); uint64 sys_clone3(const void *, uint64_t); uint64 sys_wait4(int64_t, int *, int, void *); uint64 sys_futex(uint32_t *, int, uint32_t, const linux_timespec_t *, uint32_t *, uint32_t);
 int fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out);
 uint64 sys_statfs(const char *path, linux_statfs_t *buf);

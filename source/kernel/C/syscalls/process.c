@@ -1,5 +1,27 @@
 #include <syscalls/internal.h>
 
+uint64 sys_rt_sigaction(int signum, const task_signal_action_t *action,
+    task_signal_action_t *old_action, uint64_t sigsetsize) {
+    if (sigsetsize != sizeof(uint64_t) ||
+        signum < 1 || signum > 64 ||
+        signum == SIGKILL || signum == SIGSTOP)
+        return -LINUX_EINVAL;
+
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_EINVAL;
+
+    if (old_action)
+        *old_action = task->signal_actions[signum];
+
+    if (action) {
+        task_signal_action_t updated = *action;
+        updated.mask &= ~((1ULL << (SIGKILL - 1)) | (1ULL << (SIGSTOP - 1)));
+        task->signal_actions[signum] = updated;
+    }
+    return 0;
+}
+
 uint64 sys_execve(const char *target,
     char *const *argv,
     char *const *envp) {
@@ -146,6 +168,10 @@ uint64 sys_fork(void) {
     uint32_t child = multitasking_spawn_userland(NULL, &spec);
     if (!child)
         return -LINUX_EAGAIN;
+    task_t *child_task = multitasking_find_task(child);
+    if (child_task)
+        memcpy(child_task->signal_actions, cur->signal_actions,
+            sizeof(child_task->signal_actions));
 
     /* Copy everything out of the frame now. */
     userland_regs_t regs = {

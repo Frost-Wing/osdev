@@ -60,6 +60,7 @@ typedef struct {
 #define LINUX_SYS_WRITEV 20
 #define LINUX_SYS_DUP 32
 #define LINUX_SYS_DUP2 33
+#define LINUX_SYS_DUP3 292
 #define LINUX_SYS_NANOSLEEP 35
 #define LINUX_SYS_SCHED_YIELD 24
 #define LINUX_SYS_GETPID 39
@@ -141,6 +142,7 @@ typedef struct {
 #define LINUX_O_CREAT 0x0040
 #define LINUX_O_TRUNC 0x0200
 #define LINUX_O_APPEND 0x0400
+#define LINUX_O_CLOEXEC 0x80000
 
 #define LINUX_MADV_NORMAL 0
 #define LINUX_MADV_RANDOM 1
@@ -213,6 +215,7 @@ typedef struct {
 #define LINUX_AT_EMPTY_PATH 0x1000
 
 #define LINUX_F_DUPFD 0
+#define LINUX_F_DUPFD_CLOEXEC 1030
 #define LINUX_F_GETFD 1
 #define LINUX_F_SETFD 2
 #define LINUX_F_GETFL 3

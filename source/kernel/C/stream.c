@@ -39,6 +39,7 @@ typedef struct {
     int ref_count;
     bool owns_file;
     int flags;
+    bool tty;
     vfs_file_t *file;
     vfs_file_t storage;
     char path[256];
@@ -68,6 +69,7 @@ static fd_object_t *fd_object_alloc(vfs_file_t *file, bool owns_file, int flags)
             fd_objects[i].ref_count = 1;
             fd_objects[i].owns_file = owns_file;
             fd_objects[i].flags = flags;
+            fd_objects[i].tty = false;
             fd_objects[i].file = file;
             memset(fd_objects[i].path, 0, sizeof(fd_objects[i].path));
 
@@ -142,6 +144,7 @@ int stream_set_file(stream_t s, vfs_file_t *file) {
     fd_object_t *object = fd_object_alloc(file, false, flags);
     if (!object)
         return -1;
+    object->tty = file == NULL;
 
     fd_assign_slot((int)s, object);
     fd_object_release(object);
@@ -191,6 +194,7 @@ void fd_table_init(void) {
         if (!object)
             return;
 
+        object->tty = true;
         fd_table[i].used = true;
         fd_table[i].object = object;
     }
@@ -200,6 +204,11 @@ void fd_table_init(void) {
 
 bool fd_valid(int fd) {
     return fd >= 0 && fd < STREAM_MAX_FDS && fd_table[fd].used;
+}
+
+bool fd_is_tty(int fd) {
+    return fd_valid(fd) && fd_table[fd].object &&
+        fd_table[fd].object->tty;
 }
 
 vfs_file_t *fd_get_file(int fd) {

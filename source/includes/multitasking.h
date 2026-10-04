@@ -54,6 +54,13 @@ typedef struct {
     int started;
 } user_runtime_t;
 
+typedef struct {
+    uint64_t handler;
+    uint64_t flags;
+    uint64_t restorer;
+    uint64_t mask;
+} task_signal_action_t;
+
 typedef struct task {
     uint32_t pid;
     task_type_t type;
@@ -74,6 +81,7 @@ typedef struct task {
 
     user_task_spec_t user_spec;
     user_runtime_t user_runtime;
+    task_signal_action_t signal_actions[65];
     uint64_t rseq_area;
     uint32_t rseq_signature;
     struct task *next;

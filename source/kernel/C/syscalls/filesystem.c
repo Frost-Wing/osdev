@@ -1550,7 +1550,7 @@ uint64 sys_read(uint64_t fd, char *buf, uint64_t count) {
         return sys_socket_read(fd, buf, count);
 
     vfs_file_t *file = fd_get_file((int)fd);
-    if (fd == 0)
+    if (fd_is_tty((int)fd))
         return tty_read(buf, count);
 
     int rd = vfs_read(file, (uint8_t *)buf, (uint32_t)count);

@@ -44,6 +44,7 @@ void stream_putc(stream_t s, char c);
 
 void fd_table_init(void);
 bool fd_valid(int fd);
+bool fd_is_tty(int fd);
 vfs_file_t *fd_get_file(int fd);
 int fd_open(const char *path, int flags);
 int fd_create_virtual(const char *path, int flags);
