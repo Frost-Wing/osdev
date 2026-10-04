@@ -1516,6 +1516,173 @@ int ext2_rmdir(ext2_fs_t *fs, const char *path) {
 
 /* ===================== truncate (public wrapper) ===================== */
 
+static int ext2_prune_indirect(ext2_fs_t *fs, uint32_t block, uint32_t depth,
+    uint64_t keep_blocks) {
+    if (block == 0)
+        return 0;
+    if (depth == 0) {
+        if (keep_blocks == 0) {
+            ext2_free_block(fs, block);
+            return 0;
+        }
+        return 1;
+    }
+
+    uint32_t table[EXT2_PTRS_PER_BLOCK_MAX];
+    if (ext2_read_block(fs, block, table) != EXT2_OK)
+        return -1;
+
+    uint32_t ptrs = fs->block_size / sizeof(uint32_t);
+    uint64_t child_capacity = 1;
+    for (uint32_t level = 1; level < depth; ++level)
+        child_capacity *= ptrs;
+
+    bool changed = false;
+    bool has_children = false;
+    for (uint32_t i = 0; i < ptrs; ++i) {
+        uint64_t child_keep = keep_blocks < child_capacity ? keep_blocks : child_capacity;
+        if (table[i] != 0) {
+            int retained = ext2_prune_indirect(fs, table[i], depth - 1, child_keep);
+            if (retained < 0)
+                return -1;
+            if (retained == 0) {
+                table[i] = 0;
+                changed = true;
+            } else {
+                has_children = true;
+            }
+        }
+        keep_blocks -= child_keep;
+    }
+
+    if (!has_children) {
+        ext2_free_block(fs, block);
+        return 0;
+    }
+    if (changed && ext2_write_block(fs, block, table) != EXT2_OK)
+        return -1;
+    return 1;
+}
+
+static int ext2_count_indirect(ext2_fs_t *fs, uint32_t block, uint32_t depth,
+    uint64_t *count) {
+    if (block == 0)
+        return EXT2_OK;
+    (*count)++;
+    if (depth == 0)
+        return EXT2_OK;
+
+    uint32_t table[EXT2_PTRS_PER_BLOCK_MAX];
+    if (ext2_read_block(fs, block, table) != EXT2_OK)
+        return EXT2_ERR_IO;
+
+    uint32_t ptrs = fs->block_size / sizeof(uint32_t);
+    for (uint32_t i = 0; i < ptrs; ++i) {
+        if (table[i] && ext2_count_indirect(fs, table[i], depth - 1, count) != EXT2_OK)
+            return EXT2_ERR_IO;
+    }
+    return EXT2_OK;
+}
+
+static int ext2_count_inode_blocks(ext2_fs_t *fs, const ext2_inode_t *inode,
+    uint64_t *count) {
+    *count = 0;
+    for (uint32_t i = 0; i < EXT2_NDIR_BLOCKS; ++i)
+        if (inode->i_block[i])
+            (*count)++;
+    for (uint32_t i = 0; i < 3; ++i) {
+        if (ext2_count_indirect(fs, inode->i_block[EXT2_IND_BLOCK + i],
+                i + 1, count) != EXT2_OK)
+            return EXT2_ERR_IO;
+    }
+    return EXT2_OK;
+}
+
+int ext2_truncate_size(ext2_fs_t *fs, ext2_file_t *f, uint32_t new_size) {
+    if (!fs || !f)
+        return EXT2_ERR_INVAL;
+    if (f->is_dir)
+        return EXT2_ERR_ISDIR;
+    if (new_size == f->inode.i_size)
+        return EXT2_OK;
+
+    if (new_size > f->inode.i_size) {
+        uint32_t saved_pos = f->pos;
+        f->pos = f->inode.i_size;
+        uint8_t zeroes[EXT2_MAX_BLOCK_SIZE] = {0};
+        while (f->pos < new_size) {
+            uint32_t chunk = new_size - f->pos;
+            if (chunk > sizeof(zeroes))
+                chunk = sizeof(zeroes);
+            int written = ext2_write(f, zeroes, chunk);
+            if (written <= 0) {
+                f->pos = saved_pos;
+                return written == EXT2_ERR_NOSPACE ? EXT2_ERR_NOSPACE : EXT2_ERR_IO;
+            }
+        }
+        f->pos = saved_pos;
+        uint64_t allocated_blocks;
+        if (ext2_count_inode_blocks(fs, &f->inode, &allocated_blocks) != EXT2_OK)
+            return EXT2_ERR_IO;
+        uint64_t sectors = allocated_blocks * fs->sectors_per_block;
+        f->inode.i_blocks = sectors > UINT32_MAX ? UINT32_MAX : (uint32_t)sectors;
+        if (ext2_write_inode(fs, f->ino, &f->inode) != EXT2_OK)
+            return EXT2_ERR_IO;
+        return EXT2_OK;
+    }
+
+    uint32_t block_size = fs->block_size;
+    uint64_t keep_blocks = ((uint64_t)new_size + block_size - 1) / block_size;
+    for (uint32_t i = 0; i < EXT2_NDIR_BLOCKS; ++i) {
+        if (i >= keep_blocks) {
+            ext2_free_block(fs, f->inode.i_block[i]);
+            f->inode.i_block[i] = 0;
+        }
+    }
+
+    uint32_t ptrs = block_size / sizeof(uint32_t);
+    uint64_t remaining = keep_blocks > EXT2_NDIR_BLOCKS ? keep_blocks - EXT2_NDIR_BLOCKS : 0;
+    uint64_t capacities[] = {
+        ptrs,
+        (uint64_t)ptrs * ptrs,
+        (uint64_t)ptrs * ptrs * ptrs,
+    };
+    for (uint32_t level = 0; level < 3; ++level) {
+        uint64_t keep = remaining < capacities[level] ? remaining : capacities[level];
+        uint32_t slot = EXT2_IND_BLOCK + level;
+        int retained = ext2_prune_indirect(fs, f->inode.i_block[slot],
+            level + 1, keep);
+        if (retained < 0)
+            return EXT2_ERR_IO;
+        if (retained == 0)
+            f->inode.i_block[slot] = 0;
+        remaining -= keep;
+    }
+
+    if (new_size % block_size) {
+        uint32_t last = ext2_bmap(fs, &f->inode, new_size / block_size, 0, 0);
+        if (last) {
+            uint8_t data[EXT2_MAX_BLOCK_SIZE];
+            if (ext2_read_block(fs, last, data) != EXT2_OK)
+                return EXT2_ERR_IO;
+            memset(data + new_size % block_size, 0,
+                block_size - new_size % block_size);
+            if (ext2_write_block(fs, last, data) != EXT2_OK)
+                return EXT2_ERR_IO;
+        }
+    }
+
+    uint64_t allocated_blocks;
+    if (ext2_count_inode_blocks(fs, &f->inode, &allocated_blocks) != EXT2_OK)
+        return EXT2_ERR_IO;
+    uint64_t sectors = allocated_blocks * fs->sectors_per_block;
+    f->inode.i_blocks = sectors > UINT32_MAX ? UINT32_MAX : (uint32_t)sectors;
+    f->inode.i_size = new_size;
+    f->inode.i_size_high = 0;
+    f->inode.i_mtime = f->inode.i_ctime = ext2_now();
+    return ext2_write_inode(fs, f->ino, &f->inode);
+}
+
 int ext2_truncate(ext2_fs_t *fs, ext2_file_t *f) {
     if (!fs || !f)
         return EXT2_ERR_INVAL;

@@ -252,6 +252,7 @@ int ext2_rmdir(ext2_fs_t *fs, const char *path);
 int ext2_rm_recursive(ext2_fs_t *fs, const char *path);
 int ext2_rename(ext2_fs_t *fs, const char *src_path, const char *dst_path);
 int ext2_truncate(ext2_fs_t *fs, ext2_file_t *f);
+int ext2_truncate_size(ext2_fs_t *fs, ext2_file_t *f, uint32_t new_size);
 
 int ext2_find_in_dir(ext2_fs_t *fs, uint32_t dir_ino, const char *name, uint32_t *out_ino, uint8_t *out_type);
 

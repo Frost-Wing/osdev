@@ -83,6 +83,45 @@ uint64 sys_execve(const char *target,
 
 extern syscall_frame_t *current_syscall_frame;
 
+typedef struct {
+    uint64_t flags;
+    uint64_t pidfd;
+    uint64_t child_tid;
+    uint64_t parent_tid;
+    uint64_t exit_signal;
+    uint64_t stack;
+    uint64_t stack_size;
+    uint64_t tls;
+    uint64_t set_tid;
+    uint64_t set_tid_size;
+    uint64_t cgroup;
+} linux_clone_args_t;
+
+_Static_assert(sizeof(linux_clone_args_t) == 88, "clone3 ABI size");
+
+uint64 sys_clone3(const void *args, uint64_t size) {
+    const uint64_t LINUX_SIGCHLD = 17;
+    const uint64_t CLONE_ARGS_MIN_SIZE = 64;
+
+    if (!args)
+        return -LINUX_EFAULT;
+    if (size < CLONE_ARGS_MIN_SIZE)
+        return -LINUX_EINVAL;
+    if (size > sizeof(linux_clone_args_t))
+        return -LINUX_E2BIG;
+
+    linux_clone_args_t clone_args = {0};
+    memcpy(&clone_args, args, size);
+
+    if (clone_args.flags != 0 || clone_args.exit_signal != LINUX_SIGCHLD ||
+        clone_args.pidfd || clone_args.child_tid || clone_args.parent_tid ||
+        clone_args.stack || clone_args.stack_size || clone_args.tls ||
+        clone_args.set_tid || clone_args.set_tid_size || clone_args.cgroup)
+        return -LINUX_ENOSYS;
+
+    return sys_fork();
+}
+
 uint64 sys_fork(void) {
     /* Read the frame BEFORE the child runs: the child's syscalls overwrite this global. */
     const syscall_frame_t *f = current_syscall_frame;

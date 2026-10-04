@@ -109,6 +109,9 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_CLOSE:
             return sys_close(arg1);
 
+        case LINUX_SYS_FTRUNCATE:
+            return sys_ftruncate(arg1, (int64_t)arg2);
+
         case LINUX_SYS_LSEEK:
             return sys_lseek(arg1, (int64_t)arg2, arg3);
 
@@ -194,6 +197,9 @@ uint64_t syscall_dispatch(
                 return -LINUX_ENOSYS;
             return sys_fork();   /* arg4 (child tid ptr) is now allowed */
         }
+
+        case LINUX_SYS_CLONE3:
+            return sys_clone3((const void *)arg1, arg2);
 
         case LINUX_SYS_EXECVE:
             return sys_execve((const char *)arg1, (char *const *)arg2, (char *const *)arg3);

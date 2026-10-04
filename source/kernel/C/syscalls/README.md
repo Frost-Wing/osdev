@@ -8,7 +8,7 @@ Implementations are grouped by responsibility:
 
 - `filesystem.c`: paths, file descriptors, directory iteration, and metadata.
 - `network.c`: Linux socket compatibility and socket descriptor state.
-- `process.c`: `execve`, fork/clone support, waiting, and futex compatibility.
+- `process.c`: `execve`, fork/clone/clone3 support, waiting, and futex compatibility.
 - `system.c`: time, memory, signals, eventfd2, and miscellaneous kernel APIs.
 - `system.c`: time, memory, signals, credentials, and miscellaneous kernel APIs.
 - `internal.h`: private shared dependencies, cross-module declarations, and

@@ -16,6 +16,7 @@
  * - `getdents64(2)`        -> `sys_getdents64()`        -> FAT16/FAT32/ISO9660/proc/dev walkers
  * - `rename(2)`            -> `sys_rename()`            -> same-mount VFS rename
  * - `copy_file_range(2)`   -> `sys_copy_file_range()`   -> bounded VFS read/write loop
+ * - `ftruncate(2)`         -> `sys_ftruncate()`         -> EXT2/FAT-backed file resizing
  * - `mount(2)`             -> `sys_mount()`             -> existing VFS mount backends
  * - `umount2(2)`           -> `sys_umount2()`           -> existing VFS unmount path
  *
@@ -37,6 +38,7 @@
  * ## Process and thread compatibility
  * - `execve(2)`            -> `sys_execve()`            -> `userland_exec()` / `execute_chain()`
  * - `fork(2)` / `clone(2)` -> `sys_fork()`              -> `multitasking_spawn_userland()` (exec-context clone)
+ * - `clone3(2)`            -> `sys_clone3()`            -> restricted fork-compatible clone arguments
  * - `wait4(2)`             -> `sys_wait4()`             -> multitasking task-state polling
  * - `set_tid_address(2)`   -> `sys_set_tid_address()`   -> kernel clear-child-tid bookkeeping
  * - `set_robust_list(2)`   -> `sys_set_robust_list()`   -> ABI validation

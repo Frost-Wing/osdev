@@ -1350,6 +1350,96 @@ uint64 sys_close(uint64_t fd) {
     return fd_close((int)fd) == 0 ? 0 : -LINUX_EBADF;
 }
 
+uint64 sys_ftruncate(uint64_t fd, int64_t length) {
+    if (length < 0)
+        return -LINUX_EINVAL;
+    if (!fd_valid((int)fd))
+        return -LINUX_EBADF;
+    if (fd_is_eventfd((int)fd))
+        return -LINUX_EINVAL;
+
+    int flags = fd_flags((int)fd);
+    if (!(flags & VFS_WRONLY) && !(flags & VFS_RDWR))
+        return -LINUX_EBADF;
+
+    vfs_file_t *file = fd_get_file((int)fd);
+    if (!file || !file->mnt)
+        return -LINUX_EINVAL;
+    if (length > UINT32_MAX)
+        return -LINUX_EINVAL;
+
+    uint32_t new_size = (uint32_t)length;
+    uint32_t old_size = fd_file_size((int)fd);
+    uint32_t *position = fd_pos_ptr((int)fd);
+    if (!position)
+        return -LINUX_EINVAL;
+    uint32_t old_position = *position;
+
+    if (file->mnt->type == FS_EXT2 && file->f.ext2.is_dir)
+        return -LINUX_EISDIR;
+    if (file->mnt->type == FS_FAT16 &&
+        (file->f.fat16.entry.attr & 0x10))
+        return -LINUX_EISDIR;
+    if (file->mnt->type == FS_FAT32 && file->f.fat32.is_dir)
+        return -LINUX_EISDIR;
+    if (file->mnt->type == FS_ISO9660)
+        return -LINUX_EROFS;
+    if (file->mnt->type != FS_EXT2 && file->mnt->type != FS_FAT16 &&
+        file->mnt->type != FS_FAT32)
+        return -LINUX_EINVAL;
+
+    if (new_size > old_size) {
+        static const uint8_t zeros[4096] = {0};
+        *position = old_size;
+        while (*position < new_size) {
+            uint32_t chunk = new_size - *position;
+            if (chunk > sizeof(zeros))
+                chunk = sizeof(zeros);
+            int written = vfs_write(file, zeros, chunk);
+            if (written <= 0) {
+                *position = old_position;
+                if (written == 0 || written == EXT2_ERR_NOSPACE)
+                    return -LINUX_ENOSPC;
+                return -LINUX_EIO;
+            }
+        }
+        *position = old_position;
+        return 0;
+    }
+
+    if (new_size == old_size)
+        return 0;
+
+    int rc;
+    switch (file->mnt->type) {
+        case FS_EXT2:
+            rc = ext2_truncate_size(file->f.ext2.fs, &file->f.ext2, new_size);
+            if (rc != EXT2_OK)
+                return rc == EXT2_ERR_NOSPACE ? -LINUX_ENOSPC : -LINUX_EIO;
+            break;
+        case FS_FAT16:
+            rc = fat16_truncate(&file->f.fat16, new_size);
+            if (rc != FAT_OK)
+                return -LINUX_EIO;
+            if (file->f.fat16.parent_cluster == 0)
+                fat16_update_root_entry(file->f.fat16.fs, &file->f.fat16.entry);
+            else if (fat16_update_dir_entry(file->f.fat16.fs,
+                         file->f.fat16.parent_cluster, &file->f.fat16.entry) != 0)
+                return -LINUX_EIO;
+            break;
+        case FS_FAT32:
+            rc = fat32_truncate(&file->f.fat32, new_size);
+            if (rc != FAT_OK)
+                return -LINUX_EIO;
+            break;
+        default:
+            return -LINUX_EINVAL;
+    }
+
+    *position = old_position;
+    return 0;
+}
+
 uint64 sys_fstat(uint64_t fd, linux_stat_t *st) {
     vfs_stat_info_t info;
     if (!st)

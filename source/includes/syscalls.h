@@ -123,8 +123,11 @@ typedef struct {
 #define LINUX_SYS_TGKILL 234
 #define LINUX_SYS_MKDIRAT 258
 #define LINUX_SYS_EVENTFD2 290
+#define LINUX_SYS_FTRUNCATE 77
+#define LINUX_SYS_CLONE3 435
 
 #define LINUX_EAGAIN 11
+#define LINUX_E2BIG 7
 
 #define LINUX_AT_FDCWD (-100)
 
