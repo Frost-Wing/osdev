@@ -1,6 +1,81 @@
 #include <syscalls/internal.h>
 #include <pit.h>
 
+typedef struct {
+    uint32_t cpu_id_start;
+    uint32_t cpu_id;
+    uint64_t rseq_cs;
+    uint32_t flags;
+    uint32_t node_id;
+    uint32_t mm_cid;
+    uint32_t reserved;
+} linux_rseq_t;
+
+_Static_assert(sizeof(linux_rseq_t) == 32, "Linux rseq ABI size");
+
+#define LINUX_RSEQ_FLAG_UNREGISTER 1
+#define LINUX_RSEQ_CPU_ID_UNINITIALIZED UINT32_MAX
+#define LINUX_RSEQ_CPU_ID_REGISTRATION_FAILED (UINT32_MAX - 1)
+
+static uint64_t fallback_rseq_area;
+static uint32_t fallback_rseq_signature;
+
+static void rseq_current_state(uint64_t **area, uint32_t **signature) {
+    task_t *task = multitasking_get_current_task();
+    if (task) {
+        *area = &task->rseq_area;
+        *signature = &task->rseq_signature;
+    } else {
+        *area = &fallback_rseq_area;
+        *signature = &fallback_rseq_signature;
+    }
+}
+
+uint64 sys_rseq(void *area, uint64_t length, uint64_t flags, uint32_t signature) {
+    if (length != sizeof(linux_rseq_t) ||
+        (flags != 0 && flags != LINUX_RSEQ_FLAG_UNREGISTER))
+        return -LINUX_EINVAL;
+
+    uint64_t *registered_area;
+    uint32_t *registered_signature;
+    rseq_current_state(&registered_area, &registered_signature);
+
+    if (flags == LINUX_RSEQ_FLAG_UNREGISTER) {
+        if (!area || *registered_area != (uint64_t)area ||
+            *registered_signature != signature)
+            return -LINUX_EINVAL;
+
+        linux_rseq_t *rseq = area;
+        rseq->cpu_id_start = LINUX_RSEQ_CPU_ID_UNINITIALIZED;
+        rseq->cpu_id = LINUX_RSEQ_CPU_ID_REGISTRATION_FAILED;
+        *registered_area = 0;
+        *registered_signature = 0;
+        return 0;
+    }
+
+    if (!area || ((uintptr_t)area & 31U) != 0)
+        return -LINUX_EINVAL;
+    if (*registered_area)
+        return -LINUX_EBUSY;
+
+    linux_rseq_t *rseq = area;
+    rseq->cpu_id_start = 0;
+    rseq->cpu_id = 0;
+    rseq->node_id = 0;
+    rseq->mm_cid = 0;
+    *registered_area = (uint64_t)area;
+    *registered_signature = signature;
+    return 0;
+}
+
+void sys_rseq_reset_current(void) {
+    uint64_t *registered_area;
+    uint32_t *registered_signature;
+    rseq_current_state(&registered_area, &registered_signature);
+    *registered_area = 0;
+    *registered_signature = 0;
+}
+
 uint64 sys_access_common(int dirfd, const char *path, int mode) {
     (void)mode;
     if (!path)

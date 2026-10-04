@@ -74,6 +74,8 @@ typedef struct task {
 
     user_task_spec_t user_spec;
     user_runtime_t user_runtime;
+    uint64_t rseq_area;
+    uint32_t rseq_signature;
     struct task *next;
 
 } task_t;

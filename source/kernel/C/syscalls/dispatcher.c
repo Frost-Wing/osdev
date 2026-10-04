@@ -280,6 +280,9 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_SET_ROBUST_LIST:
             return sys_set_robust_list((const void *)arg1, arg2);
 
+        case LINUX_SYS_RSEQ:
+            return sys_rseq((void *)arg1, arg2, arg3, (uint32_t)arg4);
+
         case LINUX_SYS_PRLIMIT64:
             return sys_prlimit64(arg1, arg2, (const linux_rlimit64_t *)arg3, (linux_rlimit64_t *)arg4);
 

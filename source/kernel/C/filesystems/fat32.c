@@ -134,13 +134,10 @@ int fat32_match_name(const fat32_dir_entry_t *e, const char *name) {
 /* ========================== */
 
 static int fat32_read_cluster(fat32_fs_t *fs, uint32_t cluster, uint8_t *buf) {
+    if (!fs || !buf || !fs->sectors_per_cluster)
+        return -1;
     uint32_t lba = fat32_cluster_lba(fs, cluster);
-    for (uint32_t i = 0; i < fs->sectors_per_cluster; i++) {
-        if (fat32_read_sector(fs, lba + i,
-                buf + i * FAT32_SECTOR_SIZE))
-            return -1;
-    }
-    return 0;
+    return ahci_read_sector(fs->portno, lba, buf, fs->sectors_per_cluster);
 }
 
 /* ========================== */

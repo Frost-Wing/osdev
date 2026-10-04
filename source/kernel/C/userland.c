@@ -409,6 +409,7 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     current_fs_base = userland_restore_fs_base;
 
     if (!still_in_userland) {
+        sys_rseq_reset_current();
         userland_unmap_all();
         userland_heap_init();
     }
@@ -895,6 +896,7 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
         image_info.tls_template = NULL;
     }
 
+    sys_rseq_reset_current();
     userland_heap_init();
 
     uint64_t kernel_rsp = 0;
@@ -1057,6 +1059,7 @@ int userland_exec_replace(const userland_exec_ctx_t *ctx) {
         userland_free_snapshot(backup);
 
         exec_copy_free(copy);
+        sys_rseq_reset_current();
         userland_heap_init();
         userland_iret((uint64_t)entry, stack_top);
     }

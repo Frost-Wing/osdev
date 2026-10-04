@@ -109,14 +109,29 @@ static int elf_vfs_seek(vfs_file_t *file, uint32_t offset) {
     if (file->mnt->type == FS_FAT32) {
         fat32_file_t *fat32 = &file->f.fat32;
         uint32_t cluster_size = fat32->fs->sectors_per_cluster * FAT32_SECTOR_SIZE;
-        uint32_t cluster = fat32->start_cluster;
-        uint32_t steps = cluster_size ? (offset / cluster_size) : 0;
+        if (!cluster_size)
+            return -1;
+
+        uint32_t target_cluster_index = offset / cluster_size;
+        uint32_t current_cluster_index = *pos / cluster_size;
+        uint32_t cluster;
+        uint32_t steps;
+
+        if (target_cluster_index >= current_cluster_index) {
+            cluster = fat32->current_cluster;
+            steps = target_cluster_index - current_cluster_index;
+        } else {
+            cluster = fat32->start_cluster;
+            steps = target_cluster_index;
+        }
 
         while (steps > 0 && cluster < FAT32_CLUSTER_EOC) {
             cluster = fat32_read_fat(fat32->fs, cluster);
             steps--;
         }
 
+        if (steps > 0 || cluster < 2 || cluster >= FAT32_CLUSTER_EOC)
+            return -1;
         fat32->current_cluster = cluster;
     }
 

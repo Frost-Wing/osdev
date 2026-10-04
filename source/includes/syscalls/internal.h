@@ -113,6 +113,8 @@ uint64 sys_futimesat(int, const char *, const void *);
 uint64 sys_utimensat(int, const char *, const linux_timespec_t *, int);
 int sys_reboot(int, int, unsigned int, void *); int sys_kill(int, int); uint64 sys_syslog(int, char *, uint64_t);
 uint64 sys_mmap(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t); uint64 sys_mprotect(uint64_t, uint64_t, uint64_t); uint64 sys_madvise(uint64_t, uint64_t, int); uint64 sys_brk(uint64_t); uint64 sys_munmap(uint64_t, uint64_t); uint64 sys_arch_prctl(uint64_t, uint64_t); uint64 sys_prlimit64(uint64_t, uint64_t, const linux_rlimit64_t *, linux_rlimit64_t *); uint64 sys_umask(uint64_t); uint64 sys_tgkill(uint64_t, uint64_t, uint64_t); uint64 sys_set_tid_address(uint64_t *); uint64 sys_set_robust_list(const void *, uint64_t); uint64 sys_getrandom(void *, uint64_t, uint64_t);
+uint64 sys_rseq(void *, uint64_t, uint64_t, uint32_t);
+void sys_rseq_reset_current(void);
 uint64 sys_execve(const char *, char *const *, char *const *); uint64 sys_fork(void); uint64 sys_wait4(int64_t, int *, int, void *); uint64 sys_futex(uint32_t *, int, uint32_t, const linux_timespec_t *, uint32_t *, uint32_t);
 int fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out);
 uint64 sys_statfs(const char *path, linux_statfs_t *buf);
