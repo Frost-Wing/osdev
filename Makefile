@@ -134,7 +134,7 @@ QEMU_COMMON = \
     -device ahci,id=ahci \
     -drive if=none,media=cdrom,format=raw,file=$(ISO_FILE),id=cd0 \
     -device ide-cd,drive=cd0,bus=ahci.0 \
-	-drive if=none,format=raw,file=../disk.img,id=disk \
+	-drive if=none,format=raw,file=./disk.img,id=disk \
     -device ide-hd,drive=disk,bus=ahci.1 \
 	-device qemu-xhci,id=xhci \
 	-drive if=none,format=raw,file=usb.img,id=stick \
