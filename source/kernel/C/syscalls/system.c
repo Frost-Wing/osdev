@@ -225,6 +225,15 @@ uint64_t sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
     }
 }
 
+uint64 sys_time(int64_t *tloc) {
+    int64_t now = (int64_t)rtc_get_unix_time();
+
+    if (tloc)
+        *tloc = now;
+
+    return (uint64)now;
+}
+
 static uint64 sys_update_path_times(int dirfd, const char *path,
     uint64_t atime, uint64_t mtime, bool atime_omit, bool mtime_omit) {
     char normalized[256];
