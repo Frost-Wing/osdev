@@ -108,6 +108,9 @@ uint64 sys_getsockopt(uint64_t, uint64_t, uint64_t, void *, uint64_t *);
 uint64 sys_ioctl(uint64_t, uint64_t, uint64_t); uint64 sys_fcntl(uint64_t, uint64_t, uint64_t);
 uint64 sys_access_common(int, const char *, int); uint64 sys_lseek(uint64_t, int64_t, uint64_t); uint64 sys_dup2(uint64_t, uint64_t); uint64 sys_dup(uint64_t); uint64 sys_getcwd(char *, uint64_t); uint64 sys_chdir(const char *); uint64 sys_readlinkat(int, const char *, char *, uint64_t);
 uint64 sys_clock_gettime(uint64_t, linux_timespec_t *); uint64 sys_nanosleep(const linux_timespec_t *, linux_timespec_t *);
+uint64 sys_gettimeofday(linux_timeval_t *, linux_timezone_t *);
+uint64 sys_pselect6(int, uint64_t *, uint64_t *, uint64_t *,
+    const linux_timespec_t *, const void *);
 uint64 sys_time(int64_t *tloc);
 uint64 sys_utimes(const char *, const void *);
 uint64 sys_futimesat(int, const char *, const void *);

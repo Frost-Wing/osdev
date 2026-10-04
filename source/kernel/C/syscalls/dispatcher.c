@@ -239,6 +239,20 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_UMASK:
             return sys_umask(arg1);
 
+        case LINUX_SYS_GETTIMEOFDAY:
+            return sys_gettimeofday((linux_timeval_t *)arg1,
+                (linux_timezone_t *)arg2);
+
+        case LINUX_SYS_SETFSUID:
+        case LINUX_SYS_SETFSGID:
+            /* This kernel currently runs all processes with root credentials. */
+            return 0;
+
+        case LINUX_SYS_PSELECT6:
+            return sys_pselect6((int)arg1, (uint64_t *)arg2,
+                (uint64_t *)arg3, (uint64_t *)arg4,
+                (const linux_timespec_t *)arg5, (const void *)arg6);
+
         case LINUX_SYS_UTIMES:
             return sys_utimes((const char *)arg1, (const void *)arg2);
 

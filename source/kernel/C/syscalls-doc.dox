@@ -39,6 +39,7 @@
  * - `execve(2)`            -> `sys_execve()`            -> `userland_exec()` / `execute_chain()`
  * - `fork(2)` / `clone(2)` -> `sys_fork()`              -> `multitasking_spawn_userland()` (exec-context clone)
  * - `clone3(2)`            -> `sys_clone3()`            -> restricted fork-compatible clone arguments
+ * - `setfsuid(2)` / `setfsgid(2)` -> accept changes while all processes use root credentials
  * - `wait4(2)`             -> `sys_wait4()`             -> multitasking task-state polling
  * - `set_tid_address(2)`   -> `sys_set_tid_address()`   -> kernel clear-child-tid bookkeeping
  * - `set_robust_list(2)`   -> `sys_set_robust_list()`   -> ABI validation
@@ -54,8 +55,10 @@
  * - socket `read(2)` / `write(2)` -> socket receive/send paths
  *
  * ## Time and randomness
- * - `clock_gettime(2)`     -> `sys_clock_gettime()`     -> RTC-backed time fetch
- * - `nanosleep(2)`         -> `sys_nanosleep()`         -> `sleep()`
+ * - `gettimeofday(2)`     -> `sys_gettimeofday()`   -> RTC-backed seconds and zeroed timezone
+ * - `clock_gettime(2)`     -> `sys_clock_gettime()`  -> RTC-backed time fetch
+ * - `nanosleep(2)`         -> `sys_nanosleep()`      -> `sleep()`
+ * - `pselect6(2)`          -> `sys_pselect6()`       -> descriptor readiness via `sys_poll()`
  * - `getrandom(2)`         -> `sys_getrandom()`         -> xorshift seeded from `rdtsc64()`
  * - `ioctl(BLKGETSIZE64)`   -> block-device byte capacity from devfs
  * - `ioctl(RTC_RD_TIME)`    -> CMOS RTC time from `/dev/rtc0`

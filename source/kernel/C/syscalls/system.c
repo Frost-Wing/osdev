@@ -238,6 +238,131 @@ uint64_t sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
     }
 }
 
+uint64 sys_gettimeofday(linux_timeval_t *tv, linux_timezone_t *tz) {
+    if (tv) {
+        tv->tv_sec = (long)rtc_get_unix_time();
+        tv->tv_usec = 0;
+    }
+    if (tz) {
+        tz->tz_minuteswest = 0;
+        tz->tz_dsttime = 0;
+    }
+    return 0;
+}
+
+typedef struct {
+    int32_t fd;
+    int16_t events;
+    int16_t revents;
+} linux_pselect_pollfd_t;
+
+typedef struct {
+    const uint64_t *sigmask;
+    uint64_t sigsetsize;
+} linux_pselect_sigarg_t;
+
+#define LINUX_PSELECT_FD_WORDS 16
+#define LINUX_PSELECT_FD_LIMIT (LINUX_PSELECT_FD_WORDS * 64)
+#define LINUX_POLLIN 0x001
+#define LINUX_POLLPRI 0x002
+#define LINUX_POLLOUT 0x004
+#define LINUX_POLLERR 0x008
+#define LINUX_POLLHUP 0x010
+#define LINUX_POLLNVAL 0x020
+#define LINUX_KERNEL_SIGSET_SIZE 8
+
+uint64 sys_pselect6(int nfds, uint64_t *readfds, uint64_t *writefds,
+    uint64_t *exceptfds, const linux_timespec_t *timeout, const void *sigarg) {
+    if (nfds < 0 || nfds > LINUX_PSELECT_FD_LIMIT)
+        return -LINUX_EINVAL;
+    if (timeout && (timeout->tv_sec < 0 || timeout->tv_nsec < 0 ||
+        timeout->tv_nsec >= 1000000000L))
+        return -LINUX_EINVAL;
+    if (sigarg) {
+        const linux_pselect_sigarg_t *arg = sigarg;
+        if (arg->sigsetsize != LINUX_KERNEL_SIGSET_SIZE)
+            return -LINUX_EINVAL;
+    }
+
+    linux_pselect_pollfd_t pollfds[STREAM_MAX_FDS];
+    uint64_t poll_count = 0;
+    for (int fd = 0; fd < nfds; fd++) {
+        uint64_t mask = 1ULL << (fd % 64);
+        bool want_read = readfds && (readfds[fd / 64] & mask);
+        bool want_write = writefds && (writefds[fd / 64] & mask);
+        bool want_except = exceptfds && (exceptfds[fd / 64] & mask);
+        if (!want_read && !want_write && !want_except)
+            continue;
+        if (!fd_valid(fd))
+            return -LINUX_EBADF;
+
+        pollfds[poll_count].fd = fd;
+        pollfds[poll_count].events =
+            (want_read ? LINUX_POLLIN : 0) |
+            (want_write ? LINUX_POLLOUT : 0);
+        pollfds[poll_count].revents = 0;
+        poll_count++;
+    }
+
+    int timeout_ms = 0;
+    if (timeout) {
+        uint64_t seconds = (uint64_t)timeout->tv_sec;
+        uint64_t millis = ((uint64_t)timeout->tv_nsec + 999999) / 1000000;
+        if (seconds > 0x7fffffffULL / 1000 ||
+            seconds * 1000 + millis > 0x7fffffffULL)
+            timeout_ms = 0x7fffffff;
+        else
+            timeout_ms = (int)(seconds * 1000 + millis);
+    } else {
+        timeout_ms = -1;
+    }
+
+    uint64 result = sys_poll(pollfds, poll_count, timeout_ms);
+    if ((int64_t)result < 0)
+        return result;
+
+    uint64_t ready_read[LINUX_PSELECT_FD_WORDS] = {0};
+    uint64_t ready_write[LINUX_PSELECT_FD_WORDS] = {0};
+    uint64_t ready_except[LINUX_PSELECT_FD_WORDS] = {0};
+    uint64_t ready_fds = 0;
+    for (uint64_t i = 0; i < poll_count; i++) {
+        if (pollfds[i].revents & LINUX_POLLNVAL)
+            return -LINUX_EBADF;
+
+        int fd = pollfds[i].fd;
+        uint64_t mask = 1ULL << (fd % 64);
+        bool want_read = readfds && (readfds[fd / 64] & mask);
+        bool want_write = writefds && (writefds[fd / 64] & mask);
+        bool want_except = exceptfds && (exceptfds[fd / 64] & mask);
+        bool fd_ready = false;
+        if (want_read && (pollfds[i].revents &
+            (LINUX_POLLIN | LINUX_POLLERR | LINUX_POLLHUP))) {
+            ready_read[fd / 64] |= mask;
+            fd_ready = true;
+        }
+        if (want_write && (pollfds[i].revents &
+            (LINUX_POLLOUT | LINUX_POLLERR | LINUX_POLLHUP))) {
+            ready_write[fd / 64] |= mask;
+            fd_ready = true;
+        }
+        if (want_except && (pollfds[i].revents & LINUX_POLLPRI)) {
+            ready_except[fd / 64] |= mask;
+            fd_ready = true;
+        }
+        if (fd_ready)
+            ready_fds++;
+    }
+
+    uint64_t words = ((uint64_t)nfds + 63) / 64;
+    if (readfds && words)
+        memcpy(readfds, ready_read, words * sizeof(uint64_t));
+    if (writefds && words)
+        memcpy(writefds, ready_write, words * sizeof(uint64_t));
+    if (exceptfds && words)
+        memcpy(exceptfds, ready_except, words * sizeof(uint64_t));
+    return ready_fds;
+}
+
 uint64 sys_time(int64_t *tloc) {
     int64_t now = (int64_t)rtc_get_unix_time();
 

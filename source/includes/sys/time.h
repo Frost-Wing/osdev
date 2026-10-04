@@ -22,4 +22,14 @@ typedef struct {
     long tv_nsec;
 } linux_timespec_t;
 
+typedef struct {
+    long tv_sec;
+    long tv_usec;
+} linux_timeval_t;
+
+typedef struct {
+    int tz_minuteswest;
+    int tz_dsttime;
+} linux_timezone_t;
+
 #endif
