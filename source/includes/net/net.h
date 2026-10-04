@@ -19,6 +19,7 @@
 #define NET_ENOMEM (-3)
 #define NET_ETIMEDOUT (-4)
 #define NET_ENOTSUP (-5)
+#define NET_EINTR (-6)
 #define NET_EOF 1000
 
 typedef uint32 net_ipv4_t;

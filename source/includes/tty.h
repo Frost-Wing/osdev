@@ -27,6 +27,10 @@ bool tty_init_terminals(struct flanterm_context *default_terminal,
 void tty_input_char(char c);
 int tty_read(char *buf, uint64_t count);
 void tty_flush_input(void);
+bool tty_interrupt_pending(void);
+int tty_take_interrupt(void);
+void tty_clear_interrupt(void);
+int tty_process_exit_code_for_key(int key);
 bool tty_get_termios(linux_termios_t *termios);
 bool tty_set_termios(const linux_termios_t *termios, bool flush_input);
 bool tty_get_winsize(linux_winsize_t *winsize);

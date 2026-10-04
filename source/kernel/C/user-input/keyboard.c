@@ -16,6 +16,7 @@
 #include <ringbuffer.h>
 #include <stdint.h>
 #include <tty.h>
+#include <userland.h>
 #include <xhci.h>
 
 bool enable_keyboard = yes;
@@ -238,6 +239,17 @@ void process_keyboard(InterruptFrame *frame) {
         tty_input_key(key);
 
     outb(0x20, 0x20);
+
+    if (key != 0 && frame && (frame->cs & 3U) == 3U &&
+        userland_is_running()) {
+        int exit_code = tty_process_exit_code_for_key(key);
+        if (exit_code >= 0) {
+            keyboard_flush_buffer();
+            tty_clear_interrupt();
+            tty_flush_input();
+            userland_abort_from_keyboard(exit_code);
+        }
+    }
 }
 
 uint8_t getmodifiers(void) {

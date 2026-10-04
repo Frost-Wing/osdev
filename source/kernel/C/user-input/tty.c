@@ -12,11 +12,12 @@
  *
  */
 
+#include <flanterm/flanterm.h>
 #include <graphics.h>
 #include <fb.h>
-#include <flanterm/flanterm.h>
 #include <multitasking.h>
 #include <ringbuffer.h>
+#include <syscalls.h>
 #include <sys/termios.h>
 #include <tty.h>
 #include <keyboard.h>
@@ -28,6 +29,7 @@ typedef struct {
     char line_buf[TTY_LINE_MAX];
     size_t line_len;
     bool eof;
+    volatile int interrupt_exit_code;
     linux_termios_t termios;
     struct flanterm_context *display;
     spinlock_t lock;
@@ -56,8 +58,11 @@ void tty_init(void) {
 
         tty->termios.c_cc[LINUX_VMIN] = 1;
         tty->termios.c_cc[LINUX_VTIME] = 0;
+        tty->termios.c_cc[LINUX_VINTR] = 3;
+        tty->termios.c_cc[LINUX_VEOF] = 4;
         tty->line_len = 0;
         tty->eof = false;
+        tty->interrupt_exit_code = -1;
         tty->display = NULL;
         tty->lock = (spinlock_t)SPINLOCK_INITIALIZER;
     }
@@ -115,6 +120,20 @@ void tty_input_char(char c) {
     if (c == '\r' && (tty->termios.c_iflag & LINUX_ICRNL))
         c = '\n';
 
+    if ((tty->termios.c_lflag & LINUX_ISIG) &&
+        tty->termios.c_cc[LINUX_VINTR] != 0 &&
+        (uint8_t)c == tty->termios.c_cc[LINUX_VINTR]) {
+        tty->interrupt_exit_code = 130;
+        tty->line_len = 0;
+        if (!(tty->termios.c_lflag & LINUX_NOFLSH))
+            rb_clear(&tty->cooked_rb);
+        spinlock_unlock(&tty->lock);
+        return;
+    }
+
+    bool eof_char = tty->termios.c_cc[LINUX_VEOF] != 0 &&
+        (uint8_t)c == tty->termios.c_cc[LINUX_VEOF];
+
     /* -------- RAW MODE -------- */
     if (!(tty->termios.c_lflag & LINUX_ICANON)) {
         tty_push_cooked(tty, c);
@@ -160,7 +179,7 @@ void tty_input_char(char c) {
     }
 
     /* Ctrl+D: publish the pending line and signal EOF to the reader */
-    if (c == 4) {
+    if (eof_char) {
         for (size_t i = 0; i < tty->line_len; i++)
             tty_push_cooked(tty, tty->line_buf[i]);
         tty->line_len = 0;
@@ -227,6 +246,9 @@ int tty_read(char *buf, uint64_t count) {
     static uint64_t last_tick = 0;
 
     for (;;) {
+        if (tty_interrupt_pending())
+            return -LINUX_EINTR;
+
         char c = 0;
         bool got = false, eof = false;
 
@@ -273,7 +295,43 @@ void tty_flush_input(void) {
     spinlock_lock(&tty->lock);
     rb_clear(&tty->cooked_rb);
     tty->line_len = 0;
+    tty->eof = false;
+    tty->interrupt_exit_code = -1;
     spinlock_unlock(&tty->lock);
+}
+
+bool tty_interrupt_pending(void) {
+    tty_t *tty = tty_get(tty_active_index());
+    return tty->interrupt_exit_code >= 0;
+}
+
+int tty_take_interrupt(void) {
+    tty_t *tty = tty_get(tty_active_index());
+    spinlock_lock(&tty->lock);
+    int exit_code = tty->interrupt_exit_code;
+    tty->interrupt_exit_code = -1;
+    spinlock_unlock(&tty->lock);
+    return exit_code;
+}
+
+void tty_clear_interrupt(void) {
+    tty_t *tty = tty_get(tty_active_index());
+    spinlock_lock(&tty->lock);
+    tty->interrupt_exit_code = -1;
+    spinlock_unlock(&tty->lock);
+}
+
+int tty_process_exit_code_for_key(int key) {
+    tty_t *tty = tty_get(tty_active_index());
+    int exit_code = -1;
+    spinlock_lock(&tty->lock);
+    if ((tty->termios.c_lflag & LINUX_ISIG) &&
+        tty->termios.c_cc[LINUX_VINTR] != 0 &&
+        key == tty->termios.c_cc[LINUX_VINTR]) {
+        exit_code = 130;
+    }
+    spinlock_unlock(&tty->lock);
+    return exit_code;
 }
 
 bool tty_get_termios(linux_termios_t *termios) {

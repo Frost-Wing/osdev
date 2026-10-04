@@ -2,6 +2,7 @@
 #include <syscalls/internal.h>
 #include <limine.h>
 #include <pit.h>
+#include <tty.h>
 
 #define LINUX_AF_INET 2
 #define LINUX_SOCK_STREAM 1
@@ -197,6 +198,8 @@ uint64 sys_poll(void *pollfds, uint64_t nfds, int timeout_ms) {
         deadline += ((uint64_t)timeout_ms + 9) / 10;
 
     for (;;) {
+        if (tty_interrupt_pending())
+            return -LINUX_EINTR;
         netif_poll();
         uint64_t ready = 0;
         for (uint64_t i = 0; i < nfds; i++) {

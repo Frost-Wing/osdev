@@ -1,5 +1,7 @@
 #include <syscalls/internal.h>
 #include <syscalls/sysnames.h>
+#include <tty.h>
+#include <userland.h>
 
 syscall_frame_t *current_syscall_frame;
 
@@ -14,6 +16,10 @@ void int80_handler(InterruptFrame *frame) {
         frame->r9);
 
     frame->rax = ret;
+    int interrupt_exit_code = tty_take_interrupt();
+    if (interrupt_exit_code >= 0 && (frame->cs & 3U) == 3U &&
+        userland_is_running())
+        userland_abort_from_keyboard(interrupt_exit_code);
 }
 
 // THIS IS FOR SYSCALL INSTRUCTION
@@ -46,6 +52,9 @@ void syscall_handler(syscall_frame_t *f) {
         f->r9);
 
     f->rax = ret;
+    int interrupt_exit_code = tty_take_interrupt();
+    if (interrupt_exit_code >= 0)
+        userland_prepare_exit(f, (uint64_t)interrupt_exit_code);
 }
 
 uint64_t syscall_dispatch(

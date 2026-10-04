@@ -791,6 +791,27 @@ void userland_abort_from_exception(uint64_t int_no, uint64_t err_code, uint64_t 
     userland_jump_resume(regs);
 }
 
+void userland_abort_from_keyboard(int exit_code) {
+    if (!userland_running || !userland_resume_rip || !userland_resume_rsp)
+        hcf2();
+
+    userland_last_exit_code = exit_code;
+    uint64_t regs[9] = {
+        userland_resume_rbx,
+        userland_resume_rbp,
+        userland_resume_r12,
+        userland_resume_r13,
+        userland_resume_r14,
+        userland_resume_r15,
+        0,
+        userland_resume_rsp,
+        userland_resume_rip,
+    };
+
+    asm volatile("cli");
+    userland_jump_resume(regs);
+}
+
 /* --------------------------------------------------------------- entry --- */
 
 void enter_userland_at(uint64_t code_entry) {

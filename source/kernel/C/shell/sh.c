@@ -17,6 +17,7 @@
 #include <strings.h>
 #include <cc-asm.h>
 #include <rtc.h>
+#include <tty.h>
 
 int last_status_code = 0;
 
@@ -214,6 +215,20 @@ int shell_main(int argc, char **argv) {
         if (c == 0)
             continue;
 
+        if (c == 3 || c == 4) {
+            tty_take_interrupt();
+            tty_flush_input();
+            keyboard_flush_buffer();
+            commandSize = 0;
+            cursor = 0;
+            command[0] = '\0';
+            print("\r\x1b[K");
+            if (c == 3)
+                print("^C\n");
+            show_prompt(argc, argv);
+            continue;
+        }
+
         if (c == CUR_UP) {
             if (entry == NULL)
                 entry = commandHistory.end;
@@ -260,6 +275,12 @@ int shell_main(int argc, char **argv) {
             command[cursor] = '\0'; // Null-terminate the string
 
             last_status_code = execute_chain(command);
+            int interrupt_exit_code = tty_take_interrupt();
+            if (interrupt_exit_code >= 0) {
+                keyboard_flush_buffer();
+                tty_flush_input();
+                last_status_code = interrupt_exit_code;
+            }
 
             push_command_to_list(&commandHistory, command, cursor);
             entry = NULL;

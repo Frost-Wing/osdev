@@ -157,6 +157,7 @@ bool userland_prepare_exit(syscall_frame_t *frame, uint64_t exit_code);
 int userland_exec(const userland_exec_ctx_t *ctx);
 bool userland_is_running(void);
 void userland_abort_from_exception(uint64_t int_no, uint64_t err_code, uint64_t fault_rip) __attribute__((noreturn));
+void userland_abort_from_keyboard(int exit_code) __attribute__((noreturn));
 int userland_exec_replace(const userland_exec_ctx_t *ctx);
 void sh_exec(void);
 

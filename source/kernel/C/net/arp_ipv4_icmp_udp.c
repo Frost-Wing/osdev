@@ -2,6 +2,7 @@
 #include <memory.h>
 #include <net/net.h>
 #include <pit.h>
+#include <tty.h>
 #include <strings.h>
 #define ETH_ARP 0x0806
 #define ETH_IP 0x0800
@@ -137,6 +138,8 @@ int arp_resolve(net_ipv4_t ip, uint8 mac[6]) {
     // now: real 2 second timeout via pit_ticks.
     uint64_t deadline = pit_ticks + ms_to_ticks(2000);
     while (pit_ticks < deadline) {
+        if (tty_interrupt_pending())
+            return NET_EINTR;
         netif_poll();
         for (int i = 0; i < NET_ARP_CACHE_SIZE; i++)
             if (arp[i].used && arp[i].ip == ip) {
@@ -209,8 +212,9 @@ void ipv4_input(const uint8 *p, size_t len) {
 int ipv4_send(net_ipv4_t dst, uint8 proto, const void *payload, size_t len) {
     uint8 mac[6];
     net_ipv4_t nh = ((dst & net_cfg.netmask) == (net_cfg.ip & net_cfg.netmask)) ? dst : net_cfg.gateway;
-    if (arp_resolve(nh, mac) != NET_OK)
-        return NET_ETIMEDOUT;
+    int arp_result = arp_resolve(nh, mac);
+    if (arp_result != NET_OK)
+        return arp_result;
     uint8 buf[20 + NET_MTU];
     if (len > NET_MTU - 20)
         return NET_EINVAL;
@@ -263,11 +267,14 @@ int icmp_ping(net_ipv4_t dst, uint16 id, uint16 seq, uint32 timeout) {
     ping_seen = false;
     ping_id = id;
     ping_seq = seq;
-    if (ipv4_send(dst, IP_ICMP, b, sizeof(b)) != NET_OK)
-        return NET_ERR;
+    int send_result = ipv4_send(dst, IP_ICMP, b, sizeof(b));
+    if (send_result != NET_OK)
+        return send_result;
 
     uint64_t deadline = pit_ticks + ms_to_ticks(timeout);
     while (pit_ticks < deadline) {
+        if (tty_interrupt_pending())
+            return NET_EINTR;
         netif_poll();
         if (ping_seen)
             return NET_OK;
@@ -324,6 +331,8 @@ bool udp_has_data(uint16 port) {
 int udp_recv(uint16 port, net_ipv4_t *src, uint16 *sport, uint8 *buf, size_t *len, uint32 timeout) {
     uint64_t deadline = pit_ticks + ms_to_ticks(timeout);
     for (;;) {
+        if (tty_interrupt_pending())
+            return NET_EINTR;
         netif_poll();
         for (int i = 0; i < 8; i++)
             if (udpq[i].used && udpq[i].dport == port) {

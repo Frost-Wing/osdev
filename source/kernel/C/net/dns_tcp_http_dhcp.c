@@ -4,6 +4,7 @@
 #include <net/net.h>
 #include <pit.h>
 #include <strings.h>
+#include <tty.h>
 #define IP_TCP 6
 
 extern volatile uint64_t pit_ticks;
@@ -64,8 +65,9 @@ int dns_resolve(const char *host, net_ipv4_t *out) {
     net_ipv4_t src;
     uint16 sp;
     // 400ms timeout for DNS reply, expressed in real time via pit_ticks
-    if (udp_recv(49152, &src, &sp, r, &rl, 400) != NET_OK)
-        return NET_ETIMEDOUT;
+    int recv_result = udp_recv(49152, &src, &sp, r, &rl, 400);
+    if (recv_result != NET_OK)
+        return recv_result;
     if (rl < sizeof(*h) || ((struct dns_hdr *)r)->id != h->id)
         return NET_ERR;
     int p = off;
@@ -210,6 +212,10 @@ int tcp_connect(net_ipv4_t dst, uint16 dport) {
     // 5 second timeout for the handshake, measured in real time
     uint64_t deadline = pit_ticks + ms_to_ticks(5000);
     while (pit_ticks < deadline) {
+        if (tty_interrupt_pending()) {
+            s->used = false;
+            return NET_EINTR;
+        }
         netif_poll();
         if (s->state == TCP_SOCK_ESTABLISHED)
             return fd;
@@ -262,6 +268,10 @@ int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout) {
 
     uint64_t deadline = pit_ticks + ms_to_ticks(timeout);
     for (;;) {
+        if (tty_interrupt_pending()) {
+            *len = 0;
+            return NET_EINTR;
+        }
         netif_poll();
         if (s->rx_len) {
             size_t n = s->rx_len;
