@@ -123,7 +123,7 @@ uint64 sys_mmap(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t); uin
 uint64 sys_rseq(void *, uint64_t, uint64_t, uint32_t);
 void sys_rseq_reset_current(void);
 uint64 sys_rt_sigaction(int, const task_signal_action_t *, task_signal_action_t *, uint64_t);
-uint64 sys_execve(const char *, char *const *, char *const *); uint64 sys_fork(void); uint64 sys_clone(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t); uint64 sys_clone3(const void *, uint64_t); bool sys_clone_thread_active(void); uint32_t sys_clone_thread_tid(void); bool sys_clone_thread_rseq_state(uint64_t **, uint32_t **); void sys_clone_thread_exit(void); uint64 sys_wait4(int64_t, int *, int, void *); uint64 sys_futex(uint32_t *, int, uint32_t, const linux_timespec_t *, uint32_t *, uint32_t);
+uint64 sys_execve(const char *, char *const *, char *const *); uint64 sys_fork(void); uint64 sys_clone3(const void *, uint64_t); uint64 sys_wait4(int64_t, int *, int, void *); uint64 sys_futex(uint32_t *, int, uint32_t, const linux_timespec_t *, uint32_t *, uint32_t);
 int fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out);
 uint64 sys_statfs(const char *path, linux_statfs_t *buf);
 uint64 sys_fstatfs(uint64_t fd, linux_statfs_t *buf);

@@ -80,7 +80,6 @@ typedef struct {
     uint64_t heap_mapped_end;
     uint64_t mmap_cursor;
     uint64_t mmap_end;
-    bool shared_space;
     saved_user_page_t *user_pages;
 } userland_saved_frame_t;
 
@@ -279,12 +278,12 @@ static void userland_restore_snapshot(saved_user_page_t *pages) {
 
 /* -------------------------------------------------------------- frames --- */
 
-static int userland_push_frame(bool fresh_space, bool shared_space) {
+static int userland_push_frame(bool fresh_space) {
     if (userland_depth >= USERLAND_MAX_DEPTH)
         return -1;
 
     saved_user_page_t *pages = NULL;
-    if (userland_depth > 0 && !shared_space && !userland_snapshot_mappings(&pages)) {
+    if (userland_depth > 0 && !userland_snapshot_mappings(&pages)) {
         eprintf("[userland] out of memory snapshotting parent");
         return -1;
     }
@@ -309,7 +308,6 @@ static int userland_push_frame(bool fresh_space, bool shared_space) {
     f->heap_mapped_end = user_heap_mapped_end;
     f->mmap_cursor = user_mmap_cursor;
     f->mmap_end = user_mmap_end;
-    f->shared_space = shared_space;
     f->user_pages = pages;
 
     int index = userland_depth++;
@@ -366,12 +364,10 @@ static bool userland_pop_frame(void) {
     userland_restore_fs_base = f->fs_base;
     current_fs_base = f->current_fs_base;
     userland_last_exit_code = f->last_exit_code;
-    if (!f->shared_space) {
-        user_heap_break = f->heap_break;
-        user_heap_mapped_end = f->heap_mapped_end;
-        user_mmap_cursor = f->mmap_cursor;
-        user_mmap_end = f->mmap_end;
-    }
+    user_heap_break = f->heap_break;
+    user_heap_mapped_end = f->heap_mapped_end;
+    user_mmap_cursor = f->mmap_cursor;
+    user_mmap_end = f->mmap_end;
     if (f->user_pages)
         userland_restore_snapshot(f->user_pages);
     userland_free_snapshot(f->user_pages);
@@ -891,7 +887,7 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
     // debug_printf("[userland] exec caller=%u depth=%u ret_rsp=%u ret_rip=%u rbp=%u rbx=%u r12=%u r13=%u r14=%u r15=%u\n", (uint32_t)(uintptr_t)caller, (uint32_t)userland_depth, (uint32_t)caller->ret_rsp, (uint32_t)caller->ret_rip, (uint32_t)caller->rbp, (uint32_t)caller->rbx, (uint32_t)caller->r12, (uint32_t)caller->r13, (uint32_t)caller->r14, (uint32_t)caller->r15);
 
     /* push_frame() FIRST: it captures the outer frame's globals and address space. */
-    int frame_depth = userland_push_frame(true, false);
+    int frame_depth = userland_push_frame(true);
     if (frame_depth < 0) {
         eprintf("[userland] exec nesting too deep or out of memory");
         return -1;
@@ -965,12 +961,12 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
 }
 
 __attribute__((noinline, used))
-static int userland_fork_impl_common(const userland_regs_t *regs,
-    const userland_caller_state_t *caller, bool shared_space) {
+int userland_fork_impl(const userland_regs_t *regs,
+    const userland_caller_state_t *caller) {
     if (!regs || !caller || userland_depth == 0)
         return USERLAND_FORK_FAILED;
 
-    int frame_depth = userland_push_frame(false, shared_space);
+    int frame_depth = userland_push_frame(false);
     if (frame_depth < 0) {
         eprintf("[userland] fork nesting too deep or out of memory");
         return USERLAND_FORK_FAILED;
@@ -1001,16 +997,6 @@ static int userland_fork_impl_common(const userland_regs_t *regs,
     tss.rsp0 = kernel_stack_top;
 
     userland_iret_regs(regs);
-}
-
-int userland_fork_impl(const userland_regs_t *regs,
-    const userland_caller_state_t *caller) {
-    return userland_fork_impl_common(regs, caller, false);
-}
-
-int userland_clone_thread_impl(const userland_regs_t *regs,
-    const userland_caller_state_t *caller) {
-    return userland_fork_impl_common(regs, caller, true);
 }
 
 /* ------------------------------------------------------ execve (replace) -- */

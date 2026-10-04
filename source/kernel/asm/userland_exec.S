@@ -67,26 +67,6 @@ userland_fork:
     ret
     .size userland_fork, .-userland_fork
 
-    .globl userland_clone_thread
-    .type userland_clone_thread, @function
-userland_clone_thread:
-    subq $72, %rsp
-    movq %rbx, 16(%rsp)
-    movq %rbp, 24(%rsp)
-    movq %r12, 32(%rsp)
-    movq %r13, 40(%rsp)
-    movq %r14, 48(%rsp)
-    movq %r15, 56(%rsp)
-    leaq .Luserland_clone_thread_resume(%rip), %rax
-    movq %rax, 0(%rsp)
-    movq %rsp, 8(%rsp)
-    movq %rsp, %rsi
-    call userland_clone_thread_impl
-.Luserland_clone_thread_resume:
-    addq $72, %rsp
-    ret
-    .size userland_clone_thread, .-userland_clone_thread
-
 /* rdi = userland_regs_t* */
     .globl userland_iret_regs
     .type userland_iret_regs, @function

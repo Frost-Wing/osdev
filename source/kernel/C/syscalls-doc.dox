@@ -39,8 +39,8 @@
  *
  * ## Process and thread compatibility
  * - `execve(2)`            -> `sys_execve()`            -> `userland_exec()` / `execute_chain()`
- * - `fork(2)` / `clone(2)` -> `sys_fork()` / `sys_clone()` -> fork plus synchronous shared-VM thread execution
- * - `clone3(2)`            -> `sys_clone3()`            -> fork and synchronous shared-VM thread execution
+ * - `fork(2)` / `clone(2)` -> `sys_fork()`              -> fork-compatible clone arguments
+ * - `clone3(2)`            -> `sys_clone3()`            -> restricted fork-compatible clone arguments
  * - `setfsuid(2)` / `setfsgid(2)` -> accept changes while all processes use root credentials
  * - `wait4(2)`             -> `sys_wait4()`             -> multitasking task-state polling
  * - `set_tid_address(2)`   -> `sys_set_tid_address()`   -> kernel clear-child-tid bookkeeping

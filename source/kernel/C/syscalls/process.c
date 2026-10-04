@@ -105,122 +105,6 @@ uint64 sys_execve(const char *target,
 
 extern syscall_frame_t *current_syscall_frame;
 
-static const uint64_t LINUX_CLONE_VM = 0x00000100ULL;
-static const uint64_t LINUX_CLONE_FS = 0x00000200ULL;
-static const uint64_t LINUX_CLONE_FILES = 0x00000400ULL;
-static const uint64_t LINUX_CLONE_SIGHAND = 0x00000800ULL;
-static const uint64_t LINUX_CLONE_THREAD = 0x00010000ULL;
-static const uint64_t LINUX_CLONE_SYSVSEM = 0x00040000ULL;
-static const uint64_t LINUX_CLONE_SETTLS = 0x00080000ULL;
-static const uint64_t LINUX_CLONE_PARENT_SETTID = 0x00100000ULL;
-static const uint64_t LINUX_CLONE_CHILD_CLEARTID = 0x00200000ULL;
-static const uint64_t LINUX_CLONE_CHILD_SETTID = 0x01000000ULL;
-static const uint64_t LINUX_CLONE_THREAD_REQUIRED =
-    LINUX_CLONE_VM | LINUX_CLONE_FS | LINUX_CLONE_FILES |
-    LINUX_CLONE_SIGHAND | LINUX_CLONE_THREAD;
-static const uint64_t LINUX_CLONE_THREAD_ALLOWED =
-    LINUX_CLONE_THREAD_REQUIRED | LINUX_CLONE_SYSVSEM |
-    LINUX_CLONE_SETTLS | LINUX_CLONE_PARENT_SETTID |
-    LINUX_CLONE_CHILD_CLEARTID | LINUX_CLONE_CHILD_SETTID;
-
-typedef struct {
-    uint32_t tid;
-    uint32_t *child_tid;
-    uint64_t *parent_clear_tid;
-    uint64_t rseq_area;
-    uint32_t rseq_signature;
-} clone_thread_state_t;
-
-static clone_thread_state_t clone_thread_states[8];
-static uint32_t clone_thread_depth;
-static uint32_t clone_next_tid = 0x40000000U;
-
-bool sys_clone_thread_active(void) {
-    return clone_thread_depth != 0;
-}
-
-uint32_t sys_clone_thread_tid(void) {
-    return clone_thread_depth ?
-        clone_thread_states[clone_thread_depth - 1].tid :
-        multitasking_current_pid();
-}
-
-bool sys_clone_thread_rseq_state(uint64_t **area, uint32_t **signature) {
-    if (!clone_thread_depth || !area || !signature)
-        return false;
-    clone_thread_state_t *state = &clone_thread_states[clone_thread_depth - 1];
-    *area = &state->rseq_area;
-    *signature = &state->rseq_signature;
-    return true;
-}
-
-void sys_clone_thread_exit(void) {
-    if (!clone_thread_depth)
-        return;
-    clone_thread_state_t *state = &clone_thread_states[clone_thread_depth - 1];
-    uint64_t *clear_tid = clear_child_tid;
-    if (!clear_tid)
-        clear_tid = (uint64_t *)state->child_tid;
-    if (clear_tid)
-        *(volatile uint32_t *)clear_tid = 0;
-    clear_child_tid = state->parent_clear_tid;
-}
-
-static uint64 sys_clone_thread(uint64_t flags, uint64_t stack,
-    uint64_t parent_tid, uint64_t child_tid, uint64_t tls) {
-    const uint64_t known_flags = LINUX_CLONE_THREAD_ALLOWED;
-    syscall_frame_t *f = current_syscall_frame;
-    task_t *cur = multitasking_get_current_task();
-    if ((flags & ~known_flags) != 0 ||
-        (flags & LINUX_CLONE_THREAD_REQUIRED) != LINUX_CLONE_THREAD_REQUIRED ||
-        !stack || !cur || !cur->user_spec.path || !f ||
-        ((flags & LINUX_CLONE_SETTLS) && !tls) ||
-        ((flags & LINUX_CLONE_PARENT_SETTID) && !parent_tid) ||
-        ((flags & (LINUX_CLONE_CHILD_SETTID | LINUX_CLONE_CHILD_CLEARTID)) && !child_tid) ||
-        clone_thread_depth >= sizeof(clone_thread_states) / sizeof(clone_thread_states[0]))
-        return -LINUX_ENOSYS;
-
-    uint32_t tid = clone_next_tid++;
-    if (tid == 0 || clone_next_tid == 0)
-        clone_next_tid = 0x40000000U;
-    if (flags & LINUX_CLONE_PARENT_SETTID)
-        *(uint32_t *)parent_tid = tid;
-    if (flags & LINUX_CLONE_CHILD_SETTID)
-        *(uint32_t *)child_tid = tid;
-
-    /* Run the shared-address-space child to completion before resuming the caller. */
-    clone_thread_state_t *state = &clone_thread_states[clone_thread_depth++];
-    state->tid = tid;
-    state->child_tid = (flags & LINUX_CLONE_CHILD_CLEARTID) ?
-        (uint32_t *)child_tid : NULL;
-    state->parent_clear_tid = clear_child_tid;
-    state->rseq_area = 0;
-    state->rseq_signature = 0;
-    clear_child_tid = NULL;
-
-    uint64_t parent_fs = current_fs_base;
-    if (flags & LINUX_CLONE_SETTLS)
-        sys_arch_prctl(LINUX_ARCH_SET_FS, tls);
-
-    userland_regs_t regs = {
-        .rax = 0,
-        .rbx = f->rbx, .rcx = f->rip, .rdx = f->rdx,
-        .rsi = f->rsi, .rdi = f->rdi, .rbp = f->rbp,
-        .r8 = f->r8, .r9 = f->r9, .r10 = f->r10,
-        .r11 = f->rflags,
-        .r12 = f->r12, .r13 = f->r13, .r14 = f->r14, .r15 = f->r15,
-        .rip = f->rip,
-        .rflags = f->rflags | 0x202,
-        .rsp = stack,
-    };
-
-    userland_clone_thread(&regs);
-    clone_thread_depth--;
-    clear_child_tid = state->parent_clear_tid;
-    sys_arch_prctl(LINUX_ARCH_SET_FS, parent_fs);
-    return tid;
-}
-
 typedef struct {
     uint64_t flags;
     uint64_t pidfd;
@@ -251,37 +135,12 @@ uint64 sys_clone3(const void *args, uint64_t size) {
     linux_clone_args_t clone_args = {0};
     memcpy(&clone_args, args, size);
 
-    if ((clone_args.flags & LINUX_CLONE_THREAD) != 0) {
-        if (clone_args.exit_signal != 0 || clone_args.pidfd ||
-            clone_args.set_tid || clone_args.set_tid_size || clone_args.cgroup ||
-            clone_args.stack > UINT64_MAX - clone_args.stack_size)
-            return -LINUX_ENOSYS;
-        uint64_t child_stack = clone_args.stack + clone_args.stack_size;
-        return sys_clone_thread(clone_args.flags, child_stack,
-            clone_args.parent_tid, clone_args.child_tid, clone_args.tls);
-    }
-
     if (clone_args.flags != 0 || clone_args.exit_signal != LINUX_SIGCHLD ||
         clone_args.pidfd || clone_args.child_tid || clone_args.parent_tid ||
         clone_args.stack || clone_args.stack_size || clone_args.tls ||
         clone_args.set_tid || clone_args.set_tid_size || clone_args.cgroup)
         return -LINUX_ENOSYS;
 
-    return sys_fork();
-}
-
-uint64 sys_clone(uint64_t flags, uint64_t stack, uint64_t parent_tid,
-    uint64_t child_tid, uint64_t tls) {
-    uint64_t exit_signal = flags & 0xFFULL;
-    uint64_t clone_flags = flags & ~0xFFULL;
-    if (clone_flags & LINUX_CLONE_THREAD) {
-        if (exit_signal != 0)
-            return -LINUX_EINVAL;
-        return sys_clone_thread(clone_flags, stack, parent_tid, child_tid, tls);
-    }
-    if (clone_flags != 0 || exit_signal != 17 || stack ||
-        parent_tid || child_tid || tls)
-        return -LINUX_ENOSYS;
     return sys_fork();
 }
 

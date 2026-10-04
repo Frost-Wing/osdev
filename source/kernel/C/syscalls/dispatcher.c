@@ -33,14 +33,10 @@ void syscall_handler(syscall_frame_t *f) {
          * exits). Treat it as bookkeeping only for now rather than allowing a
          * best-effort compatibility write to panic the kernel.
          */
-        if (sys_clone_thread_active()) {
-            sys_clone_thread_exit();
-        } else {
-            clear_child_tid = NULL;
-            uint32_t pid = multitasking_current_pid();
-            if (pid)
-                multitasking_exit_task(pid, (int)f->rdi);
-        }
+        clear_child_tid = NULL;
+        uint32_t pid = multitasking_current_pid();
+        if (pid)
+            multitasking_exit_task(pid, (int)f->rdi);
         if (userland_prepare_exit(f, f->rdi))
             return;
     }
@@ -202,7 +198,9 @@ uint64_t syscall_dispatch(
             return sys_getsockopt(arg1, arg2, arg3, (void *)arg4, (uint64_t *)arg5);
 
         case LINUX_SYS_CLONE:
-            return sys_clone(arg1, arg2, arg3, arg4, arg5);
+            if (arg1 != 17 || arg2 || arg3 || arg4 || arg5)
+                return -LINUX_ENOSYS;
+            return sys_fork();
 
         case LINUX_SYS_CLONE3:
             return sys_clone3((const void *)arg1, arg2);
@@ -277,7 +275,7 @@ uint64_t syscall_dispatch(
             return sys_arch_prctl(arg1, arg2);
 
         case LINUX_SYS_GETTID:
-            return sys_clone_thread_tid() ? sys_clone_thread_tid() : 1;
+            return multitasking_current_pid() ? multitasking_current_pid() : 1;
 
         case LINUX_SYS_TGKILL:
             return sys_tgkill(arg1, arg2, arg3);
