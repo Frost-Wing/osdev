@@ -171,8 +171,6 @@ uint64 sys_chdir(const char *path) {
     return 0;
 }
 
-#define LINUX_S_IFLNK 0120000
-
 uint64 sys_readlinkat(int dirfd,
     const char *path,
     char *buf,

@@ -147,6 +147,18 @@ int vfs_normalize_path(const char *in, char *out, size_t out_sz) {
     return 0;
 }
 
+static bool vfs_compat_mount_path(const char *path, const char **out_rel_path) {
+    if (!path || !out_rel_path)
+        return false;
+
+    if (strcmp(path, "/etc/mtab") == 0 || strcmp(path, "/etc/fstab") == 0) {
+        *out_rel_path = "mounts";
+        return true;
+    }
+
+    return false;
+}
+
 int vfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
     if (!file || !buf)
         return -1;
@@ -254,6 +266,8 @@ int vfs_readlink(const char *path, char *buf, uint32_t bufsiz) {
 
     if (res.mnt->type == FS_EXT2)
         return ext2_readlink((ext2_fs_t *)res.mnt->fs, res.rel_path, buf, bufsiz);
+    if (res.mnt->type == FS_SYS)
+        return sysfs_readlink(res.rel_path, buf, bufsiz);
 
     return -1;
 }
@@ -263,6 +277,9 @@ int vfs_path_is_dir(const char *path) {
         eprintf("path_is_dir: path is null or undefined");
         return -1;
     }
+
+    if (strcmp(path, "/etc/mtab") == 0 || strcmp(path, "/etc/fstab") == 0)
+        return 0;
 
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
@@ -467,6 +484,18 @@ int vfs_open(const char *path, int flags, vfs_file_t *out) {
     }
 
     memset(out, 0, sizeof(*out));
+
+    const char *compat_rel = NULL;
+    if (vfs_compat_mount_path(path, &compat_rel)) {
+        mount_entry_t *proc_mnt = find_mount_by_point("/proc");
+        if (!proc_mnt)
+            return -2;
+        out->mnt = proc_mnt;
+        out->flags = flags;
+        strncpy(out->rel_path, compat_rel, sizeof(out->rel_path) - 1);
+        out->rel_path[sizeof(out->rel_path) - 1] = '\0';
+        return 0;
+    }
 
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)

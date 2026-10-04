@@ -130,6 +130,7 @@ struct tcp_sock {
     uint8 rx[TCP_RX_BUF_SIZE];
     size_t rx_len;
     bool fin;
+    bool reset;
 };
 
 static struct tcp_sock tcp_socks[NET_TCP_MAX_SOCKETS];
@@ -219,6 +220,10 @@ int tcp_connect(net_ipv4_t dst, uint16 dport) {
         netif_poll();
         if (s->state == TCP_SOCK_ESTABLISHED)
             return fd;
+        if (s->reset) {
+            s->used = false;
+            return NET_ERR;
+        }
         asm volatile("hlt");
     }
     s->used = false;
@@ -250,13 +255,13 @@ bool tcp_has_data(int sock) {
 
 bool tcp_is_closed(int sock) {
     return sock >= 0 && sock < NET_TCP_MAX_SOCKETS &&
-        tcp_socks[sock].used && tcp_socks[sock].fin;
+        tcp_socks[sock].used && (tcp_socks[sock].fin || tcp_socks[sock].reset);
 }
 
 bool tcp_is_connected(int sock) {
     return sock >= 0 && sock < NET_TCP_MAX_SOCKETS &&
         tcp_socks[sock].used && tcp_socks[sock].state == TCP_SOCK_ESTABLISHED &&
-        !tcp_socks[sock].fin;
+        !tcp_socks[sock].fin && !tcp_socks[sock].reset;
 }
 
 // `timeout` is now a millisecond duration, measured against real pit_ticks
@@ -286,12 +291,14 @@ int tcp_recv(int sock, uint8 *buf, size_t *len, uint32 timeout) {
         }
         if (s->fin)
             break;
+        if (s->reset)
+            break;
         if (timeout == 0 || pit_ticks >= deadline)
             break;
         asm volatile("hlt");
     }
     *len = 0;
-    return s->fin ? NET_EOF : NET_ETIMEDOUT;
+    return s->reset ? NET_ERR : (s->fin ? NET_EOF : NET_ETIMEDOUT);
 }
 
 void tcp_close(int sock) {
@@ -320,7 +327,8 @@ void tcp_input(net_ipv4_t src, const uint8 *p, size_t len) {
     const uint8 *data = p + off;
     size_t dlen = len - off;
     if (h->flags & TCP_RST) {
-        s->used = false;
+        s->reset = true;
+        s->state = TCP_SOCK_CLOSING;
         return;
     }
     if (s->state == TCP_SOCK_SYN_SENT && (h->flags & (TCP_SYN | TCP_ACK)) == (TCP_SYN | TCP_ACK) && ack == s->seq) {
@@ -332,30 +340,21 @@ void tcp_input(net_ipv4_t src, const uint8 *p, size_t len) {
     if (s->state != TCP_SOCK_ESTABLISHED)
         return;
 
+    bool ack_needed = dlen != 0 || (h->flags & (TCP_FIN | TCP_SYN)) != 0;
     if (dlen && seq == s->ack) {
         size_t room = sizeof(s->rx) - s->rx_len;
-        // FIX: previously this always did `s->ack += dlen` even when `room < dlen`,
-        // meaning we told the sender "got it all" while actually discarding the
-        // tail of the segment that didn't fit. That created a permanent, silent
-        // gap in the byte stream with no chance of retransmission.
-        //
-        // Now: only accept + ack the segment if it fully fits. If it doesn't,
-        // drop it entirely without acking, so the remote TCP stack's own
-        // retransmit timer will resend it once tcp_recv() has drained rx_len
-        // and there's room again.
         if (room >= dlen) {
             memcpy(s->rx + s->rx_len, data, dlen);
             s->rx_len += dlen;
             s->ack += dlen;
-            tcp_send_segment(s, TCP_ACK, NULL, 0);
         }
-        // else: buffer full, silently drop this segment (no ack sent).
     }
-    if (h->flags & TCP_FIN) {
-        s->ack = seq + dlen + 1;
+    if ((h->flags & TCP_FIN) && seq + dlen == s->ack) {
+        s->ack++;
         s->fin = true;
-        tcp_send_segment(s, TCP_ACK, NULL, 0);
     }
+    if (ack_needed)
+        tcp_send_segment(s, TCP_ACK, NULL, 0);
 }
 
 static const char *skip_scheme(const char *u) {

@@ -124,6 +124,13 @@ static void fill_stat_from_info(linux_stat_t *st, const vfs_stat_info_t *info) {
     st->st_ctim = info->ctim;
 }
 
+static uint64_t linux_makedev(uint32_t major, uint32_t minor) {
+    return ((uint64_t)(minor & 0xffU)) |
+        ((uint64_t)(major & 0xfffU) << 8) |
+        ((uint64_t)(minor & ~0xffU) << 12) |
+        ((uint64_t)(major & ~0xfffU) << 32);
+}
+
 static uint64_t fat_datetime_to_unix(uint16_t date, uint16_t time) {
     uint32_t year = 1980U + ((date >> 9) & 0x7FU);
     uint32_t month = (date >> 5) & 0x0FU;
@@ -321,6 +328,29 @@ static bool fill_vfs_stat_for_path_at_impl(int dirfd, const char *path, vfs_stat
             return true;
         }
 
+        if (sysfs_is_symlink(res.rel_path)) {
+            if (nofollow) {
+                info->mode = LINUX_S_IFLNK | 0777;
+                return true;
+            }
+
+            char target[256];
+            int target_len = sysfs_readlink(res.rel_path, target, sizeof(target) - 1);
+            if (target_len < 0)
+                return false;
+            target[target_len] = '\0';
+
+            char link_path[512];
+            const char *last_slash = strrchr(norm, '/');
+            size_t parent_len = last_slash ? (size_t)(last_slash - norm) : 0;
+            if (parent_len + (size_t)target_len + 2 > sizeof(link_path))
+                return false;
+            memcpy(link_path, norm, parent_len);
+            link_path[parent_len] = '/';
+            memcpy(link_path + parent_len + 1, target, (size_t)target_len + 1);
+            return fill_vfs_stat_for_path_at_impl(LINUX_AT_FDCWD, link_path, info, false);
+        }
+
         vfs_file_t sysf = {0};
         snprintf(sysf.rel_path, sizeof(sysf.rel_path), "%s", res.rel_path);
         sysf.mnt = res.mnt;
@@ -374,10 +404,26 @@ static bool fill_vfs_stat_for_path_at_impl(int dirfd, const char *path, vfs_stat
             if (disk_id >= 0) {
                 block_device_info_t *dev = &block_devices[disk_id];
                 info->size = dev->total_sectors * dev->sector_size;
+                info->rdev = linux_makedev(
+                    dev->type == BLOCK_DEVICE_NVME ? 259U : 8U,
+                    (uint32_t)disk_id * 16U);
             } else {
                 for (int i = 0; i < general_partition_count; i++) {
-                    if (strcmp(ahci_partitions[i].name, res.rel_path) == 0) {
-                        info->size = ahci_partitions[i].sector_count * 512;
+                    general_partition_t *partition = &ahci_partitions[i];
+                    if (strcmp(partition->name, res.rel_path) == 0) {
+                        int device_id = (int)partition->ahci_port;
+                        block_device_info_t *dev = block_get_device(device_id);
+                        if (dev) {
+                            uint32_t partition_number = 1;
+                            for (int j = 0; j < i; j++) {
+                                if (ahci_partitions[j].ahci_port == partition->ahci_port)
+                                    partition_number++;
+                            }
+                            info->rdev = linux_makedev(
+                                dev->type == BLOCK_DEVICE_NVME ? 259U : 8U,
+                                (uint32_t)device_id * 16U + partition_number);
+                            info->size = partition->sector_count * dev->sector_size;
+                        }
                         break;
                     }
                 }
@@ -1107,7 +1153,8 @@ int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
         procfs_type_t type;
 
         while (procfs_getdent(file->rel_path, i, &name, &type)) {
-            uint8_t d_type = (type == PROC_DIR) ? 4 : 8;
+            uint8_t d_type = type == PROC_DIR ? 4 :
+                (type == PROC_SYMLINK ? 10 : 8);
 
             if (!emit_dirent(buf, buflen, &used, path_inode_hash(name), d_type, name, i + 1))
                 break;
@@ -1125,7 +1172,8 @@ int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
         procfs_type_t type;
 
         while (sysfs_getdent(file->rel_path, i, &name, &type)) {
-            uint8_t d_type = (type == PROC_DIR) ? 4 : 8;
+            uint8_t d_type = type == PROC_DIR ? 4 :
+                (type == PROC_SYMLINK ? 10 : 8);
 
             if (!emit_dirent(buf, buflen, &used, path_inode_hash(name), d_type, name, i + 1))
                 break;
@@ -1508,6 +1556,12 @@ uint64 sys_statx(int dirfd, const char *path, int flags, unsigned int mask, linu
     stx->stx_atime = st.st_atim;
     stx->stx_mtime = st.st_mtim;
     stx->stx_ctime = st.st_ctim;
+    stx->stx_rdev_major =
+        (uint32_t)(((st.st_rdev >> 8) & 0xfffU) |
+                   ((st.st_rdev >> 32) & ~0xfffU));
+    stx->stx_rdev_minor =
+        (uint32_t)((st.st_rdev & 0xffU) |
+                   ((st.st_rdev >> 12) & 0xffffff00U));
     return 0;
 }
 

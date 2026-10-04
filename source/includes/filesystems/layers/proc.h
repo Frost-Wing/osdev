@@ -29,7 +29,8 @@ typedef int (*procfs_write_cb)(
 
 typedef enum {
     PROC_FILE,
-    PROC_DIR
+    PROC_DIR,
+    PROC_SYMLINK
 } procfs_type_t;
 
 typedef struct procfs_entry {
