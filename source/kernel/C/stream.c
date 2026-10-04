@@ -45,6 +45,7 @@ typedef struct {
     char path[256];
     fd_pipe_t *pipe;
     bool pipe_reader;
+    bool pipe_nonblocking;
     bool eventfd;
     bool eventfd_semaphore;
     bool eventfd_nonblocking;
@@ -360,7 +361,7 @@ uint32_t *fd_pos_ptr(int fd) {
     }
 }
 
-int fd_pipe_create(int fds[2]) {
+int fd_pipe_create(int fds[2], bool nonblocking) {
     if (!fds)
         return -1;
 
@@ -402,8 +403,10 @@ int fd_pipe_create(int fds[2]) {
 
     reader->pipe = pipe;
     reader->pipe_reader = true;
+    reader->pipe_nonblocking = nonblocking;
     writer->pipe = pipe;
     writer->pipe_reader = false;
+    writer->pipe_nonblocking = nonblocking;
 
     fd_table[read_fd].used = true;
     fd_table[read_fd].object = reader;
@@ -424,10 +427,11 @@ int fd_pipe_read(int fd, void *buf, size_t count) {
         return -1;
 
     fd_pipe_t *pipe = fd_table[fd].object->pipe;
-    while (pipe->count == 0 && pipe->writers > 0)
+    while (pipe->count == 0 && pipe->writers > 0 &&
+        !fd_table[fd].object->pipe_nonblocking)
         multitasking_yield();
     if (pipe->count == 0)
-        return 0;
+        return pipe->writers > 0 ? FD_PIPE_WOULD_BLOCK : 0;
 
     size_t bytes = count < pipe->count ? count : pipe->count;
     uint8_t *out = (uint8_t *)buf;
@@ -449,10 +453,13 @@ int fd_pipe_write(int fd, const void *buf, size_t count) {
     while (written < count) {
         if (pipe->readers == 0)
             return written ? (int)written : -1;
-        while (pipe->count == sizeof(pipe->data) && pipe->readers > 0)
+        while (pipe->count == sizeof(pipe->data) && pipe->readers > 0 &&
+            !fd_table[fd].object->pipe_nonblocking)
             multitasking_yield();
         if (pipe->readers == 0)
             return written ? (int)written : -1;
+        if (pipe->count == sizeof(pipe->data))
+            return written ? (int)written : FD_PIPE_WOULD_BLOCK;
 
         size_t available = sizeof(pipe->data) - pipe->count;
         size_t bytes = count - written;

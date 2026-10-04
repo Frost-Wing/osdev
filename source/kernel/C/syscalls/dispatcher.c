@@ -141,17 +141,11 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_WRITEV:
             return sys_writev(arg1, (linux_iovec_t *)arg2, arg3);
 
-        case LINUX_SYS_PIPE: {
-            if (!arg1)
-                return -LINUX_EFAULT;
-            int fds[2];
-            int rc = fd_pipe_create(fds);
-            if (rc != 0)
-                return -LINUX_ENFILE;
-            ((int *)arg1)[0] = fds[0];
-            ((int *)arg1)[1] = fds[1];
-            return 0;
-        }
+        case LINUX_SYS_PIPE:
+            return sys_pipe2((int *)arg1, 0);
+
+        case LINUX_SYS_PIPE2:
+            return sys_pipe2((int *)arg1, arg2);
 
         case LINUX_SYS_DUP:
             return sys_dup(arg1);
@@ -164,6 +158,10 @@ uint64_t syscall_dispatch(
 
         case LINUX_SYS_NANOSLEEP:
             return sys_nanosleep((const linux_timespec_t *)arg1, (linux_timespec_t *)arg2);
+
+        case LINUX_SYS_CLOCK_NANOSLEEP:
+            return sys_clock_nanosleep(arg1, arg2,
+                (const linux_timespec_t *)arg3, (linux_timespec_t *)arg4);
 
         case LINUX_SYS_SCHED_YIELD:
             multitasking_yield();
@@ -230,6 +228,9 @@ uint64_t syscall_dispatch(
 
         case LINUX_SYS_CHDIR:
             return sys_chdir((const char *)arg1);
+
+        case LINUX_SYS_FCHDIR:
+            return sys_fchdir(arg1);
 
         case LINUX_SYS_FORK:
         case LINUX_SYS_VFORK:

@@ -149,6 +149,9 @@ void sys_socket_close(int fd) {
             return;
         if (sock->tcp_id >= 0)
             tcp_close(sock->tcp_id);
+
+        if (sock->local_port)
+            udp_purge_port(sock->local_port);
         memset(sock, 0, sizeof(*sock));
     }
 }
@@ -1045,10 +1048,15 @@ uint64 sys_fcntl(uint64_t fd, uint64_t cmd, uint64_t arg) {
         case LINUX_F_GETFD:
         case LINUX_F_SETFD:
             return 0;
-        case LINUX_F_GETFL:
-            return fd_flags((int)fd);
-        case LINUX_F_SETFL:
+        case LINUX_F_SETFL: {
+            linux_socket_t *s = linux_socket_by_fd((int)fd);
+            if (s) s->nonblocking = (arg & 0x800) != 0;
             return 0;
+        }
+        case LINUX_F_GETFL: {
+            linux_socket_t *s = linux_socket_by_fd((int)fd);
+            return fd_flags((int)fd) | (s && s->nonblocking ? 0x800 : 0);
+        }
         default:
             return -LINUX_ENOSYS;
     }

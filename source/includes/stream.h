@@ -24,6 +24,7 @@ typedef enum {
 } stream_t;
 
 #define STREAM_MAX_FDS 256
+#define FD_PIPE_WOULD_BLOCK (-2)
 
 void stream_init(void);
 
@@ -55,7 +56,7 @@ int fd_flags(int fd);
 const char *fd_get_path(int fd);
 uint32_t fd_file_size(int fd);
 uint32_t *fd_pos_ptr(int fd);
-int fd_pipe_create(int fds[2]);
+int fd_pipe_create(int fds[2], bool nonblocking);
 bool fd_is_pipe(int fd);
 int fd_pipe_poll(int fd);
 int fd_pipe_read(int fd, void *buf, size_t count);

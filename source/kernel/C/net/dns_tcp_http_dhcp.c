@@ -172,7 +172,7 @@ static int tcp_send_segment(struct tcp_sock *s, uint8 flags, const void *data, s
     h->off = 5 << 4;
     h->flags = flags;
     // Advertise our full receive buffer size to allow sender to pump data efficiently
-    h->win = net_htons(4096);
+    h->win = net_htons(32768);
     if (len)
         memcpy(b + sizeof(*h), data, len);
     h->sum = net_htons(tcp_checksum(net_cfg.ip, s->dst, b, sizeof(*h) + len));

@@ -1578,6 +1578,8 @@ uint64 sys_read(uint64_t fd, char *buf, uint64_t count) {
 
     if (fd_is_pipe((int)fd)) {
         int rd = fd_pipe_read((int)fd, buf, count > INT32_MAX ? INT32_MAX : (size_t)count);
+        if (rd == FD_PIPE_WOULD_BLOCK)
+            return -LINUX_EAGAIN;
         return rd < 0 ? (uint64)(int64_t)rd : (uint64)rd;
     }
 
@@ -1627,6 +1629,8 @@ uint64 sys_write(uint64_t fd, const char *buf, uint64_t count) {
 
     if (fd_is_pipe((int)fd)) {
         int wr = fd_pipe_write((int)fd, buf, count > INT32_MAX ? INT32_MAX : (size_t)count);
+        if (wr == FD_PIPE_WOULD_BLOCK)
+            return -LINUX_EAGAIN;
         return wr < 0 ? -LINUX_EPIPE : (uint64)wr;
     }
 

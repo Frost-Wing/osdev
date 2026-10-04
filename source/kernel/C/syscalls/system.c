@@ -1,4 +1,5 @@
 #include <syscalls/internal.h>
+#include <limits.h>
 #include <pit.h>
 
 typedef struct {
@@ -217,6 +218,37 @@ uint64 sys_readlinkat(int dirfd,
         return -LINUX_EINVAL;
 
     return -LINUX_ENOENT;
+}
+
+uint64 sys_fchdir(uint64_t fd) {
+    if (fd >= STREAM_MAX_FDS || !fd_valid((int)fd))
+        return -LINUX_EBADF;
+
+    const char *path = fd_get_path((int)fd);
+    if (!path)
+        return -LINUX_ENOTDIR;
+
+    int is_dir = vfs_path_is_dir(path);
+    if (is_dir == 0)
+        return -LINUX_ENOTDIR;
+    if (is_dir < 0)
+        return -LINUX_ENOENT;
+    return sys_chdir(path);
+}
+
+uint64 sys_pipe2(int *user_fds, uint64_t flags) {
+    if (!user_fds)
+        return -LINUX_EFAULT;
+    if (flags & ~(LINUX_O_CLOEXEC | LINUX_O_NONBLOCK))
+        return -LINUX_EINVAL;
+
+    int fds[2];
+    if (fd_pipe_create(fds, (flags & LINUX_O_NONBLOCK) != 0) != 0)
+        return -LINUX_ENFILE;
+
+    user_fds[0] = fds[0];
+    user_fds[1] = fds[1];
+    return 0;
 }
 
 uint64_t sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
@@ -469,11 +501,70 @@ uint64 sys_nanosleep(const linux_timespec_t *req, linux_timespec_t *rem) {
         return -LINUX_EFAULT;
     if (req->tv_sec < 0 || req->tv_nsec < 0 || req->tv_nsec >= 1000000000L)
         return -LINUX_EINVAL;
-    if (req->tv_sec > 0)
-        sleep((int)req->tv_sec);
+    uint64_t seconds = (uint64_t)req->tv_sec;
+    uint64_t ticks_per_second = PIT_TICKS_PER_SECOND;
+    uint64_t ticks = seconds > UINT64_MAX / ticks_per_second ?
+        UINT64_MAX : seconds * ticks_per_second;
+    uint64_t fractional_ticks =
+        ((uint64_t)req->tv_nsec * ticks_per_second + 999999999ULL) /
+        1000000000ULL;
+    if (UINT64_MAX - ticks < fractional_ticks)
+        ticks = UINT64_MAX;
     else
-        multitasking_yield();
+        ticks += fractional_ticks;
+
+    uint64_t start = pit_ticks;
+    while ((uint64_t)(pit_ticks - start) < ticks)
+        asm volatile("hlt");
     return 0;
+}
+
+uint64 sys_clock_nanosleep(uint64_t clockid, uint64_t flags,
+    const linux_timespec_t *req, linux_timespec_t *rem) {
+    if (!req)
+        return -LINUX_EFAULT;
+    if (clockid != LINUX_CLOCK_REALTIME && clockid != LINUX_CLOCK_MONOTONIC)
+        return -LINUX_EINVAL;
+    if (flags & ~LINUX_TIMER_ABSTIME)
+        return -LINUX_EINVAL;
+    if (req->tv_sec < 0 || req->tv_nsec < 0 || req->tv_nsec >= 1000000000L)
+        return -LINUX_EINVAL;
+
+    linux_timespec_t duration = *req;
+    if (flags & LINUX_TIMER_ABSTIME) {
+        if (clockid == LINUX_CLOCK_REALTIME) {
+            uint64_t now = rtc_get_unix_time();
+            if ((uint64_t)req->tv_sec < now ||
+                ((uint64_t)req->tv_sec == now && req->tv_nsec == 0))
+                return 0;
+            duration.tv_sec = req->tv_sec - (long)now;
+        } else {
+            uint64_t ticks_per_second = PIT_TICKS_PER_SECOND;
+            uint64_t target_seconds = (uint64_t)req->tv_sec;
+            uint64_t target_ticks =
+                target_seconds > UINT64_MAX / ticks_per_second ?
+                    UINT64_MAX : target_seconds * ticks_per_second;
+            uint64_t fractional_ticks =
+                ((uint64_t)req->tv_nsec * ticks_per_second + 999999999ULL) /
+                1000000000ULL;
+            if (UINT64_MAX - target_ticks < fractional_ticks)
+                target_ticks = UINT64_MAX;
+            else
+                target_ticks += fractional_ticks;
+
+            uint64_t now_ticks = pit_ticks;
+            if (target_ticks <= now_ticks)
+                return 0;
+            uint64_t delay_ticks = target_ticks - now_ticks;
+            uint64_t seconds = delay_ticks / ticks_per_second;
+            uint64_t remaining_ticks = delay_ticks % ticks_per_second;
+            duration.tv_sec = seconds > LONG_MAX ? LONG_MAX : (long)seconds;
+            duration.tv_nsec = (long)((remaining_ticks * 1000000000ULL +
+                ticks_per_second - 1) / ticks_per_second);
+        }
+    }
+
+    return sys_nanosleep(&duration, rem);
 }
 
 int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg) {

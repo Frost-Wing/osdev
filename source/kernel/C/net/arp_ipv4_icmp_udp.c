@@ -65,7 +65,7 @@ struct udp_msg {
     size_t len;
     uint8 data[768];
 };
-static struct udp_msg udpq[8];
+static struct udp_msg udpq[32];
 static uint16 ipid = 1;
 
 void arp_init(void) {
@@ -322,6 +322,12 @@ bool udp_has_data(uint16 port) {
         if (udpq[i].used && udpq[i].dport == port)
             return true;
     return false;
+}
+
+void udp_purge_port(uint16 port) {
+    for (int i = 0; i < 32; i++)
+        if (udpq[i].used && udpq[i].dport == port)
+            udpq[i].used = false;
 }
 
 // `timeout` is now a millisecond duration, measured against real pit_ticks.

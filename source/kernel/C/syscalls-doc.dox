@@ -9,6 +9,8 @@
  * - `read(2)`              -> `sys_read()`              -> `vfs_read()` / `tty_read()`
  * - `write(2)`             -> `sys_write()`             -> `vfs_write()` / `putc()`
  * - `pipe(2)`              -> `fd_pipe_create()`        -> bounded in-kernel byte stream
+ * - `pipe2(2)`             -> `sys_pipe2()`              -> bounded pipe with `O_NONBLOCK` support
+ * - `fchdir(2)`             -> `sys_fchdir()`            -> validates the descriptor path as a directory
  * - `open(2)` / `openat(2)`-> `sys_open_common()`       -> `fd_open()`
  * - `close(2)`             -> `sys_close()`             -> `fd_close()`
  * - `unlinkat(2)`          -> `sys_unlinkat()`          -> file unlink or empty-directory removal
@@ -57,7 +59,8 @@
  * ## Time and randomness
  * - `gettimeofday(2)`     -> `sys_gettimeofday()`   -> RTC-backed seconds and zeroed timezone
  * - `clock_gettime(2)`     -> `sys_clock_gettime()`  -> RTC-backed time fetch
- * - `nanosleep(2)`         -> `sys_nanosleep()`      -> `sleep()`
+ * - `clock_nanosleep(2)`   -> `sys_clock_nanosleep()` -> PIT-backed relative and absolute sleeps
+ * - `nanosleep(2)`         -> `sys_nanosleep()`      -> PIT-backed relative sleep
  * - `pselect6(2)`          -> `sys_pselect6()`       -> descriptor readiness via `sys_poll()`
  * - `getrandom(2)`         -> `sys_getrandom()`         -> xorshift seeded from `rdtsc64()`
  * - `ioctl(BLKGETSIZE64)`   -> block-device byte capacity from devfs
