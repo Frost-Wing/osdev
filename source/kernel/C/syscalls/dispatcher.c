@@ -94,6 +94,9 @@ uint64_t syscall_dispatch(
             return 0;
 
         case LINUX_SYS_RT_SIGPROCMASK:
+            if (arg3) *(uint64_t *)arg3 = 0;
+            return 0;
+            
         case LINUX_SYS_SIGALTSTACK:
             return -LINUX_ENOSYS;
 
@@ -180,18 +183,16 @@ uint64_t syscall_dispatch(
             return sys_getsockopt(arg1, arg2, arg3, (void *)arg4, (uint64_t *)arg5);
 
         case LINUX_SYS_CLONE: {
-            /*
-             * musl implements fork()/vfork() on x86_64 with clone(SIGCHLD, 0)
-             * instead of the obsolete fork syscall. Treat that exact no-shared-
-             * address-space form as fork so toybox sh can spawn applets. Real
-             * thread-like clone flags still require process context cloning and
-             * are intentionally rejected.
-             */
             const uint64_t LINUX_SIGCHLD = 17;
-            if ((arg1 & ~0xFFULL) != 0 || (arg1 & 0xFFULL) != LINUX_SIGCHLD ||
-                arg2 != 0 || arg3 != 0 || arg4 != 0 || arg5 != 0)
+            const uint64_t CLONE_CHILD_CLEARTID = 0x00200000ULL;
+            const uint64_t CLONE_CHILD_SETTID   = 0x01000000ULL;
+
+            uint64_t exit_sig = arg1 & 0xFFULL;
+            uint64_t extra = (arg1 & ~0xFFULL) & ~(CLONE_CHILD_CLEARTID | CLONE_CHILD_SETTID);
+
+            if (extra || exit_sig != LINUX_SIGCHLD || arg2 != 0 || arg3 != 0 || arg5 != 0)
                 return -LINUX_ENOSYS;
-            return sys_fork();
+            return sys_fork();   /* arg4 (child tid ptr) is now allowed */
         }
 
         case LINUX_SYS_EXECVE:
@@ -351,7 +352,8 @@ uint64_t syscall_dispatch(
                 (uint32_t *)arg5, arg6);
         case 201: // time
             return sys_time((int64_t *)arg1);
-
+        case 439: // faccessat2
+            return sys_access_common((int)arg1, (const char *)arg2, (int)arg3);
         case 99: 
             return sys_sysinfo((linux_sysinfo_t *)arg1);
         case 19: {

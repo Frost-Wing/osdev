@@ -454,3 +454,32 @@ int fd_pipe_write(int fd, const void *buf, size_t count) {
     }
     return (int)written;
 }
+
+/* Linux poll bits (ABI constants) */
+#define FD_POLLIN  0x001
+#define FD_POLLOUT 0x004
+#define FD_POLLERR 0x008
+#define FD_POLLHUP 0x010
+
+/* Real readiness for a pipe end, as Linux poll bits. Returns 0 if fd isn't a pipe. */
+int fd_pipe_poll(int fd) {
+    if (!fd_is_pipe(fd))
+        return 0;
+
+    fd_object_t *obj = fd_table[fd].object;
+    fd_pipe_t *pipe = obj->pipe;
+    int r = 0;
+
+    if (obj->pipe_reader) {
+        if (pipe->count > 0)
+            r |= FD_POLLIN;
+        if (pipe->writers == 0)
+            r |= FD_POLLHUP;                 /* EOF: read() returns 0 */
+    } else {
+        if (pipe->readers == 0)
+            r |= FD_POLLERR;                 /* write() would get EPIPE */
+        else if (pipe->count < sizeof(pipe->data))
+            r |= FD_POLLOUT;
+    }
+    return r;
+}

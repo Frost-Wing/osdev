@@ -56,6 +56,7 @@ uint32_t fd_file_size(int fd);
 uint32_t *fd_pos_ptr(int fd);
 int fd_pipe_create(int fds[2]);
 bool fd_is_pipe(int fd);
+int fd_pipe_poll(int fd);
 int fd_pipe_read(int fd, void *buf, size_t count);
 int fd_pipe_write(int fd, const void *buf, size_t count);
 

@@ -143,7 +143,7 @@ QEMU_COMMON = \
     -boot order=d \
     $(KVM) \
 	-object filter-dump,id=f1,netdev=eth0,file=/tmp/dump.pcap \
-    -m 512
+    -m 2048
 
 run-x86-bios:
 	@echo -e "$(INFO) $(WHITE)Launching FrostWing (BIOS) in QEMU...$(RESET)"

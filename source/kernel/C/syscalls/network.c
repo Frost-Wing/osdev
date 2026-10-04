@@ -27,6 +27,7 @@
 #define LINUX_POLLOUT 0x004
 #define LINUX_POLLHUP 0x010
 #define LINUX_POLLNVAL 0x020
+#define LINUX_POLLERR 0x008
 #define LINUX_MSG_CTRUNC 0x008
 
 #define SOCKET_TIMEOUT_DEFAULT_MS 30000U
@@ -208,8 +209,12 @@ uint64 sys_poll(void *pollfds, uint64_t nfds, int timeout_ms) {
                 fds[i].revents = socket_poll_events(sock, fds[i].events);
             } else if (!fd_valid(fds[i].fd)) {
                 fds[i].revents = LINUX_POLLNVAL;
+            } else if (fd_is_pipe(fds[i].fd)) {
+                /* Only report what was asked for, but POLLERR/POLLHUP are always reported. */
+                fds[i].revents = (short)(fd_pipe_poll(fds[i].fd) &
+                    (fds[i].events | LINUX_POLLERR | LINUX_POLLHUP));
             } else {
-                fds[i].revents = fds[i].events;
+                fds[i].revents = fds[i].events;   /* regular files/devices: always ready */
             }
             if (fds[i].revents)
                 ready++;
