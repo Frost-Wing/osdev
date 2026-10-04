@@ -157,6 +157,7 @@ run-x86-uefi:
 	    $(QEMU_COMMON)
 
 run-x86-vnc:
+	@test -e disk.img || touch disk.img
 	@echo -e "$(INFO) $(WHITE)Launching FrostWing (VNC :0) in QEMU...$(RESET)"
 	@qemu-system-x86_64 \
 	-vnc :0 \
