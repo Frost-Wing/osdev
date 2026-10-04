@@ -1,3 +1,7 @@
+/**
+ * @file smp.h
+ * @brief Symmetric multiprocessing initialization and call interfaces.
+ */
 #ifndef SMP_H
 #define SMP_H
 
@@ -9,19 +13,37 @@
 
 typedef void (*smp_call_fn_t)(void *context);
 
-/* Start Limine-provided APs and wait until all of them are ready for work. */
+/**
+ * @brief Start Limine-provided APs and wait until they are ready for work.
+ * @param response Limine SMP response.
+ * @return true if initialization succeeds.
+ */
 bool smp_init(struct limine_smp_response *response);
 
-/* Run fn on an AP identified by its Limine CPU array index and wait for it. */
+/**
+ * @brief Run a callback on an AP and wait for it to finish.
+ * @param cpu_index Index in Limine's CPU array.
+ * @param fn Callback to execute.
+ * @param context Opaque value passed to the callback.
+ * @return true if the callback was dispatched successfully.
+ */
 bool smp_call(uint32_t cpu_index, smp_call_fn_t fn, void *context);
 
-/* Run fn once on every online AP and wait for all calls to complete. */
+/**
+ * @brief Run a callback on every online AP and wait for completion.
+ * @param fn Callback to execute.
+ * @param context Opaque value passed to the callback.
+ * @return true if all callbacks were dispatched successfully.
+ */
 bool smp_call_all(smp_call_fn_t fn, void *context);
 
-/* Dedicate one online AP to the sample one-second terminal cursor blinker. */
+/** @brief Start the sample terminal cursor blinker on an online AP. */
 bool smp_start_cursor_blink(void);
 
+/** @brief Return the number of online CPUs. */
 uint32_t smp_cpu_count(void);
+
+/** @brief Check whether a CPU is online. */
 bool smp_cpu_is_online(uint32_t cpu_index);
 
 #endif

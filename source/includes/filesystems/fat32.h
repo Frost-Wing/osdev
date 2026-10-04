@@ -143,47 +143,75 @@ typedef struct {
     uint8_t dirty;
 } fat32_file_t;
 
+/** @brief Read the FAT entry for a cluster. */
 uint32_t fat32_read_fat(fat32_fs_t *fs, uint32_t cluster);
+
+/** @brief Resolve a path to a FAT32 directory entry. */
 int fat32_find_path(fat32_fs_t *fs, const char *path, fat32_dir_entry_t *out);
+
+/** @brief List the root directory. */
 void fat32_list_root(fat32_fs_t *fs);
+
+/** @brief List the directory stored in a cluster. */
 void fat32_list_dir_cluster(fat32_fs_t *fs, uint32_t cluster);
 
+/** @brief Create a file or directory at a path. */
 int fat32_create_path(fat32_fs_t *fs, const char *path, uint8_t attr);
+
+/** @brief Resize an open file. */
 int fat32_truncate(fat32_file_t *file, uint32_t new_size);
 
+/** @brief Allocate a cluster from the filesystem. */
 uint32_t fat32_alloc_cluster(fat32_fs_t *fs);
+
+/** @brief Extract the next path component and return the unconsumed suffix. */
 const char *fat_next_path_component(const char *path, char *out);
 
+/** @brief Free a cluster chain after retaining the specified prefix. */
 void fat32_free_chain_from(
     fat32_fs_t *fs,
     uint32_t start,
     uint32_t keep);
 
-void fat32_extend_chain(
+    /** @brief Extend a cluster chain by the requested number of clusters. */
+    void fat32_extend_chain(
     fat32_fs_t *fs,
     uint32_t start,
     uint32_t count);
 
-uint32_t fat32_clusters_for_size(
+    /** @brief Calculate the number of clusters needed to store a file size. */
+    uint32_t fat32_clusters_for_size(
     fat32_fs_t *fs,
     uint32_t size);
 
-void fat32_update_entry(
+    /** @brief Write a directory entry back to disk. */
+    void fat32_update_entry(
     fat32_fs_t *fs,
     fat32_dir_entry_t *entry);
 
-int fat32_create_entry(
+    /** @brief Create a directory entry in a directory cluster. */
+    int fat32_create_entry(
     fat32_fs_t *fs,
     uint32_t dir_cluster,
     const char *name,
     uint8_t attr,
     fat32_dir_entry_t *out);
 
-int fat32_unlink_path(fat32_fs_t *fs, const char *path);
-int fat32_rm_recursive(fat32_fs_t *fs, const char *path);
-int fat32_mv(fat32_fs_t *fs, const char *src, const char *dst);
-int fat32_delete_entry(fat32_fs_t *fs, uint32_t dir_cluster, const char *name);
-int fat32_rmdir(fat32_fs_t *fs, uint32_t dir_cluster);
+    /** @brief Remove a file at a path. */
+    int fat32_unlink_path(fat32_fs_t *fs, const char *path);
 
-int fat32_sync(fat32_file_t *f);
+    /** @brief Recursively remove a directory tree. */
+    int fat32_rm_recursive(fat32_fs_t *fs, const char *path);
+
+    /** @brief Move or rename a FAT32 path. */
+    int fat32_mv(fat32_fs_t *fs, const char *src, const char *dst);
+
+    /** @brief Delete a named directory entry. */
+    int fat32_delete_entry(fat32_fs_t *fs, uint32_t dir_cluster, const char *name);
+
+    /** @brief Remove an empty directory. */
+    int fat32_rmdir(fat32_fs_t *fs, uint32_t dir_cluster);
+
+    /** @brief Flush pending changes associated with an open FAT32 file. */
+    int fat32_sync(fat32_file_t *f);
 #endif

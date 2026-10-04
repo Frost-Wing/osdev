@@ -90,6 +90,10 @@ void display_time(void);
  */
 void sleep(int seconds);
 
+/**
+ * @brief Return the current time as seconds since the Unix epoch.
+ * @return Unix timestamp in seconds.
+ */
 uint64 rtc_get_unix_time(void);
 
 #endif

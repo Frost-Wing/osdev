@@ -90,6 +90,11 @@ int memcmp(const void *s1, const void *s2, size_t n);
 void memory_dump(const void *start, const void *end);
 
 /**
+ * @brief Print the current values of the general-purpose CPU registers.
+ */
+void registers_dump(void);
+
+/**
  * @brief Allocates memory at an specific address.
  *
  * @param phys_addr Physical address to allocate memory.

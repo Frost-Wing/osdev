@@ -1,3 +1,10 @@
+/**
+ * @file sysnames.h
+ * @brief Linux x86_64 syscall-number to name table.
+ *
+ * Numbers 335-423 are reserved or historically assigned to other
+ * architectures and therefore have no initializer.
+ */
 /*
  * x86_64 Linux syscall number -> name table
  * Derived from arch/x86/entry/syscalls/syscall_64.tbl
@@ -5,6 +12,9 @@
  * historically assigned to other architectures), so they're left
  * out of the initializer (NULL by default in a static array).
  */
+#ifndef SYSNAMES_H
+#define SYSNAMES_H
+
 
 static const char *names[] = {
     [0]   = "read",
@@ -386,3 +396,5 @@ static const char *names[] = {
 };
 
 #define NAMES_COUNT (sizeof(names) / sizeof(names[0]))
+
+#endif // SYSNAMES_H

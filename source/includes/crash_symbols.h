@@ -1,3 +1,7 @@
+/**
+ * @file crash_symbols.h
+ * @brief Resolve instruction addresses to kernel source symbols.
+ */
 #ifndef CRASH_SYMBOLS_H
 #define CRASH_SYMBOLS_H
 
@@ -31,6 +35,13 @@ typedef struct CrashSymbolResult {
     uint32 snippet_count;
 } CrashSymbolResult;
 
+/**
+ * @brief Resolve an instruction pointer to its symbol and source location.
+ *
+ * @param rip Instruction pointer to resolve.
+ * @param out Receives the lookup result.
+ * @return true if a matching symbol was found, otherwise false.
+ */
 bool crash_symbols_resolve(uint64 rip, CrashSymbolResult *out);
 
 #endif

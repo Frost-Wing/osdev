@@ -154,6 +154,8 @@ int xhci_enable_slot(uint8_t *slot_id);
  * available. This is also the event-polling fallback when interrupts are off.
  */
 void xhci_poll(void);
+
+/** @brief Handle an xHCI controller interrupt. */
 void xhci_interrupt_handler(InterruptFrame *frame);
 
 /**

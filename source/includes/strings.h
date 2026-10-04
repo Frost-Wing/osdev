@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#ifndef STRINGS_H
+#define STRINGS_H
+
 #include <basics.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -194,11 +197,136 @@ char **splitf(const char *str, char delim, int *num_tokens);
  */
 int isspace(char c);
 
+/**
+ * @brief Remove leading and trailing whitespace from a string in place.
+ *
+ * @param s String to trim.
+ * @return The trimmed string.
+ */
 char *trim_inplace(char *s);
 
+/**
+ * @brief Find the last occurrence of a character in a string.
+ *
+ * @param s String to search.
+ * @param c Character to find.
+ * @return A pointer to the matching character, or NULL if not found.
+ */
 char *strrchr(const char *s, int c);
+
+/**
+ * @brief Allocate and return a duplicate of a string.
+ *
+ * @param str String to duplicate.
+ * @return The allocated duplicate, or NULL if allocation fails.
+ */
 char *strdup(const char *str);
 
+/**
+ * @brief Find the first occurrence of a character in a string.
+ *
+ * @param s String to search.
+ * @param c Character to find.
+ * @return A pointer to the matching character, or NULL if not found.
+ */
 char *strchr(const char *s, int c);
 
+/**
+ * @brief Convert an integer to a string in the requested base.
+ *
+ * @param num Value to convert.
+ * @param str Destination buffer.
+ * @param len Size of the destination buffer.
+ * @param base Numeric base for conversion.
+ * @return 0 on success, nonzero if the value cannot be represented.
+ */
 int itoa(int num, string str, int len, int base);
+
+/**
+ * @brief Convert an ASCII lowercase letter to uppercase.
+ *
+ * @param c Character to convert.
+ * @return The converted character, or @p c if it is not lowercase.
+ */
+char toupper(char c);
+
+/**
+ * @brief Reverse a null-terminated string in place.
+ *
+ * @param str String to reverse.
+ */
+void strrev(unsigned char *str);
+
+/**
+ * @brief Check whether a string begins with a prefix.
+ *
+ * @param str String to inspect.
+ * @param prefix Prefix to match.
+ * @return true if @p str begins with @p prefix, otherwise false.
+ */
+bool starts_with(const char *str, const char *prefix);
+
+/**
+ * @brief Convert a 64-bit integer to a hexadecimal string.
+ *
+ * @param num Value to convert.
+ * @return A pointer to a static buffer containing the result.
+ */
+char *uint64_to_hex(uint64_t num);
+
+/**
+ * @brief Split a string on spaces into bounded words.
+ *
+ * @param str Input string.
+ * @param words Output array with MAX_WORDS rows of MAX_WORD_LEN characters.
+ * @param num_words Receives the number of words written.
+ */
+void split(const char *str, char words[][MAX_WORD_LEN], int *num_words);
+
+/**
+ * @brief Split a string on a delimiter into bounded words.
+ *
+ * @param str Input string.
+ * @param words Output array with MAX_WORDS rows of MAX_WORD_LEN characters.
+ * @param num_words Receives the number of words written.
+ * @param delimiter Character separating words.
+ */
+void splitw(const char *str, char words[][MAX_WORD_LEN], int *num_words, char delimiter);
+
+/**
+ * @brief Compare two strings without regard to ASCII letter case.
+ *
+ * @param a First string.
+ * @param b Second string.
+ * @return A value less than, equal to, or greater than zero as the strings compare.
+ */
+int strcasecmp(const char *a, const char *b);
+
+/**
+ * @brief Concatenate a counted list of strings into a newly allocated string.
+ *
+ * @param count Number of string arguments.
+ * @return The allocated concatenated string, or NULL if allocation fails.
+ */
+char *str_concat_impl(int count, ...);
+
+/**
+ * @brief Extract the next token from a string using the given delimiters.
+ *
+ * @param str String to tokenize, or NULL to continue the previous scan.
+ * @param delim Set of delimiter characters.
+ * @param saveptr State pointer used between calls.
+ * @return The next token, or NULL if no tokens remain.
+ */
+char *strtok_r(char *str, const char *delim, char **saveptr);
+
+/**
+ * @brief Extract the next token using static tokenizer state.
+ *
+ * @param str String to tokenize, or NULL to continue the previous scan.
+ * @param delim Set of delimiter characters.
+ * @return The next token, or NULL if no tokens remain.
+ */
+char *strtok(char *str, const char *delim);
+
+#endif // STRINGS_H

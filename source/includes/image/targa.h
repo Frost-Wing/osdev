@@ -41,4 +41,13 @@ typedef struct {
  */
 void decode_targa_image(const uint64 *targa_pointer, uvec2 position, uint64 width, uint64 height);
 
+/**
+ * @brief Draw the nontransparent pixels of a Targa image in one color.
+ *
+ * @param targa_pointer Address of the loaded Targa image.
+ * @param position Screen position at which to draw the image.
+ * @param _color Color used for visible image pixels.
+ */
+void decode_targa_image_border(const uint64 *targa_pointer, uvec2 position, uint32 _color);
+
 #endif

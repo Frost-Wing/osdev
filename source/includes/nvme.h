@@ -1,3 +1,7 @@
+/**
+ * @file nvme.h
+ * @brief NVMe controller and namespace interfaces.
+ */
 #ifndef NVME_H
 #define NVME_H
 
@@ -83,8 +87,27 @@ extern nvme_controller_t nvme_controllers[NVME_MAX_CONTROLLERS];
 extern nvme_namespace_t nvme_namespaces[NVME_MAX_NAMESPACES];
 extern int nvme_namespace_count;
 
+/** @brief Probe a PCI function for an NVMe controller. */
 void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function);
+
+/**
+ * @brief Read sectors from an NVMe namespace.
+ * @param namespace_index Index in the discovered namespace table.
+ * @param lba Starting logical block address.
+ * @param buffer Destination buffer.
+ * @param count Number of sectors to read.
+ * @return 0 on success, otherwise a negative error code.
+ */
 int nvme_read_sector(int namespace_index, uint64_t lba, void *buffer, uint32_t count);
+
+/**
+ * @brief Write sectors to an NVMe namespace.
+ * @param namespace_index Index in the discovered namespace table.
+ * @param lba Starting logical block address.
+ * @param buffer Source buffer.
+ * @param count Number of sectors to write.
+ * @return 0 on success, otherwise a negative error code.
+ */
 int nvme_write_sector(int namespace_index, uint64_t lba, void *buffer, uint32_t count);
 
 #endif

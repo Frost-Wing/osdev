@@ -1,3 +1,7 @@
+/**
+ * @file fdlfcn.h
+ * @brief Runtime loading and symbol lookup for ELF images.
+ */
 #ifndef __FDLFCN_H_
 #define __FDLFCN_H_ 1
 
@@ -35,8 +39,30 @@ typedef struct fdlfcn_handle {
 // immediately load sections into memory
 #define FDL_IMMEDIATE 0
 
+/**
+ * @brief Load an ELF shared object from memory.
+ *
+ * @param filedata Pointer to the in-memory ELF image.
+ * @param flags Loader options.
+ * @return A handle to the loaded image, or NULL on failure.
+ */
 fdlfcn_handle *fdlopen(void *filedata, int flags);
+
+/**
+ * @brief Look up a symbol in a loaded image.
+ *
+ * @param handle Handle returned by fdlopen.
+ * @param symbol_name Name of the symbol to find.
+ * @return Symbol address, or NULL if it is not found.
+ */
 void *fdlsym(fdlfcn_handle *handle, const char *symbol_name);
+
+/**
+ * @brief Release a loaded image.
+ *
+ * @param handle Handle returned by fdlopen.
+ * @return 0 on success, nonzero on failure.
+ */
 int fdlclose(fdlfcn_handle *handle);
 
 // defines that make my life easier

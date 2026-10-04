@@ -1,3 +1,7 @@
+/**
+ * @file gpt.h
+ * @brief GPT partition-table data structures and parsing interfaces.
+ */
 #ifndef __GPT_H
 #define __GPT_H
 #include <disk/mbr.h>
@@ -59,8 +63,13 @@ typedef struct {
 extern gpt_disk_t gpt_disks[10];
 extern int gpt_disks_count;
 
+/** @brief Check whether a disk contains a valid GPT. */
 int check_gpt(int portno);
+
+/** @brief Parse and register the partition entries from a GPT header. */
 void parse_gpt_partitions(int portno, struct GPT_PartTableHeader *hdr);
+
+/** @brief Check whether a GPT partition is marked bootable by UEFI. */
 bool gpt_is_uefi_bootable(const struct GPT_PartitionEntry *p);
 
 #endif

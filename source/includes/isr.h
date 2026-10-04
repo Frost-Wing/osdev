@@ -27,7 +27,10 @@ typedef struct InterruptFrame {
  */
 typedef void (*irq_handler)(InterruptFrame *);
 
+/** @brief Dispatch a processor exception to its registered handler. */
 void exceptionHandler(InterruptFrame *frame);
+
+/** @brief Dispatch a hardware interrupt to its registered handler. */
 void irqHandler(InterruptFrame *frame);
 
 /**
@@ -38,6 +41,7 @@ void irqHandler(InterruptFrame *frame);
  */
 void registerInterruptHandler(uint8_t irq, irq_handler handler);
 
+/** @brief Handle an interrupt raised by the RTL8139 network device. */
 void rtl8139_handler(InterruptFrame *frame);
 
 #endif

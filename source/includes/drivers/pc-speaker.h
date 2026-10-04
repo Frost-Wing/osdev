@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#ifndef PC_SPEAKER_H
+#define PC_SPEAKER_H
+
 #include <basics.h>
 #include <rtc.h>
 
@@ -31,3 +34,5 @@ void mute(void);
  * @param time in Seconds
  */
 void beep(int frequency, int time);
+
+#endif // PC_SPEAKER_H

@@ -1,3 +1,7 @@
+/**
+ * @file internal.h
+ * @brief Private declarations shared by the syscall implementation units.
+ */
 #ifndef KERNEL_SYSCALLS_INTERNAL_H
 #define KERNEL_SYSCALLS_INTERNAL_H
 

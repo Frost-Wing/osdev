@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#ifndef TARBALL_H
+#define TARBALL_H
+
 #include <basics.h>
 
 /**
@@ -49,3 +52,5 @@ struct tarball_header {
  * @param tarball_addr Pointer to the memory location where the TAR archive is stored.
  */
 void extract_tarball(uint64 *tarball_addr);
+
+#endif // TARBALL_H

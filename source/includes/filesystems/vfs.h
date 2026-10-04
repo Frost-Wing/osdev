@@ -59,6 +59,15 @@ extern char vfs_cwd[256];
  * @return 0 on success, negative on error
  */
 int vfs_open(const char *path, int flags, vfs_file_t *out_file);
+
+/**
+ * @brief Read the target of a symbolic link.
+ *
+ * @param path Path to the symbolic link.
+ * @param buf Buffer to receive the link target.
+ * @param bufsiz Size of @p buf in bytes.
+ * @return Number of bytes written, or a negative error code.
+ */
 int vfs_readlink(const char *path, char *buf, uint32_t bufsiz);
 
 /**
@@ -95,7 +104,6 @@ void vfs_close(vfs_file_t *file);
  *         or isn't a directory, negative on error.
  */
 int vfs_path_is_dir(const char *path);
-;
 
 /**
  * @brief List files and directories at path
@@ -138,14 +146,6 @@ int vfs_unlink(const char *path);
 int vfs_cd(const char *path);
 
 /**
- * @brief
- *
- * @param path
- * @return int
- */
-int vfs_unlink(const char *path);
-
-/**
  * @brief Get the current working directory
  * @return Pointer to CWD string
  */
@@ -163,17 +163,93 @@ const char *vfs_getcwd(void);
  * @return 0 on success, negative on error
  */
 int vfs_cp(const char *src, const char *dst);
+
+/**
+ * @brief Move or rename a file.
+ *
+ * @param src Source path.
+ * @param dst Destination path.
+ * @return 0 on success, negative on error.
+ */
 int vfs_mv(const char *src, const char *dst);
 
+/**
+ * @brief Return the final path component.
+ *
+ * @param path Path to inspect.
+ * @return Pointer to the basename within @p path.
+ */
 const char *vfs_basename(const char *path);
+
+/**
+ * @brief Normalize a path using the VFS current working directory.
+ *
+ * @param in Input path.
+ * @param out Buffer to receive the normalized path.
+ * @param out_sz Size of @p out in bytes.
+ * @return 0 on success, negative on error.
+ */
 int vfs_normalize_path(const char *in, char *out, size_t out_sz);
 
+/**
+ * @brief Resolve a path to its mounted filesystem and mount-relative path.
+ *
+ * @param path Path to resolve.
+ * @param out Receives the mount and relative path.
+ * @return 0 on success, negative on error.
+ */
 int vfs_resolve_mount(const char *path, vfs_mount_res_t *out);
 
+/**
+ * @brief Flush pending changes to mounted filesystems.
+ *
+ * @param kernel_call Whether the call originates from kernel code.
+ * @return 0 on success, negative on error.
+ */
 int vfs_sync(bool kernel_call);
 
+/**
+ * @brief Mount a disk at a path.
+ *
+ * @param diskname Name of the disk device.
+ * @param mount_point Path at which to mount the filesystem.
+ * @param is_kernel_call Whether the call originates from kernel code.
+ * @return 0 on success, negative on error.
+ */
 int vfs_mount(const char *diskname, const char *mount_point, bool is_kernel_call);
+
+/**
+ * @brief Unmount the filesystem mounted at a path.
+ *
+ * @param mount_point Mount path.
+ * @param is_kernel_call Whether the call originates from kernel code.
+ * @return 0 on success, negative on error.
+ */
 int vfs_umount(const char *mount_point, bool is_kernel_call);
+
+/**
+ * @brief Unmount all mounted filesystems.
+ *
+ * @param is_kernel_call Whether the call originates from kernel code.
+ * @return 0 on success, negative on error.
+ */
 int vfs_umount_all(bool is_kernel_call);
+
+/**
+ * @brief Recursively remove a directory tree.
+ *
+ * @param path Path to the directory tree.
+ * @return 0 on success, negative on error.
+ */
+int vfs_rm_recursive(const char *path);
+
+/**
+ * @brief Create a file or directory at a path.
+ *
+ * @param path Path to create.
+ * @param attr FAT-style attributes; bit 0x10 requests a directory.
+ * @return 0 on success, negative on error.
+ */
+int vfs_create_path(const char *path, uint8_t attr);
 
 #endif // VFS_H

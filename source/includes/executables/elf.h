@@ -213,8 +213,31 @@ typedef struct {
     void *tls_template;
 } elf_image_info_t;
 
+/**
+ * @brief Load an ELF executable from an in-memory image.
+ * @param file_base_address Start of the ELF image.
+ * @param file_size Image size in bytes.
+ * @return Loaded entry point, or NULL on failure.
+ */
 void *elf_load_from_memory(void *file_base_address, uint64_t file_size);
+
+/** @brief Load an ELF executable from a VFS path. */
 void *elf_load_from_vfs(const char *path);
+
+/**
+ * @brief Load an in-memory ELF executable and return image metadata.
+ * @param file_base_address Start of the ELF image.
+ * @param file_size Image size in bytes.
+ * @param info Receives information about the loaded image.
+ * @return Loaded entry point, or NULL on failure.
+ */
 void *elf_load_from_memory_ex(void *file_base_address, uint64_t file_size, elf_image_info_t *info);
+
+/**
+ * @brief Load an ELF executable from a VFS path and return image metadata.
+ * @param path Path to the ELF image.
+ * @param info Receives information about the loaded image.
+ * @return Loaded entry point, or NULL on failure.
+ */
 void *elf_load_from_vfs_ex(const char *path, elf_image_info_t *info);
 #endif

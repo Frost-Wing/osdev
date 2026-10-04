@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#ifndef SECURE_BOOT_H
+#define SECURE_BOOT_H
+
 #include <basics.h>
 
 /**
@@ -15,3 +18,5 @@
  *
  */
 extern cstring public_key;
+
+#endif // SECURE_BOOT_H

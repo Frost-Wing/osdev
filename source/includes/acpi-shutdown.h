@@ -13,5 +13,12 @@
 
 #include <basics.h>
 
+/**
+ * @brief Attempt the legacy ACPI shutdown sequence.
+ *
+ * @param direct_map_base Base address used to access ACPI structures.
+ * @param find_sdt Callback used to locate an ACPI table by signature.
+ * @return Nonzero when shutdown is initiated, otherwise zero.
+ */
 int acpi_shutdown_hack(uintptr_t direct_map_base, void *(*find_sdt)(cstring signature, size_t index));
 #endif

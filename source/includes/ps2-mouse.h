@@ -8,6 +8,8 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#ifndef PS2_MOUSE_H
+#define PS2_MOUSE_H
 
 #include <basics.h>
 #include <debugger.h>
@@ -85,4 +87,10 @@ ivec2 GetLastMousePosition(void);
  * @param frame
  */
 void process_mouse(InterruptFrame *frame);
+
+/**
+ * @brief Initialize the PS/2 mouse and its interrupt handling.
+ */
 void init_ps2_mouse(void);
+
+#endif // PS2_MOUSE_H

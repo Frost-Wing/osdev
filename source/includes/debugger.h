@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#ifndef DEBUGGER_H
+#define DEBUGGER_H
+
 #include <basics.h>
 #include <hal.h>
 #include <stddef.h>
@@ -49,3 +52,5 @@ void debug_println(cstring msg);
  * @param ...
  */
 void debug_printf(cstring format, ...);
+
+#endif // DEBUGGER_H

@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#ifndef CPUID2_H
+#define CPUID2_H
+
 #include <basics.h>
 #include <graphics.h>
 
@@ -80,5 +83,21 @@ void print_L2_cache_info(void);
  * @brief Retrieve and print L3 cache information.
  */
 void print_L3_cache_info(void);
+
+/**
+ * @brief Check whether the current hypervisor identifies as KVM.
+ *
+ * @return true if KVM is detected, otherwise false.
+ */
 bool is_kvm_supported(void);
+
+/**
+ * @brief Print the processor index and identifiers.
+ *
+ * @param i Processor index.
+ * @param processor_id Processor identifier.
+ * @param lapic_id Local APIC identifier.
+ */
 void print_processor_id(uint64_t i, uint32_t processor_id, uint32_t lapic_id);
+
+#endif // CPUID2_H

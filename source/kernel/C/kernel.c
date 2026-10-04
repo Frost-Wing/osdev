@@ -25,6 +25,7 @@
 #include <stdint.h>
 #include <syslog.h>
 #include <smp.h>
+#include <sh_util.h>
 #include <tty.h>
 #include <ssfn.h>
 #include <usb_mass_storage.h>
@@ -40,8 +41,6 @@ uint64 fb_height = 0;
 uint64 *wm_addr;
 
 uint64 *font_address = null;
-
-extern void ksh_exec(void);
 
 // The Limine requests can be placed anywhere, but it is important that
 // the compiler does not optimise them away, so, usually, they should

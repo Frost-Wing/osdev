@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#ifndef FPU_H
+#define FPU_H
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -23,3 +26,5 @@ void set_fpu_cw(const uint16_t cw);
  *
  */
 void enable_fpu(void);
+
+#endif // FPU_H

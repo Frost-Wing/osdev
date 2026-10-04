@@ -42,7 +42,10 @@ typedef struct {
 extern mbr_disk_t mbr_disks[10];
 extern int mbr_disks_count;
 
+/** @brief Check whether a disk contains a valid MBR partition table. */
 int check_mbr(int portno);
+
+/** @brief Parse and register the MBR partition entries. */
 void parse_mbr_partitions(uint8 *mbr, int portno);
 
 #endif

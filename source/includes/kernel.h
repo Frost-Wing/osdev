@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#ifndef KERNEL_H
+#define KERNEL_H
+
 #include <acpi-shutdown.h>
 #include <acpi.h>
 #include <algorithms/hashing.h>
@@ -93,5 +96,15 @@ extern uint64 *wm_addr;
  * @attention main() to something else, make sure to change the linker script accordingly.
  */
 void main(void);
+
+/**
+ * @brief Shut down the system.
+ */
 void shutdown(void);
+
+/**
+ * @brief Reboot the system.
+ */
 void reboot(void);
+
+#endif // KERNEL_H

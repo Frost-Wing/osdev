@@ -87,41 +87,117 @@ typedef int (*fat16_cluster_cb)(
     uint32_t lba,
     void *user);
 
+/** @brief Determine the FAT filesystem variant represented by a boot sector. */
 partition_fs_type_t detect_fat_type_enum(const uint8 *buf);
+
+/** @brief Mount a FAT16 partition. */
 int fat16_mount(int portno, uint32_t partition_lba, fat16_fs_t *fs);
+
+/** @brief Read the FAT entry for a cluster. */
 uint16_t fat16_read_fat_fs(fat16_fs_t *fs, uint16_t cluster);
+
+/** @brief List entries in the root directory. */
 int fat16_list_root(fat16_fs_t *fs);
+
+/** @brief Resolve a path to a directory entry. */
 int fat16_find_path(fat16_fs_t *fs, const char *path, fat16_dir_entry_t *out);
+
+/** @brief Compare a directory entry name with a path component. */
 int fat16_match_name(fat16_dir_entry_t *e, const char *name);
+
+/** @brief Find a named entry in a directory cluster. */
 int fat16_find_in_dir(fat16_fs_t *fs, uint16_t current_cluster, const char *name, fat16_dir_entry_t *out);
+
+/** @brief List entries in the directory stored in a cluster. */
 int fat16_list_dir_cluster(fat16_fs_t *fs, uint16_t start_cluster);
+
+/** @brief Convert a path name to the FAT 8.3 name format. */
 void fat16_format_name(const char *input, char out[11]);
+
+/** @brief Find a file in the current directory. */
 int fat16_find_file(fat16_fs_t *fs, const char *name, fat16_dir_entry_t *out);
 
+/** @brief Open a file by path. */
 int fat16_open(fat16_fs_t *fs, const char *path, fat16_file_t *f);
+
+/** @brief Read bytes from an open file. */
 int fat16_read(fat16_file_t *f, uint8_t *out, uint32_t size);
+
+/** @brief Write bytes to an open file. */
 int fat16_write(fat16_file_t *f, const uint8_t *data, uint32_t size);
+
+/** @brief Close an open file. */
 void fat16_close(fat16_file_t *f);
 
+/** @brief Find an unused data cluster. */
 uint16_t fat16_find_free_cluster(fat16_fs_t *fs);
+
+/** @brief Set the FAT value for a cluster. */
 void fat16_write_fat_entry(fat16_fs_t *fs, uint16_t cluster, uint16_t value);
+
+/** @brief Allocate and initialize a free cluster. */
 uint16_t fat16_allocate_cluster(fat16_fs_t *fs);
+
+/** @brief Append a new cluster to a cluster chain. */
 uint16_t fat16_append_cluster(fat16_fs_t *fs, uint16_t last_cluster);
+
+/** @brief Update an entry in the root directory. */
 void fat16_update_root_entry(fat16_fs_t *fs, fat16_dir_entry_t *entry);
+
+/** @brief Update an entry in a subdirectory. */
 int fat16_update_dir_entry(fat16_fs_t *fs, uint16_t dir_cluster, fat16_dir_entry_t *entry);
 
+/** @brief Remove a path relative to its parent directory. */
 int fat16_unlink_path(fat16_fs_t *fs, uint16 parent_cluster, cstring name);
+
+/** @brief Resolve a path's parent directory and final name. */
 int fat16_find_parent(fat16_fs_t *fs, const char *path, uint16_t *out_cluster, char *out_name);
+
+/** @brief Delete a named entry from a directory. */
 int fat16_delete_entry(fat16_fs_t *fs, uint16_t parent_cluster, const char *name);
+
+/** @brief Create a directory entry for a new directory. */
 int fat16_mkdir(fat16_fs_t *fs, uint16_t parent_cluster, const char *name);
+
+/** @brief Create a file or directory at a path. */
 int fat16_create_path(fat16_fs_t *fs, const char *path, uint16_t start_cluster, uint8_t attr);
+
+/** @brief Resolve a path relative to a working-directory cluster. */
 int fat16_resolve_path(
     fat16_fs_t *fs,
     const char *path,
     uint16_t pwd_cluster, // current working directory cluster
     uint16_t *out_cluster // result cluster
 );
+
+/** @brief Convert a FAT 8.3 name to a display name. */
 void fat16_unformat_name(const fat16_dir_entry_t *e, char *out);
+
+/**
+ * @brief Release a FAT16 cluster chain.
+ *
+ * @param fs FAT16 filesystem.
+ * @param start_cluster First cluster in the chain.
+ */
+void fat16_free_chain(fat16_fs_t *fs, uint16_t start_cluster);
+
+/**
+ * @brief Change the size of an open FAT16 file.
+ *
+ * @param f Open file to resize.
+ * @param new_size Requested size in bytes.
+ * @return 0 on success, negative on error.
+ */
+int fat16_truncate(fat16_file_t *f, uint32_t new_size);
+
+/**
+ * @brief Remove an empty FAT16 directory.
+ *
+ * @param fs FAT16 filesystem.
+ * @param dir_cluster Cluster of the directory to remove.
+ * @return 0 on success, negative on error.
+ */
+int fat16_rmdir(fat16_fs_t *fs, uint16_t dir_cluster);
 
 /**
  * @brief Flush all pending FAT16 writes to disk.
@@ -134,5 +210,6 @@ void fat16_unformat_name(const fat16_dir_entry_t *e, char *out);
  */
 int fat16_sync(fat16_fs_t *fs);
 
+/** @brief Unmount a FAT16 filesystem. */
 void fat16_unmount(fat16_fs_t *fs);
 #endif

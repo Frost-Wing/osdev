@@ -50,6 +50,11 @@ extern uint32 last_print_line;
 extern bool enable_logging;
 
 extern int log_depth;
+
+/**
+ * @brief Decrement the logging depth when a scoped logging function returns.
+ * @param unused Cleanup attribute parameter.
+ */
 extern inline void __log_scope_exit(int *unused);
 /* Place at the top of any function you want tracked in the tree.
  * Auto-decrements log_depth when the function returns, however it returns. */
@@ -112,7 +117,7 @@ void done(cstring message, cstring file, ...);
 /* Normal Hybrid printing functions ahead */
 
 /**
- * @brief Prints a char, using vput(char c); Replaces '\b' with "\b \b"
+ * @brief Prints a character, converting backspace into a backspace-space-backspace sequence.
  *
  * @param c char to print
  */
@@ -132,6 +137,18 @@ void vputc(char c);
  */
 void printbin(uint8_t value);
 
+/**
+* @brief Format an integer into a buffer using the requested base and width.
+*
+* @param out Destination buffer.
+* @param value Integer value to format.
+* @param is_signed Whether the value should be treated as signed.
+* @param base Numeric base.
+* @param width Minimum output width.
+* @param zero Whether to pad with zeroes.
+* @param upper Whether to use uppercase digits.
+* @return Number of characters written, or a negative value on error.
+*/
 int format_number(char *out, uint64_t value, bool is_signed,
                   int base, int width, bool zero, bool upper);
 
@@ -156,6 +173,16 @@ void printf_internal(cstring file, cstring func, uint64 line, cstring format, ..
  * @param ...
  */
 void printfnoln_internal(cstring file, cstring func, uint64 line, cstring format, ...);
+
+/**
+ * @brief Print an error message with source location and formatting.
+ *
+ * @param file Source file name.
+ * @param func Calling function name.
+ * @param line Source line number.
+ * @param format printf-style format string.
+ * @param ... Values matching the format string.
+ */
 void eprintf_internal(cstring file, cstring func, uint64 line, cstring format, ...);
 
 /**
@@ -178,7 +205,7 @@ void eprintf_internal(cstring file, cstring func, uint64 line, cstring format, .
  */
 void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, bool newline, cstring format, va_list argp);
 
-/*
+/**
  * @brief Formats a string into a buffer using a va_list.
  *
  * @param buf  destination buffer.
@@ -232,7 +259,10 @@ void print_bitmap(int x, int y, int w, int h, const bool *pixels, uint32 color);
  */
 void terminal_toggle_cursor(void);
 
-/* Atomically select and redraw the framebuffer terminal used for console I/O. */
+/**
+ * @brief Atomically select and redraw the framebuffer terminal used for console I/O.
+ * @param context Terminal context to activate.
+ */
 void terminal_switch_context(struct flanterm_context *context);
 
 #endif

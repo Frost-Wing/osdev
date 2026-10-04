@@ -37,7 +37,11 @@ extern struct limine_memmap_response *memmap;
  * @param flags Permissions
  */
 void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags);
+
+/** @brief Remove a user page mapping. */
 void unmap_user_page(uint64_t virt);
+
+/** @brief Set user-page write and execute permissions. */
 bool paging_set_user_page_permissions(uint64_t virt, bool writable, bool executable);
 
 /**
@@ -47,14 +51,31 @@ bool paging_set_user_page_permissions(uint64_t virt, bool writable, bool executa
  */
 void paging_set_hhdm_offset(uint64_t offset);
 
+/** @brief Allocate one physical page and return its address. */
 uintptr_t allocate_page(void);
+
+/** @brief Allocate a number of physical pages. */
 uintptr_t allocate_pages(size_t count);
+
+/** @brief Allocate a contiguous run of physical pages. */
 uintptr_t allocate_pages_contiguous(size_t count);
+
+/** @brief Convert a physical address to its HHDM virtual address. */
 void *paging_phys_to_virt(uintptr_t phys);
+
+/** @brief Return the page-table flags for a user virtual address. */
 uint64_t paging_user_page_flags(uint64_t virt);
+
+/** @brief Translate a virtual address to a physical address using the fast path. */
 uint64_t fast_virt_to_phys(void *v);
+
+/** @brief Translate a virtual address to a physical address. */
 uint64_t virt_to_phys(void *v);
+
+/** @brief Free a previously allocated physical page. */
 void free_page(uintptr_t phys);
+
+/** @brief Reserve a physical address range so the allocator will not use it. */
 void paging_reserve_range(uintptr_t phys_start, uintptr_t phys_end);
 
 #endif

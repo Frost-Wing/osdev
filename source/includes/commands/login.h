@@ -37,6 +37,12 @@ void create_user(uint64 name, uint64 password);
  */
 void create_user_str(cstring name, cstring password);
 
+/**
+ * @brief Read a login name into a caller-provided buffer.
+ * @param userbuf Destination buffer.
+ * @param max Maximum number of bytes to store.
+ * @return Nonzero when a login name was entered.
+ */
 int login_request(char *userbuf, int max);
 
 /**

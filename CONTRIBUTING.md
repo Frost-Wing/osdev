@@ -9,7 +9,7 @@ Thank you for your interest in contributing to FrostWing! We welcome contributio
 2. Clone your forked repository to your local machine.
 
    ```bash
-   git clone https://github.com/pradosh-arduino/FrostWing.git
+   git clone https://github.com/Frost-Wing/osdev.git
    cd FrostWing
    ```
 

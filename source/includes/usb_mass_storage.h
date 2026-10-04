@@ -1,3 +1,7 @@
+/**
+ * @file usb_mass_storage.h
+ * @brief USB mass-storage device interface.
+ */
 #ifndef USB_MASS_STORAGE_H
 #define USB_MASS_STORAGE_H
 

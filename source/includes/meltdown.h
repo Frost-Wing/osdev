@@ -16,6 +16,11 @@
 #include <graphics.h>
 
 struct InterruptFrame;
+
+/**
+ * @brief Print the register values saved in an interrupt frame.
+ * @param frame Interrupt frame to dump.
+ */
 void interrupt_frame_dump(struct InterruptFrame *frame);
 
 /**

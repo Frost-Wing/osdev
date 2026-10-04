@@ -56,12 +56,25 @@ void syslog_putc(char c);
  */
 void syslog_printf(cstring format, ...);
 
+/**
+ * @brief Read buffered system log data from the beginning.
+ * @param out Destination buffer.
+ * @param max_len Maximum number of bytes to copy.
+ * @return Number of bytes copied.
+ */
 size_t syslog_read(char *out, size_t max_len);
 
+/**
+ * @brief Read buffered system log data starting at an offset.
+ * @param out Destination buffer.
+ * @param offset Byte offset into the buffered log.
+ * @param max_len Maximum number of bytes to copy.
+ * @return Number of bytes copied.
+ */
 size_t syslog_read_at(char *out, size_t offset, size_t max_len);
 
+/** @brief Return the number of bytes currently buffered in the system log. */
 size_t syslog_size(void);
-;
 
 /**
  * @brief Clear the syslog ring buffer, discarding all buffered log entries.

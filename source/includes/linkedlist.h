@@ -27,6 +27,23 @@ typedef struct
 } list;
 
 /**
+ * @brief Allocate and initialize a linked-list node.
+ *
+ * @param data Payload to store in the node.
+ * @param prev Previous node.
+ * @param next Next node.
+ * @return The new node, or NULL if @p data is NULL or allocation fails.
+ */
+struct list_node *list_create_node(void *data, struct list_node *prev, struct list_node *next);
+
+/**
+ * @brief Free a linked-list node.
+ *
+ * @param node Node to free.
+ */
+void list_delete_node(struct list_node *node);
+
+/**
  * @brief Initializes a list
  *
  * @param obj The new list object

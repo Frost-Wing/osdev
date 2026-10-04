@@ -229,31 +229,67 @@ typedef struct {
 
 /* ===================== API ===================== */
 
+/** @brief Identify whether a partition contains an EXT2 filesystem. */
 partition_fs_type_t detect_ext2_type_enum(int portno, uint32_t partition_lba);
 
+/** @brief Mount an EXT2 partition. */
 int ext2_mount(int portno, uint32_t partition_lba, ext2_fs_t *fs);
+
+/** @brief Unmount an EXT2 filesystem. */
 void ext2_unmount(ext2_fs_t *fs);
 
+/** @brief Resolve a path and return its inode and inode metadata. */
 int ext2_find_path(ext2_fs_t *fs, const char *path, uint32_t *out_ino, ext2_inode_t *out_inode);
+
+/** @brief Resolve a path with control over following the final symbolic link. */
 int ext2_find_path_ex(ext2_fs_t *fs, const char *path, uint32_t *out_ino, ext2_inode_t *out_inode, bool follow_final);
+
+/** @brief Read the target of a symbolic link. */
 int ext2_readlink(ext2_fs_t *fs, const char *path, char *buf, uint32_t bufsiz);
+
+/** @brief Update access and modification timestamps for a path. */
 int ext2_set_times(ext2_fs_t *fs, const char *path, uint32_t atime, uint32_t mtime);
+
+/** @brief List the entries in a directory inode. */
 int ext2_list_dir(ext2_fs_t *fs, uint32_t dir_ino);
 
+/** @brief Open a file by path. */
 int ext2_open(ext2_fs_t *fs, const char *path, ext2_file_t *f);
+
+/** @brief Create a file and optionally return an open handle. */
 int ext2_create(ext2_fs_t *fs, const char *path, uint16_t mode, ext2_file_t *f);
+
+/** @brief Read bytes from an open EXT2 file. */
 int ext2_read(ext2_file_t *f, uint8_t *out, uint32_t size);
+
+/** @brief Write bytes to an open EXT2 file. */
 int ext2_write(ext2_file_t *f, const uint8_t *data, uint32_t size);
+
+/** @brief Close an open EXT2 file. */
 void ext2_close(ext2_file_t *f);
 
+/** @brief Create a directory at a path. */
 int ext2_mkdir(ext2_fs_t *fs, const char *path);
+
+/** @brief Remove a file at a path. */
 int ext2_unlink_path(ext2_fs_t *fs, const char *path);
+
+/** @brief Remove an empty directory at a path. */
 int ext2_rmdir(ext2_fs_t *fs, const char *path);
+
+/** @brief Recursively remove a directory tree. */
 int ext2_rm_recursive(ext2_fs_t *fs, const char *path);
+
+/** @brief Rename or move a path. */
 int ext2_rename(ext2_fs_t *fs, const char *src_path, const char *dst_path);
+
+/** @brief Truncate an open file to its current position. */
 int ext2_truncate(ext2_fs_t *fs, ext2_file_t *f);
+
+/** @brief Resize an open file to a specified number of bytes. */
 int ext2_truncate_size(ext2_fs_t *fs, ext2_file_t *f, uint32_t new_size);
 
+/** @brief Find a named entry in a directory inode. */
 int ext2_find_in_dir(ext2_fs_t *fs, uint32_t dir_ino, const char *name, uint32_t *out_ino, uint8_t *out_type);
 
 /**

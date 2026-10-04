@@ -8,6 +8,8 @@
  * @copyright Copyright Pradosh (c) 2022
  *
  */
+#ifndef HAL_H
+#define HAL_H
 
 #include <basics.h>
 #include <stdint.h>
@@ -90,5 +92,19 @@ void outl(uint16 portNumber, uint32 data);
  * It is used to add a small delay in I/O operations.
  */
 void io_wait(void);
+
+/**
+ * @brief Wait for the specified number of microseconds.
+ *
+ * @param usec Delay duration in microseconds.
+ */
 void io_wait_us(uint32_t usec);
+
+/**
+ * @brief Wait for the specified number of milliseconds.
+ *
+ * @param msec Delay duration in milliseconds.
+ */
 void io_wait_ms(uint32_t msec);
+
+#endif // HAL_H

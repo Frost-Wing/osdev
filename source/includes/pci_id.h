@@ -16,6 +16,12 @@
 
 #define MAX_PCI_DEVICES 512
 
+/**
+ * @brief Callback invoked for a discovered PCI function.
+ * @param bus PCI bus number.
+ * @param slot PCI device slot.
+ * @param function PCI function number.
+ */
 typedef void (*pci_probe_fn)(uint8_t bus, uint8_t slot, uint8_t function);
 
 typedef struct {

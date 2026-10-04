@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#ifndef PIT_H
+#define PIT_H
+
 #include <basics.h>
 #include <hal.h>
 #include <isr.h>
@@ -24,5 +27,24 @@ extern volatile uint64_t pit_ticks;
  * @param frame
  */
 void process_pit(InterruptFrame *frame);
+
+/**
+ * @brief Initialize the programmable interval timer.
+ */
 void init_pit(void);
+
+/**
+ * @brief Wait for at least the specified number of milliseconds.
+ *
+ * @param milliseconds Duration to wait.
+ */
 void pit_sleep(uint32_t milliseconds);
+
+/**
+ * @brief Return elapsed time based on PIT ticks.
+ *
+ * @return Elapsed milliseconds since the PIT was initialized.
+ */
+uint64_t get_time_ms(void);
+
+#endif // PIT_H

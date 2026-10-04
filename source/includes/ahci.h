@@ -243,37 +243,92 @@ extern ahci_hba_mem_t *global_ahci_ctrl;
  * @param ahci_ctrl Pointer to the AHCI controller structure.
  */
 void detect_ahci_devices(ahci_hba_mem_t *ahci_ctrl);
+/** @brief Register and initialize a SATA disk on an AHCI port. */
 void handle_sata_disk(int portno);
+
+/** @brief Register and initialize an ATAPI device on an AHCI port. */
 void handle_satapi_disk(int portno);
+
+/** @brief Initialize command lists and FIS buffers for an AHCI port. */
 void ahci_init_port(int portno);
+
+/**
+ * @brief Read one or more sectors from an AHCI port.
+ * @param portno AHCI port number.
+ * @param lba Starting logical block address.
+ * @param buffer Destination buffer.
+ * @param count Number of sectors to read.
+ * @return 0 on success, otherwise a negative error code.
+ */
 int ahci_read_sector(int portno, uint64_t lba, void *buffer, uint32_t count);
+
+/**
+ * @brief Write one or more sectors to an AHCI port.
+ * @param portno AHCI port number.
+ * @param lba Starting logical block address.
+ * @param buffer Source buffer.
+ * @param count Number of sectors to write.
+ * @return 0 on success, otherwise a negative error code.
+ */
 int ahci_write_sector(int portno, uint64_t lba, void *buffer, uint32_t count);
+
+/** @brief Read ATA identification data from a port. */
 int ahci_identify(int portno, void *buffer);
 
+/** @brief Register a block device and return its device identifier. */
 int block_register_device(
     block_device_type_t type,
     int backend_index,
     uint64_t total_sectors,
     uint32_t sector_size,
     const char *name);
+
+/** @brief Look up a block device by its identifier. */
 block_device_info_t *block_get_device(int device_id);
+
+/** @brief Return the registered name of a block device. */
 const char *block_get_device_name(int device_id);
+
+/** @brief Read sectors from a block device. */
 int block_read_sector(int device_id, uint64_t lba, void *buffer, uint32_t count);
+
+/** @brief Write sectors to a block device. */
 int block_write_sector(int device_id, uint64_t lba, void *buffer, uint32_t count);
+
+/** @brief Read a range of blocks from a block device. */
 int read_blocks(int device_id, uint64_t lba, uint32_t count, void *buffer);
+
+/** @brief Write a range of blocks to a block device. */
 int write_blocks(int device_id, uint64_t lba, uint32_t count, const void *buffer);
+
+/** @brief Read blocks within the bounds of a partition. */
 int block_read_partition(int device_id, uint64_t partition_start,
     uint64_t partition_count, uint64_t lba, uint32_t count, void *buffer);
+
+/** @brief Write blocks within the bounds of a partition. */
 int block_write_partition(int device_id, uint64_t partition_start,
     uint64_t partition_count, uint64_t lba, uint32_t count,
     const void *buffer);
+
+/** @brief Return the logical sector size of a block device. */
 uint32_t get_block_size(int device_id);
+
+/** @brief Return the sector count of a block device. */
 uint64_t get_block_count(int device_id);
+
+/** @brief Unregister a block device. */
 int block_unregister_device(int device_id);
+
+/** @brief Read blocks from a USB mass-storage backend. */
 int usb_msc_read_blocks(int backend_index, uint64_t lba, uint32_t count, void *buffer);
+
+/** @brief Write blocks to a USB mass-storage backend. */
 int usb_msc_write_blocks(int backend_index, uint64_t lba, uint32_t count, const void *buffer);
+
+/** @brief Refresh the block-device registration for a USB mass-storage backend. */
 int usb_msc_refresh_device(int backend_index);
 
+/** @brief Add a discovered partition to the general partition table. */
 general_partition_t *add_general_partition(
     partition_table_type_t table_type,
     uint64 lba_start,
@@ -287,11 +342,19 @@ general_partition_t *add_general_partition(
     const uint8_t *gpt_guid // must be 16 bytes
 );
 
+/** @brief Find a partition by name. */
 general_partition_t *search_general_partition(cstring partition_name);
 
+/** @brief Register a mounted filesystem at a mount point. */
 mount_entry_t *add_mount(const char *mount_point, const char *part_name, partition_fs_type_t type, void *fs_ptr);
+
+/** @brief Find a registered mount by its mount point. */
 mount_entry_t *find_mount_by_point(const char *mount_point);
+
+/** @brief Remove a mount-point registration. */
 int remove_mount(const char *mount_point);
+
+/** @brief Print all registered mount points. */
 void list_all_mounts(void);
 
 #endif // AHCI_H

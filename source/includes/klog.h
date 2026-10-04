@@ -56,12 +56,25 @@ void klog_putc(char c);
  */
 void klog_printf(cstring format, ...);
 
+/**
+ * @brief Read buffered kernel log data from the beginning.
+ * @param out Destination buffer.
+ * @param max_len Maximum number of bytes to copy.
+ * @return Number of bytes copied.
+ */
 size_t klog_read(char *out, size_t max_len);
 
+/**
+ * @brief Read buffered kernel log data starting at an offset.
+ * @param out Destination buffer.
+ * @param offset Byte offset into the buffered log.
+ * @param max_len Maximum number of bytes to copy.
+ * @return Number of bytes copied.
+ */
 size_t klog_read_at(char *out, size_t offset, size_t max_len);
 
+/** @brief Return the number of bytes currently buffered in the kernel log. */
 size_t klog_size(void);
-;
 
 /**
  * @brief Clear the klog ring buffer, discarding all buffered log entries.

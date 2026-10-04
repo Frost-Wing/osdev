@@ -8,6 +8,8 @@
  * @copyright Copyright (c) Pradosh 2025-2026
  *
  */
+#ifndef FWRFS_H
+#define FWRFS_H
 
 #include <basics.h>
 #include <graphics.h>
@@ -61,4 +63,12 @@ bool is_valid_filename(struct fwrfs_folder *parent, const char *filename);
  */
 struct fwrfs_folder *find_folder(struct fwrfs_folder *parent, const char *name);
 
+/**
+ * @brief Return the current path of the RAM filesystem.
+ *
+ * @param fs Filesystem whose current path is requested.
+ * @return A pointer to the current path string.
+ */
 char *get_pwd(struct fwrfs *fs);
+
+#endif // FWRFS_H

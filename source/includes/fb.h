@@ -192,6 +192,8 @@ struct flanterm_context *flanterm_fb_init(
 
 /** Display one older or newer line of retained framebuffer output. */
 void flanterm_fb_scrollback_up(struct flanterm_context *ctx);
+
+/** Display the next newer line of retained framebuffer output. */
 void flanterm_fb_scrollback_down(struct flanterm_context *ctx);
 
 #ifndef FLANTERM_FB_DISABLE_BUMP_ALLOC

@@ -8,8 +8,8 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
-#ifndef rtl8139_h
-#define rtl8139_h
+#ifndef RTL8139_H
+#define RTL8139_H
 
 #include <basics.h>
 #include <graphics.h>
@@ -84,8 +84,19 @@ bool rtl8139_send_packet(const uint8 *data, uint16 length);
  * @return [false] Return false if a packet was not received
  */
 bool rtl8139_receive_packet(uint8 *buffer, uint16 *length);
+
+/** @brief Move a received packet into the driver receive queue. */
 void rtl8139_rx_to_queue(void);
+
+/**
+ * @brief Retrieve the next packet from the driver receive queue.
+ * @param buffer Destination buffer.
+ * @param length Receives the packet length.
+ * @return true if a packet was returned, otherwise false.
+ */
 bool rtl8139_receive_queued_packet(uint8 *buffer, uint16 *length);
+
+/** @brief Process a pending receive-ring reset outside interrupt context. */
 void rtl8139_service_pending_rx_reset(void);
 
 /**

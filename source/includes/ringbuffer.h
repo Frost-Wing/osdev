@@ -64,6 +64,13 @@ int rb_empty(const ring_buffer_t *rb);
  */
 int rb_push(ring_buffer_t *rb, const void *data);
 
+/**
+ * @brief Push an element, overwriting the oldest item if the buffer is full.
+ *
+ * @param rb Pointer to the ring buffer.
+ * @param data Pointer to the element to insert.
+ * @return 0 on success, or a negative value on error.
+ */
 int rb_push_overwrite(ring_buffer_t *rb, const void *data);
 
 /**

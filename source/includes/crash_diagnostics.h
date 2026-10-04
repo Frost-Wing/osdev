@@ -1,3 +1,7 @@
+/**
+ * @file crash_diagnostics.h
+ * @brief Crash-diagnosis data types and analysis interfaces.
+ */
 #ifndef CRASH_DIAGNOSTICS_H
 #define CRASH_DIAGNOSTICS_H
 
@@ -20,7 +24,19 @@ typedef struct CrashDiagnosis {
     CrashConfidence confidence;
 } CrashDiagnosis;
 
+/**
+ * @brief Analyze an interrupt state and produce a crash diagnosis.
+ *
+ * @param int_no Interrupt number.
+ * @param error_code Error code supplied by the processor.
+ * @param cr2 Faulting address from CR2.
+ * @param frame Saved interrupt frame.
+ * @param symbol Resolved instruction symbol, if available.
+ * @param out Receives the diagnosis.
+ */
 void crash_diagnostics_analyze(uint64 int_no, uint64 error_code, uint64 cr2, const InterruptFrame *frame, const CrashSymbolResult *symbol, CrashDiagnosis *out);
+
+/** @brief Return the display string for a crash-confidence level. */
 cstring crash_confidence_string(CrashConfidence confidence);
 
 #endif

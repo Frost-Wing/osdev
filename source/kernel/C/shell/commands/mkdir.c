@@ -9,8 +9,7 @@
  *
  */
 #include <commands/commands.h>
-
-extern int vfs_create_path(const char *path, uint8_t attr);
+#include <filesystems/vfs.h>
 
 int cmd_mkdir(int argc, char **argv) {
     if (argc < 2) {

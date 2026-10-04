@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#ifndef CC_ASM_H
+#define CC_ASM_H
+
 #include <basics.h>
 
 /**
@@ -40,6 +43,28 @@ void high_level_halt(void);
  *
  */
 void hcf2(void);
+
+/**
+ * @brief Write a value to an x86 model-specific register.
+ *
+ * @param msr Model-specific register number.
+ * @param value Value to write.
+ */
 void wrmsr64(uint32_t msr, uint64_t value);
+
+/**
+ * @brief Read an x86 model-specific register.
+ *
+ * @param msr Model-specific register number.
+ * @return The combined value of the register's EDX:EAX halves.
+ */
 uint64_t rdmsr64(uint32_t msr);
+
+/**
+ * @brief Read the x86 timestamp counter.
+ *
+ * @return The current timestamp counter value.
+ */
 uint64_t rdtsc64(void);
+
+#endif // CC_ASM_H

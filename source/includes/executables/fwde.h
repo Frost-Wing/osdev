@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2024-2026
  *
  */
+#ifndef FWDE_H
+#define FWDE_H
+
 #include <basics.h>
 #include <cc-asm.h>
 #include <graphics.h>
@@ -33,6 +36,27 @@ typedef struct
 
 typedef void (*entry_function)(kernel_data *);
 
+/**
+ * @brief Verify a FWDE executable signature.
+ *
+ * @param signature Signature string to verify.
+ * @return true if the signature is valid, otherwise false.
+ */
 bool verify_signature(const char *signature);
+
+/**
+ * @brief Process an interrupt frame raised while executing FWDE code.
+ *
+ * @param frame Interrupt state to process.
+ */
 void process_IFL(InterruptFrame *frame);
+
+/**
+ * @brief Load and execute a FWDE image.
+ *
+ * @param addr Address of the executable image.
+ * @param data Kernel data passed to the executable.
+ */
 void execute_fwde(uint64 *addr, kernel_data *data);
+
+#endif // FWDE_H

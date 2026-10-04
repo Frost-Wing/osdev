@@ -8,6 +8,9 @@
  * @copyright Copyright (c) Pradosh 2026
  * 
  */
+#ifndef CMDLINE_H
+#define CMDLINE_H
+
 #include <basics.h>
 
 /**
@@ -20,3 +23,5 @@
  * @return const char* 
  */
 const char *cmdline_get(const char *cmdline, const char *key, char *out, size_t out_size);
+
+#endif // CMDLINE_H

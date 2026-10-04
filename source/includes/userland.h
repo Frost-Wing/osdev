@@ -135,10 +135,28 @@ typedef struct {
 
 #define USERLAND_FORK_FAILED (-2147483647 - 1)
 
+/**
+ * @brief Fork the current user task using its saved register state.
+ * @param regs Register state to copy into the child.
+ * @return Child identifier in the parent, zero in the child, or an error value.
+ */
 int  userland_fork(const userland_regs_t *regs);
+
+/** @brief Return to user mode using the supplied register state. */
 extern void userland_iret_regs(const userland_regs_t *regs) __attribute__((noreturn));
 
+/** @brief Enter user mode at an instruction address. */
 void enter_userland_at(uint64_t entry_point);
+
+/**
+ * @brief Prepare an executable image and its user stack.
+ * @param path Executable path.
+ * @param argc Argument count.
+ * @param argv Argument vector.
+ * @param out_info Receives executable metadata.
+ * @param out_entry Receives the entry address.
+ * @param out_stack Receives the initial stack pointer.
+ */
 void userland_exec_prepare(
     const char *path,
     int argc,
@@ -147,18 +165,43 @@ void userland_exec_prepare(
     void **out_entry,
     uint64_t *out_stack);
 
+/** @brief Initialize the userland heap for the current task. */
 void userland_heap_init(void);
+
+/** @brief Adjust the current task's program break. */
 uint64_t userland_brk(uint64_t requested_break);
+
+/** @brief Map anonymous user memory and return its address. */
 uint64_t userland_mmap_anon(uint64_t length);
+
+/** @brief Unmap a user-memory range. */
 bool userland_mmap_unmap(uint64_t addr, uint64_t length);
+
+/** @brief Map user memory at a requested fixed address. */
 uint64_t userland_mmap_fixed(uint64_t addr, uint64_t length);
+
+/** @brief Change permissions on a user-memory range. */
 bool userland_mprotect(uint64_t addr, uint64_t length, uint64_t prot);
+
+/** @brief Prepare the current user task to exit through the syscall path. */
 bool userland_prepare_exit(syscall_frame_t *frame, uint64_t exit_code);
+
+/** @brief Execute a user program from an execution context. */
 int userland_exec(const userland_exec_ctx_t *ctx);
+
+/** @brief Check whether userland execution is active. */
 bool userland_is_running(void);
+
+/** @brief Abort userland execution after a processor exception. */
 void userland_abort_from_exception(uint64_t int_no, uint64_t err_code, uint64_t fault_rip) __attribute__((noreturn));
+
+/** @brief Abort userland execution after a keyboard-requested exit. */
 void userland_abort_from_keyboard(int exit_code) __attribute__((noreturn));
+
+/** @brief Replace the current user image with a new program. */
 int userland_exec_replace(const userland_exec_ctx_t *ctx);
+
+/** @brief Execute a shell command in userland. */
 void sh_exec(void);
 
 #endif

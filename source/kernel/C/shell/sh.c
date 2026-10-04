@@ -20,6 +20,7 @@
 #include <tty.h>
 
 int last_status_code = 0;
+string current_user;
 
 static char global_home_env[64] = "HOME=/";
 static char global_path_env[256] = "PATH=/";

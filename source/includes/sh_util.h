@@ -86,7 +86,7 @@ typedef struct {
  * @brief Name of the current user.
  *
  */
-string current_user;
+extern string current_user;
 
 /**
  * @brief Initialize the command list
@@ -128,8 +128,36 @@ void execute(const char *buffer, int argc, char **argv);
  */
 void user_main(char *buffer);
 
-int execute_chain(const char *line) ;
+/**
+ * @brief Execute a command line containing chained commands.
+ *
+ * @param line Full command line to execute.
+ * @return Status of the command chain.
+ */
+int execute_chain(const char *line);
+
+/**
+ * @brief Run the shell command loop.
+ *
+ * @param argc Argument count.
+ * @param argv Argument vector.
+ * @return Shell exit status.
+ */
 int shell_main(int argc, char **argv);
+
+/**
+ * @brief Split a command line into argument strings.
+ *
+ * @param cmdline Command line to parse.
+ * @param argv Receives pointers to the parsed arguments.
+ * @param max_args Maximum number of arguments to store.
+ * @return Number of arguments parsed, or a negative value on error.
+ */
 int split_args(const char *cmdline, char **argv, int max_args);
+
+/**
+ * @brief Start the FrostWing command shell.
+ */
+void ksh_exec(void);
 
 #endif

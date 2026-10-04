@@ -52,9 +52,23 @@ extern void syscall_entry(void);
  */
 void init_syscall(void);
 
+/** @brief Remap the legacy PIC interrupt vectors. */
 void remap_pic(void);
+
+/** @brief Initialize the interrupt descriptor table. */
 void initIdt(void);
+
+/** @brief Load the interrupt descriptor table into the processor. */
 void idt_activate(void);
+
+/**
+ * @brief Set one interrupt descriptor table entry.
+ * @param target Entry to initialize.
+ * @param offset Handler address.
+ * @param selector Code-segment selector.
+ * @param ist Interrupt stack-table index.
+ * @param type_attributes Gate type and attributes.
+ */
 void setIdtEntry(IDTEntry *target, uint64_t offset, uint16_t selector, uint8_t ist, uint8_t type_attributes);
 
 #endif

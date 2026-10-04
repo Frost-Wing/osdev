@@ -8,7 +8,8 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
-#pragma once
+#ifndef HEAP_H
+#define HEAP_H
 
 #include <basics.h>
 #include <stdbool.h>
@@ -82,6 +83,9 @@ void *kmalloc_aligned(size_t size, size_t align);
  * @brief The main free function for memory allocation.
  *
  * @param ptr Location in memory.
+ * @param function Name of the function releasing the allocation.
+ * @param file Source file containing the release call.
+ * @param line Source line containing the release call.
  */
 extern void ikfree(void *ptr, const char *function, const char* file, int line);
 
@@ -95,3 +99,5 @@ extern void ikfree(void *ptr, const char *function, const char* file, int line);
  * @return true if the heap is valid, otherwise false.
  */
 bool kheap_check(void);
+
+#endif // HEAP_H

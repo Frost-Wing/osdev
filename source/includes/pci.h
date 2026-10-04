@@ -36,6 +36,12 @@ extern char deviceNames[MAX_PCI_DEVICES][64];
 #define PCI_CONFIG_ADDRESS 0xCF8
 #define PCI_CONFIG_DATA 0xCFC
 
+/**
+ * @brief Callback invoked when a matching PCI function is probed.
+ * @param bus PCI bus number.
+ * @param slot PCI device slot.
+ * @param function PCI function number.
+ */
 typedef void (*pci_probe_fn)(uint8_t bus, uint8_t slot, uint8_t function);
 
 typedef struct {
@@ -99,7 +105,25 @@ uint16 getClassId(uint16 bus, uint16 device, uint16 function);
  * @return uint16 Sub-class ID
  */
 uint16 getSubClassId(uint16 bus, uint16 device, uint16 function);
+
+/**
+ * @brief Read the PCI revision identifier.
+ *
+ * @param bus PCI bus number.
+ * @param slot PCI device slot.
+ * @param func PCI function number.
+ * @return Revision identifier.
+ */
 uint8 getRevision(uint16 bus, uint16 slot, uint16 func);
+
+/**
+ * @brief Read the PCI programming interface value.
+ *
+ * @param bus PCI bus number.
+ * @param device PCI device slot.
+ * @param function PCI function number.
+ * @return Programming interface value.
+ */
 uint8 getProgIF(uint16 bus, uint16 device, uint16 function);
 
 /**
@@ -107,6 +131,8 @@ uint8 getProgIF(uint16 bus, uint16 device, uint16 function);
  *
  */
 void probe_pci(void);
+
+/** @brief Print detected PCI devices. */
 void print_lspci(void);
 
 /**
@@ -119,6 +145,16 @@ void print_lspci(void);
  * @return uint32
  */
 uint32 pci_config_read_dword(uint8 bus, uint8 slot, uint8 func, uint8 offset);
+
+/**
+ * @brief Write a 32-bit value to PCI configuration space.
+ *
+ * @param bus PCI bus number.
+ * @param slot PCI device slot.
+ * @param func PCI function number.
+ * @param offset Configuration-space offset.
+ * @param value Value to write.
+ */
 void pci_config_write_dword(uint8 bus, uint8 slot, uint8 func, uint8 offset, uint32_t value);
 
 /**

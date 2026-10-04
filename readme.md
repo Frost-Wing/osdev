@@ -1,7 +1,7 @@
+![FrostWing Banner](https://repository-images.githubusercontent.com/708065850/eeb30fa3-303e-4ed5-89ea-0f057cf38582)
 # FrostWing Operating System
 
-Welcome to FrostWing, a lightweight and flexible operating system designed for x86_64 platform. This README will guide you through the process of understanding the overall
-concept of the FrostWing Operating System.
+FrostWing is a lightweight, flexible x86_64 operating system with a clean, aesthetic design. This README will guide you through the process of understanding the overall concept of the FrostWing Operating System.
 
 ![GitHub all releases](https://img.shields.io/github/downloads/Frost-Wing/osdev/total?style=flat-square&label=Downloads)
 ![GitHub](https://img.shields.io/github/license/Frost-Wing/osdev?style=flat-square&label=License)
@@ -18,12 +18,9 @@ concept of the FrostWing Operating System.
   - [Table of Contents](#table-of-contents)
   - [Gallery](#gallery)
   - [Currently working Features](#currently-working-features)
+    - [Dynamically linked user programs](#dynamically-linked-user-programs)
     - [Getting started](#getting-started)
     - [Hardware/Software (Emulator) Requirements](#hardwaresoftware-emulator-requirements)
-      - [Minimum Requirements (BIOS)](#minimum-requirements-bios)
-      - [Minimum Requirements (UEFI)](#minimum-requirements-uefi)
-      - [Recommended Requirements (BIOS)](#recommended-requirements-bios)
-      - [Recommended Requirements (UEFI)](#recommended-requirements-uefi)
     - [Booting to real machine](#booting-to-real-machine)
   - [Contributing](#contributing)
   - [License](#license)
@@ -102,29 +99,13 @@ arbitrary Linux/glibc programs compatible.
 [*Please refer wiki for steps for compiling**](https://github.com/Frost-Wing/osdev/wiki)
 
 ### Hardware/Software (Emulator) Requirements
-#### Minimum Requirements (BIOS)
-- **CPU** Currently any x86_64 proccessor
-- **RAM** 75 MB
-- **Storage** Nothing required yet.
-- **Graphics** Only Framebuffer.
+Works on any x86_64 processor
 
-#### Minimum Requirements (UEFI)
-- **CPU** Currently any x86_64 proccessor
-- **RAM** 170 MB
-- **Storage** Nothing required yet.
-- **Graphics** Only Framebuffer.
+| | BIOS (min) | BIOS (recommended) | UEFI (min) | UEFI (recommended) |
+|---|---|---|---|---|
+| **RAM** | 75 MB | 128 MB | 170 MB | 256 MB |
+| **Graphics** | Framebuffer | Integrated | Framebuffer | Integrated |
 
-#### Recommended Requirements (BIOS)
-- **CPU** Currently any x86_64 proccessor
-- **RAM** 128 MB
-- **Storage** Nothing required yet.
-- **Graphics** Integrated Graphics
-
-#### Recommended Requirements (UEFI)
-- **CPU** Currently any x86_64 proccessor
-- **RAM** 256 MB
-- **Storage** Nothing required yet.
-- **Graphics** Integrated Graphics
 
 ### Booting to real machine
 This operating system is real machine **bootable** and tested under the following circumstances:
