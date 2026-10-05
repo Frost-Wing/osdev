@@ -168,7 +168,7 @@ run-x86-uefi: check-disk
 	    -drive if=pflash,format=raw,unit=1,file=firmware/uefi/OVMF_VARS.fd \
 	    $(QEMU_COMMON)
 
-run-x86-vnc:
+run-x86-vnc: check-disk
 	@test -e disk.img || touch disk.img
 	@echo -e "$(INFO) $(WHITE)Launching FrostWing (VNC :0) in QEMU...$(RESET)"
 	@qemu-system-x86_64 \
