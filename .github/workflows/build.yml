@@ -36,7 +36,8 @@ jobs:
       run: sleep 5s
 
     - name: Stop QEMU and VNC
-      run: sudo pkill qemu
+      if: always()
+      run: sudo pkill qemu || true
     
     - name: Generate hashes
       run: |
