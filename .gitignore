@@ -17,7 +17,6 @@ bin
 source/kernel/C/misc/versions.c
 keys/file.sig
 keys/private_key.pem
-*.css
 *.bin
 *.raw
 *.so

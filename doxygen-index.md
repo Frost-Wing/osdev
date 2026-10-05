@@ -1,6 +1,6 @@
 # FrostWing Documentation
 
-## Welcome to the FrostWing docs! 📚
+### Welcome to the FrostWing docs! 📚
 
 Whether you're here to fix a bug, add a feature, or just poke around the code, this is the place to start. You'll find everything from header files to API references, all in one spot.
 

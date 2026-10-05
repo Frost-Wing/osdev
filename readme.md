@@ -1,5 +1,6 @@
+# FrostWing - Readme
+
 ![FrostWing Banner](https://repository-images.githubusercontent.com/708065850/eeb30fa3-303e-4ed5-89ea-0f057cf38582)
-# FrostWing Operating System
 
 FrostWing is a lightweight, flexible x86_64 operating system with a clean, aesthetic design. This README will guide you through the process of understanding the overall concept of the FrostWing Operating System.
 
@@ -14,7 +15,7 @@ FrostWing is a lightweight, flexible x86_64 operating system with a clean, aesth
 
 ## Table of Contents
 
-- [FrostWing Operating System](#frostwing-operating-system)
+- [FrostWing - Readme](#frostwing---readme)
   - [Table of Contents](#table-of-contents)
   - [Gallery](#gallery)
   - [Currently working Features](#currently-working-features)
