@@ -129,6 +129,12 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_MMAP:
             return sys_mmap(arg1, arg2, arg3, arg4, arg5, arg6);
 
+        case LINUX_SYS_MLOCK:
+            return sys_mlock(arg1, arg2);
+
+        case LINUX_SYS_MEMBARRIER:
+            return sys_membarrier(arg1, arg2, arg3);
+
         case LINUX_SYS_MUNMAP:
             return sys_munmap(arg1, arg2);
 
@@ -166,6 +172,9 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_SCHED_YIELD:
             multitasking_yield();
             return 0;
+
+        case LINUX_SYS_SCHED_GETAFFINITY:
+            return sys_sched_getaffinity((int64_t)arg1, arg2, (void *)arg3);
 
         case LINUX_SYS_GETPID:
             return multitasking_current_pid() ? multitasking_current_pid() : 1;
@@ -276,6 +285,10 @@ uint64_t syscall_dispatch(
 
         case LINUX_SYS_GETTID:
             return multitasking_current_pid() ? multitasking_current_pid() : 1;
+
+        case LINUX_SYS_GET_MEMPOLICY:
+            return sys_get_mempolicy((int *)arg1, (uint64_t *)arg2,
+                arg3, arg4, arg5);
 
         case LINUX_SYS_TGKILL:
             return sys_tgkill(arg1, arg2, arg3);

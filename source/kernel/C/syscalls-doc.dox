@@ -31,11 +31,13 @@
  *
  * ## Memory management
  * - `mmap(2)`              -> `sys_mmap()`              -> `userland_mmap_anon()`
+ * - `mlock(2)`             -> `sys_mlock()`              -> validates all pages are resident and user-accessible
  * - `mprotect(2)`          -> `sys_mprotect()`          -> validation + no-op (current VM model)
  * - `madvise(2)`           -> `sys_madvise()`           -> validates ranges and accepts basic access-pattern hints
  * - `munmap(2)`            -> `sys_munmap()`            -> validation + no-op (current VM model)
  * - `brk(2)`               -> `sys_brk()`               -> `userland_brk()`
  * - `eventfd2(2)`          -> `sys_eventfd2()`          -> shared counter descriptors with read/write/poll
+ * - `membarrier(2)`        -> `sys_membarrier()`        -> query, registrations, and local memory/core barriers
  *
  * ## Process and thread compatibility
  * - `execve(2)`            -> `sys_execve()`            -> `userland_exec()` / `execute_chain()`
@@ -46,6 +48,8 @@
  * - `set_tid_address(2)`   -> `sys_set_tid_address()`   -> kernel clear-child-tid bookkeeping
  * - `set_robust_list(2)`   -> `sys_set_robust_list()`   -> ABI validation
  * - `tgkill(2)`            -> `sys_tgkill()`            -> argument validation + stubbed signal path
+ * - `sched_getaffinity(2)` -> `sys_sched_getaffinity()` -> online CPU mask for the current or requested task
+ * - `get_mempolicy(2)`     -> `sys_get_mempolicy()`     -> default policy and the single supported NUMA node
  *
  * ## Socket compatibility
  * - `socket(2)`            -> `sys_socket()`            -> IPv4 ICMP, UDP, and TCP sockets

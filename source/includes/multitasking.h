@@ -92,6 +92,7 @@ typedef struct task {
     task_signal_action_t signal_actions[65];
     uint64_t rseq_area;
     uint32_t rseq_signature;
+    uint32_t membarrier_registered;
     struct task *next;
 
 } task_t;

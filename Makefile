@@ -106,6 +106,17 @@ ifndef CI
 KVM = -enable-kvm
 endif
 
+# Disk image: prefer ./disk.img, fall back to ../disk.img
+DISK_IMG := $(firstword $(wildcard ./disk.img ../disk.img))
+
+check-disk:
+	@if [ -z "$(DISK_IMG)" ]; then \
+		echo -e "$(WARN) $(WHITE)No disk image found.$(RESET) Looked for ./disk.img and ../disk.img"; \
+		echo -e "$(INFO) $(GRAY)Run 'make root-disk' to create one.$(RESET)"; \
+		exit 1; \
+	fi
+	@echo -e "$(INFO) $(GRAY)Using disk image: $(DISK_IMG)$(RESET)"
+
 # Note:
 # - Serial is outputed to 'serial.log' file.
 # - E9 Debug port messages would be displayed inside the terminal
@@ -134,7 +145,7 @@ QEMU_COMMON = \
     -device ahci,id=ahci \
     -drive if=none,media=cdrom,format=raw,file=$(ISO_FILE),id=cd0 \
     -device ide-cd,drive=cd0,bus=ahci.0 \
-	-drive if=none,format=raw,file=./disk.img,id=disk \
+	-drive if=none,format=raw,file=$(DISK_IMG),id=disk \
     -device ide-hd,drive=disk,bus=ahci.1 \
 	-device qemu-xhci,id=xhci \
 	-drive if=none,format=raw,file=usb.img,id=stick \
@@ -146,11 +157,11 @@ QEMU_COMMON = \
 	-object filter-dump,id=f1,netdev=eth0,file=/tmp/dump.pcap \
     -m 2048
 
-run-x86-bios:
+run-x86-bios: check-disk
 	@echo -e "$(INFO) $(WHITE)Launching FrostWing (BIOS) in QEMU...$(RESET)"
 	@qemu-system-x86_64 $(QEMU_COMMON)
 
-run-x86-uefi:
+run-x86-uefi: check-disk
 	@echo -e "$(INFO) $(WHITE)Launching FrostWing (UEFI) in QEMU...$(RESET)"
 	@qemu-system-x86_64 \
 	    -drive if=pflash,format=raw,unit=0,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd,readonly=on \

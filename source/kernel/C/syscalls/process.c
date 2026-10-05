@@ -100,6 +100,12 @@ uint64 sys_execve(const char *target,
     free_copied_string_array(copied_argv, argc);
     free_copied_string_array(copied_envp, envc);
 
+    if (rc == 0) {
+        task_t *task = multitasking_get_current_task();
+        if (task)
+            task->membarrier_registered = 0;
+    }
+
     return (rc == 0) ? 0 : -LINUX_ENOEXEC;
 }
 

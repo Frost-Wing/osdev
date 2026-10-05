@@ -1,6 +1,8 @@
 #include <syscalls/internal.h>
 #include <limits.h>
+#include <paging.h>
 #include <pit.h>
+#include <smp.h>
 
 typedef struct {
     uint32_t cpu_id_start;
@@ -20,6 +22,206 @@ _Static_assert(sizeof(linux_rseq_t) == 32, "Linux rseq ABI size");
 
 static uint64_t fallback_rseq_area;
 static uint32_t fallback_rseq_signature;
+static bool membarrier_global_expedited_registered;
+
+#define LINUX_MAX_NUMA_NODES 1024
+#define LINUX_CPU_MASK_BYTES (SMP_MAX_CPUS / 8)
+
+#define LINUX_MEMBARRIER_PRIVATE_REGISTERED (1U << 0)
+#define LINUX_MEMBARRIER_SYNC_CORE_REGISTERED (1U << 1)
+#define LINUX_MEMBARRIER_SUPPORTED_COMMANDS \
+    ((1U << LINUX_MEMBARRIER_CMD_GLOBAL) | \
+        (1U << LINUX_MEMBARRIER_CMD_GLOBAL_EXPEDITED) | \
+        (1U << LINUX_MEMBARRIER_CMD_REGISTER_GLOBAL_EXPEDITED) | \
+        (1U << LINUX_MEMBARRIER_CMD_PRIVATE_EXPEDITED) | \
+        (1U << LINUX_MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED) | \
+        (1U << LINUX_MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE) | \
+        (1U << LINUX_MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE))
+
+static void membarrier_fence(bool sync_core) {
+    asm volatile("mfence" ::: "memory");
+    if (sync_core) {
+        uint32_t eax = 0, ebx, ecx = 0, edx;
+        asm volatile("cpuid"
+            : "+a"(eax), "=b"(ebx), "+c"(ecx), "=d"(edx)
+            :
+            : "memory");
+    }
+}
+
+static bool syscall_user_range_accessible(uint64_t addr, uint64_t length) {
+    if (!length)
+        return true;
+
+    uint64_t end = addr + length;
+    if (end < addr || !userland_is_running())
+        return false;
+
+    uint64_t page = addr & ~(PAGE_SIZE - 1);
+    uint64_t aligned_end = end > UINT64_MAX - (PAGE_SIZE - 1)
+        ? 0
+        : (end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+    if (!aligned_end)
+        return false;
+
+    for (; page < aligned_end; page += PAGE_SIZE) {
+        uint64_t page_flags = paging_user_page_flags(page);
+        if ((page_flags & (PAGE_PRESENT | PAGE_USER)) != (PAGE_PRESENT | PAGE_USER))
+            return false;
+    }
+    return true;
+}
+
+uint64 sys_sched_getaffinity(int64_t pid, uint64_t cpusetsize, void *mask) {
+    if (pid < 0)
+        return -LINUX_EINVAL;
+    if (cpusetsize < LINUX_CPU_MASK_BYTES)
+        return -LINUX_EINVAL;
+    if (!mask || !syscall_user_range_accessible((uint64_t)mask, LINUX_CPU_MASK_BYTES))
+        return -LINUX_EFAULT;
+
+    uint32_t target_pid = pid ? (uint32_t)pid : multitasking_current_pid();
+    task_info_t task_info;
+    if (!target_pid ||
+        (pid != 0 && (uint64_t)target_pid != (uint64_t)pid) ||
+        !multitasking_get_task(target_pid, &task_info) ||
+        task_info.state == TASK_STATE_EXITED)
+        return -LINUX_ESRCH;
+
+    uint64_t cpu_mask[LINUX_CPU_MASK_BYTES / sizeof(uint64_t)] = {0};
+    uint32_t cpu_count = smp_cpu_count();
+    if (cpu_count == 0)
+        cpu_count = 1;
+    if (cpu_count > SMP_MAX_CPUS)
+        cpu_count = SMP_MAX_CPUS;
+    for (uint32_t cpu = 0; cpu < cpu_count; ++cpu) {
+        if (smp_cpu_is_online(cpu) || (cpu_count == 1 && !smp_cpu_count()))
+            cpu_mask[cpu / 64] |= 1ULL << (cpu % 64);
+    }
+
+    memcpy(mask, cpu_mask, sizeof(cpu_mask));
+    return sizeof(cpu_mask);
+}
+
+uint64 sys_get_mempolicy(int *mode, uint64_t *nodemask, uint64_t maxnode,
+    uint64_t addr, uint64_t flags) {
+    const uint64_t valid_flags =
+        LINUX_MPOL_F_NODE | LINUX_MPOL_F_ADDR | LINUX_MPOL_F_MEMS_ALLOWED;
+    if ((flags & ~valid_flags) != 0 ||
+        ((flags & LINUX_MPOL_F_NODE) && !(flags & LINUX_MPOL_F_ADDR)) ||
+        ((flags & LINUX_MPOL_F_MEMS_ALLOWED) &&
+            (flags & (LINUX_MPOL_F_NODE | LINUX_MPOL_F_ADDR))))
+        return -LINUX_EINVAL;
+
+    uint64_t nodemask_bytes = 0;
+    if (nodemask) {
+        if (maxnode == 0 || maxnode > LINUX_MAX_NUMA_NODES)
+            return -LINUX_EINVAL;
+        nodemask_bytes = ((maxnode + 63) / 64) * sizeof(uint64_t);
+        if (!syscall_user_range_accessible((uint64_t)nodemask, nodemask_bytes))
+            return -LINUX_EFAULT;
+    }
+    if (mode && !syscall_user_range_accessible((uint64_t)mode, sizeof(*mode)))
+        return -LINUX_EFAULT;
+
+    if (flags & LINUX_MPOL_F_ADDR) {
+        uint64_t page_flags = paging_user_page_flags(addr & ~(PAGE_SIZE - 1));
+        if (!userland_is_running() ||
+            (page_flags & (PAGE_PRESENT | PAGE_USER)) != (PAGE_PRESENT | PAGE_USER))
+            return -LINUX_EFAULT;
+    }
+
+    if (mode)
+        *mode = LINUX_MPOL_DEFAULT;
+    if (nodemask) {
+        uint64_t nodes[LINUX_MAX_NUMA_NODES / 64] = {0};
+        if (flags & LINUX_MPOL_F_MEMS_ALLOWED)
+            nodes[0] = 1;
+        memcpy(nodemask, nodes, nodemask_bytes);
+    }
+    return 0;
+}
+
+uint64 sys_membarrier(uint64_t command, uint64_t flags, uint64_t cpu_id) {
+    if (flags != 0 || cpu_id != 0)
+        return -LINUX_EINVAL;
+
+    if (command == LINUX_MEMBARRIER_CMD_QUERY)
+        return LINUX_MEMBARRIER_SUPPORTED_COMMANDS;
+
+    task_t *task = multitasking_get_current_task();
+    switch (command) {
+        case LINUX_MEMBARRIER_CMD_GLOBAL:
+            membarrier_fence(false);
+            return 0;
+
+        case LINUX_MEMBARRIER_CMD_REGISTER_GLOBAL_EXPEDITED:
+            membarrier_global_expedited_registered = true;
+            return 0;
+
+        case LINUX_MEMBARRIER_CMD_GLOBAL_EXPEDITED:
+            if (!membarrier_global_expedited_registered)
+                return -LINUX_EPERM;
+            membarrier_fence(false);
+            return 0;
+
+        case LINUX_MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED:
+            if (!task)
+                return -LINUX_EINVAL;
+            task->membarrier_registered |= LINUX_MEMBARRIER_PRIVATE_REGISTERED;
+            return 0;
+
+        case LINUX_MEMBARRIER_CMD_PRIVATE_EXPEDITED:
+            if (!task || !(task->membarrier_registered & LINUX_MEMBARRIER_PRIVATE_REGISTERED))
+                return -LINUX_EPERM;
+            membarrier_fence(false);
+            return 0;
+
+        case LINUX_MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE:
+            if (!task)
+                return -LINUX_EINVAL;
+            task->membarrier_registered |=
+                LINUX_MEMBARRIER_PRIVATE_REGISTERED | LINUX_MEMBARRIER_SYNC_CORE_REGISTERED;
+            return 0;
+
+        case LINUX_MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE:
+            if (!task || !(task->membarrier_registered & LINUX_MEMBARRIER_SYNC_CORE_REGISTERED))
+                return -LINUX_EPERM;
+            membarrier_fence(true);
+            return 0;
+
+        default:
+            return -LINUX_EINVAL;
+    }
+}
+
+/**
+ * @brief Lock an already-resident user range.
+ *
+ * This VM has no page replacement or demand paging, so validating that every
+ * page is present and user-accessible provides mlock's residency guarantee.
+ */
+uint64 sys_mlock(uint64_t addr, uint64_t length) {
+    if (length == 0)
+        return -LINUX_EINVAL;
+
+    uint64_t end = addr + length;
+    if (end < addr || end > UINT64_MAX - (PAGE_SIZE - 1))
+        return -LINUX_EINVAL;
+
+    uint64_t page = addr & ~(PAGE_SIZE - 1);
+    uint64_t aligned_end = (end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+    if (!userland_is_running() || page < USER_CODE_VADDR || aligned_end > USER_STACK_TOP)
+        return -LINUX_ENOMEM;
+
+    for (; page < aligned_end; page += PAGE_SIZE) {
+        uint64_t page_flags = paging_user_page_flags(page);
+        if ((page_flags & (PAGE_PRESENT | PAGE_USER)) != (PAGE_PRESENT | PAGE_USER))
+            return -LINUX_ENOMEM;
+    }
+
+    return 0;
+}
 
 static void rseq_current_state(uint64_t **area, uint32_t **signature) {
     task_t *task = multitasking_get_current_task();
