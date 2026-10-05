@@ -66,8 +66,8 @@ uint64_t syscall_dispatch(
     uint64_t arg5,
     uint64_t arg6) {
 
-    const char *syscall_name = (nr < (sizeof(names) / sizeof(names[0])) && names[nr]) ? names[nr] : "?";
-    syslog_printf("[syscall] %s(%u)", syscall_name, nr);
+    // const char *syscall_name = (nr < (sizeof(names) / sizeof(names[0])) && names[nr]) ? names[nr] : "?";
+    // syslog_printf("[syscall] %s(%u)", syscall_name, nr);
     // debug_printf("[syscall] %s(%u)\n", syscall_name, nr);
 
     switch (nr) {

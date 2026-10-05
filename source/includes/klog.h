@@ -19,10 +19,23 @@
 /** Fractional digits shown after the decimal point, e.g. [3.01] with 2 digits.
  *  Kept at 2 to match the PIT's real 10ms resolution at 100Hz - raise it only
  *  if you also raise KLOG_TICKS_PER_SEC / pit_freq. */
-#define KLOG_TS_FRAC_DIGITS 2
+#define KLOG_TS_FRAC_DIGITS 6
 
 /** Size (in bytes) of the backing klog ring buffer storage. */
 #define KLOG_BUFFER_SIZE (8192 * 4)
+
+#define KLOG_EMERG   0
+#define KLOG_ALERT   1
+#define KLOG_CRIT    2
+#define KLOG_ERR     3
+#define KLOG_WARNING 4
+#define KLOG_NOTICE  5
+#define KLOG_INFO    6
+#define KLOG_DEBUG   7
+
+void klog_vprintf(int level, cstring format, va_list argp);
+void klog_printf_level(int level, cstring format, ...);
+void klog_printf(cstring format, ...);
 
 extern bool is_klog_ready;
 

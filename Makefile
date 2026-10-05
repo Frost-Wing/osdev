@@ -124,14 +124,14 @@ check-disk:
 # - Main OS is on an CDROM
 #
 # To use disk.img as an AHCI device:
-#   -drive if=none,format=raw,file=disk.img,id=disk
+#   -drive if=none,format=raw,file=$(DISK_IMG),id=disk
 #   -device ide-hd,drive=disk,bus=ahci.0
 # To use disk.img as an NVMe device:
-#   -drive if=none,format=raw,file=disk.img,id=nvmedisk
+#   -drive if=none,format=raw,file=$(DISK_IMG),id=nvmedisk
 #   -device nvme,drive=nvmedisk,serial=FROSTNVME0
 # To use disk.img as a USB device:
 # -device qemu-xhci,id=xhci
-# -drive if=none,format=raw,file=disk.img,id=disk
+# -drive if=none,format=raw,file=$(DISK_IMG),id=disk
 # -device usb-storage,bus=xhci.0,drive=disk
 
 QEMU_COMMON = \

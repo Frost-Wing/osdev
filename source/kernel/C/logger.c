@@ -82,7 +82,7 @@ static cstring strip_path(cstring file) {
     return slash ? slash + 1 : file;
 }
 
-static void log_tree(cstring icon, cstring color, cstring tag,
+static void log_tree(int level, cstring icon, cstring color, cstring tag,
                       cstring file, cstring fmt, va_list args) {
     char message[LOG_MSG_MAX];
     vsnprintf(message, sizeof(message), fmt, args);
@@ -98,35 +98,35 @@ static void log_tree(cstring icon, cstring color, cstring tag,
     debug_print(blue_color); debug_print(file); debug_print(reset_color);
     debug_print(": "); debug_print(message); debug_print("\n");
 
-    klog_printf("%s: %s (%s)", tag, message, file);
+    klog_printf_level(level, "%s: %s (%s)", tag, message, file);
     last_filename = file;
 }
 
 void warn(cstring fmt, cstring file, ...) {
     va_list args;
     va_start(args, file);
-    log_tree(ICON_WARN, yellow_color, "warn", file, fmt, args);
+    log_tree(KLOG_WARNING, ICON_WARN, yellow_color, "warn", file, fmt, args);
     va_end(args);
 }
 
 void error(cstring fmt, cstring file, ...) {
     va_list args;
     va_start(args, file);
-    log_tree(ICON_ERROR, red_color, "error", file, fmt, args);
+    log_tree(KLOG_ERR, ICON_ERROR, red_color, "error", file, fmt, args);
     va_end(args);
 }
 
 void info(cstring fmt, cstring file, ...) {
     va_list args;
     va_start(args, file);
-    log_tree(ICON_INFO, blue_color, "info", file, fmt, args);
+    log_tree(KLOG_INFO, ICON_INFO, blue_color, "info", file, fmt, args);
     va_end(args);
 }
 
 void done(cstring fmt, cstring file, ...) {
     va_list args;
     va_start(args, file);
-    log_tree(ICON_DONE, green_color, "done", file, fmt, args);
+    log_tree(KLOG_INFO, ICON_DONE, green_color, "done", file, fmt, args);
     va_end(args);
 }
 

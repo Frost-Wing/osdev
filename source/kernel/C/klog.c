@@ -70,13 +70,19 @@ static void klog_write_timestamp(void) {
     klog_putc(' ');
 }
 
-void klog_printf(cstring format, ...) {
+static void klog_write_prefix(int level) {
+    if (level < 0 || level > 7)
+        level = 6;
+    klog_putc('<');
+    klog_putc('0' + level);
+    klog_putc('>');
+}
+
+void klog_vprintf(int level, cstring format, va_list argp) {
     if (!is_klog_ready)
         return;
 
-    va_list argp;
-    va_start(argp, format);
-
+    klog_write_prefix(level);
     klog_write_timestamp();
 
     while (*format != '\0') {
@@ -187,7 +193,19 @@ void klog_printf(cstring format, ...) {
     }
 
     klog_putc('\n');
+}
 
+void klog_printf_level(int level, cstring format, ...) {
+    va_list argp;
+    va_start(argp, format);
+    klog_vprintf(level, format, argp);
+    va_end(argp);
+}
+
+void klog_printf(cstring format, ...) {
+    va_list argp;
+    va_start(argp, format);
+    klog_vprintf(6, format, argp);   // default: info
     va_end(argp);
 }
 

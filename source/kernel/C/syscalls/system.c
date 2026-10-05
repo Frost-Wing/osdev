@@ -837,7 +837,6 @@ int sys_kill(int pid, int sig) {
 // Backs dmesg, which opens /dev/kmsg or falls back to the syslog(2) syscall
 // (SYS_syslog == 103 on x86_64) to read the kernel ring buffer.
 uint64 sys_syslog(int type, char *buf, uint64_t len) {
-    syslog_printf("[syscall] klog: type -> %d", type);
     switch (type) {
         case LINUX_SYSLOG_ACTION_CLOSE:
         case LINUX_SYSLOG_ACTION_OPEN:
@@ -846,12 +845,10 @@ uint64 sys_syslog(int type, char *buf, uint64_t len) {
         case LINUX_SYSLOG_ACTION_READ:
         case LINUX_SYSLOG_ACTION_READ_ALL:
         case LINUX_SYSLOG_ACTION_READ_CLEAR: {
-            syslog_printf("[syscall] klog read: buf=%x len=%x", (unsigned)(uintptr_t)buf, len);
             if (!buf || len <= 0)
                 return -LINUX_EINVAL;
 
             size_t n = klog_read(buf, len);
-            syslog_printf("[syscall] klog read: n -> %u", (unsigned)n);
 
             if (type == LINUX_SYSLOG_ACTION_READ_CLEAR)
                 klog_clear();
@@ -871,7 +868,6 @@ uint64 sys_syslog(int type, char *buf, uint64_t len) {
         case LINUX_SYSLOG_ACTION_SIZE_UNREAD:
         case LINUX_SYSLOG_ACTION_SIZE_BUFFER:
             size_t sz = klog_size();
-            syslog_printf("[syscall] klog: size -> %u", (unsigned)sz);
             return (uint64)sz;
 
         default:
