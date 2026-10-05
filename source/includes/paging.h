@@ -20,6 +20,8 @@
 #define PAGE_PRESENT 0x1
 #define PAGE_RW 0x2
 #define PAGE_USER 0x4
+#define PAGE_PWT 0x8
+#define PAGE_PCD 0x10
 #define PAGE_NX (1ULL << 63)
 
 #define USER_CODE_FLAGS (PAGE_PRESENT | PAGE_USER | PAGE_RW)
@@ -62,6 +64,9 @@ uintptr_t allocate_pages_contiguous(size_t count);
 
 /** @brief Convert a physical address to its HHDM virtual address. */
 void *paging_phys_to_virt(uintptr_t phys);
+
+/** @brief Map a physical MMIO range into the HHDM with device cache attributes. */
+bool paging_map_mmio(uintptr_t phys, size_t size);
 
 /** @brief Return the page-table flags for a user virtual address. */
 uint64_t paging_user_page_flags(uint64_t virt);

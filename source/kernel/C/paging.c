@@ -394,6 +394,85 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
 }
 
+bool paging_map_mmio(uintptr_t phys, size_t size) {
+    if (!size || (hhdm_offset & (PAGE_SIZE - 1)) ||
+        size > UINTPTR_MAX - phys)
+        return false;
+
+    uintptr_t start = PAGE_ALIGN_DOWN(phys);
+    uintptr_t end = phys + size;
+    if (end > UINTPTR_MAX - (PAGE_SIZE - 1))
+        return false;
+    end = PAGE_ALIGN_UP(end);
+
+    for (uintptr_t page = start; page < end; page += PAGE_SIZE) {
+        if ((page & ~PAGE_PHYS_ADDR_MASK) ||
+            page > UINTPTR_MAX - hhdm_offset)
+            return false;
+
+        uintptr_t virt = page + hhdm_offset;
+        uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
+        uint64_t pml4_idx = (virt >> 39) & 0x1FF;
+        uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
+        uint64_t pd_idx = (virt >> 21) & 0x1FF;
+        uint64_t pt_idx = (virt >> 12) & 0x1FF;
+
+        if (!(pml4[pml4_idx] & PAGE_PRESENT)) {
+            uintptr_t table_phys = allocate_page();
+            if (!table_phys)
+                return false;
+            memset(phys_to_virt_ptr(table_phys), 0, PAGE_SIZE);
+            pml4[pml4_idx] = table_phys | PAGE_PRESENT | PAGE_RW;
+        } else {
+            pml4[pml4_idx] |= PAGE_RW;
+        }
+
+        uint64_t *pdpt = phys_to_virt_ptr(pml4[pml4_idx] & PAGE_PHYS_ADDR_MASK);
+        if (!(pdpt[pdpt_idx] & PAGE_PRESENT)) {
+            uintptr_t table_phys = allocate_page();
+            if (!table_phys)
+                return false;
+            memset(phys_to_virt_ptr(table_phys), 0, PAGE_SIZE);
+            pdpt[pdpt_idx] = table_phys | PAGE_PRESENT | PAGE_RW;
+        } else if (pdpt[pdpt_idx] & (1U << 7)) {
+            uintptr_t mapped = (uintptr_t)(pdpt[pdpt_idx] & 0x000FFFFFC0000000ULL) |
+                (virt & 0x3FFFFFFFULL);
+            if (mapped != page)
+                return false;
+            continue;
+        } else {
+            pdpt[pdpt_idx] |= PAGE_RW;
+        }
+
+        uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & PAGE_PHYS_ADDR_MASK);
+        if (!(pd[pd_idx] & PAGE_PRESENT)) {
+            uintptr_t table_phys = allocate_page();
+            if (!table_phys)
+                return false;
+            memset(phys_to_virt_ptr(table_phys), 0, PAGE_SIZE);
+            pd[pd_idx] = table_phys | PAGE_PRESENT | PAGE_RW;
+        } else if (pd[pd_idx] & (1U << 7)) {
+            uintptr_t mapped = (uintptr_t)(pd[pd_idx] & 0x000FFFFFFFE00000ULL) |
+                (virt & 0x1FFFFFULL);
+            if (mapped != page)
+                return false;
+            continue;
+        } else {
+            pd[pd_idx] |= PAGE_RW;
+        }
+
+        uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & PAGE_PHYS_ADDR_MASK);
+        if ((pt[pt_idx] & PAGE_PRESENT) &&
+            (pt[pt_idx] & PAGE_PHYS_ADDR_MASK) != page)
+            return false;
+
+        pt[pt_idx] = page | PAGE_PRESENT | PAGE_RW | PAGE_PWT | PAGE_PCD | PAGE_NX;
+        asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
+    }
+
+    return true;
+}
+
 bool paging_set_user_page_permissions(uint64_t virt, bool writable, bool executable) {
     uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;

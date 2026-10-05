@@ -1238,8 +1238,18 @@ static int xhci_enable_msix(xhci_controller_t *ctrl) {
     if (!bar)
         return -1;
 
+    uint32_t table_offset = table & ~7U;
+    uint32_t table_entries = (control & 0x7FFU) + 1U;
+    size_t table_size = (size_t)table_entries * 16U;
+    if ((uint64_t)table_offset + table_size > UINTPTR_MAX - bar ||
+        !paging_map_mmio((uintptr_t)(bar + table_offset), table_size)) {
+        warn("xHCI MSI-X table could not be mapped; trying another interrupt mode",
+            __FILE__);
+        return -1;
+    }
+
     volatile uint32_t *entry =
-        paging_phys_to_virt((uintptr_t)(bar + (table & ~7U)));
+        paging_phys_to_virt((uintptr_t)(bar + table_offset));
     uint32_t old_control = entry[3];
     entry[3] = old_control | 1U;
     entry[0] = 0xFEE00000U | ((uint32_t)(ctrl->lapic[0x20 / 4] >> 24) << 12);
@@ -1681,6 +1691,10 @@ void probe_xhci(uint8_t bus, uint8_t slot, uint8_t function) {
     ctrl->device = slot;
     ctrl->function = function;
     ctrl->bar_phys = bar;
+    if (!paging_map_mmio((uintptr_t)bar, PAGE_SIZE)) {
+        error("Unable to map xHCI capability registers", __FILE__);
+        return;
+    }
     ctrl->cap = paging_phys_to_virt((uintptr_t)bar);
     uint8_t cap_length = (uint8_t)ctrl->cap[XHCI_CAPLENGTH / 4];
     ctrl->version = (uint16_t)(ctrl->cap[XHCI_CAPLENGTH / 4] >> 16);
@@ -1697,14 +1711,31 @@ void probe_xhci(uint8_t bus, uint8_t slot, uint8_t function) {
     ctrl->address_64 = hcc1 & 1U;
     uint32_t dboff = ctrl->cap[XHCI_DBOFF / 4] & ~3U;
     uint32_t rtsoff = ctrl->cap[XHCI_RTSOFF / 4] & ~0x1FU;
-    ctrl->op = (volatile uint32_t *)((uintptr_t)ctrl->cap + cap_length);
-    ctrl->doorbells = (volatile uint32_t *)((uintptr_t)ctrl->cap + dboff);
-    ctrl->intr0 = (xhci_interrupter_t *)((uintptr_t)ctrl->cap + rtsoff + 0x20);
     if (!ctrl->max_slots || !ctrl->max_ports || dboff >= 0x1000000 ||
-        rtsoff >= 0x1000000) {
+        rtsoff >= 0x1000000 || dboff < 0x20 || rtsoff < 0x20) {
         error("xHCI capability registers contain invalid limits or offsets", __FILE__);
         return;
     }
+
+    uint64_t register_end = (uint64_t)cap_length + XHCI_PORTS +
+        (uint64_t)ctrl->max_ports * 0x10U;
+    uint64_t doorbell_end = (uint64_t)dboff +
+        ((uint64_t)ctrl->max_slots + 1U) * sizeof(uint32_t);
+    uint64_t runtime_end = (uint64_t)rtsoff + 0x20U +
+        sizeof(xhci_interrupter_t);
+    if (doorbell_end > register_end)
+        register_end = doorbell_end;
+    if (runtime_end > register_end)
+        register_end = runtime_end;
+    if (register_end > SIZE_MAX ||
+        !paging_map_mmio((uintptr_t)bar, (size_t)register_end)) {
+        error("Unable to map xHCI register window", __FILE__);
+        return;
+    }
+
+    ctrl->op = (volatile uint32_t *)((uintptr_t)ctrl->cap + cap_length);
+    ctrl->doorbells = (volatile uint32_t *)((uintptr_t)ctrl->cap + dboff);
+    ctrl->intr0 = (xhci_interrupter_t *)((uintptr_t)ctrl->cap + rtsoff + 0x20);
 
     info("xHCI version 0x%04x, %u slots, %u ports, BAR0 0x%X", __FILE__,
         ctrl->version, (uint32_t)(hcs1 & 0xFFU), ctrl->max_ports, (uint32_t)bar);
