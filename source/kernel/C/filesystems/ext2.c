@@ -46,8 +46,12 @@ static int ext2_read_block(ext2_fs_t *fs, uint32_t block, void *buf) {
         memset(buf, 0, fs->block_size);
         return EXT2_OK;
     }
-    if (ahci_read_sector(fs->portno, ext2_block_to_lba(fs, block), buf, fs->sectors_per_block) != 0)
+    uint32_t lba = ext2_block_to_lba(fs, block);
+    int rc = ahci_read_sector(fs->portno, lba, buf, fs->sectors_per_block);
+    if (rc != 0) {
+        eprintf("ext2: read failed for block %u (LBA %u, rc %d)", block, lba, rc);
         return EXT2_ERR_IO;
+    }
     return EXT2_OK;
 }
 
@@ -685,7 +689,7 @@ static int ext2_iterate_dir(ext2_fs_t *fs, ext2_inode_t *dir, ext2_dirent_cb cb,
         if (pb == 0)
             continue;
         if (ext2_read_block(fs, pb, buf) != EXT2_OK)
-            continue;
+            return EXT2_ERR_IO;
 
         uint32_t off = 0;
         while (off < fs->block_size) {
@@ -740,7 +744,9 @@ int ext2_find_in_dir(ext2_fs_t *fs, uint32_t dir_ino, const char *name, uint32_t
         return EXT2_ERR_NOTDIR;
 
     find_ctx_t ctx = {.target = name, .found = 0};
-    ext2_iterate_dir(fs, &dir, find_cb, &ctx);
+    int rc = ext2_iterate_dir(fs, &dir, find_cb, &ctx);
+    if (rc < 0)
+        return rc;
 
     if (!ctx.found)
         return EXT2_ERR_NOT_FOUND;
@@ -785,8 +791,8 @@ int ext2_list_dir(ext2_fs_t *fs, uint32_t dir_ino) {
         return EXT2_ERR_NOTDIR;
 
     ext2_ls_ctx_t ctx = {.hide_lost_found = (dir_ino == EXT2_ROOT_INO)};
-    ext2_iterate_dir(fs, &dir, list_cb, &ctx);
-    return EXT2_OK;
+    int rc = ext2_iterate_dir(fs, &dir, list_cb, &ctx);
+    return rc < 0 ? rc : EXT2_OK;
 }
 
 typedef struct {
@@ -817,8 +823,8 @@ int ext2_readdir(ext2_fs_t *fs, uint32_t dir_ino, ext2_readdir_cb cb, void *user
         return EXT2_ERR_NOTDIR;
 
     ext2_readdir_ctx_t ctx = {.cb = cb, .user = user};
-    ext2_iterate_dir(fs, &dir, ext2_readdir_trampoline, &ctx);
-    return EXT2_OK;
+    int rc = ext2_iterate_dir(fs, &dir, ext2_readdir_trampoline, &ctx);
+    return rc < 0 ? rc : EXT2_OK;
 }
 
 /* Insert a new directory entry (inode, name, type) into dir_ino, growing the

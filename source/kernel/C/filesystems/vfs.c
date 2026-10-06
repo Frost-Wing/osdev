@@ -897,8 +897,12 @@ int vfs_cd(const char *path) {
 
         if (*res.rel_path) {
             ext2_inode_t e;
-            if (ext2_find_path(fs, res.rel_path, &new_ino, &e) != EXT2_OK)
-                return -3;
+            int rc = ext2_find_path(fs, res.rel_path, &new_ino, &e);
+            if (rc != EXT2_OK) {
+                if (rc != EXT2_ERR_NOT_FOUND)
+                    eprintf("cd: ext2 lookup failed for '%s' (error %d)", res.rel_path, rc);
+                return rc == EXT2_ERR_NOT_FOUND ? -3 : rc;
+            }
             if ((e.i_mode & EXT2_S_IFMT) != EXT2_S_IFDIR)
                 return -4;
         }

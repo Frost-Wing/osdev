@@ -21,6 +21,7 @@
 #define NVME_CC_IOSQES_SHIFT 16
 #define NVME_CC_IOCQES_SHIFT 20
 #define NVME_CSTS_RDY (1U << 0)
+#define NVME_COMMAND_TIMEOUT_MS 5000
 #define NVME_ADMIN_OP_CREATE_IO_SQ 0x01
 #define NVME_ADMIN_OP_CREATE_IO_CQ 0x05
 #define NVME_ADMIN_OP_IDENTIFY 0x06
@@ -61,15 +62,15 @@ static int nvme_submit_and_wait(nvme_controller_t *ctrl, nvme_queue_t *q, nvme_c
     q->sq_tail = (uint16_t)((q->sq_tail + 1U) % q->depth);
     *nvme_sq_doorbell(ctrl, q->qid) = q->sq_tail;
 
-    for (int spin = 0; spin < 1000000; spin++) {
+    for (int spin = 0; spin < NVME_COMMAND_TIMEOUT_MS * 1000; spin++) {
         nvme_completion_t *cpl = &q->cq[q->cq_head];
-        if ((cpl->status & 1) != q->phase)
+        if ((cpl->status & 1) != q->phase) {
+            io_wait_us(1);
             continue;
+        }
 
+        uint16_t completed_cid = cpl->cid;
         uint16_t status = cpl->status >> 1;
-        if (cpl->cid != cid || status != 0)
-            return -1;
-
         q->cq_head++;
         if (q->cq_head == q->depth) {
             q->cq_head = 0;
@@ -77,9 +78,20 @@ static int nvme_submit_and_wait(nvme_controller_t *ctrl, nvme_queue_t *q, nvme_c
         }
 
         *nvme_cq_doorbell(ctrl, q->qid) = q->cq_head;
+
+        if (completed_cid != cid)
+            continue;
+        if (status != 0) {
+            printf("[NVMe] command failed qid=%u cid=%u status=0x%X CSTS=0x%X",
+                q->qid, cid, status, ctrl->regs->csts);
+            return -1;
+        }
+
         return 0;
     }
 
+    printf("[NVMe] completion timeout qid=%u cid=%u phase=%u head=%u tail=%u CSTS=0x%X",
+        q->qid, cid, q->phase, q->cq_head, q->sq_tail, ctrl->regs->csts);
     return -1;
 }
 
@@ -88,7 +100,7 @@ static int nvme_identify(nvme_controller_t *ctrl, uint32_t nsid, uint32_t cns, v
     memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = NVME_ADMIN_OP_IDENTIFY;
     cmd.nsid = nsid;
-    cmd.prp1 = (uint64_t)(uintptr_t)buffer;
+    cmd.prp1 = fast_virt_to_phys(buffer);
     cmd.cdw10 = cns;
 
     return nvme_submit_and_wait(ctrl, &ctrl->adminq, &cmd);
@@ -108,7 +120,7 @@ static int nvme_create_io_queues(nvme_controller_t *ctrl) {
     // Create IO Completion Queue
     memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = NVME_ADMIN_OP_CREATE_IO_CQ;
-    cmd.prp1 = (uint64_t)(uintptr_t)ctrl->ioq.cq;
+    cmd.prp1 = fast_virt_to_phys(ctrl->ioq.cq);
     cmd.cdw10 = (((uint32_t)ctrl->ioq.depth - 1U) << 16) | (uint32_t)ctrl->ioq.qid;
     cmd.cdw11 = 0x1; // phase = 1
     if (nvme_submit_and_wait(ctrl, &ctrl->adminq, &cmd) != 0)
@@ -117,7 +129,7 @@ static int nvme_create_io_queues(nvme_controller_t *ctrl) {
     // Create IO Submission Queue
     memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = NVME_ADMIN_OP_CREATE_IO_SQ;
-    cmd.prp1 = (uint64_t)(uintptr_t)ctrl->ioq.sq;
+    cmd.prp1 = fast_virt_to_phys(ctrl->ioq.sq);
     cmd.cdw10 = (((uint32_t)ctrl->ioq.depth - 1U) << 16) | (uint32_t)ctrl->ioq.qid;
     cmd.cdw11 = ((uint32_t)ctrl->ioq.qid << 16) | 0x1U; // CQID + PC=1
     if (nvme_submit_and_wait(ctrl, &ctrl->adminq, &cmd) != 0)
@@ -164,8 +176,8 @@ static int nvme_init_controller(nvme_controller_t *ctrl) {
     ctrl->adminq.phase = 1;
 
     ctrl->regs->aqa = (((uint32_t)ctrl->adminq.depth - 1U) << 16) | ((uint32_t)ctrl->adminq.depth - 1U);
-    ctrl->regs->asq = (uint64_t)(uintptr_t)ctrl->adminq.sq;
-    ctrl->regs->acq = (uint64_t)(uintptr_t)ctrl->adminq.cq;
+    ctrl->regs->asq = fast_virt_to_phys(ctrl->adminq.sq);
+    ctrl->regs->acq = fast_virt_to_phys(ctrl->adminq.cq);
 
     ctrl->regs->cc =
         NVME_CC_EN |
@@ -319,10 +331,17 @@ void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function) {
         command |= 0x00000006U; /* bus master + memory space */
         pci_config_write_dword(bus, slot, function, 0x04, command);
 
-        uint64_t bar = (uint32_t)(pci_config_read_dword(bus, slot, function, 0x10) & ~0xFU);
-        uint32_t upper = pci_config_read_dword(bus, slot, function, 0x14);
-        if (upper && upper != 0xFFFFFFFFU)
-            bar |= ((uint64_t)upper << 32);
+        uint32_t bar_low = pci_config_read_dword(bus, slot, function, 0x10);
+        uint32_t bar_type = (bar_low >> 1) & 0x3U;
+        if (bar_low == 0xFFFFFFFFU || (bar_low & 1U) ||
+            bar_type == 1U || bar_type == 3U) {
+            warn("[NVMe] Invalid MMIO BAR", __FILE__);
+            return;
+        }
+
+        uint64_t bar = bar_low & ~0xFU;
+        if (bar_type == 2U)
+            bar |= (uint64_t)pci_config_read_dword(bus, slot, function, 0x14) << 32;
 
         if (!bar || bar == 0xFFFFFFFFULL) {
             warn("[NVMe] Failed to find MMIO BAR", __FILE__);
@@ -330,8 +349,20 @@ void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function) {
         }
 
         memset(ctrl, 0, sizeof(*ctrl));
-        ctrl->regs = (nvme_regs_t *)(uintptr_t)bar;
+        if (!paging_map_mmio((uintptr_t)bar, PAGE_SIZE)) {
+            warn("[NVMe] Unable to map controller registers", __FILE__);
+            return;
+        }
+        ctrl->regs = (nvme_regs_t *)paging_phys_to_virt((uintptr_t)bar);
         ctrl->controller_id = (uint32_t)i;
+
+        uint8_t dstrd = (ctrl->regs->cap >> 32) & 0xFU;
+        size_t register_size =
+            (size_t)(0x1000ULL + 3ULL * (4ULL << dstrd) + sizeof(uint32_t));
+        if (!paging_map_mmio((uintptr_t)bar, register_size)) {
+            warn("[NVMe] Unable to map controller doorbells", __FILE__);
+            return;
+        }
 
         if (nvme_init_controller(ctrl) != 0) {
             printf("[NVMe] init failure: CAP=0x%X:%X CC=0x%X CSTS=0x%X",

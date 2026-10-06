@@ -130,9 +130,9 @@ check-disk:
 #   -drive if=none,format=raw,file=$(DISK_IMG),id=nvmedisk
 #   -device nvme,drive=nvmedisk,serial=FROSTNVME0
 # To use disk.img as a USB device:
-# -device qemu-xhci,id=xhci
-# -drive if=none,format=raw,file=$(DISK_IMG),id=disk
-# -device usb-storage,bus=xhci.0,drive=disk
+#   -device qemu-xhci,id=xhci
+#   -drive if=none,format=raw,file=$(DISK_IMG),id=disk
+#   -device usb-storage,bus=xhci.0,drive=disk
 
 QEMU_COMMON = \
     -vga std \
@@ -145,15 +145,14 @@ QEMU_COMMON = \
     -device ahci,id=ahci \
     -drive if=none,media=cdrom,format=raw,file=$(ISO_FILE),id=cd0 \
     -device ide-cd,drive=cd0,bus=ahci.0 \
-	-drive if=none,format=raw,file=$(DISK_IMG),id=disk \
-    -device ide-hd,drive=disk,bus=ahci.1 \
+	-drive if=none,format=raw,file=$(DISK_IMG),id=nvmedisk \
+    -device nvme,drive=nvmedisk,serial=FROSTNVME0 \
 	-device qemu-xhci,id=xhci \
 	-drive if=none,format=raw,file=usb.img,id=stick \
 	-device usb-storage,bus=xhci.0,drive=stick \
     -rtc base=localtime,clock=host \
     -boot order=d \
     $(KVM) \
-	-monitor tcp:127.0.0.1:4444,server,nowait \
 	-object filter-dump,id=f1,netdev=eth0,file=/tmp/dump.pcap \
     -m 2048
 
