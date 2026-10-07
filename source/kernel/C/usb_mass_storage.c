@@ -9,7 +9,7 @@
 #include <memory.h>
 #include <strings.h>
 #include <usb_mass_storage.h>
-#include <xhci.h>
+#include <usb.h>
 
 #define USB_MSC_CLASS 0x08U
 #define USB_MSC_SCSI_TRANSPARENT 0x06U
@@ -85,7 +85,9 @@ static int msc_bulk(usb_msc_transport_t *transport, uint8_t endpoint,
         if (chunk > USB_MSC_MAX_TRANSFER)
             chunk = USB_MSC_MAX_TRANSFER;
         uint32_t transferred = 0;
-        if (xhci_bulk_transfer(transport->device->slot_id, endpoint,
+        uint8_t address = endpoint == transport->in_endpoint ?
+            transport->in_address : transport->out_address;
+        if (usb_bulk_request(transport->device, address, endpoint,
                 (uint8_t *)buffer + done, chunk, &transferred) != 0)
             return -1;
         if (transferred > chunk)
@@ -106,10 +108,10 @@ static int msc_reset_recovery(usb_msc_transport_t *transport) {
         transport->in_address, NULL, 0);
     int out_result = usb_control_request(transport->device, 0x02U, 1U, 0,
         transport->out_address, NULL, 0);
-    int in_reset = xhci_reset_endpoint(transport->device->slot_id,
-        transport->in_endpoint);
-    int out_reset = xhci_reset_endpoint(transport->device->slot_id,
-        transport->out_endpoint);
+    int in_reset = usb_reset_endpoint(transport->device,
+        transport->in_address, transport->in_endpoint);
+    int out_reset = usb_reset_endpoint(transport->device,
+        transport->out_address, transport->out_endpoint);
     return result == 0 && in_result == 0 && out_result == 0 &&
         in_reset == 0 && out_reset == 0 ? 0 : -1;
 }
@@ -218,8 +220,9 @@ static int msc_inquiry(usb_msc_target_t *target) {
     if (msc_command(target, cdb, sizeof(cdb), 0x80U, inquiry,
             sizeof(inquiry), &actual) != 0 || actual < sizeof(inquiry))
         return -1;
-    info("USB SCSI LUN %u: peripheral type 0x%02x, %.8s %.16s",
-        __FILE__, target->lun, inquiry[0] & 0x1FU, &inquiry[8], &inquiry[16]);
+    info("USB SCSI LUN %u: peripheral type 0x%02x, %s %s",
+        __FILE__, target->lun, inquiry[0] & 0x1FU, leading_trailing_trim(&inquiry[8]), leading_trailing_trim(&inquiry[16]));
+        
     return 0;
 }
 

@@ -23,7 +23,7 @@
 #include <strings.h>
 #include <multitasking.h>
 #include <net/net.h>
-#include <xhci.h>
+#include <usb.h>
 
 #define PROCFS_MAX_FILES (MAX_PCI_DEVICES + 20)
 

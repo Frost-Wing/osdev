@@ -1,5 +1,5 @@
 #include <commands/commands.h>
-#include <xhci.h>
+#include <usb.h>
 
 int cmd_lsusb(int argc, char **argv) {
     (void)argc;

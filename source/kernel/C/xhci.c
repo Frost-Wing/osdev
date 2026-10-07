@@ -9,6 +9,7 @@
 #include <paging.h>
 #include <pci.h>
 #include <pit.h>
+#include <ehci.h>
 #include <xhci.h>
 
 #define XHCI_CAPLENGTH 0x00
@@ -503,6 +504,9 @@ static int xhci_control_transfer(xhci_controller_t *ctrl, uint8_t slot_id,
 int usb_control_request(usb_device_t *device, uint8_t request_type,
     uint8_t request, uint16_t value, uint16_t index, void *data,
     uint16_t length) {
+    if (device && device->host_type == USB_HOST_EHCI)
+        return ehci_control_request(device, request_type, request, value,
+            index, data, length);
     if (!device || !controller_count || !controllers[0].initialized)
         return -1;
     return xhci_control_transfer(&controllers[0], device->slot_id,
@@ -615,6 +619,20 @@ static void usb_registry_remove(usb_device_t *device) {
             return;
         }
     }
+}
+
+int usb_device_connect(usb_device_t *device) {
+    if (!device || usb_registry_add(device) != 0)
+        return -1;
+    usb_notify_class_drivers(device, true);
+    return 0;
+}
+
+void usb_device_disconnect(usb_device_t *device) {
+    if (!device)
+        return;
+    usb_notify_class_drivers(device, false);
+    usb_registry_remove(device);
 }
 
 static void xhci_release_slot(xhci_controller_t *ctrl, uint8_t slot_id,
@@ -1067,7 +1085,7 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t port) {
             slot_id);
         goto failed;
     }
-    if (usb_registry_add(device) != 0) {
+    if (usb_device_connect(device) != 0) {
         error("USB device registry is full", __FILE__);
         goto failed;
     }
@@ -1075,7 +1093,6 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t port) {
     ctrl->port_slot[port] = slot_id;
     info("USB device registered in slot %u (%u interfaces, %u endpoints)",
         __FILE__, slot_id, device->interface_count, device->endpoint_count);
-    usb_notify_class_drivers(device, true);
     done("USB enumeration complete on root port %u", __FILE__, port);
     kfree(descriptor_buffer);
     return 0;
@@ -1100,8 +1117,7 @@ static void xhci_disconnect_port(xhci_controller_t *ctrl, uint8_t port) {
     info("USB device disconnected from root port %u (slot %u)", __FILE__,
         port, slot_id);
     if (device) {
-        usb_notify_class_drivers(device, false);
-        usb_registry_remove(device);
+        usb_device_disconnect(device);
     }
     ctrl->slot_device[slot_id] = NULL;
     ctrl->port_slot[port] = 0;
@@ -1127,6 +1143,7 @@ void xhci_poll(void) {
     LOG_SCOPE();
     for (uint8_t i = 0; i < controller_count; ++i)
         xhci_poll_controller(&controllers[i]);
+    ehci_poll();
 }
 
 static int xhci_apic_setup(xhci_controller_t *ctrl) {
@@ -1644,6 +1661,26 @@ int xhci_reset_endpoint(uint8_t slot_id, uint8_t endpoint_id) {
     if (ring)
         ring->dequeue = ring->enqueue;
     return 0;
+}
+
+int usb_bulk_request(usb_device_t *device, uint8_t endpoint_address,
+    uint8_t endpoint_id, void *buffer, uint32_t length, uint32_t *actual) {
+    if (!device)
+        return -1;
+    if (device->host_type == USB_HOST_EHCI)
+        return ehci_bulk_request(device, endpoint_address, buffer, length,
+            actual);
+    return xhci_bulk_transfer(device->slot_id, endpoint_id, buffer, length,
+        actual);
+}
+
+int usb_reset_endpoint(usb_device_t *device, uint8_t endpoint_address,
+    uint8_t endpoint_id) {
+    if (!device)
+        return -1;
+    if (device->host_type == USB_HOST_EHCI)
+        return ehci_reset_endpoint(device, endpoint_address);
+    return xhci_reset_endpoint(device->slot_id, endpoint_id);
 }
 
 void xhci_interrupt_handler(InterruptFrame *frame) {

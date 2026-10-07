@@ -17,7 +17,7 @@
 #include <filesystems/layers/sys.h>
 #include <pci.h>
 #include <memory.h>
-#include <xhci.h>
+#include <usb.h>
 
 #define SYSFS_STATIC_FILES 8
 
