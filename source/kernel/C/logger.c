@@ -23,6 +23,26 @@ extern struct flanterm_context *ft_ctx;
 static stream_t printf_stream;
 static spinlock_t console_lock = SPINLOCK_INITIALIZER;
 
+#define LINE_BUF_MAX 256
+
+static char   line_buf[LINE_BUF_MAX];
+static size_t line_len   = 0;
+static bool   line_valid = true;   /* false if the line overflowed the buffer */
+
+static void line_track(char c) {
+    if (c == '\n' || c == '\r') {
+        line_len = 0;
+        line_valid = true;
+    } else if (c == '\b') {
+        if (line_len)
+            line_len--;
+    } else if (line_len < LINE_BUF_MAX) {
+        line_buf[line_len++] = c;
+    } else {
+        line_valid = false;
+    }
+}
+
 static void print_unlocked(cstring s) {
     while (*s)
         vputc(*s++);
@@ -66,33 +86,56 @@ inline void __log_scope_exit(int *unused) {
 // #define TREE_BRANCH " ├─ "
 #define TREE_TRUNK  " │  "
 
-static void print_prefix(void) {
-    for (int i = 0; i < log_depth - 1; i++) {
-        printfnoln("%s", TREE_TRUNK);
-        debug_print(TREE_TRUNK);
-    }
-    if (log_depth > 0) {
-        printfnoln("%s", TREE_END);
-        debug_print(TREE_END);
-    }
-}
-
 static cstring strip_path(cstring file) {
     const char *slash = strrchr(file, '/');
     return slash ? slash + 1 : file;
 }
 
+static void print_prefix_unlocked(void) {
+    for (int i = 0; i < log_depth - 1; i++) {
+        print_unlocked(TREE_TRUNK);
+        debug_print(TREE_TRUNK);
+    }
+    if (log_depth > 0) {
+        print_unlocked(TREE_END);
+        debug_print(TREE_END);
+    }
+}
+
 static void log_tree(int level, cstring icon, cstring color, cstring tag,
-                      cstring file, cstring fmt, va_list args) {
+                     cstring file, cstring fmt, va_list args) {
     char message[LOG_MSG_MAX];
     vsnprintf(message, sizeof(message), fmt, args);
 
     file = strip_path(file);
 
-    print_prefix();
-    printf("%s%s %s" reset_color " " blue_color "%s" reset_color ": %s",
-           color, icon, tag, file, message);
+    spinlock_lock(&console_lock);
+    printf_stream = STDOUT;
 
+    /* save whatever is currently on the line (prompt, half-typed input) */
+    char saved[LINE_BUF_MAX + 1];
+    size_t saved_len = 0;
+    if (line_valid && line_len > 0) {
+        saved_len = line_len;
+        for (size_t i = 0; i < saved_len; i++)
+            saved[i] = line_buf[i];
+        saved[saved_len] = '\0';
+        print_unlocked("\r\x1b[2K");          /* CR + erase line */
+    }
+
+    print_prefix_unlocked();
+    print_unlocked(color);  print_unlocked(icon);  print_unlocked(" ");
+    print_unlocked(tag);    print_unlocked(reset_color " ");
+    print_unlocked(blue_color); print_unlocked(file); print_unlocked(reset_color);
+    print_unlocked(": ");   print_unlocked(message); print_unlocked("\n");
+
+    /* put the prompt back */
+    if (saved_len)
+        print_unlocked(saved);
+
+    spinlock_unlock(&console_lock);
+
+    /* serial/debug output and klog outside the console lock */
     debug_print(color); debug_print(icon); debug_print(" ");
     debug_print(tag); debug_print(reset_color " ");
     debug_print(blue_color); debug_print(file); debug_print(reset_color);
@@ -137,6 +180,8 @@ void putc(char c) {
 }
 
 void vputc(char c) {
+    if (printf_stream == STDOUT)
+        line_track(c);
     stream_putc(printf_stream, c);
 }
 

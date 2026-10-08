@@ -61,8 +61,6 @@ int cmd_umount(int argc, char **argv);
 int cmd_exec(int argc, char **argv);
 /** @brief List running tasks. */
 int cmd_tasks(int argc, char **argv);
-/** @brief Probe PCI devices. */
-int cmd_probepci(int argc, char **argv);
 /** @brief Send ICMP echo requests to a host. */
 int cmd_ping(int argc, char **argv);
 /** @brief Download a resource over HTTP. */
