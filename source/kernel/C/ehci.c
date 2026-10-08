@@ -1,6 +1,6 @@
 /**
  * @file ehci.c
- * @brief EHCI USB 2.0 host controller and high-speed device support.
+ * @brief EHCI USB 2.0 host controller and device support.
  */
 #include <cc-asm.h>
 #include <ehci.h>
@@ -52,6 +52,22 @@
 #define EHCI_REQUEST_GET_DESCRIPTOR 6U
 #define EHCI_REQUEST_SET_ADDRESS 5U
 #define EHCI_REQUEST_SET_CONFIGURATION 9U
+#define EHCI_REQUEST_GET_STATUS 0U
+#define EHCI_REQUEST_CLEAR_FEATURE 1U
+#define EHCI_REQUEST_SET_FEATURE 3U
+#define EHCI_DESCRIPTOR_HUB 0x29U
+#define EHCI_HUB_CLASS 9U
+#define EHCI_HUB_PORT_POWER 8U
+#define EHCI_HUB_PORT_RESET 4U
+#define EHCI_HUB_C_PORT_CONNECTION 16U
+#define EHCI_HUB_C_PORT_ENABLE 17U
+#define EHCI_HUB_C_PORT_RESET 20U
+#define EHCI_HUB_PORT_CONNECTION (1U << 0)
+#define EHCI_HUB_PORT_ENABLE (1U << 1)
+#define EHCI_HUB_PORT_RESETTING (1U << 4)
+#define EHCI_HUB_PORT_LOW_SPEED (1U << 9)
+#define EHCI_HUB_PORT_HIGH_SPEED (1U << 10)
+#define EHCI_HUB_MAX_PORTS 15U
 
 typedef struct __attribute__((packed, aligned(32))) {
     uint32_t horizontal;
@@ -85,6 +101,9 @@ typedef struct {
     uint8_t address_next;
     uint8_t port_power_control;
     uint8_t port_connected[16];
+    uint8_t port_enumerated[16];
+    uint8_t port_enumeration_attempts[16];
+    uint64_t port_retry_tick[16];
     uint8_t initialized;
     uint8_t bus;
     uint8_t slot;
@@ -93,13 +112,23 @@ typedef struct {
     volatile int poll_lock;
 } ehci_controller_t;
 
-typedef struct {
+typedef struct ehci_device {
     ehci_controller_t *controller;
     usb_device_t *device;
+    struct ehci_device *parent_hub;
+    uint8_t parent_port;
     uint8_t address;
     uint8_t port;
     uint8_t ep0_packet;
     uint8_t active;
+    uint8_t speed;
+    uint8_t hub;
+    uint8_t hub_port_count;
+    uint8_t hub_port_connected[EHCI_HUB_MAX_PORTS];
+    uint8_t hub_port_enumerated[EHCI_HUB_MAX_PORTS];
+    uint8_t hub_port_attempts[EHCI_HUB_MAX_PORTS];
+    uint64_t hub_port_retry_tick[EHCI_HUB_MAX_PORTS];
+    uint64_t hub_poll_tick;
 } ehci_device_t;
 
 static ehci_controller_t controllers[EHCI_MAX_CONTROLLERS];
@@ -169,13 +198,25 @@ static uint8_t ehci_allocate_address(ehci_controller_t *ctrl) {
 }
 
 static void ehci_set_qh(ehci_controller_t *ctrl, ehci_device_t *device,
-    uint8_t endpoint, uint16_t packet_size, uint8_t toggle) {
+    uint8_t endpoint, uint16_t packet_size, uint8_t toggle,
+    uint8_t control_endpoint) {
     ehci_qh_t *qh = ctrl->transfer_qh;
     uint32_t ep_num = endpoint & 0x0FU;
     qh->endpoint_characteristics = device->address |
-                                   (ep_num << 8) | (2U << 12) | ((uint32_t)packet_size << 16) |
+                                   (ep_num << 8) |
+                                   ((uint32_t)device->speed << 12) |
+                                   ((uint32_t)packet_size << 16) |
                                    0;
-    qh->endpoint_capabilities = 1U << 30;
+    if (control_endpoint)
+        qh->endpoint_characteristics |= 1U << 14;
+    if (control_endpoint && device->speed != 2U)
+        qh->endpoint_characteristics |= 1U << 27;
+    qh->endpoint_capabilities = (1U << 30);
+    if (device->parent_hub && device->speed != 2U) {
+        qh->endpoint_capabilities |=
+            ((uint32_t)device->parent_hub->address << 16) |
+            ((uint32_t)device->parent_port << 23);
+    }
     qh->current_qtd = 0;
     qh->next_qtd = EHCI_QTD_TERMINATE;
     qh->alternate_qtd = EHCI_QTD_TERMINATE;
@@ -257,7 +298,7 @@ static int ehci_schedule(ehci_controller_t *ctrl, ehci_qtd_t *first,
 
 static int ehci_transfer(ehci_device_t *device, uint8_t endpoint_address,
     uint16_t packet_size, uint8_t toggle, ehci_qtd_t *qtds,
-    uint8_t qtd_count) {
+    uint8_t qtd_count, uint8_t control_endpoint) {
     ehci_controller_t *ctrl = device->controller;
     while (__sync_lock_test_and_set(&ctrl->lock, 1))
         __asm__ volatile("pause");
@@ -268,7 +309,8 @@ static int ehci_transfer(ehci_device_t *device, uint8_t endpoint_address,
         __sync_lock_release(&ctrl->lock);
         return -1;
     }
-    ehci_set_qh(ctrl, device, endpoint_address & 0x0FU, packet_size, toggle);
+    ehci_set_qh(ctrl, device, endpoint_address & 0x0FU, packet_size, toggle,
+        control_endpoint);
     for (uint8_t i = 0; i + 1U < qtd_count; ++i)
         qtds[i].next = (uint32_t)fast_virt_to_phys(&qtds[i + 1U]);
     int result = ehci_schedule(ctrl, qtds, &qtds[qtd_count - 1U]);
@@ -324,7 +366,7 @@ static int ehci_control(ehci_device_t *device, uint8_t request_type,
     }
 
     int result = ehci_transfer(device, 0, device->ep0_packet, 0, qtds,
-        qtd_count);
+        qtd_count, 1);
     if (result == 0 && length && (request_type & 0x80U))
         memcpy(data, bounce, length);
     if (result == 0 && request == EHCI_REQUEST_SET_ADDRESS &&
@@ -397,7 +439,7 @@ int ehci_bulk_request(usb_device_t *device, uint8_t endpoint_address,
             (endpoint_address & 0x80U) ? EHCI_QTD_PID_IN : EHCI_QTD_PID_OUT,
             endpoint->data_toggle, 1);
         int result = ehci_transfer(entry, endpoint_address,
-            endpoint->max_packet_size, endpoint->data_toggle, qtd, 1);
+            endpoint->max_packet_size, endpoint->data_toggle, qtd, 1, 0);
         if (result == 0) {
             endpoint->data_toggle = (uint8_t)((entry->controller->transfer_qh->token &
                                                   EHCI_QTD_TOGGLE) != 0);
@@ -495,29 +537,136 @@ static int ehci_parse_config(usb_device_t *device) {
     return device->interface_count ? 0 : -1;
 }
 
-static int ehci_enumerate(ehci_controller_t *ctrl, uint8_t port) {
-    volatile uint32_t *portsc = &ctrl->op[EHCI_PORTSC / 4 + port];
-    uint32_t status = *portsc;
-    if (!(status & EHCI_PORT_CONNECT))
+static int ehci_hub_get_port_status(ehci_device_t *hub, uint8_t port,
+    uint32_t *status) {
+    uint8_t response[4] __attribute__((aligned(4))) = {0};
+    if (!hub || !hub->device || !status ||
+        ehci_control(hub, 0xA3U, EHCI_REQUEST_GET_STATUS, 0, port,
+            response, sizeof(response)) != 0)
         return -1;
-    *portsc = (status & (EHCI_PORT_POWER | EHCI_PORT_OWNER)) |
-              EHCI_PORT_CHANGE | EHCI_PORT_POWER | EHCI_PORT_RESET;
-    uint64_t reset_start = pit_ticks;
-    for (uint32_t i = 0; i < 100000000U; ++i) {
-        if (pit_ticks - reset_start >= 5U)
-            break;
-        __asm__ volatile("pause");
+    *status = (uint32_t)response[0] | ((uint32_t)response[1] << 8) |
+        ((uint32_t)response[2] << 16) | ((uint32_t)response[3] << 24);
+    return 0;
+}
+
+static int ehci_hub_port_feature(ehci_device_t *hub, uint8_t port,
+    uint8_t request, uint16_t feature) {
+    return ehci_control(hub, 0x23U, request, feature, port, NULL, 0);
+}
+
+static int ehci_hub_initialize(ehci_device_t *entry) {
+    uint8_t descriptor[9] __attribute__((aligned(4))) = {0};
+    if (ehci_control(entry, 0xA0U, EHCI_REQUEST_GET_DESCRIPTOR,
+            (uint16_t)(EHCI_DESCRIPTOR_HUB << 8), 0, descriptor,
+            sizeof(descriptor)) != 0 ||
+        descriptor[0] < sizeof(descriptor) ||
+        descriptor[1] != EHCI_DESCRIPTOR_HUB ||
+        !descriptor[2] || descriptor[2] > EHCI_HUB_MAX_PORTS) {
+        error("Unsupported EHCI hub descriptor on address %u",
+            __FILE__, entry->address);
+        return -1;
     }
-    status = *portsc;
-    *portsc = (status & (EHCI_PORT_POWER | EHCI_PORT_OWNER)) |
-              EHCI_PORT_CHANGE | EHCI_PORT_POWER;
-    if (ehci_wait(portsc, EHCI_PORT_ENABLE, EHCI_PORT_ENABLE, 10000000U) != 0) {
+
+    entry->hub_port_count = descriptor[2];
+    if ((descriptor[3] & 3U) != 0) {
+        for (uint8_t port = 1; port <= entry->hub_port_count; ++port) {
+            if (ehci_hub_port_feature(entry, port, EHCI_REQUEST_SET_FEATURE,
+                    EHCI_HUB_PORT_POWER) != 0) {
+                error("Unable to power EHCI hub %u port %u", __FILE__,
+                    entry->address, port);
+                return -1;
+            }
+        }
+    }
+    uint64_t power_ticks = ((uint64_t)descriptor[5] * 2U + 9U) / 10U;
+    if (!power_ticks)
+        power_ticks = 1;
+    uint64_t power_deadline = pit_ticks + power_ticks;
+    for (uint32_t wait = 0; wait < 100000000U &&
+            pit_ticks < power_deadline; ++wait)
+        __asm__ volatile("pause");
+    entry->hub = 1;
+    info("EHCI hub at address %u has %u powered ports", __FILE__,
+        entry->address, entry->hub_port_count);
+    return 0;
+}
+
+static int ehci_is_hub(const usb_device_t *device) {
+    if (device->descriptor.device_class == EHCI_HUB_CLASS)
+        return 1;
+    for (uint8_t i = 0; i < device->interface_count; ++i) {
+        if (device->interfaces[i].interface_class == EHCI_HUB_CLASS)
+            return 1;
+    }
+    return 0;
+}
+
+static int ehci_enumerate(ehci_controller_t *ctrl, uint8_t root_port,
+    ehci_device_t *parent_hub, uint8_t child_port) {
+    const char *failure_stage = "port reset";
+    uint8_t speed = 2U;
+    if (!parent_hub) {
+        volatile uint32_t *portsc =
+            &ctrl->op[EHCI_PORTSC / 4 + root_port];
+        uint32_t status = *portsc;
+        if (!(status & EHCI_PORT_CONNECT))
+            return -1;
+        *portsc = (status & (EHCI_PORT_POWER | EHCI_PORT_OWNER)) |
+                  EHCI_PORT_CHANGE | EHCI_PORT_POWER | EHCI_PORT_RESET;
+        uint64_t reset_start = pit_ticks;
+        for (uint32_t i = 0; i < 100000000U; ++i) {
+            if (pit_ticks - reset_start >= 5U)
+                break;
+            __asm__ volatile("pause");
+        }
         status = *portsc;
         *portsc = (status & (EHCI_PORT_POWER | EHCI_PORT_OWNER)) |
-                  EHCI_PORT_CHANGE | EHCI_PORT_OWNER;
-        warn("EHCI port %u routed to its companion controller (not supported)",
-            __FILE__, port + 1U);
-        return -1;
+                  EHCI_PORT_CHANGE | EHCI_PORT_POWER;
+        if (ehci_wait(portsc, EHCI_PORT_ENABLE, EHCI_PORT_ENABLE,
+                10000000U) != 0) {
+            status = *portsc;
+            *portsc = (status & (EHCI_PORT_POWER | EHCI_PORT_OWNER)) |
+                      EHCI_PORT_CHANGE | EHCI_PORT_OWNER;
+            warn("EHCI port %u routed to its companion controller "
+                 "(not supported)", __FILE__, root_port + 1U);
+            return -1;
+        }
+    } else {
+        uint32_t status = 0;
+        if (ehci_hub_get_port_status(parent_hub, child_port, &status) != 0 ||
+            !(status & EHCI_HUB_PORT_CONNECTION))
+            return -1;
+        if (ehci_hub_port_feature(parent_hub, child_port,
+                EHCI_REQUEST_SET_FEATURE, EHCI_HUB_PORT_RESET) != 0)
+            return -1;
+        uint64_t reset_deadline = pit_ticks + 5U;
+        for (uint32_t wait = 0; wait < 100000000U &&
+                pit_ticks < reset_deadline; ++wait)
+            __asm__ volatile("pause");
+        uint64_t timeout = pit_ticks + 10U;
+        do {
+            if (ehci_hub_get_port_status(parent_hub, child_port,
+                    &status) != 0)
+                return -1;
+            if (!(status & EHCI_HUB_PORT_RESETTING) &&
+                (status & EHCI_HUB_PORT_ENABLE))
+                break;
+            __asm__ volatile("pause");
+        } while (pit_ticks < timeout);
+        if ((status & EHCI_HUB_PORT_RESETTING) ||
+            !(status & EHCI_HUB_PORT_ENABLE)) {
+            warn("EHCI hub %u port %u did not enable after reset",
+                __FILE__, parent_hub->address, child_port);
+            return -1;
+        }
+        if (status & EHCI_HUB_PORT_LOW_SPEED)
+            speed = 1U;
+        else if (status & EHCI_HUB_PORT_HIGH_SPEED)
+            speed = 2U;
+        else
+            speed = 0U;
+        (void)ehci_hub_port_feature(parent_hub, child_port,
+            EHCI_REQUEST_CLEAR_FEATURE, EHCI_HUB_C_PORT_RESET);
     }
 
     ehci_device_t *entry = NULL;
@@ -527,16 +676,23 @@ static int ehci_enumerate(ehci_controller_t *ctrl, uint8_t port) {
             break;
         }
     }
-    if (!entry)
+    if (!entry) {
+        error("No free EHCI device slots for root port %u", __FILE__,
+            root_port + 1U);
         return -1;
+    }
     memset(entry, 0, sizeof(*entry));
     entry->controller = ctrl;
-    entry->port = port;
-    entry->ep0_packet = 64;
+    entry->port = root_port;
+    entry->parent_hub = parent_hub;
+    entry->parent_port = child_port;
+    entry->speed = speed;
+    entry->ep0_packet = speed == 2U ? 64U : 8U;
     entry->address = 0;
     entry->active = 1;
 
     uint64_t device_phys = 0;
+    failure_stage = "device descriptor";
     uint8_t *descriptor = (uint8_t *)(uintptr_t)ehci_dma_alloc(PAGE_SIZE,
         &device_phys);
     if (!descriptor)
@@ -544,7 +700,10 @@ static int ehci_enumerate(ehci_controller_t *ctrl, uint8_t port) {
     if (ehci_control(entry, 0x80, EHCI_REQUEST_GET_DESCRIPTOR, 0x0100, 0,
             descriptor, 8) != 0)
         goto fail;
-    if (descriptor[0] < 8 || descriptor[1] != 1 || descriptor[7] != 64)
+    if (descriptor[0] < 8 || descriptor[1] != 1 ||
+        (speed == 2U && descriptor[7] != 64U) ||
+        (speed != 2U && descriptor[7] != 8U && descriptor[7] != 16U &&
+            descriptor[7] != 32U && descriptor[7] != 64U))
         goto fail;
     entry->ep0_packet = descriptor[7];
 
@@ -556,11 +715,12 @@ static int ehci_enumerate(ehci_controller_t *ctrl, uint8_t port) {
         goto fail;
     memset(device, 0, sizeof(*device));
     device->host_type = USB_HOST_EHCI;
-    device->root_port = port + 1U;
-    device->speed = 3;
+    device->root_port = root_port + 1U;
+    device->speed = speed == 2U ? 3U : (speed == 1U ? 2U : 1U);
     device->address = address;
     entry->address = 0;
     entry->device = device;
+    failure_stage = "SET_ADDRESS";
     if (ehci_control(entry, 0, EHCI_REQUEST_SET_ADDRESS, device->address, 0,
             NULL, 0) != 0) {
         entry->device = NULL;
@@ -574,16 +734,23 @@ static int ehci_enumerate(ehci_controller_t *ctrl, uint8_t port) {
         __asm__ volatile("pause");
     }
     memcpy(descriptor, (uint8_t[18]){0}, 18);
+    failure_stage = "addressed device descriptor";
     if (ehci_control(entry, 0x80, EHCI_REQUEST_GET_DESCRIPTOR, 0x0100, 0,
             descriptor, 18) != 0)
         goto device_fail;
     memcpy(&device->descriptor, descriptor, sizeof(device->descriptor));
     if (device->descriptor.length < sizeof(device->descriptor) ||
         device->descriptor.descriptor_type != 1 ||
-        device->descriptor.device_class == 9U ||
-        !device->descriptor.configuration_count)
+        !device->descriptor.configuration_count) {
+        error("Invalid EHCI device descriptor on port %u: "
+              "length %u type %u class %u configurations %u",
+            __FILE__, root_port + 1U, device->descriptor.length,
+            device->descriptor.descriptor_type, device->descriptor.device_class,
+            device->descriptor.configuration_count);
         goto device_fail;
+    }
 
+    failure_stage = "configuration descriptor header";
     if (ehci_control(entry, 0x80, EHCI_REQUEST_GET_DESCRIPTOR,
             (EHCI_DESCRIPTOR_CONFIGURATION << 8), 0, descriptor, 9) != 0 ||
         descriptor[0] < 9 ||
@@ -598,19 +765,25 @@ static int ehci_enumerate(ehci_controller_t *ctrl, uint8_t port) {
     if (!device->configuration_descriptor)
         goto device_fail;
     device->configuration_length = config_length;
+    failure_stage = "configuration descriptor";
     if (ehci_control(entry, 0x80, EHCI_REQUEST_GET_DESCRIPTOR,
             (EHCI_DESCRIPTOR_CONFIGURATION << 8), 0,
             device->configuration_descriptor, config_length) != 0 ||
         ehci_parse_config(device) != 0)
         goto device_fail;
     device->configuration_value = device->configuration_descriptor[5];
+    failure_stage = "SET_CONFIGURATION";
     if (ehci_control(entry, 0, EHCI_REQUEST_SET_CONFIGURATION,
             device->configuration_value, 0, NULL, 0) != 0)
         goto device_fail;
+    failure_stage = "class-driver registration";
     if (usb_device_connect(device) != 0)
         goto device_fail;
+    if (ehci_is_hub(device) && ehci_hub_initialize(entry) != 0)
+        warn("EHCI hub on root port %u was enumerated but is unusable",
+            __FILE__, root_port + 1U);
     done("EHCI USB device enumerated on root port %u (address %u)",
-        __FILE__, port + 1U, device->address);
+        __FILE__, root_port + 1U, device->address);
     ehci_dma_free(device_phys, PAGE_SIZE);
     return 0;
 
@@ -620,9 +793,98 @@ device_fail:
     entry->device = NULL;
     kfree(device);
 fail:
+    error("EHCI enumeration failed on root port %u during %s", __FILE__,
+        root_port + 1U, failure_stage);
     ehci_dma_free(device_phys, PAGE_SIZE);
     entry->active = 0;
     return -1;
+}
+
+static void ehci_remove_device_tree(ehci_device_t *entry) {
+    for (size_t i = 0; i < EHCI_MAX_DEVICES; ++i) {
+        ehci_device_t *child = &ehci_devices[i];
+        if (child->active && child->parent_hub == entry)
+            ehci_remove_device_tree(child);
+    }
+    if (entry->device) {
+        usb_device_disconnect(entry->device);
+        if (entry->device->configuration_descriptor)
+            kfree(entry->device->configuration_descriptor);
+        kfree(entry->device);
+    }
+    memset(entry, 0, sizeof(*entry));
+}
+
+static void ehci_poll_hubs(ehci_controller_t *ctrl) {
+    for (size_t i = 0; i < EHCI_MAX_DEVICES; ++i) {
+        ehci_device_t *hub = &ehci_devices[i];
+        if (!hub->active || hub->controller != ctrl || !hub->hub)
+            continue;
+        if (pit_ticks - hub->hub_poll_tick < 10U)
+            continue;
+        hub->hub_poll_tick = pit_ticks;
+        for (uint8_t port = 1; port <= hub->hub_port_count; ++port) {
+            uint8_t index = port - 1U;
+            uint32_t status = 0;
+            if (ehci_hub_get_port_status(hub, port, &status) != 0) {
+                warn("Unable to read EHCI hub %u port %u status",
+                    __FILE__, hub->address, port);
+                continue;
+            }
+            uint32_t changes = status >> 16;
+            if (changes & (1U << 0))
+                (void)ehci_hub_port_feature(hub, port,
+                    EHCI_REQUEST_CLEAR_FEATURE,
+                    EHCI_HUB_C_PORT_CONNECTION);
+            if (changes & (1U << 1))
+                (void)ehci_hub_port_feature(hub, port,
+                    EHCI_REQUEST_CLEAR_FEATURE, EHCI_HUB_C_PORT_ENABLE);
+            if (changes & (1U << 4))
+                (void)ehci_hub_port_feature(hub, port,
+                    EHCI_REQUEST_CLEAR_FEATURE, EHCI_HUB_C_PORT_RESET);
+
+            uint8_t connected =
+                !!(status & EHCI_HUB_PORT_CONNECTION);
+            if (connected && !hub->hub_port_connected[index]) {
+                hub->hub_port_connected[index] = 1;
+                hub->hub_port_enumerated[index] = 0;
+                hub->hub_port_attempts[index] = 0;
+                hub->hub_port_retry_tick[index] = pit_ticks;
+                info("EHCI hub %u port %u connected", __FILE__,
+                    hub->address, port);
+            }
+            if (connected && hub->hub_port_connected[index] &&
+                !hub->hub_port_enumerated[index] &&
+                pit_ticks >= hub->hub_port_retry_tick[index]) {
+                ++hub->hub_port_attempts[index];
+                if (ehci_enumerate(ctrl, hub->port, hub, port) == 0) {
+                    hub->hub_port_enumerated[index] = 1;
+                } else if (hub->hub_port_attempts[index] < 5U) {
+                    hub->hub_port_retry_tick[index] = pit_ticks + 100U;
+                } else {
+                    error("EHCI stopped retrying hub %u port %u after "
+                          "%u attempts", __FILE__, hub->address, port,
+                        hub->hub_port_attempts[index]);
+                    hub->hub_port_enumerated[index] = 1;
+                }
+            } else if (!connected && hub->hub_port_connected[index]) {
+                hub->hub_port_connected[index] = 0;
+                hub->hub_port_enumerated[index] = 0;
+                hub->hub_port_attempts[index] = 0;
+                hub->hub_port_retry_tick[index] = 0;
+                for (size_t child_index = 0;
+                        child_index < EHCI_MAX_DEVICES; ++child_index) {
+                    ehci_device_t *child = &ehci_devices[child_index];
+                    if (child->active && child->parent_hub == hub &&
+                        child->parent_port == port) {
+                        ehci_remove_device_tree(child);
+                        info("EHCI USB device disconnected from hub %u "
+                             "port %u", __FILE__, hub->address, port);
+                    }
+                }
+            }
+        }
+    }
 }
 
 void ehci_poll(void) {
@@ -642,27 +904,43 @@ void ehci_poll(void) {
             if (connected && !(status & EHCI_PORT_OWNER) &&
                 !ctrl->port_connected[port]) {
                 ctrl->port_connected[port] = 1;
+                ctrl->port_enumerated[port] = 0;
+                ctrl->port_enumeration_attempts[port] = 0;
+                ctrl->port_retry_tick[port] = pit_ticks;
                 info("EHCI root port %u connected", __FILE__, port + 1U);
-                (void)ehci_enumerate(ctrl, (uint8_t)port);
+            }
+            if (connected && !(status & EHCI_PORT_OWNER) &&
+                ctrl->port_connected[port] &&
+                !ctrl->port_enumerated[port] &&
+                pit_ticks >= ctrl->port_retry_tick[port]) {
+                ++ctrl->port_enumeration_attempts[port];
+                if (ehci_enumerate(ctrl, (uint8_t)port, NULL, 0) == 0) {
+                    ctrl->port_enumerated[port] = 1;
+                } else if (ctrl->port_enumeration_attempts[port] < 5U) {
+                    ctrl->port_retry_tick[port] = pit_ticks + 100U;
+                } else {
+                    error("EHCI stopped retrying root port %u after %u attempts",
+                        __FILE__, port + 1U,
+                        ctrl->port_enumeration_attempts[port]);
+                    ctrl->port_enumerated[port] = 1;
+                }
             } else if (!connected && ctrl->port_connected[port]) {
                 ctrl->port_connected[port] = 0;
+                ctrl->port_enumerated[port] = 0;
+                ctrl->port_enumeration_attempts[port] = 0;
+                ctrl->port_retry_tick[port] = 0;
                 for (size_t i = 0; i < EHCI_MAX_DEVICES; ++i) {
                     ehci_device_t *entry = &ehci_devices[i];
                     if (!entry->active || entry->controller != ctrl ||
-                        entry->port != port)
+                        entry->port != port || entry->parent_hub)
                         continue;
-                    if (entry->device) {
-                        usb_device_disconnect(entry->device);
-                        if (entry->device->configuration_descriptor)
-                            kfree(entry->device->configuration_descriptor);
-                        kfree(entry->device);
-                    }
-                    entry->active = 0;
+                    ehci_remove_device_tree(entry);
                     info("EHCI USB device disconnected from port %u",
                         __FILE__, port + 1U);
                 }
             }
         }
+        ehci_poll_hubs(ctrl);
         __sync_lock_release(&ctrl->poll_lock);
     }
 }
@@ -816,8 +1094,8 @@ void probe_ehci(uint8_t bus, uint8_t slot, uint8_t function) {
                       (port_status & (EHCI_PORT_OWNER | EHCI_PORT_CHANGE));
         }
         uint64_t power_start = pit_ticks;
-        for (uint32_t wait = 0; wait < 50000000U; ++wait) {
-            if (pit_ticks - power_start >= 2U)
+        for (uint32_t wait = 0; wait < 250000000U; ++wait) {
+            if (pit_ticks - power_start >= 10U)
                 break;
             __asm__ volatile("pause");
         }
