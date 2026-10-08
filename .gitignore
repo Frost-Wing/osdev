@@ -32,3 +32,5 @@ source/compile_commands.json
 fs_root
 fs_root.*
 disk.img
+
+FrostWing.img

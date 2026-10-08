@@ -84,6 +84,43 @@ iso:
 	@$(SECTION)
 	@echo -e "$(OK) $(CYAN)ISO build complete:$(RESET) $(BOLD)$(ISO_FILE)$(RESET)"
 
+IMG_FILE    = FrostWing.img
+IMG_SIZE_MB ?= 64
+
+img:
+	@$(FROSTWING_BANNER)
+	@$(SECTION)
+	@echo -e "$(INFO) $(WHITE)Building bootable disk image...$(RESET)"
+	@rm -f $(IMG_FILE)
+	@truncate -s $(IMG_SIZE_MB)M $(IMG_FILE)
+
+	@echo -e "$(INFO) $(GRAY)Partitioning (GPT + FAT32 ESP)...$(RESET)"
+	@parted -s $(IMG_FILE) mklabel gpt
+	@parted -s $(IMG_FILE) mkpart ESP fat32 1MiB $$(( $(IMG_SIZE_MB) - 1 ))MiB
+	@parted -s $(IMG_FILE) set 1 esp on
+
+	@echo -e "$(INFO) $(GRAY)Formatting FAT32...$(RESET)"
+	@mkfs.fat -F 32 -n FROSTBOOT \
+		--offset 2048 \
+		$(IMG_FILE) $$(( ($(IMG_SIZE_MB) - 2) * 1024 )) >/dev/null
+
+	@echo -e "$(INFO) $(GRAY)Copying kernel, config and Limine files...$(RESET)"
+	@mmd -i $(IMG_FILE)@@1M ::/EFI ::/EFI/BOOT
+	@mcopy -i $(IMG_FILE)@@1M \
+		source/wing_kernel.elf \
+		source/boot/limine.cfg \
+		source/boot/font.sfn \
+		limine/limine-bios.sys \
+		::/
+	@mcopy -i $(IMG_FILE)@@1M \
+		limine/BOOTX64.EFI \
+		limine/BOOTIA32.EFI \
+		::/EFI/BOOT/
+
+	@echo -e "$(INFO) $(WHITE)Installing Limine BIOS stage...$(RESET)"
+	@./limine/limine bios-install $(IMG_FILE)
+	@$(SECTION)
+	@echo -e "$(OK) $(CYAN)Image ready:$(RESET) $(BOLD)$(IMG_FILE)$(RESET)"
 
 # -----------------------------
 # Tarball for distribution
@@ -112,7 +149,7 @@ DISK_IMG := $(firstword $(wildcard ./disk.img ../disk.img))
 check-disk:
 	@if [ -z "$(DISK_IMG)" ]; then \
 		echo -e "$(WARN) $(WHITE)No disk image found.$(RESET) Looked for ./disk.img and ../disk.img"; \
-		echo -e "$(INFO) $(GRAY)Run 'make root-disk' to create one.$(RESET)"; \
+		echo -e "$(INFO) $(GRAY)Checkout wiki on how to build an disk.img.$(RESET)"; \
 		exit 1; \
 	fi
 	@echo -e "$(INFO) $(GRAY)Using disk image: $(DISK_IMG)$(RESET)"
@@ -226,33 +263,3 @@ clean:
 	@rm -rf ./disk_root $(ISO_FILE) $(ISO_FILE).tar.gz serial.log
 	@cd source && make deep-clean && cd ..
 	@echo -e "$(OK) $(CYAN)Clean.$(RESET)"
-
-# -----------------------------
-# Making root fs
-# -----------------------------
-root-disk:
-	@echo -e $(SUDO_MESSAGE)
-	@sudo -v
-
-	@echo -e "$(INFO) $(WHITE)Creating GPT disk image...$(RESET)"
-	@rm -f disk.img
-	@truncate -s 4G disk.img
-
-	@parted -s disk.img mklabel gpt
-	@parted -s disk.img mkpart primary ext2 1MiB 100%
-
-	@LOOP=$$(sudo losetup --find --show --partscan disk.img); \
-	echo -e "$(INFO) $(GRAY)Loop device: $$LOOP$(RESET)"; \
-	echo -e "$(INFO) $(GRAY)Formatting Ext2...$(RESET)"; \
-	sudo mkfs.ext2 -F $${LOOP}p1 >/dev/null; \
-	sudo mkdir -p /tmp/frost-root; \
-	echo -e "$(INFO) $(GRAY)Mounting...$(RESET)"; \
-	sudo mount $${LOOP}p1 /tmp/frost-root; \
-	echo -e "$(INFO) $(GRAY)Copying fs_root...$(RESET)"; \
-	sudo cp -a ./fs_root/. /tmp/frost-root/; \
-	sync; \
-	echo -e "$(INFO) $(GRAY)Unmounting...$(RESET)"; \
-	sudo umount /tmp/frost-root; \
-	sudo losetup -d $$LOOP
-
-	@echo -e "$(OK) $(CYAN)disk.img ready.$(RESET)"
