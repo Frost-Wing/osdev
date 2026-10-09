@@ -218,7 +218,7 @@ run-x86-vnc: check-disk
 everything:
 	@$(FROSTWING_BANNER)
 	@echo -e "$(INFO) $(WHITE)Full clean build + run...$(RESET)"
-	@make clean all -C source && make iso tarball run-x86-bios
+	@make clean all -C source && make iso img tarball run-x86-bios
 
 everything-sign:
 	@$(FROSTWING_BANNER)

@@ -223,6 +223,15 @@ void keyboard_init(void) {
 bool shift = no;
 uint8_t modifiers = 0;
 
+static int keyboard_dispatch_scancode(uint8_t scancode) {
+    int key = handle_char_from_scancode(scancode);
+    if (is_kbrb_ready && key != 0)
+        rb_push(&kb_rb, &key);
+    if (key != 0)
+        tty_input_key(key);
+    return key;
+}
+
 void process_keyboard(InterruptFrame *frame) {
     (void)frame;
     if (!enable_keyboard) {
@@ -231,12 +240,7 @@ void process_keyboard(InterruptFrame *frame) {
     }
 
     uint8_t scancode = inb(0x60);
-    int key = handle_char_from_scancode(scancode);
-
-    if (is_kbrb_ready && key != 0)
-        rb_push(&kb_rb, &key);
-    if (key != 0)
-        tty_input_key(key);
+    int key = keyboard_dispatch_scancode(scancode);
 
     outb(0x20, 0x20);
 
@@ -250,6 +254,11 @@ void process_keyboard(InterruptFrame *frame) {
             userland_abort_from_keyboard(exit_code);
         }
     }
+}
+
+void keyboard_process_scancode(uint8_t data) {
+    if (enable_keyboard)
+        (void)keyboard_dispatch_scancode(data);
 }
 
 uint8_t getmodifiers(void) {

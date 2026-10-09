@@ -122,6 +122,29 @@ int usb_bulk_request(usb_device_t *device, uint8_t endpoint_address,
     uint8_t endpoint_id, void *buffer, uint32_t length, uint32_t *actual);
 
 /**
+ * Submit a synchronous interrupt transfer through the device's controller.
+ *
+ * @param device Connected USB device.
+ * @param endpoint_address USB interrupt endpoint address from its descriptor.
+ * @param endpoint_id Host-controller endpoint identifier (xHCI only).
+ * @param buffer Transfer buffer.
+ * @param length Requested transfer length in bytes.
+ * @param actual Optional output for the number of bytes transferred.
+ * @return 0 on success; a negative value on invalid input or transfer failure.
+ */
+int usb_interrupt_request(usb_device_t *device, uint8_t endpoint_address,
+    uint8_t endpoint_id, void *buffer, uint32_t length, uint32_t *actual);
+
+/**
+ * Poll a USB interrupt endpoint without waiting for the next report.
+ *
+ * @return 0 when a report completed (actual may be zero), 1 while pending,
+ *         or a negative value on transfer failure.
+ */
+int usb_interrupt_poll(usb_device_t *device, uint8_t endpoint_address,
+    uint8_t endpoint_id, void *buffer, uint32_t length, uint32_t *actual);
+
+/**
  * Reset a halted bulk endpoint after its USB halt feature has been cleared.
  *
  * @param device Connected USB device.

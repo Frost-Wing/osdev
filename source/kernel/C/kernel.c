@@ -29,6 +29,7 @@
 #include <tty.h>
 #include <ssfn.h>
 #include <usb_mass_storage.h>
+#include <usb_keyboard.h>
 #include <pit.h>
 #include <syscalls/internal.h>
 
@@ -232,6 +233,8 @@ void main(void) {
 
     if (usb_mass_storage_init() != 0)
         error("Failed to register USB Mass Storage class driver", __FILE__);
+    if (usb_keyboard_init() != 0)
+        error("Failed to register USB HID keyboard class driver", __FILE__);
     probe_pci();
 
     printf(public_key);

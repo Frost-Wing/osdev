@@ -23,6 +23,20 @@ static void cell(const char *s, int width) {
         printfnoln(" ");
 }
 
+static const char *interface_name(const usb_interface_t *interface) {
+    if (interface->interface_class == 0x03U &&
+        interface->interface_subclass == 0x01U &&
+        interface->interface_protocol == 0x01U)
+        return "HID boot keyboard";
+    if (interface->interface_class == 0x03U)
+        return "HID";
+    if (interface->interface_class == 0x08U)
+        return "Mass storage";
+    if (interface->interface_class == 0x09U)
+        return "Hub";
+    return "Unknown";
+}
+
 int cmd_lsusb(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -54,7 +68,10 @@ int cmd_lsusb(int argc, char **argv) {
             printfnoln("-");
 
         for (uint8_t j = 0; j < device->interface_count; ++j) {
-            printfnoln("0x%02hx", (uint32_t)device->interfaces[j].interface_class);
+            const usb_interface_t *interface = &device->interfaces[j];
+            printfnoln("0x%02hx (%s)",
+                (uint32_t)interface->interface_class,
+                interface_name(interface));
             if (j + 1U < device->interface_count)
                 printfnoln(",");
         }

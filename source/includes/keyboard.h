@@ -55,6 +55,9 @@ char scancode_to_char(int scancode, bool uppercase);
  */
 void keyboard_init(void);
 
+/** Process one Set 1 scancode from a non-PS/2 keyboard source. */
+void keyboard_process_scancode(uint8_t data);
+
 /**
  * @brief This is a function that is ran even when the sleep() function is called
  *

@@ -401,6 +401,11 @@
   },
   {
     "directory": "/home/pradosh/osdev/source",
+    "file": "/home/pradosh/osdev/source/kernel/C/usb_keyboard.c",
+    "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -O0 -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -msoft-float -Wa,--noexecstack -MMD -MP -c /home/pradosh/osdev/source/kernel/C/usb_keyboard.c -o /dev/null"
+  },
+  {
+    "directory": "/home/pradosh/osdev/source",
     "file": "/home/pradosh/osdev/source/kernel/C/disk/gpt.c",
     "command": "clang -std=gnu11 -ffreestanding -w -fno-common -fno-stack-protector -fno-stack-check -fno-lto -fno-builtin -fno-omit-frame-pointer -O0 -g -fPIE -I includes -I src -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-red-zone -mno-sse -mno-sse2 -msoft-float -Wa,--noexecstack -MMD -MP -c /home/pradosh/osdev/source/kernel/C/disk/gpt.c -o /dev/null"
   },

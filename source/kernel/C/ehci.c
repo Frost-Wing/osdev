@@ -257,7 +257,7 @@ static void ehci_qtd_prepare(ehci_qtd_t *qtd, uint64_t physical,
 }
 
 static int ehci_schedule(ehci_controller_t *ctrl, ehci_qtd_t *first,
-    ehci_qtd_t *last) {
+    ehci_qtd_t *last, uint32_t transfer_timeout) {
     volatile uint32_t *cmd = &ctrl->op[EHCI_USBCMD / 4];
     volatile uint32_t *status = &ctrl->op[EHCI_USBSTS / 4];
     *cmd &= ~EHCI_CMD_ASYNC_ENABLE;
@@ -275,16 +275,19 @@ static int ehci_schedule(ehci_controller_t *ctrl, ehci_qtd_t *first,
         return -1;
     }
 
-    uint32_t iterations = 50000000U;
-    while (iterations-- && (last->token & EHCI_QTD_ACTIVE)) {
+    while (transfer_timeout-- && (last->token & EHCI_QTD_ACTIVE)) {
         if (first->token & 0x7CU)
             break;
         __asm__ volatile("pause");
     }
-    int result = (last->token & EHCI_QTD_ACTIVE) ? -1 : 0;
+    int timed_out = (last->token & EHCI_QTD_ACTIVE) != 0;
+    int result = timed_out ? -1 : 0;
+    int transfer_error = 0;
     for (ehci_qtd_t *qtd = first;;) {
-        if (qtd->token & 0x7CU)
+        if (qtd->token & 0x7CU) {
             result = -1;
+            transfer_error = 1;
+        }
         if (qtd == last)
             break;
         uint64_t next = ((uint64_t)qtd->next) & ~0x1FU;
@@ -293,12 +296,15 @@ static int ehci_schedule(ehci_controller_t *ctrl, ehci_qtd_t *first,
     *cmd &= ~EHCI_CMD_ASYNC_ENABLE;
     if (ehci_wait(status, EHCI_STS_ASYNC_STATUS, 0, 10000000U) != 0)
         return -1;
+    if (timed_out && !transfer_error)
+        return -2;
     return result;
 }
 
 static int ehci_transfer(ehci_device_t *device, uint8_t endpoint_address,
     uint16_t packet_size, uint8_t toggle, ehci_qtd_t *qtds,
-    uint8_t qtd_count, uint8_t control_endpoint) {
+    uint8_t qtd_count, uint8_t control_endpoint,
+    uint32_t transfer_timeout) {
     ehci_controller_t *ctrl = device->controller;
     while (__sync_lock_test_and_set(&ctrl->lock, 1))
         __asm__ volatile("pause");
@@ -313,7 +319,8 @@ static int ehci_transfer(ehci_device_t *device, uint8_t endpoint_address,
         control_endpoint);
     for (uint8_t i = 0; i + 1U < qtd_count; ++i)
         qtds[i].next = (uint32_t)fast_virt_to_phys(&qtds[i + 1U]);
-    int result = ehci_schedule(ctrl, qtds, &qtds[qtd_count - 1U]);
+    int result = ehci_schedule(ctrl, qtds, &qtds[qtd_count - 1U],
+        transfer_timeout);
     __sync_lock_release(&ctrl->lock);
     return result;
 }
@@ -366,7 +373,7 @@ static int ehci_control(ehci_device_t *device, uint8_t request_type,
     }
 
     int result = ehci_transfer(device, 0, device->ep0_packet, 0, qtds,
-        qtd_count, 1);
+        qtd_count, 1, 50000000U);
     if (result == 0 && length && (request_type & 0x80U))
         memcpy(data, bounce, length);
     if (result == 0 && request == EHCI_REQUEST_SET_ADDRESS &&
@@ -397,13 +404,16 @@ int ehci_control_request(usb_device_t *device, uint8_t request_type,
                  : -1;
 }
 
-int ehci_bulk_request(usb_device_t *device, uint8_t endpoint_address,
-    void *buffer, uint32_t length, uint32_t *actual) {
+static int ehci_endpoint_request(usb_device_t *device,
+    uint8_t endpoint_address, void *buffer, uint32_t length,
+    uint32_t *actual, uint8_t transfer_type) {
     ehci_device_t *entry = ehci_find_device(device);
     if (!entry || !buffer || !length)
         return -1;
     if (actual)
         *actual = 0;
+    if (endpoint_address & 0x80U)
+        memset(buffer, 0, length);
     usb_endpoint_t *endpoint = NULL;
     for (uint8_t i = 0; i < device->endpoint_count; ++i) {
         if (device->endpoints[i].address == endpoint_address) {
@@ -411,7 +421,7 @@ int ehci_bulk_request(usb_device_t *device, uint8_t endpoint_address,
             break;
         }
     }
-    if (!endpoint || (endpoint->attributes & 3U) != 2U ||
+    if (!endpoint || (endpoint->attributes & 3U) != transfer_type ||
         !endpoint->max_packet_size)
         return -1;
 
@@ -439,7 +449,15 @@ int ehci_bulk_request(usb_device_t *device, uint8_t endpoint_address,
             (endpoint_address & 0x80U) ? EHCI_QTD_PID_IN : EHCI_QTD_PID_OUT,
             endpoint->data_toggle, 1);
         int result = ehci_transfer(entry, endpoint_address,
-            endpoint->max_packet_size, endpoint->data_toggle, qtd, 1, 0);
+            endpoint->max_packet_size, endpoint->data_toggle, qtd, 1, 0,
+            transfer_type == 3U ? 250000U : 50000000U);
+        if (result == -2 && transfer_type == 3U) {
+            ehci_dma_free(data_phys, pages * PAGE_SIZE);
+            ehci_dma_free(qtd_phys, PAGE_SIZE);
+            if (actual)
+                *actual = total;
+            return 0;
+        }
         if (result == 0) {
             endpoint->data_toggle = (uint8_t)((entry->controller->transfer_qh->token &
                                                   EHCI_QTD_TOGGLE) != 0);
@@ -461,6 +479,18 @@ int ehci_bulk_request(usb_device_t *device, uint8_t endpoint_address,
     if (actual)
         *actual = total;
     return 0;
+}
+
+int ehci_bulk_request(usb_device_t *device, uint8_t endpoint_address,
+    void *buffer, uint32_t length, uint32_t *actual) {
+    return ehci_endpoint_request(device, endpoint_address, buffer, length,
+        actual, 2U);
+}
+
+int ehci_interrupt_request(usb_device_t *device, uint8_t endpoint_address,
+    void *buffer, uint32_t length, uint32_t *actual) {
+    return ehci_endpoint_request(device, endpoint_address, buffer, length,
+        actual, 3U);
 }
 
 int ehci_reset_endpoint(usb_device_t *device, uint8_t endpoint_address) {

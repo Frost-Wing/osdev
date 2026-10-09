@@ -51,6 +51,10 @@ int ehci_control_request(usb_device_t *device, uint8_t request_type,
 int ehci_bulk_request(usb_device_t *device, uint8_t endpoint_address,
     void *buffer, uint32_t length, uint32_t *actual);
 
+/** Submit one synchronous USB interrupt endpoint transfer. */
+int ehci_interrupt_request(usb_device_t *device, uint8_t endpoint_address,
+    void *buffer, uint32_t length, uint32_t *actual);
+
 /**
  * Reset the EHCI data toggle for a bulk endpoint after clearing its halt
  * feature.

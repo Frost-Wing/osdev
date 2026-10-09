@@ -99,6 +99,14 @@ int xhci_bulk_transfer(uint8_t slot_id, uint8_t endpoint_id, void *buffer,
     uint32_t length, uint32_t *actual);
 
 /**
+ * Start or collect a nonblocking interrupt transfer.
+ *
+ * @return 0 when a transfer completes, 1 while pending, or negative on error.
+ */
+int xhci_interrupt_poll(uint8_t slot_id, uint8_t endpoint_id, void *buffer,
+    uint32_t length, uint32_t *actual);
+
+/**
  * Reset an xHCI endpoint after its USB halt feature has been cleared.
  *
  * @param slot_id Enabled device slot.

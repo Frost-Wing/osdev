@@ -11,6 +11,7 @@
 #include <pit.h>
 #include <ehci.h>
 #include <xhci.h>
+#include <usb_keyboard.h>
 
 #define XHCI_CAPLENGTH 0x00
 #define XHCI_HCSPARAMS1 0x04
@@ -147,6 +148,10 @@ typedef struct {
     uint8_t transfer_slot;
     uint8_t transfer_endpoint;
     uint32_t transfer_residual;
+    uint8_t async_transfer_pending[256][32];
+    uint8_t async_transfer_done[256][32];
+    uint8_t async_transfer_code[256][32];
+    uint32_t async_transfer_residual[256][32];
     uint8_t max_slots;
     uint8_t max_ports;
     uint8_t context_size;
@@ -328,6 +333,13 @@ static void xhci_process_event(xhci_controller_t *ctrl, const xhci_trb_t *event)
             ctrl->transfer_code = code;
             ctrl->transfer_residual = event->status & 0x00FFFFFFU;
             ctrl->transfer_done = 1;
+        }
+        if (slot && endpoint && ctrl->async_transfer_pending[slot][endpoint]) {
+            ctrl->async_transfer_code[slot][endpoint] = code;
+            ctrl->async_transfer_residual[slot][endpoint] =
+                event->status & 0x00FFFFFFU;
+            ctrl->async_transfer_pending[slot][endpoint] = 0;
+            ctrl->async_transfer_done[slot][endpoint] = 1;
         }
         // info("xHCI transfer completion: %s (%u), slot %u endpoint %u", __FILE__,
         //     xhci_completion_name(code), code, slot,
@@ -646,6 +658,8 @@ static void xhci_release_slot(xhci_controller_t *ctrl, uint8_t slot_id,
     }
     ctrl->dcbaa[slot_id] = 0;
     for (uint8_t endpoint = 1; endpoint < 32; ++endpoint) {
+        ctrl->async_transfer_pending[slot_id][endpoint] = 0;
+        ctrl->async_transfer_done[slot_id][endpoint] = 0;
         xhci_ring_t *ring = ctrl->transfer[slot_id][endpoint];
         if (!ring)
             continue;
@@ -734,7 +748,7 @@ static void xhci_free_unregistered_device(usb_device_t *device) {
     kfree(device);
 }
 
-static int xhci_configure_bulk_endpoints(xhci_controller_t *ctrl,
+static int xhci_configure_data_endpoints(xhci_controller_t *ctrl,
     usb_device_t *device) {
     uint64_t input_physical;
     void *input = xhci_dma_alloc(ctrl, PAGE_SIZE, &input_physical);
@@ -752,11 +766,12 @@ static int xhci_configure_bulk_endpoints(xhci_controller_t *ctrl,
     int result = 0;
     for (uint8_t i = 0; i < device->endpoint_count; ++i) {
         usb_endpoint_t *endpoint = &device->endpoints[i];
-        if ((endpoint->attributes & 3U) != 2U)
+        uint8_t transfer_type = endpoint->attributes & 3U;
+        if (transfer_type != 2U && transfer_type != 3U)
             continue;
         if (!endpoint->endpoint_id || endpoint->endpoint_id > 31 ||
             !endpoint->max_packet_size) {
-            warn("Ignoring invalid USB bulk endpoint 0x%02x", __FILE__,
+            warn("Ignoring invalid USB data endpoint 0x%02x", __FILE__,
                 endpoint->address);
             continue;
         }
@@ -766,11 +781,29 @@ static int xhci_configure_bulk_endpoints(xhci_controller_t *ctrl,
             result = -1;
             break;
         }
-        uint8_t endpoint_type = (endpoint->address & 0x80U) ? 6U : 2U;
+        uint8_t endpoint_type = transfer_type == 3U ?
+            ((endpoint->address & 0x80U) ? 7U : 3U) :
+            ((endpoint->address & 0x80U) ? 6U : 2U);
         uint32_t *context = xhci_input_context_endpoint(ctrl, input,
             endpoint->endpoint_id);
         xhci_fill_endpoint_context(context, endpoint_type,
             endpoint->max_packet_size, dequeue, endpoint->max_packet_size);
+        if (transfer_type == 3U) {
+            uint8_t interval = endpoint->interval;
+            if (device->speed >= 3U)
+                interval = interval ? (uint8_t)(interval - 1U) : 0U;
+            else {
+                uint8_t exponent = 0;
+                uint16_t period = interval ? interval : 1U;
+                while (period > 1U) {
+                    period >>= 1;
+                    ++exponent;
+                }
+                interval = (uint8_t)(exponent + 3U);
+            }
+            context[0] |= (uint32_t)interval << 16;
+            context[4] |= (uint32_t)endpoint->max_packet_size << 16;
+        }
         input_control[1] |= 1U << endpoint->endpoint_id;
         if (endpoint->endpoint_id > max_context)
             max_context = endpoint->endpoint_id;
@@ -782,7 +815,7 @@ static int xhci_configure_bulk_endpoints(xhci_controller_t *ctrl,
         result = xhci_issue_slot_command(XHCI_TRB_CONFIGURE_ENDPOINT,
             input_physical, device->slot_id);
         if (result == 0)
-            done("Configured %u USB bulk endpoint(s) on slot %u", __FILE__,
+            done("Configured %u USB data endpoint(s) on slot %u", __FILE__,
                 configured, device->slot_id);
     }
     xhci_dma_free(input_physical, PAGE_SIZE);
@@ -1080,8 +1113,8 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t port) {
     }
     done("USB slot %u set to configuration %u", __FILE__, slot_id,
         device->configuration_value);
-    if (xhci_configure_bulk_endpoints(ctrl, device) != 0) {
-        error("Unable to configure USB bulk endpoints on slot %u", __FILE__,
+    if (xhci_configure_data_endpoints(ctrl, device) != 0) {
+        error("Unable to configure USB data endpoints on slot %u", __FILE__,
             slot_id);
         goto failed;
     }
@@ -1144,6 +1177,7 @@ void xhci_poll(void) {
     for (uint8_t i = 0; i < controller_count; ++i)
         xhci_poll_controller(&controllers[i]);
     ehci_poll();
+    usb_keyboard_poll();
 }
 
 static int xhci_apic_setup(xhci_controller_t *ctrl) {
@@ -1646,6 +1680,44 @@ int xhci_bulk_transfer(uint8_t slot_id, uint8_t endpoint_id, void *buffer,
     return 0;
 }
 
+int xhci_interrupt_poll(uint8_t slot_id, uint8_t endpoint_id, void *buffer,
+    uint32_t length, uint32_t *actual) {
+    if (!controller_count || !controllers[0].initialized || slot_id == 0 ||
+        slot_id > controllers[0].max_slots || endpoint_id == 0 ||
+        endpoint_id > 31 || !buffer || length == 0 || length > 0x1FFFFU)
+        return -1;
+
+    xhci_controller_t *ctrl = &controllers[0];
+    if (!ctrl->transfer[slot_id][endpoint_id])
+        return -1;
+    if (actual)
+        *actual = 0;
+
+    if (ctrl->async_transfer_done[slot_id][endpoint_id]) {
+        uint8_t code = ctrl->async_transfer_code[slot_id][endpoint_id];
+        uint32_t residual = ctrl->async_transfer_residual[slot_id][endpoint_id];
+        ctrl->async_transfer_done[slot_id][endpoint_id] = 0;
+        if (code != 1U && code != 13U)
+            return -1;
+        if (residual > length)
+            return -1;
+        if (actual)
+            *actual = length - residual;
+        return 0;
+    }
+    if (ctrl->async_transfer_pending[slot_id][endpoint_id])
+        return 1;
+
+    memset(buffer, 0, length);
+    ctrl->async_transfer_done[slot_id][endpoint_id] = 0;
+    ctrl->async_transfer_pending[slot_id][endpoint_id] = 1;
+    if (xhci_queue_transfer(slot_id, endpoint_id, buffer, length) != 0) {
+        ctrl->async_transfer_pending[slot_id][endpoint_id] = 0;
+        return -1;
+    }
+    return 1;
+}
+
 int xhci_reset_endpoint(uint8_t slot_id, uint8_t endpoint_id) {
     if (!controller_count || !controllers[0].initialized || slot_id == 0 ||
         slot_id > controllers[0].max_slots || endpoint_id == 0 ||
@@ -1671,6 +1743,28 @@ int usb_bulk_request(usb_device_t *device, uint8_t endpoint_address,
         return ehci_bulk_request(device, endpoint_address, buffer, length,
             actual);
     return xhci_bulk_transfer(device->slot_id, endpoint_id, buffer, length,
+        actual);
+}
+
+int usb_interrupt_request(usb_device_t *device, uint8_t endpoint_address,
+    uint8_t endpoint_id, void *buffer, uint32_t length, uint32_t *actual) {
+    if (!device)
+        return -1;
+    if (device->host_type == USB_HOST_EHCI)
+        return ehci_interrupt_request(device, endpoint_address, buffer,
+            length, actual);
+    return xhci_bulk_transfer(device->slot_id, endpoint_id, buffer, length,
+        actual);
+}
+
+int usb_interrupt_poll(usb_device_t *device, uint8_t endpoint_address,
+    uint8_t endpoint_id, void *buffer, uint32_t length, uint32_t *actual) {
+    if (!device)
+        return -1;
+    if (device->host_type == USB_HOST_EHCI)
+        return ehci_interrupt_request(device, endpoint_address, buffer,
+            length, actual);
+    return xhci_interrupt_poll(device->slot_id, endpoint_id, buffer, length,
         actual);
 }
 
