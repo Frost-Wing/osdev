@@ -14,12 +14,14 @@
  */
 #include <ahci.h>
 #include <basics.h>
+#include <cpuid2.h>
 #include <filesystems/layers/namespace.h>
 #include <filesystems/layers/proc.h>
 #include <heap.h>
 #include <memory.h>
 #include <pci.h>
 #include <ringbuffer.h>
+#include <smp.h>
 #include <strings.h>
 #include <multitasking.h>
 #include <net/net.h>
@@ -36,6 +38,133 @@ static procfs_entry_t *proc_files[PROCFS_MAX_FILES];
 static int proc_file_count = 0;
 
 /* ============================== PROC FILES ============================= */
+
+#define PROC_CPUINFO_SIZE 131072
+
+static char proc_cpuinfo_buffer[PROC_CPUINFO_SIZE];
+
+static int proc_cpuinfo_read(vfs_file_t *file, uint8_t *buf, uint32_t size, void *priv) {
+    (void)priv;
+
+    uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+    uint32_t max_basic_leaf, max_extended_leaf;
+    char vendor[13] = "Unknown";
+    char model_name[49] = "Unknown CPU";
+    char flags[512];
+    size_t flags_len = 0;
+
+    cpuid(0, &max_basic_leaf, &ebx, &ecx, &edx);
+    memcpy(vendor, &ebx, sizeof(ebx));
+    memcpy(vendor + 4, &edx, sizeof(edx));
+    memcpy(vendor + 8, &ecx, sizeof(ecx));
+    vendor[12] = '\0';
+
+    cpuid(0x80000000, &max_extended_leaf, &ebx, &ecx, &edx);
+    if (max_extended_leaf >= 0x80000004) {
+        uint32_t *brand = (uint32_t *)model_name;
+        cpuid(0x80000002, &brand[0], &brand[1], &brand[2], &brand[3]);
+        cpuid(0x80000003, &brand[4], &brand[5], &brand[6], &brand[7]);
+        cpuid(0x80000004, &brand[8], &brand[9], &brand[10], &brand[11]);
+        model_name[48] = '\0';
+    }
+
+    uint32_t family = 0, model = 0, stepping = 0, cache_kb = 0;
+    if (max_basic_leaf >= 1) {
+        cpuid(1, &eax, &ebx, &ecx, &edx);
+        family = (eax >> 8) & 0xf;
+        model = (eax >> 4) & 0xf;
+        stepping = eax & 0xf;
+        if (family == 0xf)
+            family += (eax >> 20) & 0xff;
+        if (family == 6 || family == 0xf)
+            model |= ((eax >> 16) & 0xf) << 4;
+
+        static const struct {
+            uint32_t bit;
+            const char *name;
+        } feature_names[] = {
+            {0, "fpu"}, {3, "pse"}, {4, "tsc"}, {5, "msr"},
+            {6, "pae"}, {8, "cx8"}, {9, "apic"}, {11, "sep"},
+            {12, "mtrr"}, {13, "pge"}, {15, "cmov"}, {19, "clflush"},
+            {23, "mmx"}, {24, "fxsr"}, {25, "sse"}, {26, "sse2"}
+        };
+        for (size_t i = 0; i < sizeof(feature_names) / sizeof(feature_names[0]); i++) {
+            if (!(edx & (1U << feature_names[i].bit)))
+                continue;
+            int n = snprintf(flags + flags_len, sizeof(flags) - flags_len,
+                "%s%s", flags_len ? " " : "", feature_names[i].name);
+            if (n < 0 || (size_t)n >= sizeof(flags) - flags_len)
+                break;
+            flags_len += (size_t)n;
+        }
+        if (ecx & (1U << 0))
+            flags_len += (size_t)snprintf(flags + flags_len, sizeof(flags) - flags_len, "%ssse3", flags_len ? " " : "");
+        if (ecx & (1U << 9))
+            flags_len += (size_t)snprintf(flags + flags_len, sizeof(flags) - flags_len, "%ssse4_1", flags_len ? " " : "");
+        if (ecx & (1U << 19))
+            flags_len += (size_t)snprintf(flags + flags_len, sizeof(flags) - flags_len, "%ssse4_1", flags_len ? " " : "");
+    }
+    if (flags_len >= sizeof(flags))
+        flags_len = sizeof(flags) - 1;
+    flags[flags_len] = '\0';
+
+    if (max_extended_leaf >= 0x80000006) {
+        cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
+        cache_kb = ecx >> 16;
+    }
+
+    uint32_t cpu_count = smp_cpu_count();
+    if (cpu_count == 0)
+        cpu_count = 1;
+
+    size_t used = 0;
+    proc_cpuinfo_buffer[0] = '\0';
+    for (uint32_t cpu = 0; cpu < cpu_count; cpu++) {
+        uint32_t apic_id = cpu;
+        if (cpu == 0 && max_basic_leaf >= 1) {
+            cpuid(1, &eax, &ebx, &ecx, &edx);
+            apic_id = ebx >> 24;
+        }
+        int n = snprintf(proc_cpuinfo_buffer + used,
+            sizeof(proc_cpuinfo_buffer) - used,
+            "processor\t: %u\n"
+            "vendor_id\t: %s\n"
+            "cpu family\t: %u\n"
+            "model\t\t: %u\n"
+            "model name\t: %s\n"
+            "stepping\t: %u\n"
+            "microcode\t: 0x0\n"
+            "cpu MHz\t\t: 0.000\n"
+            "cache size\t: %u KB\n"
+            "physical id\t: 0\n"
+            "siblings\t: %u\n"
+            "core id\t\t: %u\n"
+            "cpu cores\t: %u\n"
+            "apicid\t\t: %u\n"
+            "initial apicid\t: %u\n"
+            "fpu\t\t: %s\n"
+            "flags\t\t: %s\n"
+            "bogomips\t: 0.00\n"
+            "clflush size\t: %u\n"
+            "cache_alignment\t: %u\n"
+            "address sizes\t: 36 bits physical, 48 bits virtual\n"
+            "\n",
+            cpu, vendor, family, model, model_name, stepping, cache_kb,
+            cpu_count, cpu, cpu_count, apic_id, apic_id,
+            flags_len && strstr(flags, "fpu") ? "yes" : "no", flags,
+            max_basic_leaf >= 1 ? ((ebx >> 8) & 0xff) * 8 : 0,
+            max_basic_leaf >= 1 ? ((ebx >> 8) & 0xff) * 8 : 0);
+        if (n < 0 || (size_t)n >= sizeof(proc_cpuinfo_buffer) - used)
+            break;
+        used += (size_t)n;
+    }
+    return ns_reply(file, buf, size, proc_cpuinfo_buffer, (int)used);
+}
+
+static procfs_entry_t proc_cpuinfo = {
+    .name = "cpuinfo",
+    .type = PROC_FILE,
+    .read = proc_cpuinfo_read};
 
 static const char *proc_fs_type_name(partition_fs_type_t type) {
     switch (type) {
@@ -650,6 +779,7 @@ void procfs_init(void) {
     proc_file_count = 0;
     memset(proc_files, 0, sizeof(proc_files));
     procfs_register(&proc_stat);
+    procfs_register(&proc_cpuinfo);
     procfs_register(&proc_heap);
     procfs_register(&proc_meminfo);
     procfs_register(&proc_mounts);
