@@ -329,4 +329,16 @@ char *strtok_r(char *str, const char *delim, char **saveptr);
  */
 char *strtok(char *str, const char *delim);
 
+/**
+ * @brief Collapses consecutive spaces into a single space.
+ *
+ * Allocates a new string with kmalloc; the original is left untouched.
+ * The caller is responsible for freeing the returned string.
+ *
+ * @param str The input string.
+ * @return A newly allocated string with repeated spaces collapsed,
+ *         or NULL if str is NULL or allocation fails.
+ */
+char *collapse_spaces(const char *str) ;
+
 #endif // STRINGS_H

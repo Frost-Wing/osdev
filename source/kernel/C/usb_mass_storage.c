@@ -23,6 +23,8 @@
 #define USB_MSC_MAX_GPT_ENTRIES 128U
 #define USB_MSC_MAX_TRANSFER 0x1FFFFU
 
+#define clean_spaces(str) leading_trailing_trim(collapse_spaces(str))
+
 typedef struct __attribute__((packed)) {
     uint32_t signature;
     uint32_t tag;
@@ -220,8 +222,8 @@ static int msc_inquiry(usb_msc_target_t *target) {
     if (msc_command(target, cdb, sizeof(cdb), 0x80U, inquiry,
             sizeof(inquiry), &actual) != 0 || actual < sizeof(inquiry))
         return -1;
-    info("USB SCSI LUN %u: peripheral type 0x%02x, %s %s",
-        __FILE__, target->lun, inquiry[0] & 0x1FU, leading_trailing_trim(&inquiry[8]), leading_trailing_trim(&inquiry[16]));
+    info("USB SCSI LUN %u: peripheral type 0x%02x, \"%s\" \"%s\"",
+        __FILE__, target->lun, inquiry[0] & 0x1FU, clean_spaces(&inquiry[8]), clean_spaces(&inquiry[16]));
         
     return 0;
 }

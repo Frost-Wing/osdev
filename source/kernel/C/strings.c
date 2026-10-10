@@ -667,3 +667,32 @@ char *str_concat_impl(int count, ...) {
 
     return result;
 }
+
+char *collapse_spaces(const char *str) {
+    if (str == NULL) {
+        return NULL;
+    }
+
+    char *result = (char *)kmalloc(strlen(str) + 1);
+    if (result == NULL) {
+        return NULL;
+    }
+
+    char *dest = result;
+    bool in_space = false;
+
+    for (size_t i = 0; str[i] != '\0'; i++) {
+        if (str[i] == ' ') {
+            if (in_space)
+                continue; // skip extra spaces
+            in_space = true;
+        } else {
+            in_space = false;
+        }
+        *dest++ = str[i];
+    }
+
+    *dest = '\0';
+
+    return result;
+}
