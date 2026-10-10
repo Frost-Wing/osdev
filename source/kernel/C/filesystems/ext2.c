@@ -125,10 +125,19 @@ partition_fs_type_t detect_ext2_type_enum(int portno, uint32_t partition_lba) {
         return FS_UNKNOWN;
 
     ext2_superblock_t *sb = (ext2_superblock_t *)buf;
-    if (sb->s_magic == EXT2_SUPER_MAGIC)
-        return FS_EXT2;
+    if (sb->s_magic != EXT2_SUPER_MAGIC)
+        return FS_UNKNOWN;
 
-    return FS_UNKNOWN;
+    // ext4 if any ext4-only feature is present
+    if ((sb->s_feature_incompat  & EXT4_INCOMPAT_MASK) ||
+        (sb->s_feature_ro_compat & EXT4_RO_COMPAT_MASK))
+        return FS_EXT4;
+
+    // ext3 if it has a journal but no ext4 features
+    if (sb->s_feature_compat & EXT3_FEATURE_COMPAT_HAS_JOURNAL)
+        return FS_EXT3;
+
+    return FS_EXT2;
 }
 
 int ext2_mount(int portno, uint32_t partition_lba, ext2_fs_t *fs) {

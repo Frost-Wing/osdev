@@ -82,7 +82,7 @@ static int nvme_submit_and_wait(nvme_controller_t *ctrl, nvme_queue_t *q, nvme_c
         if (completed_cid != cid)
             continue;
         if (status != 0) {
-            printf("[NVMe] command failed qid=%u cid=%u status=0x%X CSTS=0x%X",
+            error("[NVMe] command failed qid=%u cid=%u status=0x%X CSTS=0x%X", __FILE__,
                 q->qid, cid, status, ctrl->regs->csts);
             return -1;
         }
@@ -90,7 +90,7 @@ static int nvme_submit_and_wait(nvme_controller_t *ctrl, nvme_queue_t *q, nvme_c
         return 0;
     }
 
-    printf("[NVMe] completion timeout qid=%u cid=%u phase=%u head=%u tail=%u CSTS=0x%X",
+    error("[NVMe] completion timeout qid=%u cid=%u phase=%u head=%u tail=%u CSTS=0x%X", __FILE__,
         q->qid, cid, q->phase, q->cq_head, q->sq_tail, ctrl->regs->csts);
     return -1;
 }
@@ -288,7 +288,7 @@ static void nvme_probe_namespaces(int controller_index) {
         uint32_t lba_size = 1U << lbads;
 
         if (lba_size != SECTOR_SIZE) {
-            printf("[NVMe] skipping namespace %u with unsupported LBA size %u", nsid, lba_size);
+            warn("[NVMe] skipping namespace %u with unsupported LBA size %u", __FILE__, nsid, lba_size);
             continue;
         }
 
@@ -312,7 +312,7 @@ static void nvme_probe_namespaces(int controller_index) {
         if (ns->logical_device < 0)
             continue;
 
-        printf("[NVMe] namespace %s detected (%u sectors)", ns->name, (uint32_t)ns->total_sectors);
+        info("[NVMe] namespace %s detected (%u sectors)", __FILE__, ns->name, (uint32_t)ns->total_sectors);
 
         if (check_gpt(ns->logical_device) != 0)
             check_mbr(ns->logical_device);
@@ -365,7 +365,7 @@ void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function) {
         }
 
         if (nvme_init_controller(ctrl) != 0) {
-            printf("[NVMe] init failure: CAP=0x%X:%X CC=0x%X CSTS=0x%X",
+            error("[NVMe] init failure: CAP=0x%X:%X CC=0x%X CSTS=0x%X", __FILE__, 
                 (uint32_t)(ctrl->regs->cap >> 32),
                 (uint32_t)(ctrl->regs->cap & 0xFFFFFFFFU),
                 ctrl->regs->cc,
@@ -376,7 +376,7 @@ void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function) {
         }
 
         ctrl->present = 1;
-        printf("[NVMe] controller %d ready", i);
+        info("[NVMe] controller %d ready", __FILE__, i);
         nvme_probe_namespaces(i);
         return;
     }

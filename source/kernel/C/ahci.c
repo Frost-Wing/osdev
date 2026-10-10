@@ -216,7 +216,7 @@ void detect_ahci_devices(ahci_hba_mem_t *ahci_ctrl) {
 
         uint32_t sig = port->sig;
 
-        printf("port->sig = 0x%x", port->sig);
+        info("[AHCI] port->sig = 0x%x", __FILE__, sig);
 
         switch (sig) {
             case sata_disk:

@@ -44,7 +44,7 @@ void probe_serial() {
         return;
     }
     done("Probe completed successfully!", __FILE__);
-    printf("The working COM port is: %d", select);
+    info("The working COM port is: %d", __FILE__, select);
 }
 
 /**

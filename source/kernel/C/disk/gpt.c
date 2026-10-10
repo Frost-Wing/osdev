@@ -13,6 +13,7 @@
 #include <disk/gpt.h>
 #include <filesystems/fat16.h>
 #include <filesystems/iso9660.h>
+#include <filesystems/ext2.h>
 #include <heap.h>
 #include <memory.h>
 
@@ -104,7 +105,8 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader *hdr) {
         uint64_t start = p->StartLBA;
         uint64_t end = p->EndLBA;
 
-        printf("GPT Partition %d: start=%u end=%u size=%d",
+        info("GPT Partition %d: start=%u end=%u size=%d",
+            __FILE__,
             disk->partition_count,
             start,
             end,
@@ -151,7 +153,7 @@ void parse_gpt_partitions(int portno, struct GPT_PartTableHeader *hdr) {
             0,
             p->PartitionTypeGUID);
 
-        printf("[AHCI/GPT] identified disk %s", part_name);
+        info("[AHCI/GPT] identified disk %s", __FILE__, part_name);
     }
 
     gpt_disks_count++;

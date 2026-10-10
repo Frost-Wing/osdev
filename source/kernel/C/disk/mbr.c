@@ -13,6 +13,7 @@
 #include <disk/mbr.h>
 #include <filesystems/fat16.h>
 #include <filesystems/iso9660.h>
+#include <filesystems/ext2.h>
 #include <heap.h>
 #include <memory.h>
 #include <strings.h>
@@ -30,8 +31,7 @@ int check_mbr(int portno) {
     memset(buf, 0, 512);
 
     if (block_read_sector(portno, 0, buf, 1) != 0) {
-        error("[AHCI/MBR] Read LBA failed", __FILE__);
-        printf("[BLOCK/MBR] Read LBA failed on device %d", portno);
+        error("[BLOCK/MBR] Read LBA failed on device %d",__FILE__ , portno);
         kfree(buf);
         return -2;
     }
@@ -64,7 +64,7 @@ void parse_mbr_partitions(uint8 *mbr, int portno) {
         uint32_t count = partitions[i].num_sectors;
         uint32_t end = start + count - 1;
 
-        printf("MBR Partition %d: type=0x%X, LBA start=%u, sectors=%u, bootable=%d", i, partitions[i].partition_type, start, count, partitions[i].boot_flag == MBR_PART_BOOTABLE ? 1 : 0);
+        info("MBR Partition %d: type=0x%X, LBA start=%u, sectors=%u, bootable=%s", __FILE__, i, partitions[i].partition_type, start, count, partitions[i].boot_flag == MBR_PART_BOOTABLE ? "Yes" : "No");
 
         mbr_disks[mbr_disks_count].partitions[i].disk = i;
         mbr_disks[mbr_disks_count].partitions[i].lba_start = start;

@@ -25,6 +25,27 @@
 #define EXT2_SUPER_MAGIC 0xEF53
 #define EXT2_SUPERBLOCK_OFFSET 1024U /* bytes from partition start */
 
+/* Defines to prevent accidental mounting of ext3/4 fs as ext2*/
+#define EXT3_FEATURE_COMPAT_HAS_JOURNAL  0x0004
+
+#define EXT4_FEATURE_INCOMPAT_EXTENTS    0x0040
+#define EXT4_FEATURE_INCOMPAT_64BIT      0x0080
+#define EXT4_FEATURE_INCOMPAT_FLEX_BG    0x0200
+
+#define EXT4_FEATURE_RO_COMPAT_HUGE_FILE   0x0008
+#define EXT4_FEATURE_RO_COMPAT_GDT_CSUM    0x0010
+#define EXT4_FEATURE_RO_COMPAT_DIR_NLINK   0x0020
+#define EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE 0x0040
+
+#define EXT4_INCOMPAT_MASK (EXT4_FEATURE_INCOMPAT_EXTENTS | \
+                            EXT4_FEATURE_INCOMPAT_64BIT   | \
+                            EXT4_FEATURE_INCOMPAT_FLEX_BG)
+
+#define EXT4_RO_COMPAT_MASK (EXT4_FEATURE_RO_COMPAT_HUGE_FILE   | \
+                             EXT4_FEATURE_RO_COMPAT_GDT_CSUM    | \
+                             EXT4_FEATURE_RO_COMPAT_DIR_NLINK   | \
+                             EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE)
+
 #define EXT2_GOOD_OLD_REV 0
 #define EXT2_DYNAMIC_REV 1
 
