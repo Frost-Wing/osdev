@@ -66,6 +66,18 @@ bool enable_logging = true;
 /* --- Depth tracking --- */
 int log_depth = 0;
 
+bool log_tree_enabled = true;
+
+void log_tree_set(bool enabled) {
+    spinlock_lock(&console_lock);
+    log_tree_enabled = enabled;
+    spinlock_unlock(&console_lock);
+}
+
+bool log_tree_is_enabled(void) {
+    return log_tree_enabled;
+}
+
 inline void __log_scope_exit(int *unused) {
     (void)unused;
     log_depth--;
@@ -92,6 +104,9 @@ static cstring strip_path(cstring file) {
 }
 
 static void print_prefix_unlocked(void) {
+    if (!log_tree_enabled)
+        return;
+
     for (int i = 0; i < log_depth - 1; i++) {
         print_unlocked(TREE_TRUNK);
         debug_print(TREE_TRUNK);

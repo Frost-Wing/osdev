@@ -50,6 +50,9 @@ extern uint32 last_print_line;
 extern bool enable_logging;
 
 extern int log_depth;
+extern bool log_tree_enabled;
+void log_tree_set(bool enabled);
+bool log_tree_is_enabled(void);
 
 /**
  * @brief Decrement the logging depth when a scoped logging function returns.

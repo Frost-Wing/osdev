@@ -348,7 +348,7 @@ void main(void) {
     info("Welcome to FrostWing Operating System! %s", __FILE__, "(https://github.com/Frost-Wing)");
     frost_compilation_information();
 
-    pit_sleep(100);
+    log_tree_set(false);  /* flat logs from now on */
     ksh_exec();
 }
 
