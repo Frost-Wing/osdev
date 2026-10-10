@@ -132,6 +132,7 @@ typedef struct {
     xhci_ring_t *transfer[256][32];
     volatile uint32_t *lapic;
     uint64_t pending_command_phys;
+    uint64_t pending_transfer_start_phys;
     uint64_t pending_transfer_phys;
     uint16_t event_index;
     uint8_t event_cycle;
@@ -147,6 +148,7 @@ typedef struct {
     uint8_t transfer_code;
     uint8_t transfer_slot;
     uint8_t transfer_endpoint;
+    uint8_t pending_transfer_trb_count;
     uint32_t transfer_residual;
     uint8_t async_transfer_pending[256][32];
     uint8_t async_transfer_done[256][32];
@@ -328,8 +330,36 @@ static void xhci_process_event(xhci_controller_t *ctrl, const xhci_trb_t *event)
                                            (XHCI_TRB_RING_ENTRIES - 1U));
             }
         }
-        if (slot == ctrl->transfer_slot &&
-            endpoint == ctrl->transfer_endpoint) {
+        xhci_ring_t *pending_ring =
+            slot && endpoint ? ctrl->transfer[slot][endpoint] : NULL;
+        uint8_t matches_pending = 0;
+        if (pending_ring && slot == ctrl->transfer_slot &&
+            endpoint == ctrl->transfer_endpoint &&
+            ctrl->pending_transfer_trb_count &&
+            ctrl->pending_transfer_start_phys >= pending_ring->physical &&
+            ctrl->pending_transfer_phys >= pending_ring->physical &&
+            trb_phys >= pending_ring->physical) {
+            uint64_t start_offset =
+                ctrl->pending_transfer_start_phys - pending_ring->physical;
+            uint64_t event_offset = trb_phys - pending_ring->physical;
+            if (start_offset % sizeof(xhci_trb_t) == 0 &&
+                event_offset % sizeof(xhci_trb_t) == 0 &&
+                event_offset <
+                    (XHCI_TRB_RING_ENTRIES - 1U) * sizeof(xhci_trb_t)) {
+                uint16_t start_index =
+                    (uint16_t)(start_offset / sizeof(xhci_trb_t));
+                uint16_t event_index =
+                    (uint16_t)(event_offset / sizeof(xhci_trb_t));
+                for (uint8_t i = 0; i < ctrl->pending_transfer_trb_count; ++i) {
+                    if ((start_index + i) %
+                            (XHCI_TRB_RING_ENTRIES - 1U) == event_index) {
+                        matches_pending = 1;
+                        break;
+                    }
+                }
+            }
+        }
+        if (matches_pending) {
             ctrl->transfer_code = code;
             ctrl->transfer_residual = event->status & 0x00FFFFFFU;
             ctrl->transfer_done = 1;
@@ -341,9 +371,6 @@ static void xhci_process_event(xhci_controller_t *ctrl, const xhci_trb_t *event)
             ctrl->async_transfer_pending[slot][endpoint] = 0;
             ctrl->async_transfer_done[slot][endpoint] = 1;
         }
-        // info("xHCI transfer completion: %s (%u), slot %u endpoint %u", __FILE__,
-        //     xhci_completion_name(code), code, slot,
-        //     endpoint);
         if (code != 1 && code != 13)
             warn("xHCI transfer completed with a non-success code", __FILE__);
     } else {
@@ -358,25 +385,30 @@ static void xhci_poll_events(xhci_controller_t *ctrl) {
         return;
     if (__atomic_test_and_set(&ctrl->event_polling, __ATOMIC_ACQUIRE))
         return;
-    uint8_t consumed = 0;
-    for (uint16_t count = 0; count < XHCI_EVENT_RING_SIZE; ++count) {
-        xhci_trb_t *event = &ctrl->events[ctrl->event_index];
-        uint32_t event_control = __atomic_load_n(&event->control, __ATOMIC_ACQUIRE);
-        if ((event_control & XHCI_TRB_CYCLE) != ctrl->event_cycle)
-            break;
 
-        xhci_process_event(ctrl, event);
-        consumed = 1;
-        if (++ctrl->event_index == XHCI_EVENT_RING_SIZE) {
-            ctrl->event_index = 0;
-            ctrl->event_cycle ^= 1;
+    uint8_t events_found = 0;
+    do {
+        events_found = 0;
+        for (uint16_t count = 0; count < XHCI_EVENT_RING_SIZE; ++count) {
+            xhci_trb_t *event = &ctrl->events[ctrl->event_index];
+            uint32_t event_control = __atomic_load_n(&event->control, __ATOMIC_ACQUIRE);
+            if ((event_control & XHCI_TRB_CYCLE) != ctrl->event_cycle)
+                break;
+
+            xhci_process_event(ctrl, event);
+            events_found = 1;
+            if (++ctrl->event_index == XHCI_EVENT_RING_SIZE) {
+                ctrl->event_index = 0;
+                ctrl->event_cycle ^= 1;
+            }
         }
-    }
 
-    if (consumed)
-        ctrl->intr0->erdp = ctrl->events_phys +
-                                (uint64_t)ctrl->event_index * sizeof(xhci_trb_t) |
+        __atomic_thread_fence(__ATOMIC_SEQ_CST);
+        ctrl->intr0->erdp = (ctrl->events_phys +
+                                (uint64_t)ctrl->event_index * sizeof(xhci_trb_t)) |
                             (1U << 3);
+    } while (events_found);
+
     ctrl->intr0->iman = (ctrl->intr0->iman & (1U << 1)) | 1U;
     ctrl->op[XHCI_USBSTS / 4] = XHCI_STS_EINT;
     __atomic_clear(&ctrl->event_polling, __ATOMIC_RELEASE);
@@ -440,21 +472,39 @@ static int xhci_ring_push(xhci_ring_t *ring, const xhci_trb_t *source,
 
 static int xhci_wait_transfer(xhci_controller_t *ctrl, uint8_t slot_id,
     uint8_t endpoint_id) {
-    for (uint32_t i = 0; i < XHCI_COMMAND_TIMEOUT; ++i) {
+    uint64_t start = pit_ticks;
+    uint64_t timeout_ticks = (500U + 9U) / 10U;
+    for (uint32_t i = 0; i < 10000000U; ++i) {
         xhci_poll_events(ctrl);
         if (ctrl->transfer_done) {
             uint8_t code = ctrl->transfer_code;
             ctrl->transfer_done = 0;
+            ctrl->pending_transfer_start_phys = 0;
+            ctrl->pending_transfer_phys = 0;
+            ctrl->pending_transfer_trb_count = 0;
             if (code == 1 || code == 13)
                 return 0;
             error("USB control transfer failed: %s (%u)", __FILE__,
                 xhci_completion_name(code), code);
             return -1;
         }
+        if (pit_ticks - start >= timeout_ticks) {
+            error("USB transfer timed out on slot %u endpoint %u", __FILE__,
+                slot_id, endpoint_id);
+            ctrl->transfer_done = 0;
+            ctrl->pending_transfer_start_phys = 0;
+            ctrl->pending_transfer_phys = 0;
+            ctrl->pending_transfer_trb_count = 0;
+            return -1;
+        }
         __asm__ volatile("pause");
     }
-    error("USB control transfer timed out on slot %u", __FILE__, slot_id);
+    error("USB transfer timed out on slot %u endpoint %u (iteration limit)",
+        __FILE__, slot_id, endpoint_id);
     ctrl->transfer_done = 0;
+    ctrl->pending_transfer_start_phys = 0;
+    ctrl->pending_transfer_phys = 0;
+    ctrl->pending_transfer_trb_count = 0;
     return -1;
 }
 
@@ -474,6 +524,8 @@ static int xhci_control_transfer(xhci_controller_t *ctrl, uint8_t slot_id,
     for (uint8_t i = 0; i < sizeof(setup); ++i)
         setup_parameter |= (uint64_t)setup[i] << (i * 8U);
 
+    uint64_t first_trb_phys = ring->physical +
+        (uint64_t)ring->enqueue * sizeof(xhci_trb_t);
     xhci_trb_t trb = {0};
     trb.parameter = setup_parameter;
     trb.status = sizeof(setup);
@@ -505,11 +557,17 @@ static int xhci_control_transfer(xhci_controller_t *ctrl, uint8_t slot_id,
         ((!length || !(request_type & 0x80U)) ? XHCI_TRB_DIR_IN : 0U);
     if (xhci_ring_push(ring, &trb, &ctrl->pending_transfer_phys) != 0)
         return -1;
+    ctrl->pending_transfer_start_phys = first_trb_phys;
+    ctrl->pending_transfer_trb_count = length ? 3U : 2U;
     ctrl->transfer_slot = slot_id;
     ctrl->transfer_endpoint = 1;
     ctrl->transfer_done = 0;
-    if (xhci_ring_doorbell(slot_id, 1) != 0)
+    if (xhci_ring_doorbell(slot_id, 1) != 0) {
+        ctrl->pending_transfer_start_phys = 0;
+        ctrl->pending_transfer_phys = 0;
+        ctrl->pending_transfer_trb_count = 0;
         return -1;
+    }
     return xhci_wait_transfer(ctrl, slot_id, 1);
 }
 
@@ -1528,7 +1586,9 @@ int xhci_submit_command(uint8_t command_type, uint32_t parameter_low,
     }
     xhci_ring_command_doorbell(ctrl);
 
-    for (uint32_t i = 0; i < XHCI_COMMAND_TIMEOUT; ++i) {
+    uint64_t start = pit_ticks;
+    uint64_t timeout_ticks = (1000U + 9U) / 10U;
+    for (uint32_t i = 0; i < 10000000U; ++i) {
         xhci_poll_events(ctrl);
         if (ctrl->command_done) {
             if (completion) {
@@ -1537,11 +1597,18 @@ int xhci_submit_command(uint8_t command_type, uint32_t parameter_low,
                 completion->endpoint_id = 0;
                 completion->residual_length = 0;
             }
-            return ctrl->command_code == 1 ? 0 : -2;
+            uint8_t code = ctrl->command_code;
+            ctrl->pending_command_phys = 0;
+            return code == 1 ? 0 : -2;
+        }
+        if (pit_ticks - start >= timeout_ticks) {
+            error("xHCI command timed out (type %u)", __FILE__, command_type);
+            ctrl->pending_command_phys = 0;
+            return -3;
         }
         __asm__ volatile("pause");
     }
-    error("xHCI command timed out (type %u)", __FILE__, command_type);
+    error("xHCI command timed out (type %u, iteration limit)", __FILE__, command_type);
     ctrl->pending_command_phys = 0;
     return -3;
 }
@@ -1651,6 +1718,8 @@ int xhci_bulk_transfer(uint8_t slot_id, uint8_t endpoint_id, void *buffer,
     if (next == ring->dequeue)
         return -1;
 
+    uint64_t trb_phys = ring->physical +
+        (uint64_t)ring->enqueue * sizeof(xhci_trb_t);
     trb->parameter = buffer_phys;
     trb->status = length & 0x1FFFFU;
     trb->control = (XHCI_TRB_NORMAL << XHCI_TRB_TYPE_SHIFT) |
@@ -1668,8 +1737,15 @@ int xhci_bulk_transfer(uint8_t slot_id, uint8_t endpoint_id, void *buffer,
     ctrl->transfer_endpoint = endpoint_id;
     ctrl->transfer_done = 0;
     ctrl->transfer_residual = length;
-    if (xhci_ring_doorbell(slot_id, endpoint_id) != 0)
+    ctrl->pending_transfer_start_phys = trb_phys;
+    ctrl->pending_transfer_phys = trb_phys;
+    ctrl->pending_transfer_trb_count = 1;
+    if (xhci_ring_doorbell(slot_id, endpoint_id) != 0) {
+        ctrl->pending_transfer_start_phys = 0;
+        ctrl->pending_transfer_phys = 0;
+        ctrl->pending_transfer_trb_count = 0;
         return -1;
+    }
     if (xhci_wait_transfer(ctrl, slot_id, endpoint_id) != 0)
         return -1;
 

@@ -10,57 +10,142 @@ jobs:
     runs-on: ubuntu-latest
     name: FrostWing
     steps:
-    - uses: actions/checkout@v1
-    - name: Update packages
-      run: sudo apt update
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history + tags, needed for the changelog
+          fetch-tags: true
 
-    - name: Install other dependencies
-      run: sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git jq curl qemu-system-x86 xorriso
-    
-    - name: Build Doxygen Documentations
-      run: doxygen
+      - name: Update packages
+        run: sudo apt update
 
-    - name: Obtain the Limine Bootloader
-      run: git clone https://github.com/limine-bootloader/limine.git --branch=v6.x-branch-binary --depth=1
+      - name: Install other dependencies
+        run: sudo apt install -y make bison flex texinfo nasm mtools wget tar binutils build-essential doxygen git jq curl qemu-system-x86 xorriso
 
-    - name: Build the Limine Bootloader
-      run: make -C limine
+      - name: Build Doxygen Documentations
+        run: doxygen
 
-    - name: Build The Operating System itself
-      run: cd source && ./versions.sh && make -j4 clean && cd ../ && make -j4 -C source && make -j4
+      - name: Obtain the Limine Bootloader
+        run: git clone https://github.com/limine-bootloader/limine.git --branch=v6.x-branch-binary --depth=1
 
-    - name: Run the QEMU Emulator
-      run: make run-x86-vnc &
-    
-    - name: Waiting for the QEMU to start
-      run: sleep 5s
+      - name: Build the Limine Bootloader
+        run: make -C limine
 
-    - name: Stop QEMU and VNC
-      if: always()
-      run: sudo pkill qemu || true
-    
-    - name: Generate hashes
-      run: |
-        make tarball
-        sha256sum FrostWing.iso FrostWing.iso.tar.gz > sha256sums
-  
-    - name: Create Release and Upload ISO
-      if: github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: v0.1.${{ github.run_number }}
-        name: FrostWing v0.1.${{ github.run_number }}
-        body: |
-          FrostWing OS Automated Build
-          Commit: ${{ github.sha }}
-          
-          Verify:
+      - name: Build The Operating System itself
+        run: cd source && ./versions.sh && make -j4 clean && cd ../ && make -j4 -C source && make -j4
+
+      - name: Run the QEMU Emulator
+        run: make run-x86-vnc &
+
+      - name: Waiting for the QEMU to start
+        run: sleep 5s
+
+      - name: Stop QEMU and VNC
+        if: always()
+        run: sudo pkill qemu || true
+
+      - name: Generate hashes
+        run: |
+          make tarball
+          sha256sum FrostWing.iso FrostWing.iso.tar.gz FrostWing.img > sha256sums
+
+      - name: Generate release notes
+        if: github.ref == 'refs/heads/main'
+        run: |
+          VERSION="v0.1.${{ github.run_number }}"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
+          BUILD_DATE="$(date -u '+%Y-%m-%d %H:%M UTC')"
+
+          # Changelog since the previous tag (or all history on first release)
+          PREV_TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..HEAD"
+            COMPARE="[\`${PREV_TAG}...${VERSION}\`](${REPO_URL}/compare/${PREV_TAG}...${GITHUB_SHA})"
+          else
+            RANGE="HEAD"
+            COMPARE="_First automated release_"
+          fi
+
+          CHANGELOG="$(git log "$RANGE" --no-merges \
+            --pretty=format:"- %s ([\`%h\`](${REPO_URL}/commit/%H)) - %an" | head -n 50)"
+          [ -z "$CHANGELOG" ] && CHANGELOG="- No user-facing changes since the last build."
+
+          # Asset table with size + SHA-256
+          ASSETS=""
+          for f in FrostWing.iso FrostWing.iso.tar.gz FrostWing.img; do
+            SIZE="$(numfmt --to=iec --suffix=B "$(stat -c%s "$f")")"
+            HASH="$(sha256sum "$f" | cut -d' ' -f1)"
+            ASSETS="${ASSETS}| \`${f}\` | ${SIZE} | \`${HASH}\` |"$'\n'
+          done
+
+          cat > release_notes.md <<EOF
+          # FrostWing ${VERSION}
+
+          Automated build of **FrostWing OS** from commit [\`${SHORT_SHA}\`](${REPO_URL}/commit/${GITHUB_SHA}) on \`main\`.
+
+          | | |
+          |---|---|
+          | **Build date** | ${BUILD_DATE} |
+          | **Commit** | [\`${SHORT_SHA}\`](${REPO_URL}/commit/${GITHUB_SHA}) |
+          | **Workflow run** | [#${{ github.run_number }}](${REPO_URL}/actions/runs/${{ github.run_id }}) |
+          | **Compare** | ${COMPARE} |
+
+          ## What's changed
+
+          ${CHANGELOG}
+
+          ## Downloads
+
+          | File | Size | SHA-256 |
+          |------|------|---------|
+          ${ASSETS}
+          | File | Use it for |
+          |------|------------|
+          | \`FrostWing.iso\` | Bootable ISO for VMs and optical media |
+          | \`FrostWing.iso.tar.gz\` | Compressed ISO for faster download |
+          | \`FrostWing.img\` | Raw disk image for USB drives |
+          | \`sha256sums\` | Checksums for verifying the files above |
+
+          ## Verify your download
+
+          \`\`\`bash
           sha256sum -c sha256sums
+          \`\`\`
 
-        files: |
-          FrostWing.iso
-          FrostWing.iso.tar.gz
-          sha256sums
+          ## Quick start
 
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          Try it in QEMU:
+
+          \`\`\`bash
+          qemu-system-x86_64 -cdrom FrostWing.iso -m 512M
+          \`\`\`
+
+          Or write the image to a USB drive (**this erases the target device**):
+
+          \`\`\`bash
+          sudo dd if=FrostWing.img of=/dev/sdX bs=4M status=progress conv=fsync
+          \`\`\`
+
+          > Automated builds are development snapshots and may be unstable. Please [open an issue](${REPO_URL}/issues/new) if you run into problems.
+          EOF
+
+          # Strip the leading indentation the YAML block adds to the heredoc
+          sed -i 's/^          //' release_notes.md
+
+      - name: Create Release and Upload ISO
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: FrostWing v0.1.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          body_path: release_notes.md
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: |
+            FrostWing.img
+            FrostWing.iso
+            FrostWing.iso.tar.gz
+            sha256sums
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

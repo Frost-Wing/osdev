@@ -9,6 +9,7 @@
  *
  */
 #include <archive/tarball.h>
+#include <graphics.h>
 
 char *filenames[2 KiB];
 char *file_datas[2 KiB];

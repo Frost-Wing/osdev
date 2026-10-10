@@ -236,15 +236,19 @@ void vfs_close(vfs_file_t *file) {
         case FS_SYS:
             return; // not implemented
         case FS_DEV:
-            return devfs_close(file);
+            devfs_close(file);
+            return;
         case FS_FAT16:
-            return fat16_close(&file->f.fat16);
+            fat16_close(&file->f.fat16);
+            return;
         case FS_FAT32:
-            return fat32_close(&file->f.fat32);
+            fat32_close(&file->f.fat32);
+            return;
         case FS_ISO9660:
             return iso9660_close(&file->f.iso9660);
         case FS_EXT2:
-            return ext2_close(&file->f.ext2);
+            ext2_close(&file->f.ext2);
+            return;
 
         default:
             printf("not implemented");

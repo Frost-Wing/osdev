@@ -560,7 +560,7 @@ uint64 sys_recvmsg(uint64_t fd, void *message, uint64_t flags) {
     for (uint64_t i = 0; i < msg->iovlen && remaining; ++i) {
         uint64_t chunk = msg->iov[i].iov_len < remaining ?
             msg->iov[i].iov_len : remaining;
-        memcpy(msg->iov[i].iov_base, data + offset, chunk);
+        memcpy((void*)msg->iov[i].iov_base, data + offset, chunk);
         offset += (size_t)chunk;
         remaining -= chunk;
     }

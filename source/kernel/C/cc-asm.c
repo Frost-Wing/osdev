@@ -9,6 +9,7 @@
  *
  */
 #include <cc-asm.h>
+#include <graphics.h>
 
 /**
  * @brief Halt and catch fire function.
