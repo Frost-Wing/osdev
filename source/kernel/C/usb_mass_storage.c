@@ -222,9 +222,12 @@ static int msc_inquiry(usb_msc_target_t *target) {
     if (msc_command(target, cdb, sizeof(cdb), 0x80U, inquiry,
             sizeof(inquiry), &actual) != 0 || actual < sizeof(inquiry))
         return -1;
-    info("USB SCSI LUN %u: peripheral type 0x%02x, \"%s\" \"%s\"",
-        __FILE__, target->lun, inquiry[0] & 0x1FU, clean_spaces(&inquiry[8]), clean_spaces(&inquiry[16]));
-        
+    info("USB SCSI LUN %u: peripheral type 0x%02x",
+        __FILE__, target->lun, inquiry[0] & 0x1FU);
+
+    LOG_SCOPE();
+    info("\"%s\" \"%s\"", __FILE__, clean_spaces(&inquiry[8]), clean_spaces(&inquiry[16]));
+    
     return 0;
 }
 
