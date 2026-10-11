@@ -98,7 +98,7 @@ struct flanterm_context {
 
     size_t rows, cols;
 
-    void (*raw_putchar)(struct flanterm_context *, uint8_t c);
+    void (*raw_putchar)(struct flanterm_context *, uint32_t c);
     void (*clear)(struct flanterm_context *, bool move);
     void (*set_cursor_pos)(struct flanterm_context *, size_t x, size_t y);
     void (*get_cursor_pos)(struct flanterm_context *, size_t *x, size_t *y);

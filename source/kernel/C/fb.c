@@ -48,6 +48,13 @@ static size_t ssfn_terminal_cell_width(ssfn_t *ssfn) {
     return widest;
 }
 
+static bool ssfn_is_wide_nerd_icon(uint32_t unicode) {
+    bool pua = (unicode >= 0xE000 && unicode <= 0xF8FF) ||
+               (unicode >= 0xF0000 && unicode <= 0xFFFFD);
+    bool powerline_fill = unicode >= 0xE0B0 && unicode <= 0xE0D4;
+    return pua && !powerline_fill;
+}
+
 static size_t ssfn_encode_utf8(uint32_t codepoint, char output[5]) {
     if (codepoint <= 0x7f) {
         output[0] = (char)codepoint;
@@ -58,6 +65,13 @@ static size_t ssfn_encode_utf8(uint32_t codepoint, char output[5]) {
         output[1] = (char)(0x80 | (codepoint & 0x3f));
         return 2;
     }
+    if (codepoint >= 0x10000) {
+        output[0] = (char)(0xf0 | (codepoint >> 18));
+        output[1] = (char)(0x80 | ((codepoint >> 12) & 0x3f));
+        output[2] = (char)(0x80 | ((codepoint >> 6) & 0x3f));
+        output[3] = (char)(0x80 | (codepoint & 0x3f));
+        return 4;
+    }
     output[0] = (char)(0xe0 | (codepoint >> 12));
     output[1] = (char)(0x80 | ((codepoint >> 6) & 0x3f));
     output[2] = (char)(0x80 | (codepoint & 0x3f));
@@ -67,6 +81,7 @@ static size_t ssfn_encode_utf8(uint32_t codepoint, char output[5]) {
 #define FLANTERM_FB_SSFN_SS 4                 /* supersample factor: 3 or 4 */
 #define FLANTERM_FB_SSFN_CACHE_SLOTS 261      /* 0..259 cacheable, 260 = scratch */
 #define FLANTERM_FB_SSFN_SCRATCH 260
+#define FLANTERM_FB_WIDE_CONTINUATION UINT32_MAX
  
 /*
  * Look knobs:
@@ -154,22 +169,41 @@ static void ssfn_render_coverage(struct flanterm_fb_context *ctx,
         return;
     const size_t SS = FLANTERM_FB_SSFN_SS;
     size_t cw = ctx->glyph_width, ch = ctx->glyph_height;
-    size_t hw = cw * SS, hh = ch * SS;
+    size_t columns = ssfn_is_wide_nerd_icon(unicode) ? 2 : 1;
+    size_t render_cw = cw * columns;
+    size_t hw = render_cw * SS, hh = ch * SS;
     uint32_t *hi = ctx->ssfn_cell;
  
     for (size_t i = 0; i < hw * hh; i++)
         hi[i] = 0xff000000;                     /* opaque black = zero coverage */
  
+    bool pua = (unicode >= 0xE000 && unicode <= 0xF8FF) ||
+               (unicode >= 0xF0000 && unicode <= 0xFFFFD);
+    bool powerline_fill = unicode >= 0xE0B0 && unicode <= 0xE0D4;
+    const int full_size = FLANTERM_FB_SSFN_FONT_HEIGHT * FLANTERM_FB_SSFN_SS;
     char encoded[5] = { 0 };
     ssfn_encode_utf8(unicode, encoded);
 
-    /* center narrow glyphs in the cell (skip box-drawing so lines still join) */
+    /* Center icon ink in its two-cell slot, preserving separator edges. */
     int gx = 0;
-    if (unicode < 0x2500) {
-        int gw = 0;
-        if (ssfn_bbox(&ctx->ssfn, encoded, &gw, NULL, NULL, NULL) == SSFN_OK &&
-            gw > 0 && gw < (int)hw)
-            gx = ((int)hw - gw) / 2;
+    if (unicode < 0x2500 || pua) {
+        int left = 0;
+        if (!powerline_fill &&
+            ssfn_bbox(&ctx->ssfn, encoded, NULL, NULL, &left, NULL) == SSFN_OK &&
+            ctx->ssfn.g != NULL && ctx->ssfn.g->h != 0) {
+            if (pua) {
+                size_t raster = ((size_t)ctx->ssfn.g->p * (size_t)full_size +
+                                 ctx->ssfn.g->h - 1) / ctx->ssfn.g->h;
+                if (raster < hw)
+                    gx = ((int)hw - (int)raster) / 2 + left;
+            } else {
+                int width = 0;
+                if (ssfn_bbox(&ctx->ssfn, encoded, &width, NULL, NULL, NULL) == SSFN_OK &&
+                    width > 0 && width < (int)hw) {
+                    gx = ((int)hw - width) / 2;
+                }
+            }
+        }
     }
 
     ssfn_buf_t target = {
@@ -185,50 +219,50 @@ static void ssfn_render_coverage(struct flanterm_fb_context *ctx,
     (void)ssfn_render(&ctx->ssfn, &target, encoded);
  
     for (size_t y = 0; y < ch; y++) {
-        for (size_t x = 0; x < cw; x++) {
+        for (size_t x = 0; x < render_cw; x++) {
             uint32_t sum = 0;
             for (size_t sy = 0; sy < SS; sy++) {
                 const uint32_t *row = &hi[(y * SS + sy) * hw + x * SS];
                 for (size_t sx = 0; sx < SS; sx++)
                     sum += (row[sx] >> 16) & 0xff;
             }
-            out[y * cw + x] = (uint8_t)(sum / (SS * SS));
+            out[y * render_cw + x] = (uint8_t)(sum / (SS * SS));
         }
     }
  
 #if FLANTERM_FB_SSFN_SOFTEN_AMOUNT > 0
     uint8_t *tmp = (uint8_t *)hi;   /* hi-res scratch is free again */
-    for (size_t i = 0; i < cw * ch; i++)
+    for (size_t i = 0; i < render_cw * ch; i++)
         tmp[i] = out[i];
 
     for (size_t y = 0; y < ch; y++) {
-        for (size_t x = 0; x < cw; x++) {
+        for (size_t x = 0; x < render_cw; x++) {
             uint32_t blurred;
 
 #if FLANTERM_FB_SSFN_SOFTEN_KERNEL == 2
-            uint32_t s  = tmp[y * cw + x];
-            uint32_t r  = (x + 1 < cw) ? tmp[y * cw + x + 1] : 0;
-            uint32_t d  = (y + 1 < ch) ? tmp[(y + 1) * cw + x] : 0;
-            uint32_t rd = (x + 1 < cw && y + 1 < ch)
-                              ? tmp[(y + 1) * cw + x + 1] : 0;
+            uint32_t s  = tmp[y * render_cw + x];
+            uint32_t r  = (x + 1 < render_cw) ? tmp[y * render_cw + x + 1] : 0;
+            uint32_t d  = (y + 1 < ch) ? tmp[(y + 1) * render_cw + x] : 0;
+            uint32_t rd = (x + 1 < render_cw && y + 1 < ch)
+                              ? tmp[(y + 1) * render_cw + x + 1] : 0;
             blurred = (s + r + d + rd) / 4;
 #else
             uint32_t sum = 0;
             for (int dy = -1; dy <= 1; dy++) {
                 for (int dx = -1; dx <= 1; dx++) {
                     long ny = (long)y + dy, nx = (long)x + dx;
-                    if (ny < 0 || ny >= (long)ch || nx < 0 || nx >= (long)cw)
+                    if (ny < 0 || ny >= (long)ch || nx < 0 || nx >= (long)render_cw)
                         continue;
                     uint32_t k = (uint32_t)((dy == 0 ? 2 : 1) * (dx == 0 ? 2 : 1));
-                    sum += tmp[(size_t)ny * cw + (size_t)nx] * k;
+                    sum += tmp[(size_t)ny * render_cw + (size_t)nx] * k;
                 }
             }
             blurred = sum / 16;
 #endif
 
-            uint32_t orig = tmp[y * cw + x];
-            out[y * cw + x] = (uint8_t)((orig * (8 - FLANTERM_FB_SSFN_SOFTEN_AMOUNT) +
-                                         blurred * FLANTERM_FB_SSFN_SOFTEN_AMOUNT) / 8);
+            uint32_t orig = tmp[y * render_cw + x];
+            out[y * render_cw + x] = (uint8_t)((orig * (8 - FLANTERM_FB_SSFN_SOFTEN_AMOUNT) +
+                                                blurred * FLANTERM_FB_SSFN_SOFTEN_AMOUNT) / 8);
         }
     }
 #endif
@@ -241,6 +275,8 @@ static void plot_ssfn_char(struct flanterm_fb_context *ctx,
     size_t cw = ctx->glyph_width, ch = ctx->glyph_height;
     bool draw = c->fg != 0xffffffff;
     const uint8_t *cov = NULL;
+    size_t columns = ssfn_is_wide_nerd_icon(c->c) ? 2 : 1;
+    size_t render_cw = cw * columns;
  
     if (draw) {
         uint32_t unicode = c->c;
@@ -255,9 +291,10 @@ static void plot_ssfn_char(struct flanterm_fb_context *ctx,
         }
  
         size_t cells = cw * ch;
-        size_t hi_px = cw * FLANTERM_FB_SSFN_SS * ch * FLANTERM_FB_SSFN_SS;
+        size_t hi_px = cw * 2 * FLANTERM_FB_SSFN_SS *
+                       ch * FLANTERM_FB_SSFN_SS;
         uint8_t *cache = (uint8_t *)(ctx->ssfn_cell + hi_px);
-        uint8_t *valid = cache + FLANTERM_FB_SSFN_CACHE_SLOTS * cells;
+        uint8_t *valid = cache + (FLANTERM_FB_SSFN_CACHE_SLOTS + 1) * cells;
  
         int slot = ssfn_cache_slot(unicode);
         bool cacheable = slot >= 0;
@@ -276,7 +313,7 @@ static void plot_ssfn_char(struct flanterm_fb_context *ctx,
     for (size_t py = 0; py < ch; py++) {
         volatile uint32_t *line = ctx->framebuffer + origin_x +
             (origin_y + py) * (ctx->pitch / sizeof(uint32_t));
-        for (size_t px = 0; px < cw; px++) {
+        for (size_t px = 0; px < render_cw; px++) {
 #ifndef FLANTERM_FB_DISABLE_CANVAS
             uint32_t bg = c->bg == 0xffffffff
                 ? ctx->canvas[(origin_y + py) * ctx->width + origin_x + px]
@@ -286,7 +323,7 @@ static void plot_ssfn_char(struct flanterm_fb_context *ctx,
 #endif
             uint32_t out = bg;
             if (cov) {
-                uint32_t a = cov[py * cw + px];
+                uint32_t a = cov[py * render_cw + px];
                 if (a) {
                     out = ssfn_mix(bg, c->fg, ssfn_curve(a));
                 }
@@ -344,7 +381,8 @@ static void flanterm_fb_swap_palette(struct flanterm_context *_ctx) {
 static void plot_char(struct flanterm_context *_ctx, struct flanterm_fb_char *c, size_t x, size_t y) {
     struct flanterm_fb_context *ctx = (void *)_ctx;
 
-    if (x >= _ctx->cols || y >= _ctx->rows) {
+    if (x >= _ctx->cols || y >= _ctx->rows ||
+        c->c == FLANTERM_FB_WIDE_CONTINUATION) {
         return;
     }
 
@@ -361,7 +399,8 @@ static void plot_char(struct flanterm_context *_ctx, struct flanterm_fb_char *c,
         return;
     }
 
-    bool *glyph = &ctx->font_bool[c->c * ctx->font_height * ctx->font_width];
+    uint32_t gc = c->c < FLANTERM_FB_FONT_GLYPHS ? c->c : 0xfe;
+    bool *glyph = &ctx->font_bool[gc * ctx->font_height * ctx->font_width];
     // naming: fx,fy for font coordinates, gx,gy for glyph coordinates
     for (size_t gy = 0; gy < ctx->glyph_height; gy++) {
         uint8_t fy = gy / ctx->font_scale_y;
@@ -407,8 +446,10 @@ static void plot_char_fast(struct flanterm_context *_ctx, struct flanterm_fb_cha
     uint32_t default_bg = ctx->default_bg;
 #endif
 
-    bool *new_glyph = &ctx->font_bool[c->c * ctx->font_height * ctx->font_width];
-    bool *old_glyph = &ctx->font_bool[old->c * ctx->font_height * ctx->font_width];
+    uint32_t new_gc = c->c < FLANTERM_FB_FONT_GLYPHS ? c->c : 0xfe;
+    uint32_t old_gc = old->c < FLANTERM_FB_FONT_GLYPHS ? old->c : 0xfe;
+    bool *new_glyph = &ctx->font_bool[new_gc * ctx->font_height * ctx->font_width];
+    bool *old_glyph = &ctx->font_bool[old_gc * ctx->font_height * ctx->font_width];
     for (size_t gy = 0; gy < ctx->glyph_height; gy++) {
         uint8_t fy = gy / ctx->font_scale_y;
         volatile uint32_t *fb_line = ctx->framebuffer + x + (y + gy) * (ctx->pitch / 4);
@@ -787,8 +828,12 @@ static void flanterm_fb_double_buffer_flush(struct flanterm_context *_ctx) {
     ctx->queue_i = 0;
 }
 
-static void flanterm_fb_raw_putchar(struct flanterm_context *_ctx, uint8_t c) {
+static void flanterm_fb_raw_putchar(struct flanterm_context *_ctx, uint32_t c) {
     struct flanterm_fb_context *ctx = (void *)_ctx;
+    bool wide_icon = ctx->using_ssfn && ssfn_is_wide_nerd_icon(c);
+
+    if (wide_icon && ctx->cursor_x + 1 >= _ctx->cols)
+        ctx->cursor_x = _ctx->cols;
 
     if (ctx->cursor_x >= _ctx->cols && (ctx->cursor_y < _ctx->scroll_bottom_margin - 1 || _ctx->scroll_enabled)) {
         ctx->cursor_x = 0;
@@ -807,6 +852,10 @@ static void flanterm_fb_raw_putchar(struct flanterm_context *_ctx, uint8_t c) {
     ch.fg = ctx->text_fg;
     ch.bg = ctx->text_bg;
     push_to_queue(_ctx, &ch, ctx->cursor_x++, ctx->cursor_y);
+    if (wide_icon && ctx->cursor_x < _ctx->cols) {
+        ch.c = FLANTERM_FB_WIDE_CONTINUATION;
+        push_to_queue(_ctx, &ch, ctx->cursor_x++, ctx->cursor_y);
+    }
 }
 
 static void flanterm_fb_full_refresh(struct flanterm_context *_ctx) {
@@ -993,8 +1042,8 @@ struct flanterm_context *flanterm_fb_init(
  
         {
             size_t hi_px = ctx->glyph_width * FLANTERM_FB_SSFN_SS *
-                           ctx->glyph_height * FLANTERM_FB_SSFN_SS;
-            size_t cache_bytes = (size_t)FLANTERM_FB_SSFN_CACHE_SLOTS *
+                           2 * ctx->glyph_height * FLANTERM_FB_SSFN_SS;
+            size_t cache_bytes = (size_t)(FLANTERM_FB_SSFN_CACHE_SLOTS + 1) *
                                  ctx->glyph_width * ctx->glyph_height;
  
             /* hi-res scratch + coverage cache + valid flags, one allocation so

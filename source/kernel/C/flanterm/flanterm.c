@@ -1416,15 +1416,22 @@ static void flanterm_putchar(struct flanterm_context *ctx, uint8_t c) {
         int cc = unicode_to_cp437(ctx->code_point);
 
         if (cc == -1) {
-            size_t replacement_width = (size_t)mk_wcwidth((uint32_t)ctx->code_point);
-            if (replacement_width > 0) {
-                ctx->raw_putchar(ctx, 0xfe);
-            }
-            for (size_t i = 1; i < replacement_width; i++) {
-                ctx->raw_putchar(ctx, ' ');
+            uint32_t cp = (uint32_t)ctx->code_point;
+            bool icon = (cp >= 0xE000 && cp <= 0xF8FF) ||
+                        (cp >= 0xF0000 && cp <= 0xFFFFD);
+            if (icon) {
+                ctx->raw_putchar(ctx, cp);
+            } else {
+                size_t replacement_width = (size_t)mk_wcwidth(cp);
+                if (replacement_width > 0) {
+                    ctx->raw_putchar(ctx, 0xfe);
+                }
+                for (size_t i = 1; i < replacement_width; i++) {
+                    ctx->raw_putchar(ctx, ' ');
+                }
             }
         } else {
-            ctx->raw_putchar(ctx, (uint8_t)cc);
+            ctx->raw_putchar(ctx, (uint32_t)cc);
         }
         return;
     }

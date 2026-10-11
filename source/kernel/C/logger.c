@@ -83,11 +83,24 @@ void __log_scope_exit(int *unused) {
     log_depth--;
 }
 
-/* --- Icons (ASCII, safe on any bitmap font) --- */
+/* --- Icons --- */
+#define NF_INFO   "\uF05A"
+#define NF_WARN   "\uF071"
+#define NF_ERROR  "\uF057"
+#define NF_DONE   "\uF058"
+
+#define LOG_USE_NERD_ICONS
+#ifdef LOG_USE_NERD_ICONS
+#define ICON_INFO  NF_INFO
+#define ICON_WARN  NF_WARN
+#define ICON_ERROR NF_ERROR
+#define ICON_DONE  NF_DONE
+#else
 #define ICON_INFO  "[i]"
 #define ICON_WARN  "[!]"
 #define ICON_ERROR "[x]"
 #define ICON_DONE  "[+]"
+#endif
 
 /* --- Tree pieces (CP437 box-drawing; swap to ASCII below if these don't render) --- */
 // #define TREE_TRUNK  "\xB3  "      /* │   */
