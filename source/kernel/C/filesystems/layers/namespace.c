@@ -78,7 +78,7 @@ static bool ns_child_of(const char *name, const char *prefix, size_t prefix_len,
 
     const char *slash = strchr(name, '/');
     *child = name;
-    *child_len = slash ? (size_t)(slash - name) : strlen(name);
+    *child_len = slash ? (size_t)(slash - name) : (size_t)strlen(name);
     *is_leaf = (slash == NULL);
     return true;
 }

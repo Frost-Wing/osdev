@@ -8,6 +8,7 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#include <stddef.h>
 #include <drivers/rtl8139.h>
 #include <heap.h>
 #include <memory.h>
@@ -122,7 +123,7 @@ void rtl8139_service_pending_rx_reset(void) {
 // Initialize RTL8139 NIC
 void rtl8139_init(struct rtl8139 *nic) {
     LOG_SCOPE();
-    if (!nic || nic->io_base == null || nic->io_base == 0) {
+    if (!nic || nic->io_base == 0) {
         warn("RTL8139 Card is not detected but tried to initialize it. Skipping...", __FILE__);
         return;
     }
@@ -193,7 +194,7 @@ void rtl8139_init(struct rtl8139 *nic) {
 
 // Transmit a packet
 bool rtl8139_send_packet(const uint8 *data, uint16 length) {
-    if (!rtl8139_ready || !RTL8139 || RTL8139->io_base == null || RTL8139->io_base == 0 || !data || length == 0) {
+    if (!rtl8139_ready || !RTL8139 || RTL8139->io_base == 0 || !data || length == 0) {
         warn("RTL8139 Card is not ready but tried to send data. Skipping...", __FILE__);
         return no;
     }
@@ -217,7 +218,7 @@ bool rtl8139_send_packet(const uint8 *data, uint16 length) {
 
 // Receives a packet (polling mode)
 bool rtl8139_receive_packet(uint8 *buffer, uint16 *length) {
-    if (!rtl8139_ready || !RTL8139 || RTL8139->io_base == null || RTL8139->io_base == 0 || !rx_buffer || !buffer || !length) {
+    if (!rtl8139_ready || !RTL8139 || RTL8139->io_base == 0 || !rx_buffer || !buffer || !length) {
         return no;
     }
     if (inb(RTL8139->io_base + RTL8139_REG_COMMAND) & 0x01)
@@ -248,7 +249,7 @@ bool rtl8139_receive_packet(uint8 *buffer, uint16 *length) {
  * Queues received packets for processing outside interrupt context
  */
 void rtl8139_interrupt_handler(void) {
-    if (!rtl8139_ready || !RTL8139 || RTL8139->io_base == null)
+    if (!rtl8139_ready || !RTL8139 || RTL8139->io_base == 0)
         return;
 
     uint16_t status = inw(RTL8139->io_base + RTL8139_REG_ISR);
@@ -270,7 +271,7 @@ void rtl8139_interrupt_handler(void) {
 }
 
 void rtl8139_irq_enable(void) {
-    if (!RTL8139 || RTL8139->io_base == null)
+    if (!RTL8139 || RTL8139->io_base == 0)
         return;
     rtl8139_irq_driven = true;
     // IMR already set in rtl8139_init, just mark as active

@@ -82,7 +82,7 @@ bool list_empty(list *obj) {
     if (obj == NULL)
         return true;
 
-    if (obj->start == obj->end == NULL || obj->size == 0)
+    if ((obj->start == NULL && obj->end == NULL) || obj->size == 0)
         return true;
 
     return false;
@@ -154,13 +154,13 @@ struct list_node *list_at(list *obj, int index) {
     if (list_empty(obj))
         return NULL;
 
-    if (index < 0 || index >= obj->size)
+    if (index < 0 || (uint64_t)index >= obj->size)
         return NULL;
 
     if (index == 0)
         return obj->start->data;
 
-    if (index == obj->size - 1)
+    if ((uint64_t)index == obj->size - 1)
         return obj->end->data;
 
     struct list_node *currentNode = obj->start;

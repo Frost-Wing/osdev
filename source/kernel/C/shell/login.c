@@ -13,6 +13,7 @@
 #include <fb.h>
 #include <graphics.h>
 #include <keyboard.h>
+#include <memory.h>
 
 extern struct flanterm_context *ft_ctx;
 

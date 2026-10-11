@@ -34,15 +34,13 @@ typedef struct {
  * `char buf[256]` no longer race each other here. */
 void ns_normalize_path(const char *in, char *out, size_t out_sz);
 
-/* Shared "format into tmp, then serve piecewise via file->pos" reply used
- * by every proc_*_read callback. Replaces the pos-clamping boilerplate
- * that used to be duplicated in each callback. */
+/* Shared reply helper for proc_*_read callbacks. */
 int ns_reply(vfs_file_t *file, uint8_t *buf, uint32_t size, const char *data, int len);
 
 /* Find an entry by exact (normalized) path in a flat array. NULL if absent. */
 procfs_entry_t *ns_find(procfs_entry_t **entries, int count, const char *path);
 
-/* Fill *out_name/*out_type with the `index`-th direct child of `path`
+/* Fill *out_name and *out_type with the `index`-th direct child of `path`
  * within the array, deduplicating entries that imply the same child
  * directory (e.g. several "bus/pci/devices/xxx" entries all implying one
  * "devices" dir). Returns 1 on success, 0 once index is past the end.

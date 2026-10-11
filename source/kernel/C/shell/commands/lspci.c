@@ -11,8 +11,11 @@
 
 #include <commands/commands.h>
 #include <graphics.h>
+#include <pci.h>
 
 int cmd_lspci(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
     print_lspci();
     return 0;
 }

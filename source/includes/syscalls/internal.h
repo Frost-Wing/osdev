@@ -90,7 +90,7 @@ uint64 sys_set_file_times(const char *path, uint64_t atime, uint64_t mtime);
 uint64 copy_readlink_result(const char *target, char *buf, uint64_t bufsiz);
 bool path_is_loadable_elf(const char *path);
 bool should_route_to_toybox(const char *target);
-int build_toybox_argv(const char *target, int argc, char **argv, const char **out_argv);
+int build_toybox_argv(const char *target, int argc, char **argv, const char *out_argv[32]);
 void sys_socket_close(int fd);
 void sys_socket_dup(int oldfd, int newfd);
 bool sys_socket_is_fd(int fd);

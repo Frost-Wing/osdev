@@ -16,7 +16,7 @@
 #define SYSNAMES_H
 
 
-static const char *names[] = {
+static const char *names[] __attribute__((unused)) = {
     [0]   = "read",
     [1]   = "write",
     [2]   = "open",
@@ -280,7 +280,6 @@ static const char *names[] = {
     [260] = "fchownat",
     [261] = "futimesat",
     [262] = "newfstatat",
-    [263] = "unlinkat",
     [263] = "unlinkat",
     [264] = "renameat",
     [265] = "linkat",

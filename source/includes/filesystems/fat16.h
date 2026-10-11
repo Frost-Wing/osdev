@@ -42,8 +42,7 @@ typedef struct {
 } __attribute__((packed)) fat16_boot_sector_t;
 
 typedef struct {
-    char name[8];
-    char ext[3];
+    uint8_t name[11];
     uint8_t attr;
     uint8_t reserved;
     uint8_t creation_time_tenths;
@@ -104,6 +103,7 @@ int fat16_find_path(fat16_fs_t *fs, const char *path, fat16_dir_entry_t *out);
 
 /** @brief Compare a directory entry name with a path component. */
 int fat16_match_name(fat16_dir_entry_t *e, const char *name);
+int fat16_mv(fat16_fs_t *fs, uint16_t src_parent, const char *src_name, uint16_t dst_parent, const char *dst_name);
 
 /** @brief Find a named entry in a directory cluster. */
 int fat16_find_in_dir(fat16_fs_t *fs, uint16_t current_cluster, const char *name, fat16_dir_entry_t *out);
@@ -112,7 +112,7 @@ int fat16_find_in_dir(fat16_fs_t *fs, uint16_t current_cluster, const char *name
 int fat16_list_dir_cluster(fat16_fs_t *fs, uint16_t start_cluster);
 
 /** @brief Convert a path name to the FAT 8.3 name format. */
-void fat16_format_name(const char *input, char out[11]);
+void fat16_format_name(const char *input, uint8_t out[11]);
 
 /** @brief Find a file in the current directory. */
 int fat16_find_file(fat16_fs_t *fs, const char *name, fat16_dir_entry_t *out);

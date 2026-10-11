@@ -1631,7 +1631,7 @@ uint64 sys_write(uint64_t fd, const char *buf, uint64_t count) {
         int wr = fd_pipe_write((int)fd, buf, count > INT32_MAX ? INT32_MAX : (size_t)count);
         if (wr == FD_PIPE_WOULD_BLOCK)
             return -LINUX_EAGAIN;
-        return wr < 0 ? -LINUX_EPIPE : (uint64)wr;
+        return wr < 0 ? (uint64)(-LINUX_EPIPE) : (uint64)wr;
     }
 
     if (fd_is_eventfd((int)fd)) {

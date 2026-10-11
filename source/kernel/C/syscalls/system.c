@@ -331,7 +331,7 @@ uint64 sys_dup2(uint64_t oldfd, uint64_t newfd) {
     int rc = fd_dup2((int)oldfd, (int)newfd);
     if (rc >= 0)
         sys_socket_dup((int)oldfd, rc);
-    return rc < 0 ? -LINUX_EBADF : (uint64)rc;
+    return rc < 0 ? (uint64)(-LINUX_EBADF) : (uint64)rc;
 }
 
 uint64 sys_dup3(uint64_t oldfd, uint64_t newfd, uint64_t flags) {
@@ -398,7 +398,7 @@ uint64 sys_readlinkat(int dirfd,
         if (!multitasking_get_task(pid, &info))
             return -LINUX_ENOENT;
 
-        if (!info.name)
+        if (!info.name[0])
             return -LINUX_ENOENT;
 
         return copy_readlink_result(info.name, buf, bufsiz);
@@ -772,7 +772,7 @@ uint64 sys_clock_nanosleep(uint64_t clockid, uint64_t flags,
 int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg) {
     (void)arg;
 
-    if (magic1 != 0xfee1dead)
+    if ((unsigned int)magic1 != 0xfee1deadU)
         return -LINUX_EINVAL;
 
     switch (magic2) {
@@ -867,6 +867,7 @@ uint64 sys_syslog(int type, char *buf, uint64_t len) {
 
         case LINUX_SYSLOG_ACTION_SIZE_UNREAD:
         case LINUX_SYSLOG_ACTION_SIZE_BUFFER:
+            ;
             size_t sz = klog_size();
             return (uint64)sz;
 
@@ -963,7 +964,7 @@ uint64 sys_eventfd2(uint64_t initial_value, uint64_t flags) {
     int fd = fd_eventfd_create((uint32_t)initial_value,
         (flags & LINUX_EFD_SEMAPHORE) != 0,
         (flags & LINUX_EFD_NONBLOCK) != 0);
-    return fd < 0 ? -LINUX_EMFILE : (uint64)fd;
+    return fd < 0 ? (uint64)(-LINUX_EMFILE) : (uint64)fd;
 }
 
 /**

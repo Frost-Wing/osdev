@@ -20,7 +20,7 @@ void extract_tarball(uint64 *tarball_addr) {
     uintptr_t addr = (uintptr_t)tarball_addr;
 
     while (1) {
-        if (counter >= 2 KiB) {
+        if (counter >= (int)(2 KiB)) {
             error("You reached number of file limits of 2 KiB!", __FILE__);
             break;
         }

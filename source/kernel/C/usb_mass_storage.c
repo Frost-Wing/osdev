@@ -226,7 +226,7 @@ static int msc_inquiry(usb_msc_target_t *target) {
         __FILE__, target->lun, inquiry[0] & 0x1FU);
 
     LOG_SCOPE();
-    info("\"%s\" \"%s\"", __FILE__, clean_spaces(&inquiry[8]), clean_spaces(&inquiry[16]));
+    info("\"%s\" \"%s\"", __FILE__, clean_spaces((const char *)&inquiry[8]), clean_spaces((const char *)&inquiry[16]));
     
     return 0;
 }

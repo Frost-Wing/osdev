@@ -493,7 +493,7 @@ char *hex_to_string(signed int num, bool caps) {
 
 void split(const char *str, char words[][MAX_WORD_LEN], int *num_words) {
     *num_words = 0;
-    int i, j, k;
+    int i, j;
     for (i = 0; str[i] != '\0'; i++) {
         // Skip leading spaces
         while (str[i] == ' ' && str[i] != '\0') {
@@ -517,7 +517,7 @@ void split(const char *str, char words[][MAX_WORD_LEN], int *num_words) {
 
 void splitw(const char *str, char words[][MAX_WORD_LEN], int *num_words, char delimiter) {
     *num_words = 0;
-    int i, j, k;
+    int i, j;
     for (i = 0; str[i] != '\0'; i++) {
         // Skip leading delimiters
         while (str[i] == delimiter && str[i] != '\0') {

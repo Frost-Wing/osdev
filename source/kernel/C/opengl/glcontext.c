@@ -32,6 +32,7 @@ struct GLContext *glCreateContextCustom(uint32_t *buffer, uint32_t width, uint32
 struct GLContext *glGetCurrentContext(void) {
     if (g_gl_context.Initialized)
         return &g_gl_context;
+    return NULL;
 }
 
 bool glContextInitialized(void) {

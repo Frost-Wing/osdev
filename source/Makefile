@@ -45,7 +45,7 @@ CRASH_SYMBOLS_C := kernel/C/crash_symbols.generated.c
 
 # Flags
 CFLAGS := -std=gnu11 -ffreestanding \
-          -w \
+          -Wall -Wextra -Wno-trigraphs \
           -fno-common \
           -fno-stack-protector -fno-stack-check \
           -fno-lto -fno-builtin \

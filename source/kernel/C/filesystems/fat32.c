@@ -9,6 +9,7 @@
  *
  */
 #include <basics.h>
+#include <ahci.h>
 #include <filesystems/fat32.h>
 #include <graphics.h>
 #include <heap.h>
@@ -25,7 +26,7 @@ static inline int fat32_read_sector(fat32_fs_t *fs, uint32_t lba, void *buf) {
 }
 
 static inline int fat32_write_sector(fat32_fs_t *fs, uint32_t lba, const void *buf) {
-    return ahci_write_sector(fs->portno, lba, buf, 1);
+    return ahci_write_sector(fs->portno, lba, (void *)buf, 1);
 }
 
 /* ========================== */

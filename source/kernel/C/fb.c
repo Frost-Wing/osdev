@@ -923,8 +923,6 @@ struct flanterm_context *flanterm_fb_init(
         if (ssfn_font_size < sizeof(*ssfn_header) || ssfn_header->width == 0 ||
             ssfn_header->height == 0 || ssfn_header->baseline > ssfn_header->height ||
             FLANTERM_FB_SSFN_FONT_HEIGHT < 8 ||
-            FLANTERM_FB_SSFN_FONT_HEIGHT > SSFN_SIZE_MAX ||
-            ssfn_header->width > UINT16_MAX / sizeof(uint32_t) ||
             ssfn_load(&ctx->ssfn, ssfn_font) != SSFN_OK ||
             ssfn_select(&ctx->ssfn, SSFN_FAMILY_ANY, NULL,
                         SSFN_STYLE_NOCACHE | SSFN_STYLE_ABS_SIZE,

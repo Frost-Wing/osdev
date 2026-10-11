@@ -10,6 +10,7 @@
  */
 
 #include <commands/commands.h>
+#include <kernel.h>
 
 int cmd_shutdown(int argc, char **argv) {
     if (argc < 2) {

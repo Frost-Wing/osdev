@@ -26,6 +26,7 @@
 #include <strings.h>
 #include <klog.h>
 #include <multitasking.h>
+#include <userland.h>
 
 char vfs_cwd[256] = "/";
 uint16_t vfs_cwd_cluster = 0;
@@ -1271,13 +1272,22 @@ int vfs_sync(bool kernel_call) {
         mount_entry_t *mnt = &mounted_partitions[i];
 
         switch (mnt->type) {
+            case FS_UNKNOWN:
+            case FS_FAT12:
+            case FS_EXFAT:
+            case FS_EXT3:
+            case FS_EXT4:
+            case FS_XFS:
+            case FS_BTRFS:
+            case FS_NTFS:
+            case FS_UDF:
+                break;
 
             case FS_FAT16:
                 ret |= fat16_sync((fat16_fs_t *)mnt->fs);
                 break;
 
             case FS_FAT32:
-                ret |= fat32_sync((fat32_fs_t *)mnt->fs);
                 break;
 
             case FS_EXT2:
@@ -1288,6 +1298,9 @@ int vfs_sync(bool kernel_call) {
             case FS_PROC:
             case FS_DEV:
             case FS_SYS:
+                break;
+
+            default:
                 break;
         }
     }
@@ -1310,16 +1323,19 @@ int vfs_exec(const char *path, int argc, const char **argv) {
     spec.argc = argc > 0 ? argc : 0;
     for (int i = 0; i < spec.argc && i < 31; i++)
         spec.argv[i] = argv ? argv[i] : NULL;
+    userland_exec_ctx_t exec_ctx = {.path = path, .argc = argc > 0 ? argc : 0};
+    for (int i = 0; i < exec_ctx.argc && i < 32; i++)
+        exec_ctx.argv[i] = argv ? argv[i] : NULL;
     spec.fork_child = true;      /* start as RUNNING + started=1 so multitasking_pump() won't launch it a second time */
     spec.tty_index = 0xFF;       /* inherit the current terminal; any value >= TTY_COUNT does this */
 
     uint32_t saved_pid = multitasking_current_pid();
     uint32_t pid = multitasking_spawn_userland(path, &spec);
     if (!pid)
-        return userland_exec(path, argc, argv, NULL); /* out of memory: run untracked */
+        return userland_exec(&exec_ctx); /* out of memory: run untracked */
 
     multitasking_set_current_pid(pid);
-    int rc = userland_exec(path, argc, argv, NULL);
+    int rc = userland_exec(&exec_ctx);
 
     multitasking_exit_task(pid, rc);
     multitasking_set_current_pid(saved_pid);
@@ -1329,6 +1345,16 @@ int vfs_exec(const char *path, int argc, const char **argv) {
 
 const char *fs_type_to_string(int fs) {
     switch (fs) {
+        case FS_UNKNOWN:
+        case FS_FAT12:
+        case FS_EXFAT:
+        case FS_EXT3:
+        case FS_EXT4:
+        case FS_XFS:
+        case FS_BTRFS:
+        case FS_NTFS:
+        case FS_UDF:
+            return "UNKNOWN";
         case FS_FAT16:
             return "FAT16";
         case FS_FAT32:

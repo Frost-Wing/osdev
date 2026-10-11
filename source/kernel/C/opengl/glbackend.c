@@ -68,11 +68,10 @@ void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col) {
     if (!glContextInitialized())
         return;
 
-    uvec2 pdraw;
+    ivec2 pdraw;
     ivec2 distance;
     ivec2 absoluteDistance;
     ivec2 p, e;
-    int i;
 
     distance.x = p2.x - p1.x;
     distance.y = p2.y - p1.y;
@@ -92,9 +91,9 @@ void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col) {
             e.x = p1.x;
         }
 
-        glWritePixel(pdraw, col);
+        glWritePixel((uvec2){(uint64_t)pdraw.x, (uint64_t)pdraw.y}, col);
 
-        for (i = 0; pdraw.x < e.x; i++) {
+        for (; pdraw.x < e.x;) {
             pdraw.x++;
             if (p.x < 0) {
                 p.x = p.x + 2 * absoluteDistance.y;
@@ -106,7 +105,7 @@ void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col) {
                 }
                 p.x = p.x + 2 * (absoluteDistance.y - absoluteDistance.x);
             }
-            glWritePixel(pdraw, col);
+            glWritePixel((uvec2){(uint64_t)pdraw.x, (uint64_t)pdraw.y}, col);
         }
     } else {
         if (distance.y >= 0) {
@@ -120,7 +119,7 @@ void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col) {
         }
         glWritePixel((uvec2){pdraw.y, pdraw.y}, col);
 
-        for (i = 0; pdraw.y < e.y; i++) {
+        for (; pdraw.y < e.y;) {
             pdraw.y++;
             if (p.y <= 0) {
                 p.y = p.y + 2 * absoluteDistance.x;
@@ -132,7 +131,7 @@ void glDrawLine(uvec2 p1, uvec2 p2, uint32_t col) {
                 }
                 p.y = p.y + 2 * (absoluteDistance.x - absoluteDistance.y);
             }
-            glWritePixel(pdraw, col);
+            glWritePixel((uvec2){(uint64_t)pdraw.x, (uint64_t)pdraw.y}, col);
         }
     }
 }
@@ -153,66 +152,69 @@ void glDrawTriangle(uvec2 t0, uvec2 t1, uvec2 t2, uint32_t col, bool fill) {
         return;
     }
 
-    uvec2 t, tp, d1, d2;
+    ivec2 p0 = {(int64_t)t0.x, (int64_t)t0.y};
+    ivec2 p1 = {(int64_t)t1.x, (int64_t)t1.y};
+    ivec2 p2 = {(int64_t)t2.x, (int64_t)t2.y};
+    ivec2 t, tp, d1, d2;
     int y, minx, maxx;
     bool change0 = false;
     bool change1 = false;
     int sign_x1, sign_x2, e1, e2;
 
-    if (t0.y > t1.y) {
-        int temp;
-        temp = t1.y;
-        t1.y = t0.y;
-        t0.y = temp;
-        SWAP(int, t0.x, t1.x)
+    if (p0.y > p1.y) {
+        int64_t temp;
+        temp = p1.y;
+        p1.y = p0.y;
+        p0.y = temp;
+        SWAP(int64_t, p0.x, p1.x)
     }
-    if (t0.y > t2.y) {
-        int temp;
-        temp = t2.y;
-        t2.y = t0.y;
-        t0.y = temp;
-        SWAP(int, t0.x, t2.x)
+    if (p0.y > p2.y) {
+        int64_t temp;
+        temp = p2.y;
+        p2.y = p0.y;
+        p0.y = temp;
+        SWAP(int64_t, p0.x, p2.x)
     }
-    if (t1.y > t2.y) {
-        int temp;
-        temp = t2.y;
-        t2.y = t1.y;
-        t1.y = temp;
-        SWAP(int, t1.x, t2.x)
+    if (p1.y > p2.y) {
+        int64_t temp;
+        temp = p2.y;
+        p2.y = p1.y;
+        p1.y = temp;
+        SWAP(int64_t, p1.x, p2.x)
     }
 
-    t.x = t.y = t0.x;
-    y = t0.y;
-    d1.x = (int)(t1.x - t0.x);
+    t.x = t.y = p0.x;
+    y = p0.y;
+    d1.x = (int)(p1.x - p0.x);
     if (d1.x < 0) {
         d1.x = -d1.x;
         sign_x1 = -1;
     } else
         sign_x1 = 1;
 
-    d1.y = (int)(t1.y - t0.y);
+    d1.y = (int)(p1.y - p0.y);
 
-    d2.x = (int)(t2.x - t0.x);
+    d2.x = (int)(p2.x - p0.x);
     if (d2.x < 0) {
         d2.x = -d2.x;
         sign_x2 = -1;
     } else
         sign_x2 = 1;
 
-    d2.y = (int)(t2.y - t0.y);
+    d2.y = (int)(p2.y - p0.y);
 
     if (d1.y > d1.x) {
-        SWAP(int, d1.x, d1.y)
+        SWAP(int64_t, d1.x, d1.y)
         change0 = true;
     }
 
     if (d2.y > d2.x) {
-        SWAP(int, d2.x, d2.y)
+        SWAP(int64_t, d2.x, d2.y)
         change1 = true;
     }
 
     e2 = (int)((int)d2.x >> 1);
-    if (t0.y == t1.y)
+    if (p0.y == p1.y)
         goto nextHalf;
 
     e1 = (int)((int)d1.x >> 1);
@@ -278,7 +280,7 @@ void glDrawTriangle(uvec2 t0, uvec2 t1, uvec2 t2, uint32_t col, bool fill) {
             maxx = t.y;
 
         for (int j = minx; j <= maxx; j++)
-            glWritePixel((uvec2){j, y}, col);
+            glWritePixel((uvec2){(uint64_t)j, (uint64_t)y}, col);
 
         if (!change0)
             t.x += sign_x1;
@@ -290,24 +292,24 @@ void glDrawTriangle(uvec2 t0, uvec2 t1, uvec2 t2, uint32_t col, bool fill) {
         t.y += tp.y;
         y++;
 
-        if (y == t1.y)
+        if (y == p1.y)
             break;
     }
 
 nextHalf:
 
-    d1.x = (int)(t2.x - t1.x);
+    d1.x = (int)(p2.x - p1.x);
     if (d1.x < 0) {
         d1.x = -d1.x;
         sign_x1 = -1;
     } else
         sign_x1 = 1;
 
-    d1.y = (int)(t2.y - t1.y);
-    t.x = t1.x;
+    d1.y = (int)(p2.y - p1.y);
+    t.x = p1.x;
 
     if (d1.y > d1.x) {
-        SWAP(int, d1.y, d1.x)
+        SWAP(int64_t, d1.y, d1.x)
         change0 = true;
     } else
         change0 = false;
@@ -349,7 +351,7 @@ nextHalf:
 
     next2:
 
-        while (t.y != t2.x) {
+        while (t.y != p2.x) {
             e2 += d2.y;
             while (e2 >= d2.x) {
                 e2 -= d2.x;
@@ -380,7 +382,7 @@ nextHalf:
             maxx = t.y;
 
         for (int j = minx; j <= maxx; j++)
-            glWritePixel((uvec2){j, y}, col);
+            glWritePixel((uvec2){(uint64_t)j, (uint64_t)y}, col);
 
         if (!change0)
             t.x += sign_x1;
@@ -392,7 +394,7 @@ nextHalf:
         t.y += tp.y;
         y++;
 
-        if (y == t2.y)
+        if (y == p2.y)
             return;
     }
 }

@@ -469,6 +469,7 @@ static void xhci_dma_free(uint64_t physical, size_t bytes) {
 }
 
 static uint32_t *xhci_input_context_slot(xhci_controller_t *ctrl, void *input) {
+    (void)ctrl;
     return (uint32_t *)((uint8_t *)input + ctrl->context_size);
 }
 
@@ -480,6 +481,7 @@ static uint32_t *xhci_input_context_endpoint(xhci_controller_t *ctrl,
 
 static uint32_t *xhci_device_context_slot(xhci_controller_t *ctrl,
     uint64_t physical) {
+    (void)ctrl;
     return (uint32_t *)paging_phys_to_virt((uintptr_t)physical);
 }
 
@@ -2280,7 +2282,7 @@ void probe_xhci(uint8_t bus, uint8_t slot, uint8_t function) {
     ctrl->cap = paging_phys_to_virt((uintptr_t)bar);
     uint8_t cap_length = (uint8_t)ctrl->cap[XHCI_CAPLENGTH / 4];
     ctrl->version = (uint16_t)(ctrl->cap[XHCI_CAPLENGTH / 4] >> 16);
-    if (cap_length < 0x20 || cap_length >= 0x100) {
+    if (cap_length < 0x20) {
         error("xHCI capability length is invalid: 0x%x", __FILE__, cap_length);
         return;
     }

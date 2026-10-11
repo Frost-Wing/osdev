@@ -19,6 +19,8 @@
 #include <stream.h>
 #include <strings.h>
 
+struct flanterm_context;
+
 #define FMT_WIDTH_MAX 64
 #define FMT_BUF_SIZE  80
 
@@ -58,7 +60,7 @@ bool log_tree_is_enabled(void);
  * @brief Decrement the logging depth when a scoped logging function returns.
  * @param unused Cleanup attribute parameter.
  */
-extern inline void __log_scope_exit(int *unused);
+void __log_scope_exit(int *unused);
 /* Place at the top of any function you want tracked in the tree.
  * Auto-decrements log_depth when the function returns, however it returns. */
 #define LOG_SCOPE() \

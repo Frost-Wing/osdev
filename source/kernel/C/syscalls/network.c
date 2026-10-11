@@ -391,14 +391,14 @@ uint64 sys_sendto(uint64_t fd, const void *buf, uint64_t len, uint64_t flags,
         if (sock->tcp_id < 0)
             return -LINUX_ENOTCONN;
         int sent = tcp_send(sock->tcp_id, buf, len);
-        return sent < 0 ? -LINUX_EPIPE : (uint64)sent;
+        return sent < 0 ? (uint64)(-LINUX_EPIPE) : (uint64)sent;
     }
 
     if (sock->protocol == LINUX_IPPROTO_UDP) {
         if (!sock->local_port)
             sock->local_port = socket_allocate_port();
         int rc = udp_send(sock->peer_addr, sock->local_port, sock->peer_port, buf, len);
-        return rc == NET_OK ? len : -LINUX_ENETUNREACH;
+        return rc == NET_OK ? len : (uint64)(-LINUX_ENETUNREACH);
     }
 
     uint16_t id = 0x4242;

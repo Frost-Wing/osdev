@@ -12,6 +12,7 @@
 #include <basics.h>
 #include <commands/commands.h>
 #include <filesystems/vfs.h>
+#include <memory.h>
 
 #define CAT_BUF_SIZE 512
 
@@ -49,7 +50,7 @@ int cmd_cat(int argc, char **argv) {
                 printfnoln("%c", buf[j]);
         }
 
-        if (j != 0 && buf != null)
+        if (j != 0)
             if (buf[j - 1] != '\n')
                 print("\n");
 

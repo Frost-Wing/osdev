@@ -38,7 +38,7 @@ static bool print_task_row(const task_info_t *info, void *ctx_ptr) {
         state_name(info->state),
         info->exit_code,
         (uint32_t)info->runtime_ticks,
-        info->name ? info->name : "(unnamed)");
+        info->name[0] ? info->name : "(unnamed)");
     ctx->rows++;
     return true;
 }

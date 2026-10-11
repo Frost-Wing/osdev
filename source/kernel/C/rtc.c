@@ -141,9 +141,9 @@ void sleep(int seconds) {
         wait_rtc_update();
         uint32 cur = rtc_seconds_of_day(is_bcd);
 
-        uint32 diff = (uint32)cur - (uint32)start;
-        if (diff < 0)
-            diff += 24 * 3600; // rolled over midnight
+        uint32 diff = cur >= start
+            ? cur - start
+            : cur + 24U * 3600U - start;
 
         elapsed = diff;
     }

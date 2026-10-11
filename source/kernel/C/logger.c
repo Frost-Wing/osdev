@@ -78,7 +78,7 @@ bool log_tree_is_enabled(void) {
     return log_tree_enabled;
 }
 
-inline void __log_scope_exit(int *unused) {
+void __log_scope_exit(int *unused) {
     (void)unused;
     log_depth--;
 }
@@ -157,7 +157,7 @@ static void log_tree(int level, cstring icon, cstring color, cstring tag,
     debug_print(": "); debug_print(message); debug_print("\n");
 
     klog_printf_level(level, "%s: %s (%s)", tag, message, file);
-    last_filename = file;
+    last_filename = (string)file;
 }
 
 void warn(cstring fmt, cstring file, ...) {
@@ -259,8 +259,8 @@ static void printstr_fmt(const char *s, int width) {
 void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, bool newline, cstring format, va_list argp) {
     spinlock_lock(&console_lock);
     if (enable_logging) {
-        last_print_file = file;
-        last_print_func = func;
+        last_print_file = (string)file;
+        last_print_func = (string)func;
         last_print_line = line;
     }
 

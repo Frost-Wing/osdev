@@ -24,7 +24,6 @@ int fdl_apply_relocations(fdlfcn_handle *lib, int reloc_section_index) {
     if (lib == NULL || reloc_section_index == -1)
         return 1;
 
-    Elf64_Ehdr *elf_header = &lib->ehdr;
     Elf64_Shdr *section_headers = lib->shdrs;
     Elf64_Sym *symbols = lib->symbols;
     Elf64_Rela *relocations = lib->relocations;
@@ -90,7 +89,7 @@ void *fdlsym(fdlfcn_handle *handle, const char *symbol_name) {
 
     Elf64_Shdr symtab_section = handle->shdrs[symtab_index];
 
-    for (int j = 0; j < symtab_section.sh_size / sizeof(Elf64_Sym); j++) {
+    for (uint64_t j = 0; j < symtab_section.sh_size / sizeof(Elf64_Sym); j++) {
         Elf64_Sym symbol = symbols[j];
         char *symbol_name_str = (char *)((uint64_t)handle->symtab_str_section_data + symbol.st_name);
         if (strcmp(symbol_name_str, symbol_name) == 0 && ELF64_ST_BIND(symbol.st_info) != STB_LOCAL && symbol.st_shndx == handle->text_section_index) {

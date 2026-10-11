@@ -231,9 +231,6 @@ static int proc_heap_read(
     void *priv) {
     (void)priv;
 
-    if (alloc_count < 0)
-        alloc_count = 0;
-
     char tmp[128];
     int len = snprintf(tmp, sizeof(tmp),
         "HeapTotal: %u bytes\nHeapUsed: %u bytes\nHeapFree: %u bytes\nAllocCount: %d",
@@ -806,7 +803,7 @@ int procfs_register(procfs_entry_t *entry) {
 }
 
 int procfs_open(vfs_file_t *file) {
-    if (!file || !file->rel_path)
+    if (!file)
         return -1;
 
     uint32_t pid;
@@ -827,7 +824,7 @@ int procfs_open(vfs_file_t *file) {
 }
 
 int procfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
-    if (!file || !file->rel_path || !buf)
+    if (!file || !buf)
         return -1;
 
     uint32_t pid;
@@ -847,7 +844,7 @@ int procfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
 }
 
 int procfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
-    if (!file || !file->rel_path || !buf)
+    if (!file || !buf)
         return -1;
 
     uint32_t pid;

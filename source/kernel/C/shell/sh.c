@@ -127,6 +127,7 @@ extern struct flanterm_context *ft_ctx;
 struct fwrfs *global_fs;
 
 int show_prompt(int argc, char **argv) {
+    (void)argc;
 
     if (last_status_code == 0)
         printfnoln("[" green_color "%d" reset_color "] ", (int64_t)last_status_code);
@@ -400,7 +401,6 @@ static void restore_redirection(vfs_file_t *old_out,
 static int parse_chain(const char *line, subcmd_t *out, int max_out) {
     int count = 0;
     const char *p = line;
-    const char *start = p;
 
     while (*p && count < max_out) {
         const char *q = p;
@@ -520,7 +520,6 @@ int execute_chain(const char *line) {
             op_t prevop = parts[i - 1].op_after;
             if (prevop == OP_AND && last_status != 0) {
                 /* skip execution */
-                last_status = last_status; /* unchanged */
                 continue;
             } else if (prevop == OP_OR && last_status == 0) {
                 /* skip execution because prior succeeded */
@@ -583,7 +582,6 @@ int split_args(const char *cmdline, char **argv, int max_args) {
             p++;
         }
 
-        const char *start = p;
         size_t bufcap = 128;
         char *buf = (char *)kmalloc(bufcap);
         size_t len = 0;

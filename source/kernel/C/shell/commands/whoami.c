@@ -15,6 +15,8 @@
 extern string current_user;
 
 int cmd_whoami(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
     if (!current_user) {
         printf("unknown");
         return 0;

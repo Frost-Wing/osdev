@@ -64,7 +64,7 @@ static void free_copied_string_array(char **arr, int count) {
  * @warning The function copies at most 32 strings; additional entries
  *          in @p user_arr are ignored.
  */
-static int copy_user_string_array(char *const *user_arr, char ***out_arr) {
+static inline int copy_user_string_array(char *const *user_arr, char ***out_arr) {
     if (!user_arr) {
         *out_arr = NULL;
         return 0;
@@ -115,7 +115,7 @@ static int copy_user_string_array(char *const *user_arr, char ***out_arr) {
  * @warning The input @p path must be a valid null-terminated string.
  *          Passing NULL results in undefined behavior.
  */
-static uint32_t path_inode_hash(const char *path) {
+static inline uint32_t path_inode_hash(const char *path) {
     if (!path)
         return 1;
 

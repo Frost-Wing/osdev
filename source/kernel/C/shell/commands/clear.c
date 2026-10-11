@@ -12,6 +12,8 @@
 #include <commands/commands.h>
 
 int cmd_clear(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
     print("\033[2J\033[H"); // clear & return to home.
     return 0;
 }

@@ -12,6 +12,8 @@
 #include <commands/commands.h>
 
 int cmd_ls(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
     vfs_ls(vfs_getcwd());
     return 0;
 }

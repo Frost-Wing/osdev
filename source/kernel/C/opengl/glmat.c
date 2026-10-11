@@ -33,6 +33,11 @@ void glMatrixPerspective(mat4x4 *_out, float fov, float width, float height, flo
     if (_out == NULL)
         return;
 
+    (void)fov;
+    (void)width;
+    (void)height;
+    (void)near;
+    (void)far;
     glMatrixIdentity4x4(_out);
 
     /// TODO: --implement--
@@ -42,6 +47,12 @@ void glMatrixOrtho(mat4x4 *_out, float left, float right, float top, float botto
     if (_out == NULL)
         return;
 
+    (void)left;
+    (void)right;
+    (void)top;
+    (void)bottom;
+    (void)near;
+    (void)far;
     glMatrixIdentity4x4(_out);
 
     /// TODO: --implement--

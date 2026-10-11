@@ -55,11 +55,11 @@ static volatile struct limine_hhdm_request hhdm_request = {
 static volatile struct limine_memmap_request memory_map_request = {
     LIMINE_MEMMAP_REQUEST, 0, null};
 
+static volatile struct limine_boot_time_request boot_time_request __attribute__((unused)) = {
+    LIMINE_BOOT_TIME_REQUEST, 0, null};
+
 static volatile struct limine_smp_request smp_request = {
     LIMINE_SMP_REQUEST, 0, null, 0};
-
-static volatile struct limine_boot_time_request boot_time_request = {
-    LIMINE_BOOT_TIME_REQUEST, 0, null};
 
 static volatile struct limine_kernel_file_request kernel_file_request = {
     LIMINE_KERNEL_FILE_REQUEST, 0, null};
@@ -337,8 +337,6 @@ void main(void) {
         }
 
         // sample
-        struct limine_file *first_module = module_request.response->modules[0];
-        uint64_t first_module_addr = (uint64_t)first_module->address;
     } else {
         info("No modules provided by Limine", __FILE__);
     }

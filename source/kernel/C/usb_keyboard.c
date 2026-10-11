@@ -4,6 +4,7 @@
  */
 #include <graphics.h>
 #include <keyboard.h>
+#include <memory.h>
 #include <pit.h>
 #include <usb.h>
 #include <usb_keyboard.h>

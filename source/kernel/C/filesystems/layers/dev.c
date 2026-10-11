@@ -62,7 +62,7 @@ static uint8_t devfs_next_rand_u8(void) {
 }
 
 int devfs_open(vfs_file_t *file) {
-    if (!file || !file->rel_path)
+    if (!file)
         return -1;
 
     if (file->rel_path[0] == '\0') {

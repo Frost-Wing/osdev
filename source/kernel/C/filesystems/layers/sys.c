@@ -269,7 +269,7 @@ static int sysfs_pci_parse(const char *normalized, int *index, int *attr) {
 
     char addr[32];
     const char *slash = strchr(rest, '/');
-    size_t alen = slash ? (size_t)(slash - rest) : strlen(rest);
+    size_t alen = slash ? (size_t)(slash - rest) : (size_t)strlen(rest);
     if (alen == 0 || alen >= sizeof(addr))
         return -1;
 
@@ -379,7 +379,7 @@ static int sysfs_block_dir_kind(const char *path, int *disk_id, int *partition_i
 
     const char *name = path + 6;
     const char *slash = strchr(name, '/');
-    size_t len = slash ? (size_t)(slash - name) : strlen(name);
+    size_t len = slash ? (size_t)(slash - name) : (size_t)strlen(name);
     if (len == 0 || len >= 64)
         return 0;
 
@@ -564,7 +564,7 @@ static int sysfs_block_resolve(const char *path, char *resolved, size_t capacity
 
     const char *rest = path + sizeof(prefix) - 1;
     const char *slash = strchr(rest, '/');
-    size_t link_len = slash ? (size_t)(slash - rest) : strlen(rest);
+    size_t link_len = slash ? (size_t)(slash - rest) : (size_t)strlen(rest);
     if (link_len == 0 || link_len >= 32)
         return 0;
 
@@ -662,7 +662,7 @@ static procfs_entry_t *sysfs_find_dynamic(const char *normalized) {
     if (strncmp(normalized, usb_prefix, prefix_len) == 0) {
         const char *rest = normalized + prefix_len;
         const char *slash = strchr(rest, '/');
-        size_t name_len = slash ? (size_t)(slash - rest) : strlen(rest);
+        size_t name_len = slash ? (size_t)(slash - rest) : (size_t)strlen(rest);
         char name[32];
         if (name_len == 0 || name_len >= sizeof(name))
             return NULL;
@@ -736,7 +736,7 @@ static procfs_entry_t *sysfs_find(const char *name) {
 }
 
 int sysfs_open(vfs_file_t *file) {
-    if (!file || !file->rel_path)
+    if (!file)
         return -1;
 
     if (!sysfs_find(file->rel_path))
@@ -747,7 +747,7 @@ int sysfs_open(vfs_file_t *file) {
 }
 
 int sysfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
-    if (!file || !file->rel_path || !buf)
+    if (!file || !buf)
         return -1;
 
     procfs_entry_t *e = sysfs_find(file->rel_path);

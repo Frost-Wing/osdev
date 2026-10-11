@@ -8,6 +8,8 @@
  * @copyright Copyright (c) Pradosh 2023-2026
  *
  */
+#include <cc-asm.h>
+#include <debugger.h>
 #include <graphics.h>
 #include <memory.h>
 

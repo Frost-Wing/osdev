@@ -28,7 +28,7 @@ bool asciifilename(char c) {
 }
 
 bool is_valid_filename(struct fwrfs_folder *parent, const char *filename) {
-    if (strlen(filename) == 0) {
+    if (!parent || !filename || strlen(filename) == 0) {
         return false;
     }
 
@@ -40,15 +40,19 @@ bool is_valid_filename(struct fwrfs_folder *parent, const char *filename) {
     }
 
     // check for existing files with same name.
-    for (int i = 0; i < current_folder->nfiles; i++) {
-        if (strcmp(current_folder->files[i].name, filename) == 0) {
+    for (int i = 0; i < parent->nfiles; i++) {
+        if (parent->files && strcmp(parent->files[i].name, filename) == 0) {
             return false; // already an file exsists with the name.
         }
     }
 
     // check for exisiting folders with same name
-    if (find_folder(parent, filename) != NULL)
-        return false; // folder already exists.
+    if (parent->folders) {
+        for (int i = 0; i < parent->nfolders; i++) {
+            if (strcmp(parent->folders[i].name, filename) == 0)
+                return false;
+        }
+    }
 
     return true; // Valid filename
 }
@@ -83,7 +87,7 @@ int create_folder(struct fwrfs *fs, const char *foldername) {
     if (!current_folder)
         return -1;
 
-    if (!is_valid_filename(fs, foldername)) {
+    if (!is_valid_filename(current_folder, foldername)) {
         printf("mkdir: file/folder already exists.");
         return 1;
     }
@@ -139,6 +143,7 @@ void pwd(struct fwrfs *fs) {
 }
 
 char *get_pwd(struct fwrfs *fs) {
+    (void)fs;
     if (!current_folder)
         return "/";
 
@@ -170,7 +175,7 @@ int create_file(struct fwrfs *fs, const char *filename, const char *data) {
     if (!current_folder)
         return -1;
 
-    if (!is_valid_filename(fs, filename)) {
+    if (!is_valid_filename(current_folder, filename)) {
         printf("Error: Invalid filename or file/folder already exists.");
         return -1;
     }
@@ -191,6 +196,7 @@ int create_file(struct fwrfs *fs, const char *filename, const char *data) {
 
 // Read file in current folder
 char *read_file(struct fwrfs *fs, const char *filename) {
+    (void)fs;
     if (!current_folder)
         return NULL;
     for (int i = 0; i < current_folder->nfiles; i++) {
@@ -237,6 +243,7 @@ int delete_file(struct fwrfs *fs, const char *filename) {
 
 // List current folder contents
 void list_contents(struct fwrfs *fs) {
+    (void)fs;
     if (!current_folder)
         return;
 

@@ -47,6 +47,8 @@ static void meltdown_print_source(const CrashSymbolResult *symbol) {
 }
 
 static void meltdown_print_diagnosis(cstring handler_file, int handler_line, const CrashSymbolResult *symbol, const CrashDiagnosis *diagnosis) {
+    (void)handler_file;
+    (void)handler_line;
     if (!diagnosis) {
         printf("[MELTDOWN] Crash diagnosis unavailable.");
         printf("RIP = 0x%X", symbol ? symbol->rip : 0);

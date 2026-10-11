@@ -146,6 +146,30 @@ typedef struct {
 /** @brief Read the FAT entry for a cluster. */
 uint32_t fat32_read_fat(fat32_fs_t *fs, uint32_t cluster);
 
+/** @brief Mount a FAT32 partition. */
+int fat32_mount(int portno, uint32_t part_lba, fat32_fs_t *fs);
+
+/** @brief Open a file by path. */
+int fat32_open(fat32_fs_t *fs, const char *path, fat32_file_t *file);
+
+/** @brief Read bytes from an open file. */
+int fat32_read(fat32_file_t *file, void *buf, uint32_t len);
+
+/** @brief Write bytes to an open file. */
+int fat32_write(fat32_file_t *file, const void *buf, uint32_t len);
+
+/** @brief Close an open file. */
+void fat32_close(fat32_file_t *file);
+
+/** @brief Print a FAT32 directory entry. */
+void fat32_print_entry(const fat32_dir_entry_t *entry);
+
+/** @brief Find a named entry in a FAT32 directory. */
+int fat32_find_in_dir(fat32_fs_t *fs, uint32_t cluster, const char *name, fat32_dir_entry_t *out);
+
+/** @brief Split a path into its parent path and final component. */
+void fat_split_path(const char *path, char *parent, char *name);
+
 /** @brief Resolve a path to a FAT32 directory entry. */
 int fat32_find_path(fat32_fs_t *fs, const char *path, fat32_dir_entry_t *out);
 

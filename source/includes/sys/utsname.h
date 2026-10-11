@@ -55,7 +55,7 @@ typedef struct {
  *
  * @note All strings are guaranteed to be null-terminated.
  */
-static uint64 sys_uname(linux_utsname_t *uts) {
+static inline uint64 sys_uname(linux_utsname_t *uts) {
     if (!uts)
         return -LINUX_EINVAL;
 
