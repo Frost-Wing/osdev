@@ -6,6 +6,8 @@
 #include <tty.h>
 #include <userland.h>
 #include <memory.h>
+#include <stream.h>
+#include <sys/resource.h>
 
 #define ARGV_MAX 32
 
@@ -161,6 +163,8 @@ static void fill_info(const task_t *task, task_info_t *info) {
     info->runtime_ticks = task->runtime_ticks;
     info->wakeup_tick = task->wakeup_tick;
     info->parent_pid = task->parent_pid;
+    info->process_group_id = task->process_group_id;
+    info->session_id = task->session_id;
     info->tty_index = task->tty_index;
     snprintf(info->name, sizeof(info->name), "%s", task->name);
     snprintf(info->exe_path, sizeof(info->exe_path), "%s", task->user_spec.path ? task->user_spec.path : "");
@@ -187,6 +191,63 @@ task_t *multitasking_find_task(uint32_t pid) {
 task_t *multitasking_get_current_task(void) {
     IRQ_GUARD();
     return find_task_locked(g_current_pid);
+}
+
+bool multitasking_get_process_ids(uint32_t pid, uint32_t *parent_pid,
+    uint32_t *process_group_id, uint32_t *session_id, bool *is_exited) {
+    IRQ_GUARD();
+    task_t *task = find_task_locked(pid);
+    if (!task)
+        return false;
+    if (parent_pid)
+        *parent_pid = task->parent_pid;
+    if (process_group_id)
+        *process_group_id = task->process_group_id;
+    if (session_id)
+        *session_id = task->session_id;
+    if (is_exited)
+        *is_exited = task->state == TASK_STATE_EXITED;
+    return true;
+}
+
+bool multitasking_process_group_exists(uint32_t process_group_id,
+    uint32_t session_id) {
+    IRQ_GUARD();
+    for (task_t *task = g_task_head; task; task = task->next)
+        if (task->state != TASK_STATE_EXITED &&
+            task->process_group_id == process_group_id &&
+            task->session_id == session_id)
+            return true;
+    return false;
+}
+
+bool multitasking_set_process_group(uint32_t pid, uint32_t process_group_id) {
+    IRQ_GUARD();
+    task_t *task = find_task_locked(pid);
+    if (!task || task->state == TASK_STATE_EXITED)
+        return false;
+    task->process_group_id = process_group_id;
+    return true;
+}
+
+bool multitasking_set_process_session(uint32_t pid) {
+    IRQ_GUARD();
+    task_t *task = find_task_locked(pid);
+    if (!task || task->state == TASK_STATE_EXITED ||
+        task->process_group_id == pid)
+        return false;
+    task->session_id = pid;
+    task->process_group_id = pid;
+    return true;
+}
+
+bool multitasking_set_parent_death_signal(uint32_t pid, int signal) {
+    IRQ_GUARD();
+    task_t *task = find_task_locked(pid);
+    if (!task || task->state == TASK_STATE_EXITED)
+        return false;
+    task->parent_death_signal = signal;
+    return true;
 }
 
 uint32_t multitasking_current_pid(void) {
@@ -225,6 +286,34 @@ static uint32_t spawn_kernel(const char *name, kernel_task_fn_t fn, void *ctx, b
     task->tty_index = multitasking_current_tty();
 
     uint32_t pid = push_task_locked(task);
+    task_t *parent = find_task_locked(task->parent_pid);
+    if (parent) {
+        task->process_group_id = parent->process_group_id;
+        task->session_id = parent->session_id;
+        memcpy(task->resource_limits, parent->resource_limits,
+            sizeof(task->resource_limits));
+        memcpy(task->supplementary_groups, parent->supplementary_groups,
+            sizeof(task->supplementary_groups));
+        task->supplementary_group_count = parent->supplementary_group_count;
+        task->dumpable = parent->dumpable;
+        task->no_new_privileges = parent->no_new_privileges;
+    } else {
+        task->process_group_id = pid;
+        task->session_id = pid;
+        for (size_t i = 0; i < TASK_RLIMIT_COUNT; ++i) {
+            task->resource_limits[i][0] = LINUX_RLIM_INFINITY;
+            task->resource_limits[i][1] = LINUX_RLIM_INFINITY;
+        }
+        task->resource_limits[LINUX_RLIMIT_CORE][0] = 0;
+        task->resource_limits[LINUX_RLIMIT_NOFILE][0] = STREAM_MAX_FDS;
+        task->resource_limits[LINUX_RLIMIT_NOFILE][1] = STREAM_MAX_FDS;
+        task->resource_limits[LINUX_RLIMIT_STACK][0] = 8U * 1024U * 1024U;
+        task->resource_limits[LINUX_RLIMIT_NPROC][0] = 256;
+        task->resource_limits[LINUX_RLIMIT_NPROC][1] = 256;
+        task->dumpable = 1;
+    }
+    snprintf(task->comm, sizeof(task->comm), "%s",
+        name ? name : "kernel-task");
     if (name)
         snprintf(task->name, sizeof(task->name), "%s", name);
     else
@@ -267,7 +356,35 @@ uint32_t multitasking_spawn_userland(const char *name, const user_task_spec_t *s
     task->user_spec.parent_pid = task->parent_pid;
     task->tty_index = spec->tty_index < TTY_COUNT ? spec->tty_index : multitasking_current_tty();
 
-    return push_task_locked(task);
+    uint32_t pid = push_task_locked(task);
+    task_t *parent = find_task_locked(task->parent_pid);
+    if (parent) {
+        task->process_group_id = parent->process_group_id;
+        task->session_id = parent->session_id;
+        memcpy(task->resource_limits, parent->resource_limits,
+            sizeof(task->resource_limits));
+        memcpy(task->supplementary_groups, parent->supplementary_groups,
+            sizeof(task->supplementary_groups));
+        task->supplementary_group_count = parent->supplementary_group_count;
+        task->dumpable = parent->dumpable;
+        task->no_new_privileges = parent->no_new_privileges;
+    } else {
+        task->process_group_id = pid;
+        task->session_id = pid;
+        for (size_t i = 0; i < TASK_RLIMIT_COUNT; ++i) {
+            task->resource_limits[i][0] = LINUX_RLIM_INFINITY;
+            task->resource_limits[i][1] = LINUX_RLIM_INFINITY;
+        }
+        task->resource_limits[LINUX_RLIMIT_CORE][0] = 0;
+        task->resource_limits[LINUX_RLIMIT_NOFILE][0] = STREAM_MAX_FDS;
+        task->resource_limits[LINUX_RLIMIT_NOFILE][1] = STREAM_MAX_FDS;
+        task->resource_limits[LINUX_RLIMIT_STACK][0] = 8U * 1024U * 1024U;
+        task->resource_limits[LINUX_RLIMIT_NPROC][0] = 256;
+        task->resource_limits[LINUX_RLIMIT_NPROC][1] = 256;
+        task->dumpable = 1;
+    }
+    snprintf(task->comm, sizeof(task->comm), "%s", task->name);
+    return pid;
 }
 
 bool multitasking_exit_task(uint32_t pid, int exit_code) {
@@ -280,6 +397,13 @@ bool multitasking_exit_task(uint32_t pid, int exit_code) {
 
     task->state = TASK_STATE_EXITED;
     task->exit_code = exit_code;
+    for (task_t *child = g_task_head; child; child = child->next) {
+        if (child->parent_pid == pid && child->state != TASK_STATE_EXITED &&
+            child->parent_death_signal > 0) {
+            child->state = TASK_STATE_EXITED;
+            child->exit_code = 128 + child->parent_death_signal;
+        }
+    }
     for (task_t *t = g_task_head; t; t = t->next) {
         if (t->parent_pid == pid)
             t->parent_pid = 1;

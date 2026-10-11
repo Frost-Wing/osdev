@@ -109,5 +109,6 @@ int nvme_read_sector(int namespace_index, uint64_t lba, void *buffer, uint32_t c
  * @return 0 on success, otherwise a negative error code.
  */
 int nvme_write_sector(int namespace_index, uint64_t lba, void *buffer, uint32_t count);
+int nvme_flush_namespace(int namespace_index);
 
 #endif

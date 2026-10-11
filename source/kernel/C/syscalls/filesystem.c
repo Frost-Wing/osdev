@@ -830,6 +830,198 @@ uint64 sys_unlinkat(int dirfd, const char *user_path, int flags) {
     return -LINUX_EIO;
 }
 
+static uint64 ext2_mode_update_error(int rc) {
+    switch (rc) {
+        case EXT2_OK:
+            return 0;
+        case EXT2_ERR_NOT_FOUND:
+            return -LINUX_ENOENT;
+        case EXT2_ERR_NOTDIR:
+            return -LINUX_ENOTDIR;
+        case EXT2_ERR_INVAL:
+            return -LINUX_EINVAL;
+        case EXT2_ERR_ISDIR:
+            return -LINUX_EPERM;
+        case EXT2_ERR_NOSPACE:
+            return -LINUX_ENOSPC;
+        default:
+            return -LINUX_EIO;
+    }
+}
+
+static uint64 ext2_link_error(int rc) {
+    switch (rc) {
+        case EXT2_OK:
+            return 0;
+        case EXT2_ERR_NOT_FOUND:
+            return -LINUX_ENOENT;
+        case EXT2_ERR_NOTDIR:
+            return -LINUX_ENOTDIR;
+        case EXT2_ERR_EXISTS:
+            return -LINUX_EEXIST;
+        case EXT2_ERR_LINK_LIMIT:
+            return -LINUX_EMLINK;
+        case EXT2_ERR_NOSPACE:
+            return -LINUX_ENOSPC;
+        case EXT2_ERR_ISDIR:
+            return -LINUX_EPERM;
+        case EXT2_ERR_INVAL:
+            return -LINUX_EINVAL;
+        default:
+            return -LINUX_EIO;
+    }
+}
+
+uint64 sys_link(const char *oldpath, const char *newpath) {
+    if (!oldpath || !newpath)
+        return -LINUX_EFAULT;
+
+    char old_norm[256], new_norm[256];
+    if (!resolve_path_at(LINUX_AT_FDCWD, oldpath, old_norm, sizeof(old_norm)) ||
+        !resolve_path_at(LINUX_AT_FDCWD, newpath, new_norm, sizeof(new_norm)))
+        return -LINUX_EINVAL;
+
+    vfs_mount_res_t old_mount, new_mount;
+    if (vfs_resolve_mount(old_norm, &old_mount) != 0 ||
+        vfs_resolve_mount(new_norm, &new_mount) != 0)
+        return -LINUX_ENOENT;
+    if (old_mount.mnt != new_mount.mnt)
+        return -LINUX_EXDEV;
+    if (old_mount.mnt->type != FS_EXT2)
+        return old_mount.mnt->type == FS_ISO9660 ?
+            (uint64)-LINUX_EROFS : (uint64)-LINUX_EOPNOTSUPP;
+
+    int rc = ext2_link_path((ext2_fs_t *)old_mount.mnt->fs,
+        old_mount.rel_path, new_mount.rel_path);
+    return ext2_link_error(rc);
+}
+
+uint64 sys_symlink(const char *target, const char *linkpath) {
+    if (!target || !linkpath)
+        return -LINUX_EFAULT;
+
+    char link_norm[256];
+    if (!resolve_path_at(LINUX_AT_FDCWD, linkpath, link_norm,
+            sizeof(link_norm)))
+        return -LINUX_EINVAL;
+
+    vfs_mount_res_t mount;
+    if (vfs_resolve_mount(link_norm, &mount) != 0)
+        return -LINUX_ENOENT;
+    if (mount.mnt->type != FS_EXT2)
+        return mount.mnt->type == FS_ISO9660 ?
+            (uint64)-LINUX_EROFS : (uint64)-LINUX_EOPNOTSUPP;
+
+    return ext2_link_error(ext2_symlink_path((ext2_fs_t *)mount.mnt->fs,
+        target, mount.rel_path));
+}
+
+uint64 sys_close_range(uint64_t first, uint64_t last, uint64_t flags) {
+    if (first > last)
+        return -LINUX_EINVAL;
+    if (flags & ~(LINUX_CLOSE_RANGE_UNSHARE | LINUX_CLOSE_RANGE_CLOEXEC))
+        return -LINUX_EINVAL;
+    if (flags & LINUX_CLOSE_RANGE_UNSHARE)
+        return -LINUX_ENOSYS;
+    if (first >= STREAM_MAX_FDS)
+        return 0;
+    if (last >= STREAM_MAX_FDS)
+        last = STREAM_MAX_FDS - 1;
+
+    for (uint64_t fd = first; fd <= last; ++fd) {
+        if (!fd_valid((int)fd))
+            continue;
+        if (flags & LINUX_CLOSE_RANGE_CLOEXEC)
+            fd_set_cloexec((int)fd, true);
+        else {
+            sys_socket_close((int)fd);
+            if (fd_close((int)fd) != 0)
+                return -LINUX_EBADF;
+        }
+    }
+    return 0;
+}
+
+uint64 sys_rmdir(const char *user_path) {
+    return sys_unlinkat(LINUX_AT_FDCWD, user_path, LINUX_AT_REMOVEDIR);
+}
+
+uint64 sys_chmod(const char *user_path, uint64_t mode) {
+    if (!user_path)
+        return -LINUX_EFAULT;
+
+    char path[256];
+    if (!resolve_path_at(LINUX_AT_FDCWD, user_path, path, sizeof(path)))
+        return -LINUX_EINVAL;
+
+    vfs_mount_res_t mount;
+    if (vfs_resolve_mount(path, &mount) != 0)
+        return -LINUX_ENOENT;
+    if (mount.mnt->type != FS_EXT2)
+        return mount.mnt->type == FS_ISO9660 ?
+            (uint64)-LINUX_EROFS : (uint64)-LINUX_EOPNOTSUPP;
+
+    ext2_fs_t *fs = (ext2_fs_t *)mount.mnt->fs;
+    uint32_t ino;
+    ext2_inode_t inode;
+    int rc = ext2_find_path(fs, mount.rel_path, &ino, &inode);
+    if (rc != EXT2_OK)
+        return ext2_mode_update_error(rc);
+    rc = ext2_chmod_inode(fs, ino, (uint16_t)(mode & 07777U), &inode);
+    if (rc == EXT2_OK)
+        fd_ext2_update_mode(ino, inode.i_mode, inode.i_ctime);
+    return ext2_mode_update_error(rc);
+}
+
+uint64 sys_fchmod(uint64_t fd, uint64_t mode) {
+    if (fd >= STREAM_MAX_FDS || !fd_valid((int)fd))
+        return -LINUX_EBADF;
+
+    vfs_file_t *file = fd_get_file((int)fd);
+    if (!file || !file->mnt)
+        return -LINUX_EBADF;
+    if (file->mnt->type != FS_EXT2)
+        return file->mnt->type == FS_ISO9660 ?
+            (uint64_t)-LINUX_EROFS : (uint64_t)-LINUX_EOPNOTSUPP;
+
+    int rc = ext2_chmod_inode((ext2_fs_t *)file->mnt->fs,
+        file->f.ext2.ino, (uint16_t)(mode & 07777U), &file->f.ext2.inode);
+    if (rc == EXT2_OK)
+        fd_ext2_update_mode(file->f.ext2.ino, file->f.ext2.inode.i_mode,
+            file->f.ext2.inode.i_ctime);
+    return ext2_mode_update_error(rc);
+}
+
+uint64 sys_fchmodat(int dirfd, const char *user_path, uint64_t mode,
+    int flags) {
+    if (flags & ~LINUX_AT_SYMLINK_NOFOLLOW)
+        return -LINUX_EINVAL;
+    if (flags & LINUX_AT_SYMLINK_NOFOLLOW)
+        return -LINUX_EOPNOTSUPP;
+    if (!user_path)
+        return -LINUX_EFAULT;
+
+    char path[256];
+    if (!resolve_path_at(dirfd, user_path, path, sizeof(path)))
+        return -LINUX_EINVAL;
+    return sys_chmod(path, mode);
+}
+
+uint64 sys_fsync(uint64_t fd) {
+    if (fd >= STREAM_MAX_FDS || !fd_valid((int)fd))
+        return -LINUX_EBADF;
+
+    vfs_file_t *file = fd_get_file((int)fd);
+    if (!file || !file->mnt)
+        return -LINUX_EINVAL;
+    if (file->mnt->type == FS_EXT2)
+        return ext2_sync((ext2_fs_t *)file->mnt->fs) == EXT2_OK ?
+            0 : (uint64_t)-LINUX_EIO;
+    if (file->mnt->type == FS_ISO9660)
+        return -LINUX_EROFS;
+    return -LINUX_EOPNOTSUPP;
+}
+
 uint64 sys_rename(const char *oldpath, const char *newpath) {
     if (!oldpath || !newpath)
         return -LINUX_EFAULT;
@@ -1386,6 +1578,8 @@ uint64 sys_open_common(int dirfd, const char *path, int flags, int mode) {
         return -LINUX_ENOENT;
     }
 
+    if (flags & LINUX_O_CLOEXEC)
+        fd_set_cloexec(fd, true);
     return fd;
 }
 
@@ -1396,6 +1590,12 @@ uint64 sys_close(uint64_t fd) {
     sys_socket_close((int)fd);
 
     return fd_close((int)fd) == 0 ? 0 : -LINUX_EBADF;
+}
+
+void sys_close_on_exec(void) {
+    for (int fd = 0; fd < STREAM_MAX_FDS; ++fd)
+        if (fd_get_cloexec(fd))
+            (void)sys_close((uint64_t)fd);
 }
 
 uint64 sys_ftruncate(uint64_t fd, int64_t length) {

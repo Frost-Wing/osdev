@@ -337,7 +337,10 @@ uint64 sys_dup2(uint64_t oldfd, uint64_t newfd) {
 uint64 sys_dup3(uint64_t oldfd, uint64_t newfd, uint64_t flags) {
     if (oldfd == newfd || (flags & ~LINUX_O_CLOEXEC) != 0)
         return -LINUX_EINVAL;
-    return sys_dup2(oldfd, newfd);
+    uint64_t result = sys_dup2(oldfd, newfd);
+    if ((int64_t)result >= 0 && (flags & LINUX_O_CLOEXEC))
+        fd_set_cloexec((int)result, true);
+    return result;
 }
 
 uint64 sys_dup(uint64_t oldfd) {
@@ -448,6 +451,10 @@ uint64 sys_pipe2(int *user_fds, uint64_t flags) {
     if (fd_pipe_create(fds, (flags & LINUX_O_NONBLOCK) != 0) != 0)
         return -LINUX_ENFILE;
 
+    if (flags & LINUX_O_CLOEXEC) {
+        fd_set_cloexec(fds[0], true);
+        fd_set_cloexec(fds[1], true);
+    }
     user_fds[0] = fds[0];
     user_fds[1] = fds[1];
     return 0;
@@ -964,7 +971,29 @@ uint64 sys_eventfd2(uint64_t initial_value, uint64_t flags) {
     int fd = fd_eventfd_create((uint32_t)initial_value,
         (flags & LINUX_EFD_SEMAPHORE) != 0,
         (flags & LINUX_EFD_NONBLOCK) != 0);
+    if (fd >= 0 && (flags & LINUX_EFD_CLOEXEC))
+        fd_set_cloexec(fd, true);
     return fd < 0 ? (uint64)(-LINUX_EMFILE) : (uint64)fd;
+}
+
+uint64 sys_epoll_create1(uint64_t flags) {
+    if (flags & ~LINUX_EPOLL_CLOEXEC)
+        return -LINUX_EINVAL;
+
+    int fd = fd_epoll_create();
+    if (fd >= 0 && (flags & LINUX_EPOLL_CLOEXEC))
+        fd_set_cloexec(fd, true);
+    return fd < 0 ? (uint64)(-LINUX_EMFILE) : (uint64)fd;
+}
+
+uint64 sys_flock(uint64_t fd, uint64_t operation) {
+    if (fd >= STREAM_MAX_FDS)
+        return -LINUX_EBADF;
+    if (operation > INT32_MAX)
+        return -LINUX_EINVAL;
+
+    int result = fd_flock((int)fd, (int)operation);
+    return result == 0 ? 0 : (uint64)(-result);
 }
 
 /**
@@ -1108,14 +1137,73 @@ uint64 sys_arch_prctl(uint64_t code, uint64_t addr) {
     }
 }
 
-uint64 sys_prlimit64(uint64_t pid, uint64_t resource, const linux_rlimit64_t *new_limit, linux_rlimit64_t *old_limit) {
-    (void)resource;
-    (void)new_limit;
-    if (pid != 0 && pid != 1)
+static task_t *syscall_rlimit_task(uint64_t pid) {
+    uint32_t target_pid;
+    if (pid == 0)
+        target_pid = multitasking_current_pid();
+    else if (pid <= UINT32_MAX)
+        target_pid = (uint32_t)pid;
+    else
+        return NULL;
+    return target_pid ? multitasking_find_task(target_pid) : NULL;
+}
+
+uint64 sys_getrlimit(uint64_t resource, linux_rlimit64_t *limit) {
+    if (resource >= TASK_RLIMIT_COUNT)
         return -LINUX_EINVAL;
+    if (!limit)
+        return -LINUX_EFAULT;
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_ESRCH;
+    limit->rlim_cur = task->resource_limits[resource][0];
+    limit->rlim_max = task->resource_limits[resource][1];
+    return 0;
+}
+
+uint64 sys_setrlimit(uint64_t resource, const linux_rlimit64_t *limit) {
+    if (resource >= TASK_RLIMIT_COUNT)
+        return -LINUX_EINVAL;
+    if (!limit)
+        return -LINUX_EFAULT;
+
+    linux_rlimit64_t updated = *limit;
+    if (updated.rlim_cur > updated.rlim_max)
+        return -LINUX_EINVAL;
+
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_ESRCH;
+    task->resource_limits[resource][0] = updated.rlim_cur;
+    task->resource_limits[resource][1] = updated.rlim_max;
+    return 0;
+}
+
+uint64 sys_prlimit64(uint64_t pid, uint64_t resource,
+    const linux_rlimit64_t *new_limit, linux_rlimit64_t *old_limit) {
+    if (resource >= TASK_RLIMIT_COUNT || pid > UINT32_MAX)
+        return -LINUX_EINVAL;
+    if (!new_limit && !old_limit)
+        return -LINUX_EINVAL;
+
+    task_t *task = syscall_rlimit_task(pid);
+    if (!task || task->state == TASK_STATE_EXITED)
+        return -LINUX_ESRCH;
+
+    linux_rlimit64_t updated = {0};
+    if (new_limit) {
+        updated = *new_limit;
+        if (updated.rlim_cur > updated.rlim_max)
+            return -LINUX_EINVAL;
+    }
+
     if (old_limit) {
-        old_limit->rlim_cur = ~0ULL;
-        old_limit->rlim_max = ~0ULL;
+        old_limit->rlim_cur = task->resource_limits[resource][0];
+        old_limit->rlim_max = task->resource_limits[resource][1];
+    }
+    if (new_limit) {
+        task->resource_limits[resource][0] = updated.rlim_cur;
+        task->resource_limits[resource][1] = updated.rlim_max;
     }
     return 0;
 }
@@ -1268,4 +1356,36 @@ uint64 sys_sysinfo(linux_sysinfo_t *info) {
        so these are genuinely zero (already cleared by memset). */
     info->mem_unit = 1;                 /* every size above is in bytes */
     return 0;
+}
+
+int64_t sys_readv(uint64_t fd, linux_iovec_t *iov, uint64_t cnt) {
+    int64_t total = 0;
+    for (uint64_t i = 0; i < cnt; i++) {
+        if (!iov[i].iov_len) continue;
+        int64_t n = sys_read(fd, (char *)iov[i].iov_base, iov[i].iov_len);
+        if (n < 0) return total ? total : n;   /* report error only if nothing was read */
+        total += n;
+        if ((uint64_t)n < iov[i].iov_len) break; /* short read, stop */
+    }
+    return total;
+}
+
+int64_t sys_pread64(uint64_t fd, char *buf, uint64_t len, int64_t off) {
+    int64_t saved = sys_lseek(fd, 0, 1);          /* SEEK_CUR */
+    if (saved < 0) return saved;
+    int64_t r = sys_lseek(fd, off, 0);            /* SEEK_SET */
+    if (r < 0) return r;
+    int64_t n = sys_read(fd, buf, len);
+    sys_lseek(fd, saved, 0);
+    return n;
+}
+
+int64_t sys_pwrite64(uint64_t fd, const char *buf, uint64_t len, int64_t off) {
+    int64_t saved = sys_lseek(fd, 0, 1);
+    if (saved < 0) return saved;
+    int64_t r = sys_lseek(fd, off, 0);
+    if (r < 0) return r;
+    int64_t n = sys_write(fd, buf, len);
+    sys_lseek(fd, saved, 0);
+    return n;
 }

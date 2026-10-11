@@ -108,6 +108,7 @@
 #define EXT2_ERR_ISDIR -7
 #define EXT2_ERR_INVAL -8
 #define EXT2_ERR_NOTEMPTY -9
+#define EXT2_ERR_LINK_LIMIT -10
 
 /* ===================== On-disk structures ===================== */
 
@@ -271,6 +272,10 @@ int ext2_readlink(ext2_fs_t *fs, const char *path, char *buf, uint32_t bufsiz);
 /** @brief Update access and modification timestamps for a path. */
 int ext2_set_times(ext2_fs_t *fs, const char *path, uint32_t atime, uint32_t mtime);
 
+/** @brief Set permission/special mode bits on an inode and return updated metadata. */
+int ext2_chmod_inode(ext2_fs_t *fs, uint32_t ino, uint16_t mode,
+    ext2_inode_t *updated_inode);
+
 /** @brief List the entries in a directory inode. */
 int ext2_list_dir(ext2_fs_t *fs, uint32_t dir_ino);
 
@@ -279,6 +284,12 @@ int ext2_open(ext2_fs_t *fs, const char *path, ext2_file_t *f);
 
 /** @brief Create a file and optionally return an open handle. */
 int ext2_create(ext2_fs_t *fs, const char *path, uint16_t mode, ext2_file_t *f);
+/** @brief Add a hard link to a non-directory inode. */
+int ext2_link_path(ext2_fs_t *fs, const char *existing_path,
+    const char *new_path);
+/** @brief Create a symbolic link with an arbitrary nonempty target. */
+int ext2_symlink_path(ext2_fs_t *fs, const char *target,
+    const char *link_path);
 
 /** @brief Read bytes from an open EXT2 file. */
 int ext2_read(ext2_file_t *f, uint8_t *out, uint32_t size);
@@ -317,11 +328,11 @@ int ext2_find_in_dir(ext2_fs_t *fs, uint32_t dir_ino, const char *name, uint32_t
  * @brief Flush all pending EXT2 filesystem writes.
  *
  * FrostWing's EXT2 implementation performs synchronous writes for
- * all metadata and file data, so there are currently no dirty buffers
- * to flush.
+ * all metadata and file data eagerly, then flushes the backing block
+ * device's volatile write cache.
  *
  * Future implementations with block caches or delayed allocation
- * should flush those here before returning.
+ * should flush those here before the device cache.
  *
  * @param fs Mounted EXT2 filesystem.
  * @return EXT2_OK on success.

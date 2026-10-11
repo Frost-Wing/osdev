@@ -28,6 +28,7 @@
 #define NVME_ADMIN_OP_SET_FEATURES 0x09
 #define NVME_NVM_OP_WRITE 0x01
 #define NVME_NVM_OP_READ 0x02
+#define NVME_NVM_OP_FLUSH 0x00
 #define NVME_FEAT_NUM_QUEUES 0x07
 
 nvme_controller_t nvme_controllers[NVME_MAX_CONTROLLERS];
@@ -414,4 +415,24 @@ int nvme_write_sector(int namespace_index, uint64_t lba, void *buffer, uint32_t 
     }
 
     return 0;
+}
+
+int nvme_flush_namespace(int namespace_index) {
+    if (namespace_index < 0 || namespace_index >= nvme_namespace_count)
+        return -1;
+
+    nvme_namespace_t *ns = &nvme_namespaces[namespace_index];
+    if (!ns->present || ns->controller_index < 0 ||
+        ns->controller_index >= NVME_MAX_CONTROLLERS)
+        return -1;
+
+    nvme_controller_t *ctrl = &nvme_controllers[ns->controller_index];
+    if (!ctrl->present)
+        return -1;
+
+    nvme_command_t cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.opcode = NVME_NVM_OP_FLUSH;
+    cmd.nsid = ns->nsid;
+    return nvme_submit_and_wait(ctrl, &ctrl->ioq, &cmd);
 }

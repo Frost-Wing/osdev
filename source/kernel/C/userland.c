@@ -1181,6 +1181,7 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
         image_info.tls_template = NULL;
     }
 
+    sys_close_on_exec();
     sys_rseq_reset_current();
     userland_heap_init();
 
@@ -1346,6 +1347,7 @@ int userland_exec_replace(const userland_exec_ctx_t *ctx) {
         userland_free_snapshot(backup);
 
         exec_copy_free(copy);
+        sys_close_on_exec();
         sys_rseq_reset_current();
         userland_heap_init();
         userland_iret((uint64_t)entry, stack_top);

@@ -15,6 +15,19 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define FD_EPOLL_CTL_ADD 1
+#define FD_EPOLL_CTL_DEL 2
+#define FD_EPOLL_CTL_MOD 3
+
+typedef struct {
+    int fd;
+    uint32_t events;
+    uint64_t data;
+    uint32_t last_ready;
+    bool used;
+    bool disabled;
+} fd_epoll_watch_t;
+
 typedef struct vfs_file vfs_file_t;
 
 typedef enum {
@@ -66,6 +79,9 @@ void fd_table_init(void);
 
 /** @brief Check whether a file descriptor refers to an open entry. */
 bool fd_valid(int fd);
+int fd_current_limit(void);
+void fd_set_cloexec(int fd, bool enabled);
+bool fd_get_cloexec(int fd);
 
 /** @brief Check whether a descriptor refers to a terminal. */
 bool fd_is_tty(int fd);
@@ -180,5 +196,25 @@ int fd_eventfd_write(int fd, uint64_t value);
  * @return Readiness bits, or a negative error code.
  */
 int fd_eventfd_poll(int fd, int events);
+
+/**
+ * @brief Apply a BSD flock-style advisory lock to a descriptor.
+ * @param fd Descriptor to lock.
+ * @param operation LOCK_SH, LOCK_EX, LOCK_UN, optionally with LOCK_NB.
+ * @return 0 on success, or a positive Linux errno value.
+ */
+int fd_flock(int fd, int operation);
+
+/**
+ * @brief Create an epoll instance descriptor.
+ * @return Descriptor on success, or -1 if the descriptor table is full.
+ */
+int fd_epoll_create(void);
+bool fd_is_epoll(int fd);
+int fd_epoll_ctl(int epfd, int operation, int fd, uint32_t events,
+    uint64_t data);
+bool fd_epoll_watch_get(int epfd, int index, fd_epoll_watch_t *watch);
+void fd_epoll_watch_update(int epfd, int fd, uint32_t ready, bool delivered);
+void fd_ext2_update_mode(uint32_t ino, uint16_t mode, uint32_t ctime);
 
 #endif

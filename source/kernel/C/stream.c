@@ -13,9 +13,12 @@
 #include <filesystems/vfs.h>
 #include <flanterm/flanterm.h>
 #include <graphics.h> // flanterm
+#include <heap.h>
 #include <memory.h>
 #include <multitasking.h>
 #include <stream.h>
+#include <sys/resource.h>
+#include <syscalls.h>
 
 extern struct flanterm_context *ft_ctx;
 
@@ -50,10 +53,14 @@ typedef struct {
     bool eventfd_semaphore;
     bool eventfd_nonblocking;
     uint64_t eventfd_counter;
+    bool epoll;
+    fd_epoll_watch_t *epoll_watches;
+    int flock_mode;
 } fd_object_t;
 
 typedef struct {
     bool used;
+    bool close_on_exec;
     fd_object_t *object;
 } fd_entry_t;
 
@@ -109,11 +116,15 @@ static void fd_object_release(fd_object_t *object) {
     if (object->owns_file && object->file && object->file->mnt)
         vfs_close(object->file);
 
+    if (object->epoll_watches)
+        kfree(object->epoll_watches);
+
     memset(object, 0, sizeof(*object));
 }
 
 static int fd_alloc_slot(void) {
-    for (int fd = 3; fd < STREAM_MAX_FDS; ++fd) {
+    int limit = fd_current_limit();
+    for (int fd = 3; fd < limit; ++fd) {
         if (!fd_table[fd].used)
             return fd;
     }
@@ -129,6 +140,7 @@ static void fd_assign_slot(int fd, fd_object_t *object) {
         fd_object_release(fd_table[fd].object);
 
     fd_table[fd].used = true;
+    fd_table[fd].close_on_exec = false;
     fd_table[fd].object = object;
     fd_object_retain(object);
 }
@@ -207,6 +219,25 @@ bool fd_valid(int fd) {
     return fd >= 0 && fd < STREAM_MAX_FDS && fd_table[fd].used;
 }
 
+int fd_current_limit(void) {
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return STREAM_MAX_FDS;
+    uint64_t limit = task->resource_limits[LINUX_RLIMIT_NOFILE][0];
+    if (limit > STREAM_MAX_FDS)
+        return STREAM_MAX_FDS;
+    return (int)limit;
+}
+
+void fd_set_cloexec(int fd, bool enabled) {
+    if (fd_valid(fd))
+        fd_table[fd].close_on_exec = enabled;
+}
+
+bool fd_get_cloexec(int fd) {
+    return fd_valid(fd) && fd_table[fd].close_on_exec;
+}
+
 bool fd_is_tty(int fd) {
     return fd_valid(fd) && fd_table[fd].object &&
         fd_table[fd].object->tty;
@@ -242,6 +273,7 @@ int fd_open(const char *path, int flags) {
     }
 
     fd_table[fd].used = true;
+    fd_table[fd].close_on_exec = false;
     fd_table[fd].object = object;
     return fd;
 }
@@ -259,6 +291,7 @@ int fd_create_virtual(const char *path, int flags) {
         vfs_normalize_path(path, object->path, sizeof(object->path));
 
     fd_table[fd].used = true;
+    fd_table[fd].close_on_exec = false;
     fd_table[fd].object = object;
     return fd;
 }
@@ -267,15 +300,27 @@ int fd_close(int fd) {
     if (!fd_valid(fd))
         return -1;
 
+    for (int i = 0; i < STREAM_MAX_FDS; ++i) {
+        fd_object_t *object = &fd_objects[i];
+        if (!object->used || !object->epoll || !object->epoll_watches)
+            continue;
+        for (int j = 0; j < STREAM_MAX_FDS; ++j) {
+            fd_epoll_watch_t *watch = &object->epoll_watches[j];
+            if (watch->used && watch->fd == fd)
+                memset(watch, 0, sizeof(*watch));
+        }
+    }
+
     fd_object_release(fd_table[fd].object);
     fd_table[fd].used = false;
+    fd_table[fd].close_on_exec = false;
     fd_table[fd].object = NULL;
 
     return 0;
 }
 
 int fd_dup2(int oldfd, int newfd) {
-    if (!fd_valid(oldfd) || newfd < 0 || newfd >= STREAM_MAX_FDS)
+    if (!fd_valid(oldfd) || newfd < 0 || newfd >= fd_current_limit())
         return -1;
 
     if (oldfd == newfd)
@@ -369,7 +414,7 @@ int fd_pipe_create(int fds[2], bool nonblocking) {
     if (read_fd < 0)
         return -1;
     int write_fd = -1;
-    for (int fd = read_fd + 1; fd < STREAM_MAX_FDS; ++fd) {
+    for (int fd = read_fd + 1; fd < fd_current_limit(); ++fd) {
         if (!fd_table[fd].used) {
             write_fd = fd;
             break;
@@ -409,8 +454,10 @@ int fd_pipe_create(int fds[2], bool nonblocking) {
     writer->pipe_nonblocking = nonblocking;
 
     fd_table[read_fd].used = true;
+    fd_table[read_fd].close_on_exec = false;
     fd_table[read_fd].object = reader;
     fd_table[write_fd].used = true;
+    fd_table[write_fd].close_on_exec = false;
     fd_table[write_fd].object = writer;
     fds[0] = read_fd;
     fds[1] = write_fd;
@@ -518,6 +565,7 @@ int fd_eventfd_create(uint64_t initial_value, bool semaphore, bool nonblocking) 
     object->eventfd_nonblocking = nonblocking;
     object->eventfd_counter = initial_value;
     fd_table[fd].used = true;
+    fd_table[fd].close_on_exec = false;
     fd_table[fd].object = object;
     return fd;
 }
@@ -568,4 +616,174 @@ int fd_eventfd_poll(int fd, int events) {
     if (object->eventfd_counter <= UINT64_MAX - 2)
         ready |= events & FD_POLLOUT;
     return ready;
+}
+
+int fd_flock(int fd, int operation) {
+    const int allowed = LINUX_LOCK_SH | LINUX_LOCK_EX |
+        LINUX_LOCK_NB | LINUX_LOCK_UN;
+    if (operation & ~allowed)
+        return LINUX_EINVAL;
+
+    int requested = operation & (LINUX_LOCK_SH | LINUX_LOCK_EX | LINUX_LOCK_UN);
+    if (requested != LINUX_LOCK_SH && requested != LINUX_LOCK_EX &&
+        requested != LINUX_LOCK_UN)
+        return LINUX_EINVAL;
+    if (!fd_valid(fd))
+        return LINUX_EBADF;
+
+    fd_object_t *object = fd_table[fd].object;
+    if (!object || !object->file || !object->file->mnt ||
+        object->path[0] == '\0')
+        return LINUX_EBADF;
+
+    if (requested == LINUX_LOCK_UN) {
+        object->flock_mode = 0;
+        return 0;
+    }
+
+    if (object->flock_mode == requested)
+        return 0;
+    object->flock_mode = 0;
+
+    for (;;) {
+        bool conflict = false;
+        for (int i = 0; i < STREAM_MAX_FDS; ++i) {
+            fd_object_t *other = &fd_objects[i];
+            if (!other->used || other == object || other->flock_mode == 0 ||
+                !other->file || other->file->mnt != object->file->mnt ||
+                strcmp(other->path, object->path) != 0)
+                continue;
+            if (requested == LINUX_LOCK_EX ||
+                other->flock_mode == LINUX_LOCK_EX) {
+                conflict = true;
+                break;
+            }
+        }
+
+        if (!conflict) {
+            object->flock_mode = requested;
+            return 0;
+        }
+        if (operation & LINUX_LOCK_NB)
+            return LINUX_EWOULDBLOCK;
+
+        multitasking_yield();
+    }
+}
+
+int fd_epoll_create(void) {
+    int fd = fd_alloc_slot();
+    if (fd < 0)
+        return -1;
+
+    fd_object_t *object = fd_object_alloc(NULL, false, VFS_RDWR);
+    if (!object)
+        return -1;
+
+    object->epoll_watches = kmalloc(sizeof(fd_epoll_watch_t) * STREAM_MAX_FDS);
+    if (!object->epoll_watches) {
+        fd_object_release(object);
+        return -1;
+    }
+    memset(object->epoll_watches, 0,
+        sizeof(fd_epoll_watch_t) * STREAM_MAX_FDS);
+    object->epoll = true;
+    fd_table[fd].used = true;
+    fd_table[fd].close_on_exec = false;
+    fd_table[fd].object = object;
+    return fd;
+}
+
+bool fd_is_epoll(int fd) {
+    return fd_valid(fd) && fd_table[fd].object &&
+        fd_table[fd].object->epoll;
+}
+
+int fd_epoll_ctl(int epfd, int operation, int fd, uint32_t events,
+    uint64_t data) {
+    if (!fd_valid(epfd))
+        return LINUX_EBADF;
+    if (!fd_is_epoll(epfd))
+        return LINUX_EINVAL;
+    if (operation != FD_EPOLL_CTL_ADD && operation != FD_EPOLL_CTL_DEL &&
+        operation != FD_EPOLL_CTL_MOD)
+        return LINUX_EINVAL;
+    if (!fd_valid(fd))
+        return LINUX_EBADF;
+    if (epfd == fd || fd_is_epoll(fd))
+        return LINUX_EINVAL;
+
+    fd_object_t *epoll = fd_table[epfd].object;
+    fd_epoll_watch_t *free_watch = NULL;
+    for (int i = 0; i < STREAM_MAX_FDS; ++i) {
+        fd_epoll_watch_t *watch = &epoll->epoll_watches[i];
+        if (watch->used && watch->fd == fd) {
+            if (operation == FD_EPOLL_CTL_ADD)
+                return LINUX_EEXIST;
+            if (operation == FD_EPOLL_CTL_DEL) {
+                memset(watch, 0, sizeof(*watch));
+                return 0;
+            }
+            watch->events = events;
+            watch->data = data;
+            watch->last_ready = 0;
+            watch->disabled = false;
+            return 0;
+        }
+        if (!watch->used && !free_watch)
+            free_watch = watch;
+    }
+
+    if (operation != FD_EPOLL_CTL_ADD)
+        return LINUX_ENOENT;
+    if (!free_watch)
+        return LINUX_ENOSPC;
+
+    free_watch->fd = fd;
+    free_watch->events = events;
+    free_watch->data = data;
+    free_watch->last_ready = 0;
+    free_watch->disabled = false;
+    free_watch->used = true;
+    return 0;
+}
+
+bool fd_epoll_watch_get(int epfd, int index, fd_epoll_watch_t *watch) {
+    if (!fd_is_epoll(epfd) || index < 0 || index >= STREAM_MAX_FDS ||
+        !watch)
+        return false;
+
+    fd_epoll_watch_t *entry = &fd_table[epfd].object->epoll_watches[index];
+    if (!entry->used)
+        return false;
+    *watch = *entry;
+    return true;
+}
+
+void fd_epoll_watch_update(int epfd, int fd, uint32_t ready, bool delivered) {
+    if (!fd_is_epoll(epfd))
+        return;
+
+    fd_epoll_watch_t *watches = fd_table[epfd].object->epoll_watches;
+    for (int i = 0; i < STREAM_MAX_FDS; ++i) {
+        fd_epoll_watch_t *watch = &watches[i];
+        if (!watch->used || watch->fd != fd)
+            continue;
+        watch->last_ready = ready;
+        if (delivered && ready && (watch->events & LINUX_EPOLLONESHOT))
+            watch->disabled = true;
+        return;
+    }
+}
+
+void fd_ext2_update_mode(uint32_t ino, uint16_t mode, uint32_t ctime) {
+    for (int i = 0; i < STREAM_MAX_FDS; ++i) {
+        fd_object_t *object = &fd_objects[i];
+        vfs_file_t *file = object->used ? object->file : NULL;
+        if (!file || !file->mnt || file->mnt->type != FS_EXT2 ||
+            file->f.ext2.ino != ino)
+            continue;
+        file->f.ext2.inode.i_mode = mode;
+        file->f.ext2.inode.i_ctime = ctime;
+    }
 }

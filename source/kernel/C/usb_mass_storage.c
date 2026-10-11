@@ -607,6 +607,21 @@ int usb_msc_write_blocks(int backend_index, uint64_t lba, uint32_t count,
         (void *)buffer, true);
 }
 
+int usb_msc_sync_cache(int backend_index) {
+    if (backend_index < 0 || backend_index >= (int)USB_MSC_MAX_TARGETS)
+        return -1;
+
+    usb_msc_target_t *target = &targets[backend_index];
+    if (!target->active || !target->transport)
+        return -1;
+
+    uint8_t cdb[10] = {0x35U};
+    msc_lock(target->transport);
+    int result = msc_command(target, cdb, sizeof(cdb), 0, NULL, 0, NULL);
+    msc_unlock(target->transport);
+    return result == 0 ? 0 : -1;
+}
+
 int usb_msc_refresh_device(int backend_index) {
     if (backend_index < 0 || backend_index >= (int)USB_MSC_MAX_TARGETS)
         return -1;

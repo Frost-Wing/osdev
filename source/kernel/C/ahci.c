@@ -813,6 +813,74 @@ int ahci_write_sector(int portno, uint64_t lba, void *buffer, uint32_t count) {
     return block_write_sector(portno, lba, buffer, count);
 }
 
+static int ahci_flush_cache_raw(int portno) {
+    if (!global_ahci_ctrl || portno < 0 || portno >= 32)
+        return -1;
+
+    ahci_port_t *port = &global_ahci_ctrl->ports[portno];
+    ahci_port_mem_t *mem = &port_mem[portno];
+    int rc = -1;
+
+    ahci_lock_port_io(portno);
+    while (port->tfd & (0x80 | 0x08))
+        ;
+
+    int slot = ahci_find_free_slot(port);
+    if (slot < 0)
+        goto out;
+
+    ahci_cmd_header_t *hdr = &mem->cmd_list[slot];
+    memset(hdr, 0, sizeof(*hdr));
+    hdr->flags = 5 & AHCI_CMD_HDR_CFL_MASK;
+    hdr->ctba = (uint32_t)(uintptr_t)mem->cmd_tables[slot];
+    hdr->ctbau = 0;
+
+    ahci_cmd_table_t *tbl = mem->cmd_tables[slot];
+    memset(tbl->cfis, 0, sizeof(tbl->cfis));
+    memset(tbl->prdt, 0, sizeof(tbl->prdt));
+    tbl->cfis[0] = 0x27;
+    tbl->cfis[1] = 1U << 7;
+    tbl->cfis[2] = ATA_CMD_FLUSH_CACHE;
+
+    port->serr = 0xFFFFFFFF;
+    port->is = 0xFFFFFFFF;
+    __sync_synchronize();
+    port->ci = 1U << slot;
+
+    while (port->ci & (1U << slot)) {
+        if (port->tfd & (0x01 | 0x20))
+            goto out;
+    }
+
+    port->is = 0xFFFFFFFF;
+    rc = 0;
+
+out:
+    ahci_unlock_port_io(portno);
+    return rc;
+}
+
+int block_flush_cache(int device_id) {
+    block_device_info_t *dev = block_get_device(device_id);
+    if (!dev)
+        return -1;
+
+    switch (dev->type) {
+        case BLOCK_DEVICE_AHCI:
+            if (dev->backend_index < 0 || dev->backend_index >= 32 ||
+                !global_ahci_ctrl ||
+                global_ahci_ctrl->ports[dev->backend_index].sig == satapi_disk)
+                return -1;
+            return ahci_flush_cache_raw(dev->backend_index);
+        case BLOCK_DEVICE_NVME:
+            return nvme_flush_namespace(dev->backend_index);
+        case BLOCK_DEVICE_USB:
+            return usb_msc_sync_cache(dev->backend_index);
+        default:
+            return -1;
+    }
+}
+
 static int ahci_issue_packet_command(
     int portno,
     const uint8_t packet[12],

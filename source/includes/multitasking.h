@@ -9,6 +9,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define TASK_RLIMIT_COUNT 16
+#define TASK_SUPPLEMENTARY_GROUPS 16
+
 typedef enum {
     TASK_TYPE_KERNEL = 0,
     TASK_TYPE_USERLAND = 1
@@ -42,6 +45,8 @@ typedef struct task_info {
     uint64_t runtime_ticks;
     uint64_t wakeup_tick;
     uint32_t parent_pid;
+    uint32_t process_group_id;
+    uint32_t session_id;
     uint8_t tty_index;
     char name[64];
     char exe_path[128];
@@ -78,9 +83,18 @@ typedef struct task {
     uint64_t runtime_ticks;
     uint64_t wakeup_tick;
     uint32_t parent_pid;
+    uint32_t process_group_id;
+    uint32_t session_id;
     bool fork_child;
     uint8_t tty_index;
     char name[64];
+    char comm[16];
+    uint64_t resource_limits[TASK_RLIMIT_COUNT][2];
+    uint32_t supplementary_groups[TASK_SUPPLEMENTARY_GROUPS];
+    uint8_t supplementary_group_count;
+    int dumpable;
+    bool no_new_privileges;
+    int parent_death_signal;
 
     kernel_task_fn_t kernel_fn;
     void *kernel_ctx;
@@ -183,6 +197,13 @@ bool multitasking_for_each_task(task_iter_cb_t cb, void *ctx);
 
 /** @brief Return the current task record, or NULL when no task is active. */
 task_t *multitasking_get_current_task(void);
+bool multitasking_get_process_ids(uint32_t pid, uint32_t *parent_pid,
+    uint32_t *process_group_id, uint32_t *session_id, bool *is_exited);
+bool multitasking_process_group_exists(uint32_t process_group_id,
+    uint32_t session_id);
+bool multitasking_set_process_group(uint32_t pid, uint32_t process_group_id);
+bool multitasking_set_process_session(uint32_t pid);
+bool multitasking_set_parent_death_signal(uint32_t pid, int signal);
 
 /** @brief Run the multitasking subsystem's internal self-tests. */
 void multitasking_selftest(void);

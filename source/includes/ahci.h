@@ -24,6 +24,7 @@
 #define SECTOR_SIZE 512
 
 #define ATA_CMD_WRITE_DMA_EXT 0x35
+#define ATA_CMD_FLUSH_CACHE 0xE7
 #define ATA_CMD_IDENTIFY 0xEC
 
 #define MAX_PARTITIONS 128
@@ -295,6 +296,9 @@ int block_read_sector(int device_id, uint64_t lba, void *buffer, uint32_t count)
 /** @brief Write sectors to a block device. */
 int block_write_sector(int device_id, uint64_t lba, void *buffer, uint32_t count);
 
+/** @brief Flush completed writes for a registered block device. */
+int block_flush_cache(int device_id);
+
 /** @brief Read a range of blocks from a block device. */
 int read_blocks(int device_id, uint64_t lba, uint32_t count, void *buffer);
 
@@ -324,6 +328,7 @@ int usb_msc_read_blocks(int backend_index, uint64_t lba, uint32_t count, void *b
 
 /** @brief Write blocks to a USB mass-storage backend. */
 int usb_msc_write_blocks(int backend_index, uint64_t lba, uint32_t count, const void *buffer);
+int usb_msc_sync_cache(int backend_index);
 
 /** @brief Refresh the block-device registration for a USB mass-storage backend. */
 int usb_msc_refresh_device(int backend_index);

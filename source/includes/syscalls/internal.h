@@ -145,6 +145,32 @@ uint64 sys_umount2(const char *target, int flags);
 void sysinfo_mark_boot(void);
 uint64 sys_sysinfo(linux_sysinfo_t *info);
 uint64 sys_eventfd2(uint64_t initial_value, uint64_t flags);
+uint64 sys_epoll_create1(uint64_t flags);
+uint64 sys_epoll_ctl(uint64_t epfd, uint64_t operation, uint64_t fd,
+    const void *event);
+uint64 sys_epoll_wait(uint64_t epfd, void *events, int maxevents, int timeout_ms);
+uint64 sys_flock(uint64_t fd, uint64_t operation);
+uint64 sys_chmod(const char *path, uint64_t mode);
+uint64 sys_fchmod(uint64_t fd, uint64_t mode);
+uint64 sys_fchmodat(int dirfd, const char *path, uint64_t mode, int flags);
+uint64 sys_fsync(uint64_t fd);
+uint64 sys_rmdir(const char *path);
+uint64 sys_link(const char *oldpath, const char *newpath);
+uint64 sys_symlink(const char *target, const char *linkpath);
+uint64 sys_close_range(uint64_t first, uint64_t last, uint64_t flags);
+void sys_close_on_exec(void);
 uint64 sys_ftruncate(uint64_t fd, int64_t length);
+uint64 sys_getrlimit(uint64_t resource, linux_rlimit64_t *limit);
+uint64 sys_setrlimit(uint64_t resource, const linux_rlimit64_t *limit);
+uint64 sys_prctl(uint64_t option, uint64_t arg2, uint64_t arg3,
+    uint64_t arg4, uint64_t arg5);
+uint64 sys_setpgid(uint64_t pid, uint64_t pgid);
+uint64 sys_getpgid(uint64_t pid);
+uint64 sys_getsid(uint64_t pid);
+uint64 sys_setsid(void);
+uint64 sys_getgroups(int size, uint32_t *groups);
+int64_t sys_readv(uint64_t fd, linux_iovec_t *iov, uint64_t cnt);
+int64_t sys_pread64(uint64_t fd, char *buf, uint64_t len, int64_t off);
+int64_t sys_pwrite64(uint64_t fd, const char *buf, uint64_t len, int64_t off);
 
 #endif

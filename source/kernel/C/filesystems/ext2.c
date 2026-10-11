@@ -280,6 +280,25 @@ int ext2_set_times(ext2_fs_t *fs, const char *path, uint32_t atime, uint32_t mti
     return ext2_write_inode(fs, ino, &inode);
 }
 
+int ext2_chmod_inode(ext2_fs_t *fs, uint32_t ino, uint16_t mode,
+    ext2_inode_t *updated_inode) {
+    if (!fs || ino == 0 || ino > fs->sb.s_inodes_count)
+        return EXT2_ERR_INVAL;
+
+    ext2_inode_t inode;
+    if (ext2_read_inode(fs, ino, &inode) != EXT2_OK)
+        return EXT2_ERR_IO;
+
+    inode.i_mode = (uint16_t)((inode.i_mode & EXT2_S_IFMT) | (mode & 07777U));
+    inode.i_ctime = ext2_now();
+    if (ext2_write_inode(fs, ino, &inode) != EXT2_OK)
+        return EXT2_ERR_IO;
+
+    if (updated_inode)
+        *updated_inode = inode;
+    return EXT2_OK;
+}
+
 /* ===================== Bitmap allocation ===================== */
 
 static inline int bit_test(uint8_t *map, uint32_t bit) {
@@ -1279,6 +1298,135 @@ int ext2_create(ext2_fs_t *fs, const char *path, uint16_t mode, ext2_file_t *f) 
     return EXT2_OK;
 }
 
+int ext2_link_path(ext2_fs_t *fs, const char *existing_path,
+    const char *new_path) {
+    if (!fs || !existing_path || !new_path)
+        return EXT2_ERR_INVAL;
+
+    uint32_t target_ino;
+    ext2_inode_t target;
+    int rc = ext2_find_path_ex(fs, existing_path, &target_ino, &target, false);
+    if (rc != EXT2_OK)
+        return rc;
+    if ((target.i_mode & EXT2_S_IFMT) == EXT2_S_IFDIR)
+        return EXT2_ERR_ISDIR;
+    if (target.i_links_count == UINT16_MAX)
+        return EXT2_ERR_LINK_LIMIT;
+
+    char name[EXT2_NAME_LEN + 1];
+    uint32_t parent_ino;
+    rc = ext2_find_parent(fs, new_path, &parent_ino, name, sizeof(name));
+    if (rc != EXT2_OK)
+        return rc;
+    if (name[0] == '\0' || strcmp(name, ".") == 0 ||
+        strcmp(name, "..") == 0)
+        return EXT2_ERR_INVAL;
+
+    uint32_t existing_ino;
+    if (ext2_find_path_ex(fs, new_path, &existing_ino, NULL, false) == EXT2_OK)
+        return EXT2_ERR_EXISTS;
+
+    ext2_inode_t parent;
+    if (ext2_read_inode(fs, parent_ino, &parent) != EXT2_OK)
+        return EXT2_ERR_IO;
+    if ((parent.i_mode & EXT2_S_IFMT) != EXT2_S_IFDIR)
+        return EXT2_ERR_NOTDIR;
+
+    uint32_t group = (parent_ino - 1) / fs->inodes_per_group;
+    rc = ext2_dir_add_entry(fs, parent_ino, &parent, target_ino, name,
+        (target.i_mode & EXT2_S_IFMT) == EXT2_S_IFLNK ?
+            EXT2_FT_SYMLINK : EXT2_FT_REG_FILE, group);
+    if (rc != EXT2_OK)
+        return rc;
+
+    target.i_links_count++;
+    target.i_ctime = ext2_now();
+    return ext2_write_inode(fs, target_ino, &target);
+}
+
+int ext2_symlink_path(ext2_fs_t *fs, const char *target_path,
+    const char *link_path) {
+    if (!fs || !target_path || !link_path || target_path[0] == '\0')
+        return EXT2_ERR_INVAL;
+
+    size_t target_len = strlen(target_path);
+    if (target_len > UINT32_MAX)
+        return EXT2_ERR_INVAL;
+
+    char name[EXT2_NAME_LEN + 1];
+    uint32_t parent_ino;
+    int rc = ext2_find_parent(fs, link_path, &parent_ino, name, sizeof(name));
+    if (rc != EXT2_OK)
+        return rc;
+    if (name[0] == '\0' || strcmp(name, ".") == 0 ||
+        strcmp(name, "..") == 0)
+        return EXT2_ERR_INVAL;
+
+    uint32_t existing_ino;
+    if (ext2_find_path_ex(fs, link_path, &existing_ino, NULL, false) == EXT2_OK)
+        return EXT2_ERR_EXISTS;
+
+    ext2_inode_t parent;
+    if (ext2_read_inode(fs, parent_ino, &parent) != EXT2_OK)
+        return EXT2_ERR_IO;
+    if ((parent.i_mode & EXT2_S_IFMT) != EXT2_S_IFDIR)
+        return EXT2_ERR_NOTDIR;
+
+    uint32_t group = (parent_ino - 1) / fs->inodes_per_group;
+    uint32_t ino = ext2_alloc_inode(fs, group, 0);
+    if (!ino)
+        return EXT2_ERR_NOSPACE;
+
+    ext2_inode_t inode;
+    memset(&inode, 0, sizeof(inode));
+    inode.i_mode = EXT2_S_IFLNK | 0777;
+    inode.i_links_count = 1;
+    inode.i_size = (uint32_t)target_len;
+    inode.i_atime = inode.i_mtime = inode.i_ctime = ext2_now();
+
+    if (target_len <= sizeof(inode.i_block)) {
+        memcpy(inode.i_block, target_path, target_len);
+    } else {
+        uint8_t block_data[EXT2_MAX_BLOCK_SIZE];
+        uint32_t copied = 0;
+        while (copied < target_len) {
+            uint32_t logical_block = copied / fs->block_size;
+            uint32_t block = ext2_bmap(fs, &inode, logical_block, 1, group);
+            if (!block) {
+                ext2_truncate_inode(fs, &inode);
+                ext2_free_inode(fs, ino, 0);
+                return EXT2_ERR_NOSPACE;
+            }
+            uint32_t chunk = fs->block_size;
+            if (chunk > target_len - copied)
+                chunk = (uint32_t)(target_len - copied);
+            memset(block_data, 0, fs->block_size);
+            memcpy(block_data, target_path + copied, chunk);
+            if (ext2_write_block(fs, block, block_data) != EXT2_OK) {
+                ext2_truncate_inode(fs, &inode);
+                ext2_free_inode(fs, ino, 0);
+                return EXT2_ERR_IO;
+            }
+            copied += chunk;
+        }
+    }
+
+    if (ext2_write_inode(fs, ino, &inode) != EXT2_OK) {
+        ext2_truncate_inode(fs, &inode);
+        ext2_free_inode(fs, ino, 0);
+        return EXT2_ERR_IO;
+    }
+
+    rc = ext2_dir_add_entry(fs, parent_ino, &parent, ino, name,
+        EXT2_FT_SYMLINK, group);
+    if (rc != EXT2_OK) {
+        ext2_truncate_inode(fs, &inode);
+        ext2_free_inode(fs, ino, 0);
+        return rc;
+    }
+    return EXT2_OK;
+}
+
 int ext2_read(ext2_file_t *f, uint8_t *out, uint32_t size) {
     if (!f || !f->fs)
         return EXT2_ERR_INVAL;
@@ -2003,14 +2151,8 @@ int ext2_sync(ext2_fs_t *fs) {
             return rc;
     }
 
-    /*
-     * Future:
-     *  - Flush inode cache
-     *  - Flush block cache
-     *  - Flush bitmap cache
-     *  - Flush directory cache
-     *  - ATA FLUSH CACHE
-     */
+    if (block_flush_cache(fs->portno) != 0)
+        return EXT2_ERR_IO;
 
     return EXT2_OK;
 }

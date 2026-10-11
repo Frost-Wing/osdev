@@ -145,6 +145,7 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             FrostWing.img
+            FrostWing.img.tar.gz
             FrostWing.iso
             FrostWing.iso.tar.gz
             sha256sums

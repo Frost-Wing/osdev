@@ -238,6 +238,144 @@ uint64 sys_wait4(int64_t pid, int *status, int options, void *rusage) {
     }
 }
 
+uint64 sys_setpgid(uint64_t pid, uint64_t pgid) {
+    uint32_t current_pid = multitasking_current_pid();
+    if (!current_pid)
+        current_pid = 1;
+    if (pid > UINT32_MAX || pgid > UINT32_MAX)
+        return -LINUX_EINVAL;
+    uint32_t target_pid = pid ? (uint32_t)pid : current_pid;
+    uint32_t target_pgid = pgid ? (uint32_t)pgid : target_pid;
+
+    uint32_t parent_pid, target_group, target_session;
+    bool exited;
+    if (!multitasking_get_process_ids(target_pid, &parent_pid, &target_group,
+            &target_session, &exited) || exited)
+        return -LINUX_ESRCH;
+
+    uint32_t current_session;
+    if (!multitasking_get_process_ids(current_pid, NULL, NULL,
+            &current_session, NULL))
+        return -LINUX_ESRCH;
+    if (target_pid != current_pid && parent_pid != current_pid)
+        return -LINUX_ESRCH;
+    if (target_session != current_session ||
+        (target_group == target_pid && target_session == target_pid))
+        return -LINUX_EPERM;
+    if (target_pgid != target_pid &&
+        !multitasking_process_group_exists(target_pgid, target_session))
+        return -LINUX_EPERM;
+    return multitasking_set_process_group(target_pid, target_pgid) ?
+        0 : (uint64)-LINUX_ESRCH;
+}
+
+uint64 sys_getpgid(uint64_t pid) {
+    if (pid > UINT32_MAX)
+        return -LINUX_ESRCH;
+    uint32_t target_pid = pid ? (uint32_t)pid : multitasking_current_pid();
+    uint32_t process_group_id;
+    bool exited;
+    if (!target_pid || !multitasking_get_process_ids(target_pid, NULL,
+            &process_group_id, NULL, &exited) || exited)
+        return -LINUX_ESRCH;
+    return process_group_id;
+}
+
+uint64 sys_getsid(uint64_t pid) {
+    if (pid > UINT32_MAX)
+        return -LINUX_ESRCH;
+    uint32_t target_pid = pid ? (uint32_t)pid : multitasking_current_pid();
+    uint32_t session_id;
+    bool exited;
+    if (!target_pid || !multitasking_get_process_ids(target_pid, NULL, NULL,
+            &session_id, &exited) || exited)
+        return -LINUX_ESRCH;
+    return session_id;
+}
+
+uint64 sys_setsid(void) {
+    uint32_t pid = multitasking_current_pid();
+    if (!pid)
+        pid = 1;
+    uint32_t pgid;
+    if (!multitasking_get_process_ids(pid, NULL, &pgid, NULL, NULL))
+        return -LINUX_ESRCH;
+    if (pgid == pid)
+        return -LINUX_EPERM;
+    return multitasking_set_process_session(pid) ? pid : (uint64)-LINUX_EPERM;
+}
+
+uint64 sys_getgroups(int size, uint32_t *groups) {
+    if (size < 0)
+        return -LINUX_EINVAL;
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_ESRCH;
+    uint32_t count = task->supplementary_group_count;
+    if (size == 0)
+        return count;
+    if ((uint32_t)size < count)
+        return -LINUX_EINVAL;
+    if (count && !groups)
+        return -LINUX_EFAULT;
+    if (count)
+        memcpy(groups, task->supplementary_groups, count * sizeof(uint32_t));
+    return count;
+}
+
+uint64 sys_prctl(uint64_t option, uint64_t arg2, uint64_t arg3,
+    uint64_t arg4, uint64_t arg5) {
+    (void)arg3;
+    (void)arg4;
+    (void)arg5;
+
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_ESRCH;
+
+    switch (option) {
+        case LINUX_PR_SET_PDEATHSIG:
+            if (arg2 > 64)
+                return -LINUX_EINVAL;
+            return multitasking_set_parent_death_signal(task->pid,
+                (int)arg2) ? 0 : (uint64)-LINUX_ESRCH;
+        case LINUX_PR_GET_PDEATHSIG:
+            if (!arg2)
+                return -LINUX_EFAULT;
+            *(int *)arg2 = task->parent_death_signal;
+            return 0;
+        case LINUX_PR_GET_DUMPABLE:
+            return (uint64)task->dumpable;
+        case LINUX_PR_SET_DUMPABLE:
+            if (arg2 > 1)
+                return -LINUX_EINVAL;
+            task->dumpable = (int)arg2;
+            return 0;
+        case LINUX_PR_SET_NAME: {
+            if (!arg2)
+                return -LINUX_EFAULT;
+            char name[sizeof(task->comm)] = {0};
+            strncpy(name, (const char *)arg2, sizeof(name) - 1);
+            memcpy(task->comm, name, sizeof(name));
+            return 0;
+        }
+        case LINUX_PR_GET_NAME:
+            if (!arg2)
+                return -LINUX_EFAULT;
+            memcpy((void *)arg2, task->comm, sizeof(task->comm));
+            return 0;
+        case LINUX_PR_GET_NO_NEW_PRIVS:
+            return task->no_new_privileges ? 1 : 0;
+        case LINUX_PR_SET_NO_NEW_PRIVS:
+            if (arg2 != 1)
+                return -LINUX_EINVAL;
+            task->no_new_privileges = true;
+            return 0;
+        default:
+            return -LINUX_EINVAL;
+    }
+}
+
 #define FUTEX_WAIT 0
 #define FUTEX_WAKE 1
 #define FUTEX_REQUEUE 3

@@ -118,6 +118,13 @@ typedef struct {
     short revents;
 } linux_pollfd_t;
 
+typedef struct __attribute__((packed)) {
+    uint32_t events;
+    uint64_t data;
+} linux_epoll_event_t;
+
+_Static_assert(sizeof(linux_epoll_event_t) == 12, "epoll_event ABI size");
+
 static uint16_t socket_allocate_port(void) {
     uint16_t port = next_socket_port++;
     if (next_socket_port < SOCKET_PORT_FIRST)
@@ -191,6 +198,24 @@ static short socket_poll_events(linux_socket_t *sock, short events) {
     return revents;
 }
 
+static uint32_t epoll_ready_events(int fd, uint32_t events);
+
+static bool epoll_fd_has_ready_event(int epfd) {
+    for (int i = 0; i < STREAM_MAX_FDS; ++i) {
+        fd_epoll_watch_t watch;
+        if (!fd_epoll_watch_get(epfd, i, &watch) || watch.disabled ||
+            !fd_valid(watch.fd))
+            continue;
+
+        uint32_t ready = epoll_ready_events(watch.fd, watch.events);
+        if ((watch.events & LINUX_EPOLLET) != 0)
+            ready &= ~watch.last_ready;
+        if (ready)
+            return true;
+    }
+    return false;
+}
+
 uint64 sys_poll(void *pollfds, uint64_t nfds, int timeout_ms) {
     if (nfds && !pollfds)
         return -LINUX_EFAULT;
@@ -223,6 +248,10 @@ uint64 sys_poll(void *pollfds, uint64_t nfds, int timeout_ms) {
                     (fds[i].events | LINUX_POLLERR | LINUX_POLLHUP));
             } else if (fd_is_eventfd(fds[i].fd)) {
                 fds[i].revents = (short)fd_eventfd_poll(fds[i].fd, fds[i].events);
+            } else if (fd_is_epoll(fds[i].fd)) {
+                if ((fds[i].events & LINUX_POLLIN) &&
+                    epoll_fd_has_ready_event(fds[i].fd))
+                    fds[i].revents = LINUX_POLLIN;
             } else {
                 fds[i].revents = fds[i].events;   /* regular files/devices: always ready */
             }
@@ -231,6 +260,137 @@ uint64 sys_poll(void *pollfds, uint64_t nfds, int timeout_ms) {
         }
         if (ready || timeout_ms == 0 || (timeout_ms > 0 && pit_ticks >= deadline))
             return ready;
+        asm volatile("hlt");
+    }
+}
+
+static uint32_t epoll_ready_events(int fd, uint32_t events) {
+    uint32_t input_events = LINUX_EPOLLIN | LINUX_EPOLLRDNORM;
+    uint32_t output_events = LINUX_EPOLLOUT | LINUX_EPOLLWRNORM;
+    short poll_events = 0;
+    if (events & input_events)
+        poll_events |= LINUX_POLLIN;
+    if (events & output_events)
+        poll_events |= LINUX_POLLOUT;
+
+    short revents = 0;
+    linux_socket_t *sock = linux_socket_by_fd(fd);
+    if (sock) {
+        revents = socket_poll_events(sock, poll_events);
+    } else if (fd_is_pipe(fd)) {
+        revents = (short)(fd_pipe_poll(fd) &
+            (poll_events | LINUX_POLLERR | LINUX_POLLHUP));
+    } else if (fd_is_eventfd(fd)) {
+        revents = (short)fd_eventfd_poll(fd, poll_events);
+    } else {
+        revents = poll_events;
+    }
+
+    uint32_t ready = 0;
+    if (revents & LINUX_POLLIN)
+        ready |= events & input_events;
+    if (revents & LINUX_POLLOUT)
+        ready |= events & output_events;
+    if (revents & LINUX_POLLERR)
+        ready |= LINUX_EPOLLERR;
+    if (revents & LINUX_POLLHUP) {
+        ready |= LINUX_EPOLLHUP;
+        ready |= events & LINUX_EPOLLRDHUP;
+    }
+    return ready;
+}
+
+uint64 sys_epoll_ctl(uint64_t epfd, uint64_t operation, uint64_t fd,
+    const void *event_ptr) {
+    if (epfd >= STREAM_MAX_FDS || !fd_valid((int)epfd))
+        return -LINUX_EBADF;
+    if (!fd_is_epoll((int)epfd))
+        return -LINUX_EINVAL;
+    int op = (int)operation;
+    if (op != LINUX_EPOLL_CTL_ADD && op != LINUX_EPOLL_CTL_DEL &&
+        op != LINUX_EPOLL_CTL_MOD)
+        return -LINUX_EINVAL;
+    if (fd >= STREAM_MAX_FDS || !fd_valid((int)fd))
+        return -LINUX_EBADF;
+
+    uint32_t events = 0;
+    uint64_t data = 0;
+    if (op != LINUX_EPOLL_CTL_DEL) {
+        if (!event_ptr)
+            return -LINUX_EFAULT;
+        const linux_epoll_event_t *event =
+            (const linux_epoll_event_t *)event_ptr;
+        events = event->events;
+        data = event->data;
+
+        const uint32_t supported =
+            LINUX_EPOLLIN | LINUX_EPOLLPRI | LINUX_EPOLLOUT |
+            LINUX_EPOLLERR | LINUX_EPOLLHUP | LINUX_EPOLLRDNORM |
+            LINUX_EPOLLRDBAND | LINUX_EPOLLWRNORM | LINUX_EPOLLWRBAND |
+            LINUX_EPOLLMSG | LINUX_EPOLLRDHUP | LINUX_EPOLLWAKEUP |
+            LINUX_EPOLLONESHOT | LINUX_EPOLLET;
+        if (events & ~supported)
+            return -LINUX_EINVAL;
+    }
+
+    int result = fd_epoll_ctl((int)epfd, op, (int)fd,
+        events, data);
+    return result ? (uint64)(-result) : 0;
+}
+
+uint64 sys_epoll_wait(uint64_t epfd, void *events, int maxevents,
+    int timeout_ms) {
+    if (epfd >= STREAM_MAX_FDS || !fd_valid((int)epfd))
+        return -LINUX_EBADF;
+    if (!fd_is_epoll((int)epfd))
+        return -LINUX_EINVAL;
+    if (maxevents <= 0 || timeout_ms < -1)
+        return -LINUX_EINVAL;
+    if (!events)
+        return -LINUX_EFAULT;
+
+    linux_epoll_event_t *out = (linux_epoll_event_t *)events;
+    uint64_t deadline = pit_ticks;
+    if (timeout_ms > 0)
+        deadline += ((uint64_t)timeout_ms + 9) / 10;
+
+    for (;;) {
+        if (tty_interrupt_pending())
+            return -LINUX_EINTR;
+        netif_poll();
+
+        int count = 0;
+        for (int i = 0; i < STREAM_MAX_FDS && count < maxevents; ++i) {
+            fd_epoll_watch_t watch;
+            if (!fd_epoll_watch_get((int)epfd, i, &watch) || watch.disabled)
+                continue;
+            if (!fd_valid(watch.fd))
+                continue;
+
+            uint32_t ready = epoll_ready_events(watch.fd, watch.events);
+            if (ready == 0) {
+                fd_epoll_watch_update((int)epfd, watch.fd, 0, false);
+                continue;
+            }
+
+            uint32_t report = ready;
+            if (watch.events & LINUX_EPOLLET) {
+                report &= ~watch.last_ready;
+                if (report == 0) {
+                    fd_epoll_watch_update((int)epfd, watch.fd, ready, false);
+                    continue;
+                }
+            }
+
+            out[count].events = report;
+            out[count].data = watch.data;
+            count++;
+            fd_epoll_watch_update((int)epfd, watch.fd, ready, true);
+        }
+
+        if (count > 0 || timeout_ms == 0 ||
+            (timeout_ms > 0 && pit_ticks >= deadline))
+            return (uint64_t)count;
         asm volatile("hlt");
     }
 }
@@ -284,6 +444,8 @@ uint64 sys_socket(uint64_t domain, uint64_t type, uint64_t protocol) {
     sock->tcp_id = -1;
     sock->recv_timeout_ms = SOCKET_TIMEOUT_DEFAULT_MS;
     sock->send_timeout_ms = SOCKET_TIMEOUT_DEFAULT_MS;
+    if (type & LINUX_SOCK_CLOEXEC)
+        fd_set_cloexec(fd, true);
     return fd;
 }
 
@@ -1050,20 +1212,26 @@ uint64 sys_fcntl(uint64_t fd, uint64_t cmd, uint64_t arg) {
     switch (cmd) {
         case LINUX_F_DUPFD:
         case LINUX_F_DUPFD_CLOEXEC: {
-            if (arg >= STREAM_MAX_FDS)
+            int limit = fd_current_limit();
+            if (arg >= (uint64_t)limit)
                 return -LINUX_EINVAL;
-            for (int target = (int)arg; target < STREAM_MAX_FDS; ++target) {
+            for (int target = (int)arg; target < limit; ++target) {
                 if (!fd_valid(target)) {
                     int duplicated = fd_dup2((int)fd, target);
-                    if (duplicated >= 0)
+                    if (duplicated >= 0) {
                         sys_socket_dup((int)fd, duplicated);
+                        fd_set_cloexec(duplicated,
+                            cmd == LINUX_F_DUPFD_CLOEXEC);
+                    }
                     return duplicated;
                 }
             }
             return -LINUX_ENFILE;
         }
         case LINUX_F_GETFD:
+            return fd_get_cloexec((int)fd) ? LINUX_FD_CLOEXEC : 0;
         case LINUX_F_SETFD:
+            fd_set_cloexec((int)fd, (arg & LINUX_FD_CLOEXEC) != 0);
             return 0;
         case LINUX_F_SETFL: {
             linux_socket_t *s = linux_socket_by_fd((int)fd);

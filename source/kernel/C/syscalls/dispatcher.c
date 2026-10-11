@@ -123,6 +123,16 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_FTRUNCATE:
             return sys_ftruncate(arg1, (int64_t)arg2);
 
+        case LINUX_SYS_GETRLIMIT:
+            return sys_getrlimit(arg1, (linux_rlimit64_t *)arg2);
+
+        case LINUX_SYS_SETRLIMIT:
+            return sys_setrlimit(arg1, (const linux_rlimit64_t *)arg2);
+
+        case LINUX_SYS_FSYNC:
+        case LINUX_SYS_FDATASYNC:
+            return sys_fsync(arg1);
+
         case LINUX_SYS_LSEEK:
             return sys_lseek(arg1, (int64_t)arg2, arg3);
 
@@ -230,8 +240,32 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_FCNTL:
             return sys_fcntl(arg1, arg2, arg3);
 
+        case LINUX_SYS_FLOCK:
+            return sys_flock(arg1, arg2);
+
         case LINUX_SYS_CHDIR:
             return sys_chdir((const char *)arg1);
+
+        case LINUX_SYS_SETPGID:
+            return sys_setpgid(arg1, arg2);
+
+        case LINUX_SYS_GETPGRP:
+            return sys_getpgid(0);
+
+        case LINUX_SYS_SETSID:
+            return sys_setsid();
+
+        case LINUX_SYS_GETGROUPS:
+            return sys_getgroups((int)arg1, (uint32_t *)arg2);
+
+        case LINUX_SYS_GETPGID:
+            return sys_getpgid(arg1);
+
+        case LINUX_SYS_GETSID:
+            return sys_getsid(arg1);
+
+        case LINUX_SYS_PRCTL:
+            return sys_prctl(arg1, arg2, arg3, arg4, arg5);
 
         case LINUX_SYS_FCHDIR:
             return sys_fchdir(arg1);
@@ -242,6 +276,12 @@ uint64_t syscall_dispatch(
 
         case LINUX_SYS_UNAME:
             return sys_uname((linux_utsname_t *)arg1);
+
+        case LINUX_SYS_LINK:
+            return sys_link((const char *)arg1, (const char *)arg2);
+
+        case LINUX_SYS_SYMLINK:
+            return sys_symlink((const char *)arg1, (const char *)arg2);
 
         case LINUX_SYS_READLINK:
             return sys_readlinkat(LINUX_AT_FDCWD, (const char *)arg1, (char *)arg2, arg3);
@@ -359,6 +399,19 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_MKDIRAT:
             return sys_mkdirat((int)arg1, (const char *)arg2, arg3);
 
+        case LINUX_SYS_RMDIR:
+            return sys_rmdir((const char *)arg1);
+
+        case LINUX_SYS_CHMOD:
+            return sys_chmod((const char *)arg1, arg2);
+
+        case LINUX_SYS_FCHMOD:
+            return sys_fchmod(arg1, arg2);
+
+        case LINUX_SYS_FCHMODAT:
+            return sys_fchmodat((int)arg1, (const char *)arg2, arg3,
+                (int)arg4);
+
         case LINUX_SYS_UNLINK:
             return sys_unlink((const char *)arg1);
 
@@ -379,6 +432,9 @@ uint64_t syscall_dispatch(
             return sys_copy_file_range(arg1, (int64_t *)arg2, arg3,
                 (int64_t *)arg4, arg5, arg6);
 
+        case LINUX_SYS_CLOSE_RANGE:
+            return sys_close_range(arg1, arg2, arg3);
+
         case 137: // statfs
             return sys_statfs((const char *)arg1, (linux_statfs_t *)arg2);
 
@@ -395,21 +451,30 @@ uint64_t syscall_dispatch(
                 (uint32_t *)arg5, arg6);
         case LINUX_SYS_EVENTFD2:
             return sys_eventfd2(arg1, arg2);
+        case LINUX_SYS_EPOLL_CREATE1:
+            return sys_epoll_create1(arg1);
         case 201: // time
             return sys_time((int64_t *)arg1);
         case 439: // faccessat2
             return sys_access_common((int)arg1, (const char *)arg2, (int)arg3);
         case 99:
             return sys_sysinfo((linux_sysinfo_t *)arg1);
-        case 19: {
-            linux_iovec_t *iov = (linux_iovec_t *)arg2;
-            if (arg3 > 0)
-                return sys_read(arg1, (char*)iov[0].iov_base, iov[0].iov_len);
-            return 0;
-        }
+        case LINUX_SYS_READV:   /* 19 */
+            return sys_readv(arg1, (linux_iovec_t *)arg2, arg3);
+        case LINUX_SYS_PREAD64:  /* 17 */
+            return sys_pread64(arg1, (char *)arg2, arg3, (int64_t)arg4);
+        case LINUX_SYS_PWRITE64: /* 18 */
+            return sys_pwrite64(arg1, (const char *)arg2, arg3, (int64_t)arg4);
 
         case LINUX_SYS_POLL:
             return sys_poll((void *)arg1, arg2, (int)arg3);
+
+        case LINUX_SYS_EPOLL_CTL:
+            return sys_epoll_ctl(arg1, arg2, arg3, (const void *)arg4);
+
+        case LINUX_SYS_EPOLL_WAIT:
+            return sys_epoll_wait(arg1, (void *)arg2, (int)arg3, (int)arg4);
+
         default:
             printf(linux_syscalls_prefix "Unknown, returning -ENOSYS for (%u)", nr);
             return -LINUX_ENOSYS;
