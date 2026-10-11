@@ -108,10 +108,50 @@ static int ssfn_cache_slot(uint32_t u) {
         default: return -1;
     }
 }
+
+/* Draw box-drawing glyphs directly: guaranteed to touch cell edges. */
+static bool ssfn_draw_box(struct flanterm_fb_context *ctx,
+                          uint32_t u, uint8_t *out) {
+    size_t cw = ctx->glyph_width, ch = ctx->glyph_height;
+
+    bool up = false, down = false, left = false, right = false;
+    switch (u) {
+    case 0x2502: up = down = true; break;            /* │ */
+    case 0x2500: left = right = true; break;         /* ─ */
+    case 0x2514: up = right = true; break;           /* └ */
+    case 0x251c: up = down = right = true; break;    /* ├ */
+    default: return false;
+    }
+
+    /* line thickness: ~1/10 of cell height, at least 1px, always odd-ish */
+    // size_t t = ch / 10;
+    size_t t = 1;
+
+    size_t cx0 = (cw - t) / 2, cx1 = cx0 + t;   /* vertical bar x-range   */
+    size_t cy0 = (ch - t) / 2, cy1 = cy0 + t;   /* horizontal bar y-range */
+
+    for (size_t i = 0; i < cw * ch; i++)
+        out[i] = 0;
+
+    for (size_t y = 0; y < ch; y++) {
+        for (size_t x = 0; x < cw; x++) {
+            bool on = false;
+            if (up    && x >= cx0 && x < cx1 && y <  cy1) on = true;
+            if (down  && x >= cx0 && x < cx1 && y >= cy0) on = true;
+            if (left  && y >= cy0 && y < cy1 && x <  cx1) on = true;
+            if (right && y >= cy0 && y < cy1 && x >= cx0) on = true;
+            if (on)
+                out[y * cw + x] = 255;
+        }
+    }
+    return true;
+}
  
 /* Render one glyph at SS x size and box-filter it down to cw*ch coverage bytes. */
 static void ssfn_render_coverage(struct flanterm_fb_context *ctx,
                                  uint32_t unicode, uint8_t *out) {
+    if (ssfn_draw_box(ctx, unicode, out))
+        return;
     const size_t SS = FLANTERM_FB_SSFN_SS;
     size_t cw = ctx->glyph_width, ch = ctx->glyph_height;
     size_t hw = cw * SS, hh = ch * SS;
