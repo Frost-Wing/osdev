@@ -187,6 +187,7 @@ QEMU_COMMON = \
     -device nvme,drive=nvmedisk,serial=FROSTNVME0 \
     -rtc base=localtime,clock=host \
     -boot order=d \
+	-monitor tcp:127.0.0.1:4444,server,nowait \
     $(KVM) \
 	-object filter-dump,id=f1,netdev=eth0,file=/tmp/dump.pcap \
     -m 2048

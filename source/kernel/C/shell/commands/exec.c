@@ -67,6 +67,9 @@ int cmd_exec(int argc, char **argv) {
     memset(&spec, 0, sizeof(spec));
     spec.path = path;
     spec.argc = user_argc;
+    spec.has_envp = true;
+    for (int i = 0; global_envp[i] && i < 31; i++)
+        spec.envp[i] = global_envp[i];
     spec.parent_pid = 0;
     /* Keep a program's stdin on the shell terminal that launched it. */
     spec.tty_index = multitasking_current_tty();

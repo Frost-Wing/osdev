@@ -74,7 +74,9 @@ uint64 sys_execve(const char *target,
 
         tb_ctx.argv[toybox_argc] = NULL;
 
-        if (current_pid && !multitasking_update_user_image(current_pid, tb_ctx.path, tb_ctx.argc, tb_ctx.argv)) {
+        if (current_pid && !multitasking_update_user_image(current_pid,
+                tb_ctx.path, tb_ctx.argc, tb_ctx.argv,
+                (const char *const *)copied_envp)) {
             free_copied_string_array(copied_argv, argc);
             free_copied_string_array(copied_envp, envc);
             return -LINUX_ENOMEM;
@@ -83,12 +85,21 @@ uint64 sys_execve(const char *target,
         rc = userland_exec_replace(&tb_ctx);
     } else {
         if (!path_is_loadable_elf(ctx.path)) {
+            vfs_file_t file;
+            if (vfs_open(ctx.path, VFS_RDONLY, &file) != 0) {
+                free_copied_string_array(copied_argv, argc);
+                free_copied_string_array(copied_envp, envc);
+                return -LINUX_ENOENT;
+            }
+            vfs_close(&file);
             free_copied_string_array(copied_argv, argc);
             free_copied_string_array(copied_envp, envc);
             return -LINUX_ENOEXEC;
         }
 
-        if (current_pid && !multitasking_update_user_image(current_pid, ctx.path, ctx.argc, ctx.argv)) {
+        if (current_pid && !multitasking_update_user_image(current_pid,
+                ctx.path, ctx.argc, ctx.argv,
+                (const char *const *)copied_envp)) {
             free_copied_string_array(copied_argv, argc);
             free_copied_string_array(copied_envp, envc);
             return -LINUX_ENOMEM;

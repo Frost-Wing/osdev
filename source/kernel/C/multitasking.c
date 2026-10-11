@@ -10,6 +10,7 @@
 #include <sys/resource.h>
 
 #define ARGV_MAX 32
+#define ENVP_MAX 32
 
 static task_t *g_task_head;
 static task_t *g_task_tail;
@@ -117,12 +118,17 @@ static void unlink_task_locked(task_t *prev, task_t *task) {
 static void free_user_spec(user_task_spec_t *spec) {
     for (int i = 0; i < ARGV_MAX; i++)
         kfree_const(spec->argv[i]);
+    for (int i = 0; i < ENVP_MAX; i++)
+        kfree_const(spec->envp[i]);
     kfree_const(spec->path);
     spec->path = NULL;
     memset(spec->argv, 0, sizeof(spec->argv));
+    memset(spec->envp, 0, sizeof(spec->envp));
+    spec->has_envp = false;
 }
 
-static bool copy_user_spec(user_task_spec_t *dst, const char *path, int argc, const char *const *argv) {
+static bool copy_user_spec(user_task_spec_t *dst, const char *path, int argc,
+    const char *const *argv, const char *const *envp) {
     memset(dst, 0, sizeof(*dst));
 
     dst->path = strdup(path);
@@ -138,6 +144,15 @@ static bool copy_user_spec(user_task_spec_t *dst, const char *path, int argc, co
     for (int i = 0; i < argc; i++) {
         dst->argv[i] = strdup(argv && argv[i] ? argv[i] : "");
         if (!dst->argv[i]) {
+            free_user_spec(dst);
+            return false;
+        }
+    }
+
+    dst->has_envp = envp != NULL;
+    for (int i = 0; envp && i < ENVP_MAX - 1 && envp[i]; i++) {
+        dst->envp[i] = strdup(envp[i]);
+        if (!dst->envp[i]) {
             free_user_spec(dst);
             return false;
         }
@@ -338,7 +353,8 @@ uint32_t multitasking_spawn_userland(const char *name, const user_task_spec_t *s
         return 0;
     memset(task, 0, sizeof(*task));
 
-    if (!copy_user_spec(&task->user_spec, spec->path, spec->argc, spec->argv)) {
+    if (!copy_user_spec(&task->user_spec, spec->path, spec->argc, spec->argv,
+            spec->has_envp ? spec->envp : NULL)) {
         kfree(task);
         return 0;
     }
@@ -435,12 +451,13 @@ void multitasking_yield(void) {
     multitasking_pump();
 }
 
-bool multitasking_update_user_image(uint32_t pid, const char *path, int argc, const char *const argv[]) {
+bool multitasking_update_user_image(uint32_t pid, const char *path, int argc,
+    const char *const argv[], const char *const envp[]) {
     if (!path)
         return false;
 
     user_task_spec_t fresh;
-    if (!copy_user_spec(&fresh, path, argc, argv))
+    if (!copy_user_spec(&fresh, path, argc, argv, envp))
         return false;
 
     user_task_spec_t old;
@@ -453,6 +470,8 @@ bool multitasking_update_user_image(uint32_t pid, const char *path, int argc, co
             task->user_spec.path = fresh.path;
             task->user_spec.argc = fresh.argc;
             memcpy(task->user_spec.argv, fresh.argv, sizeof(fresh.argv));
+            memcpy(task->user_spec.envp, fresh.envp, sizeof(fresh.envp));
+            task->user_spec.has_envp = fresh.has_envp;
             snprintf(task->name, sizeof(task->name), "%s", path);
             ok = true;
         }
@@ -639,7 +658,7 @@ void multitasking_pump(void) {
         int argc = task->user_spec.argc;
         ctx.path = task->user_spec.path;
         ctx.argc = argc;
-        ctx.envp = NULL;
+        ctx.envp = task->user_spec.has_envp ? task->user_spec.envp : NULL;
         for (int i = 0; i < argc; i++)
             ctx.argv[i] = task->user_spec.argv[i];
         ctx.argv[argc] = NULL;

@@ -28,6 +28,8 @@ typedef struct user_task_spec {
     const char *path;
     int argc;
     const char *argv[32];
+    const char *envp[32];
+    bool has_envp;
     uint32_t parent_pid;
     bool fork_child;
     /* TTY_INDEX_CURRENT inherits the spawning task's terminal. */
@@ -164,8 +166,9 @@ bool multitasking_sleep_task(uint32_t pid, uint64_t wakeup_tick);
 /** @brief Yield the current task's execution opportunity. */
 void multitasking_yield(void);
 
-/** @brief Replace the user image and arguments of an existing task. */
-bool multitasking_update_user_image(uint32_t pid, const char *path, int argc, const char *const argv[]);
+/** @brief Replace the user image, arguments, and environment of an existing task. */
+bool multitasking_update_user_image(uint32_t pid, const char *path, int argc,
+    const char *const argv[], const char *const envp[]);
 
 /** @brief Reap an exited task and return its final status. */
 bool multitasking_reap_task(uint32_t pid, task_info_t *out_info);

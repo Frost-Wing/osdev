@@ -23,7 +23,7 @@ int last_status_code = 0;
 string current_user;
 
 static char global_home_env[64] = "HOME=/";
-static char global_path_env[256] = "PATH=/";
+static char global_path_env[256] = "PATH=/bin:/usr/bin:/sbin:/usr/sbin";
 static char global_term_env[64] = "TERM=linux";
 static char global_user_env[64] = "USER=none";
 static char global_shlvl_env[32] = "SHLVL=1";
@@ -291,7 +291,6 @@ int shell_main(int argc, char **argv) {
             memset(command, 0, commandBufferSize);
 
             if (running) {
-                snprintf(global_path_env, sizeof(global_path_env), "PATH=%s", vfs_getcwd());
                 show_prompt(argc, argv);
             }
             continue;

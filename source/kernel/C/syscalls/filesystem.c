@@ -635,6 +635,12 @@ bool should_route_to_toybox(const char *target) {
     if (!applet || applet[0] == '\0' || strcmp(applet, "toybox") == 0)
         return false;
 
+    // GPG is an external executable, not a Toybox applet. Returning a
+    // successful Toybox exec for a missing PATH candidate prevents execvp()
+    // from continuing its search in later PATH directories.
+    if (strcmp(applet, "gpg") == 0)
+        return false;
+
     if (!path_is_loadable_elf("/bin/toybox"))
         return false;
 

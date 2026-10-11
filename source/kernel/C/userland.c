@@ -483,7 +483,7 @@ static int string_array_count(const char *const *arr) {
 
 static const char *const default_envp[] = {
     "HOME=/",
-    "PATH=/",
+    "PATH=/bin:/usr/bin:/sbin:/usr/sbin",
     "TERM=linux",
     "USER=none",
     "SHLVL=1",
