@@ -185,9 +185,6 @@ QEMU_COMMON = \
     -device ide-cd,drive=cd0,bus=ahci.0 \
 	-drive if=none,format=raw,file=$(DISK_IMG),id=nvmedisk \
     -device nvme,drive=nvmedisk,serial=FROSTNVME0 \
-	-device qemu-xhci,id=xhci \
-	-drive if=none,format=raw,file=usb.img,id=stick \
-	-device usb-storage,bus=xhci.0,drive=stick \
     -rtc base=localtime,clock=host \
     -boot order=d \
     $(KVM) \
