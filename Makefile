@@ -126,9 +126,10 @@ img:
 # Tarball for distribution
 # -----------------------------
 tarball:
-	@echo -e "$(INFO) $(WHITE)Packing $(ISO_FILE) into a distributable tarball...$(RESET)"
+	@echo -e "$(INFO) $(WHITE)Packing .iso & .img into a distributable tarball...$(RESET)"
 	@tar -czvf $(ISO_FILE).tar.gz $(ISO_FILE)
-	@echo -e "$(OK) $(CYAN)Tarball ready:$(RESET) $(BOLD)$(ISO_FILE).tar.gz$(RESET)"
+	@tar -czvf $(IMG_FILE).tar.gz $(IMG_FILE)
+	@echo -e "$(OK) $(CYAN)Tarball ready:$(RESET) $(BOLD)$(ISO_FILE).tar.gz $(IMG_FILE).tar.gz$(RESET)"
 
 # -----------------------------
 # QEMU targets

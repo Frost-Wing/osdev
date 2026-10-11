@@ -58,6 +58,10 @@ CFLAGS := -std=gnu11 -ffreestanding \
           -msoft-float \
 		  -Wa,--noexecstack
 
+# Add if using newer fwgcc or plain gcc.
+# CFLAGS += -Wno-error=implicit-function-declaration \
+#          -Wno-error=incompatible-pointer-types
+		  
 CPPFLAGS := -MMD -MP
 LDFLAGS := -nostdlib -static --no-dynamic-linker -z text -z max-page-size=0x1000 -T ./linker/linker.ld -m elf_x86_64
 NASMFLAGS := -Wall -f elf64 -w-reloc-abs-qword -w-reloc-rel-dword

@@ -73,15 +73,32 @@
 #define XHCI_PORT_RW_MASK ((1U << 9) | (7U << 25))
 
 #define XHCI_EVENT_RING_SIZE 256
+#define XHCI_HUB_MAX_PORTS 15U
+#define XHCI_MAX_HUB_DEPTH 5U
 #define USB_REGISTRY_CAPACITY 64
 #define USB_CONFIGURATION_MAX 4096
 #define USB_DESCRIPTOR_DEVICE 1
 #define USB_DESCRIPTOR_CONFIGURATION 2
 #define USB_DESCRIPTOR_INTERFACE 4
 #define USB_DESCRIPTOR_ENDPOINT 5
+#define USB_DESCRIPTOR_HUB 0x29
+#define USB_DESCRIPTOR_SS_HUB 0x2A
 #define USB_REQUEST_GET_DESCRIPTOR 6
 #define USB_REQUEST_SET_CONFIGURATION 9
 #define USB_CLASS_HUB 9
+#define USB_REQUEST_GET_STATUS 0
+#define USB_REQUEST_CLEAR_FEATURE 1
+#define USB_REQUEST_SET_FEATURE 3
+#define USB_REQUEST_SET_HUB_DEPTH 12
+#define USB_HUB_PORT_POWER 8
+#define USB_HUB_PORT_RESET 4
+#define USB_SS_HUB_PORT_RESET 28
+#define USB_HUB_C_PORT_CONNECTION 16
+#define USB_HUB_C_PORT_ENABLE 17
+#define USB_HUB_C_PORT_RESET 20
+#define USB_SS_HUB_C_PORT_LINK_STATE 25
+#define USB_SS_HUB_C_PORT_CONFIG_ERROR 26
+#define USB_SS_HUB_C_PORT_RESET 29
 #define XHCI_COMMAND_TIMEOUT 500000
 #define XHCI_MSI_VECTOR 0x50
 #define XHCI_APIC_SPURIOUS_VECTOR 0xFE
@@ -115,6 +132,22 @@ typedef struct {
 } xhci_ring_t;
 
 typedef struct {
+    uint8_t child_slot;
+    uint8_t connected;
+    uint64_t connected_since;
+} xhci_hub_port_t;
+
+typedef struct {
+    xhci_hub_port_t *ports;
+    uint64_t next_poll_tick;
+    uint8_t port_count;
+    uint8_t depth;
+    uint8_t superspeed;
+    uint8_t multi_tt;
+    uint8_t tt_think_time;
+} xhci_hub_t;
+
+typedef struct {
     volatile uint32_t *cap;
     volatile uint32_t *op;
     volatile uint32_t *doorbells;
@@ -141,6 +174,16 @@ typedef struct {
     uint8_t port_pending[256];
     uint8_t port_slot[256];
     usb_device_t *slot_device[256];
+    xhci_hub_t hubs[256];
+    uint8_t slot_parent[256];
+    uint8_t slot_parent_port[256];
+    uint8_t slot_root_port[256];
+    uint8_t slot_speed[256];
+    uint8_t slot_depth[256];
+    uint8_t slot_tt_hub[256];
+    uint8_t slot_tt_port[256];
+    uint8_t slot_tt_think_time[256];
+    uint32_t slot_route[256];
     uint8_t command_done;
     uint8_t command_code;
     uint8_t command_slot;
@@ -181,8 +224,11 @@ typedef struct {
 static usb_class_driver_t usb_class_drivers[USB_MAX_CLASS_DRIVERS];
 static uint8_t usb_class_driver_count;
 
-static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t port);
+static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t root_port,
+    uint8_t parent_slot, uint8_t parent_port, uint8_t speed);
 static void xhci_disconnect_port(xhci_controller_t *ctrl, uint8_t port);
+static void xhci_disconnect_slot(xhci_controller_t *ctrl, uint8_t slot_id);
+static void xhci_poll_hubs(xhci_controller_t *ctrl);
 
 static void *xhci_dma_alloc(xhci_controller_t *ctrl, size_t bytes,
     uint64_t *physical) {
@@ -591,6 +637,171 @@ static int xhci_issue_slot_command(uint8_t command, uint64_t input_physical,
         &completion);
 }
 
+static int xhci_set_hub_context(xhci_controller_t *ctrl, uint8_t slot_id,
+    uint8_t port_count, uint8_t multi_tt) {
+    uint64_t input_physical;
+    void *input = xhci_dma_alloc(ctrl, PAGE_SIZE, &input_physical);
+    if (!input)
+        return -1;
+
+    uint32_t *input_control = input;
+    uint32_t *input_slot = xhci_input_context_slot(ctrl, input);
+    uint32_t *device_slot = xhci_device_context_slot(ctrl,
+        ctrl->dcbaa[slot_id]);
+    memcpy(input_slot, device_slot, ctrl->context_size);
+    input_control[1] = 1U;
+    input_slot[0] |= (1U << 26) | (multi_tt ? (1U << 25) : 0U);
+    input_slot[1] = (input_slot[1] & 0x00FFFFFFU) |
+        ((uint32_t)port_count << 24);
+
+    int result = xhci_issue_slot_command(XHCI_TRB_EVALUATE_CONTEXT,
+        input_physical, slot_id);
+    xhci_dma_free(input_physical, PAGE_SIZE);
+    return result;
+}
+
+static int xhci_hub_get_port_status(xhci_controller_t *ctrl, uint8_t slot_id,
+    uint8_t port, uint32_t *status) {
+    uint8_t response[4] __attribute__((aligned(4))) = {0};
+    usb_device_t *device = ctrl->slot_device[slot_id];
+    if (!device || !status ||
+        usb_control_request(device, 0xA3U, USB_REQUEST_GET_STATUS, 0, port,
+            response, sizeof(response)) != 0)
+        return -1;
+    *status = (uint32_t)response[0] | ((uint32_t)response[1] << 8) |
+        ((uint32_t)response[2] << 16) | ((uint32_t)response[3] << 24);
+    return 0;
+}
+
+static int xhci_hub_port_feature(xhci_controller_t *ctrl, uint8_t slot_id,
+    uint8_t port, uint8_t request, uint16_t feature) {
+    usb_device_t *device = ctrl->slot_device[slot_id];
+    if (!device)
+        return -1;
+    return usb_control_request(device, 0x23U, request, feature, port,
+        NULL, 0);
+}
+
+static int xhci_hub_initialize(xhci_controller_t *ctrl, uint8_t slot_id) {
+    usb_device_t *device = ctrl->slot_device[slot_id];
+    if (!device)
+        return -1;
+
+    xhci_hub_t *hub = &ctrl->hubs[slot_id];
+    hub->depth = ctrl->slot_depth[slot_id];
+    hub->superspeed = device->speed >= 4U;
+    uint8_t descriptor[64] __attribute__((aligned(16))) = {0};
+    uint8_t descriptor_type = device->speed >= 4U ?
+        USB_DESCRIPTOR_SS_HUB : USB_DESCRIPTOR_HUB;
+    uint16_t header_length = device->speed >= 4U ? 10U : 7U;
+    if (device->speed >= 4U &&
+        usb_control_request(device, 0x20U, USB_REQUEST_SET_HUB_DEPTH,
+            hub->depth, 0, NULL, 0) != 0) {
+        error("Unable to set SuperSpeed hub depth for slot %u", __FILE__,
+            slot_id);
+        return -1;
+    }
+    if (usb_control_request(device, 0xA0U, USB_REQUEST_GET_DESCRIPTOR,
+            (uint16_t)descriptor_type << 8, 0, descriptor,
+            header_length) != 0 ||
+        descriptor[0] < header_length ||
+        descriptor[1] != descriptor_type || !descriptor[2] ||
+        descriptor[2] > XHCI_HUB_MAX_PORTS ||
+        descriptor[0] > sizeof(descriptor)) {
+        error("Unsupported xHCI hub descriptor on slot %u", __FILE__,
+            slot_id);
+        return -1;
+    }
+
+    uint8_t port_count = descriptor[2];
+    if (usb_control_request(device, 0xA0U, USB_REQUEST_GET_DESCRIPTOR,
+            (uint16_t)descriptor_type << 8, 0, descriptor,
+            descriptor[0]) != 0) {
+        error("Unable to read full xHCI hub descriptor on slot %u",
+            __FILE__, slot_id);
+        return -1;
+    }
+
+    hub->ports = kmalloc((size_t)port_count * sizeof(*hub->ports));
+    if (!hub->ports)
+        return -1;
+    memset(hub->ports, 0, (size_t)port_count * sizeof(*hub->ports));
+    hub->port_count = port_count;
+    hub->multi_tt = !hub->superspeed &&
+        device->descriptor.device_protocol == 2U;
+    hub->tt_think_time = (uint8_t)((descriptor[3] >> 5) & 3U);
+
+    if (xhci_set_hub_context(ctrl, slot_id, port_count, hub->multi_tt) != 0) {
+        error("Unable to configure xHCI hub context for slot %u", __FILE__,
+            slot_id);
+        kfree(hub->ports);
+        memset(hub, 0, sizeof(*hub));
+        return -1;
+    }
+
+    uint8_t power_mode = descriptor[3] & 3U;
+    if (power_mode < 2U) {
+        for (uint8_t port = 1; port <= port_count; ++port) {
+            if (xhci_hub_port_feature(ctrl, slot_id, port,
+                    USB_REQUEST_SET_FEATURE, USB_HUB_PORT_POWER) != 0) {
+                error("Unable to power xHCI hub slot %u port %u",
+                    __FILE__, slot_id, port);
+                kfree(hub->ports);
+                memset(hub, 0, sizeof(*hub));
+                return -1;
+            }
+        }
+    }
+    if (descriptor[5])
+        pit_sleep((uint32_t)descriptor[5] * 2U);
+
+    info("xHCI %s hub slot %u initialized with %u ports",
+        __FILE__, hub->superspeed ? "SuperSpeed" : "USB 2.0", slot_id,
+        port_count);
+    return 0;
+}
+
+static int xhci_hub_reset_port(xhci_controller_t *ctrl, uint8_t slot_id,
+    uint8_t port, uint8_t *speed) {
+    xhci_hub_t *hub = &ctrl->hubs[slot_id];
+    uint16_t reset_feature = hub->superspeed ?
+        USB_SS_HUB_PORT_RESET : USB_HUB_PORT_RESET;
+    if (xhci_hub_port_feature(ctrl, slot_id, port,
+            USB_REQUEST_SET_FEATURE, reset_feature) != 0)
+        return -1;
+
+    uint64_t deadline = pit_ticks + 100U;
+    uint32_t status = 0;
+    do {
+        pit_sleep(10);
+        if (xhci_hub_get_port_status(ctrl, slot_id, port, &status) != 0)
+            return -1;
+        if (!(status & (1U << 4)) &&
+            (hub->superspeed ?
+                ((status & (1U << 0)) && !(status & (0xFU << 5))) :
+                ((status & (1U << 0)) && (status & (1U << 1)))))
+            break;
+    } while (pit_ticks < deadline);
+    if ((status & (1U << 4)) || !(status & (1U << 0)) ||
+        (!hub->superspeed && !(status & (1U << 1)))) {
+        warn("xHCI hub slot %u port %u did not enable after reset",
+            __FILE__, slot_id, port);
+        return -1;
+    }
+
+    if (hub->superspeed) {
+        uint8_t speed_id = (uint8_t)(4U + ((status >> 10) & 7U));
+        *speed = speed_id <= 5U ? speed_id : 4U;
+    } else if (status & (1U << 9)) {
+        *speed = 2U;
+    } else if (status & (1U << 10)) {
+        *speed = 3U;
+    } else {
+        *speed = 1U;
+    }
+    return 0;
+}
+
 static void xhci_fill_endpoint_context(uint32_t *context,
     uint8_t endpoint_type, uint16_t max_packet_size, uint64_t dequeue,
     uint16_t average_trb_length) {
@@ -727,6 +938,18 @@ static void xhci_release_slot(xhci_controller_t *ctrl, uint8_t slot_id,
     }
     if (device_context_physical)
         xhci_dma_free(device_context_physical, PAGE_SIZE);
+    if (ctrl->hubs[slot_id].ports)
+        kfree(ctrl->hubs[slot_id].ports);
+    memset(&ctrl->hubs[slot_id], 0, sizeof(ctrl->hubs[slot_id]));
+    ctrl->slot_parent[slot_id] = 0;
+    ctrl->slot_parent_port[slot_id] = 0;
+    ctrl->slot_root_port[slot_id] = 0;
+    ctrl->slot_speed[slot_id] = 0;
+    ctrl->slot_depth[slot_id] = 0;
+    ctrl->slot_tt_hub[slot_id] = 0;
+    ctrl->slot_tt_port[slot_id] = 0;
+    ctrl->slot_tt_think_time[slot_id] = 0;
+    ctrl->slot_route[slot_id] = 0;
 }
 
 static int usb_parse_configuration(usb_device_t *device) {
@@ -920,47 +1143,61 @@ static void xhci_process_port_work(xhci_controller_t *ctrl) {
             if (pending == 3)
                 xhci_disconnect_port(ctrl, (uint8_t)port);
             if (!ctrl->port_slot[port])
-                (void)xhci_enumerate_port(ctrl, (uint8_t)port);
+                (void)xhci_enumerate_port(ctrl, (uint8_t)port, 0, 0, 0);
         } else if (pending == 2) {
             xhci_disconnect_port(ctrl, (uint8_t)port);
         }
     }
 }
 
-static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t port) {
+static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t root_port,
+    uint8_t parent_slot, uint8_t parent_port, uint8_t speed) {
     LOG_SCOPE();
-    volatile uint32_t *portsc =
-        &ctrl->op[(XHCI_PORTS / 4) + ((port - 1U) * 4U)];
-    uint32_t status = *portsc;
-    if (!(status & XHCI_PORT_CCS))
-        return -1;
+    if (!parent_slot) {
+        volatile uint32_t *portsc =
+            &ctrl->op[(XHCI_PORTS / 4) + ((root_port - 1U) * 4U)];
+        uint32_t status = *portsc;
+        if (!(status & XHCI_PORT_CCS))
+            return -1;
 
-    uint8_t port_speed = (uint8_t)((status >> XHCI_PORT_SPEED_SHIFT) & 0xFU);
-    uint32_t reset = port_speed >= 4U ? XHCI_PORT_WPR : XHCI_PORT_PR;
-    info("Resetting xHCI root port %u (speed ID %u)", __FILE__, port,
-        port_speed);
-    *portsc = (status & XHCI_PORT_RW_MASK) | reset;
-    if (xhci_wait_bits(portsc, XHCI_PORT_PR | XHCI_PORT_WPR | XHCI_PORT_PED,
-            XHCI_PORT_PED, 1000) != 0) {
-        error("xHCI port %u reset did not enable the port", __FILE__, port);
+        uint8_t port_speed =
+            (uint8_t)((status >> XHCI_PORT_SPEED_SHIFT) & 0xFU);
+        uint32_t reset = port_speed >= 4U ? XHCI_PORT_WPR : XHCI_PORT_PR;
+        info("Resetting xHCI root port %u (speed ID %u)", __FILE__,
+            root_port, port_speed);
+        *portsc = (status & XHCI_PORT_RW_MASK) | reset;
+        if (xhci_wait_bits(portsc,
+                XHCI_PORT_PR | XHCI_PORT_WPR | XHCI_PORT_PED,
+                XHCI_PORT_PED, 1000) != 0) {
+            error("xHCI port %u reset did not enable the port", __FILE__,
+                root_port);
+            return -1;
+        }
+        status = *portsc;
+        if (!(status & XHCI_PORT_CCS)) {
+            warn("USB device disconnected while resetting port %u", __FILE__,
+                root_port);
+            return -1;
+        }
+        speed = (uint8_t)((status >> XHCI_PORT_SPEED_SHIFT) & 0xFU);
+        if (speed < 1U || speed > 5U) {
+            error("Unsupported USB speed ID %u on port %u", __FILE__, speed,
+                root_port);
+            return -1;
+        }
+        info("USB root port %u reset complete; speed ID %u", __FILE__,
+            root_port, speed);
+    } else if (parent_port == 0 || parent_port > XHCI_HUB_MAX_PORTS ||
+        !ctrl->hubs[parent_slot].ports ||
+        !ctrl->hubs[parent_slot].ports[parent_port - 1U].connected ||
+        speed < 1U || speed > 5U) {
         return -1;
     }
-    status = *portsc;
-    if (!(status & XHCI_PORT_CCS)) {
-        warn("USB device disconnected while resetting port %u", __FILE__, port);
-        return -1;
-    }
-    uint8_t speed = (uint8_t)((status >> XHCI_PORT_SPEED_SHIFT) & 0xFU);
-    if (speed < 1U || speed > 5U) {
-        error("Unsupported USB speed ID %u on port %u", __FILE__, speed, port);
-        return -1;
-    }
-    info("USB root port %u reset complete; speed ID %u", __FILE__, port,
-        speed);
 
     uint8_t slot_id = 0;
     if (xhci_enable_slot(&slot_id) != 0) {
-        error("Unable to enable xHCI slot for port %u", __FILE__, port);
+        error("Unable to enable xHCI slot for port %u", __FILE__,
+            parent_slot ? parent_port : root_port);
         return -1;
     }
 
@@ -976,8 +1213,37 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t port) {
     }
     memset(device, 0, sizeof(*device));
     device->slot_id = slot_id;
-    device->root_port = port;
+    device->root_port = root_port;
     device->speed = speed;
+    uint8_t depth = parent_slot ?
+        (uint8_t)(ctrl->slot_depth[parent_slot] + 1U) : 0U;
+    if (depth > XHCI_MAX_HUB_DEPTH ||
+        (parent_slot && parent_port > 0x0FU)) {
+        error("Unsupported xHCI hub topology below slot %u port %u",
+            __FILE__, parent_slot, parent_port);
+        goto failed;
+    }
+    ctrl->slot_parent[slot_id] = parent_slot;
+    ctrl->slot_parent_port[slot_id] = parent_port;
+    ctrl->slot_root_port[slot_id] = root_port;
+    ctrl->slot_speed[slot_id] = speed;
+    ctrl->slot_depth[slot_id] = depth;
+    ctrl->slot_route[slot_id] = parent_slot ?
+        (ctrl->slot_route[parent_slot] |
+         ((uint32_t)parent_port << ((depth - 1U) * 4U))) : 0U;
+    if (parent_slot && speed < 3U) {
+        if (ctrl->slot_speed[parent_slot] == 3U) {
+            ctrl->slot_tt_hub[slot_id] = parent_slot;
+            ctrl->slot_tt_port[slot_id] = parent_port;
+            ctrl->slot_tt_think_time[slot_id] =
+                ctrl->hubs[parent_slot].tt_think_time;
+        } else {
+            ctrl->slot_tt_hub[slot_id] = ctrl->slot_tt_hub[parent_slot];
+            ctrl->slot_tt_port[slot_id] = ctrl->slot_tt_port[parent_slot];
+            ctrl->slot_tt_think_time[slot_id] =
+                ctrl->slot_tt_think_time[parent_slot];
+        }
+    }
 
     void *device_context = xhci_dma_alloc(ctrl, PAGE_SIZE,
         &device_context_physical);
@@ -1004,8 +1270,14 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t port) {
     uint32_t *slot_context = xhci_input_context_slot(ctrl, input);
     uint32_t *ep0_context = xhci_input_context_endpoint(ctrl, input, 1);
     input_control[1] = 3U;
-    slot_context[0] = ((uint32_t)speed << 20) | (1U << 27);
-    slot_context[1] = (uint32_t)port << 16;
+    slot_context[0] = ctrl->slot_route[slot_id] |
+        ((uint32_t)speed << 20) | (1U << 27);
+    slot_context[1] = (uint32_t)root_port << 16;
+    if (ctrl->slot_tt_hub[slot_id]) {
+        slot_context[2] = ctrl->slot_tt_hub[slot_id] |
+            ((uint32_t)ctrl->slot_tt_port[slot_id] << 8) |
+            ((uint32_t)ctrl->slot_tt_think_time[slot_id] << 16);
+    }
 
     uint16_t initial_packet = speed == 2U ? 8U :
         (speed == 3U ? 64U : (speed >= 4U ? 512U : 8U));
@@ -1019,7 +1291,8 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t port) {
     xhci_dma_free(input_physical, PAGE_SIZE);
     input = NULL;
     input_physical = 0;
-    done("USB slot %u addressed on root port %u", __FILE__, slot_id, port);
+    done("USB slot %u addressed on root port %u", __FILE__, slot_id,
+        root_port);
 
     descriptor_buffer = kmalloc_aligned(64, PAGE_SIZE);
     if (!descriptor_buffer) {
@@ -1103,11 +1376,6 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t port) {
         device->descriptor.device_class, packet_size);
     done("Read USB device descriptor (%u bytes)", __FILE__,
         device->descriptor.length);
-    if (device->descriptor.device_class == USB_CLASS_HUB) {
-        warn("USB hub on root port %u ignored; hub enumeration is not supported",
-            __FILE__, port);
-        goto failed;
-    }
     if (device->descriptor.configuration_count == 0) {
         error("USB device has no configurations", __FILE__);
         goto failed;
@@ -1156,11 +1424,9 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t port) {
             __FILE__);
         goto failed;
     }
-    for (uint8_t i = 0; i < device->interface_count; ++i) {
-        if (device->interfaces[i].interface_class == USB_CLASS_HUB)
-            warn("USB hub interface %u ignored", __FILE__,
-                device->interfaces[i].number);
-    }
+    uint8_t is_hub = device->descriptor.device_class == USB_CLASS_HUB;
+    for (uint8_t i = 0; i < device->interface_count; ++i)
+        is_hub |= device->interfaces[i].interface_class == USB_CLASS_HUB;
 
     device->configuration_value = device->configuration_descriptor[5];
     if (xhci_control_transfer(ctrl, slot_id, 0x00,
@@ -1176,15 +1442,20 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t port) {
             slot_id);
         goto failed;
     }
+    ctrl->slot_device[slot_id] = device;
+    if (is_hub && xhci_hub_initialize(ctrl, slot_id) != 0)
+        goto failed;
     if (usb_device_connect(device) != 0) {
         error("USB device registry is full", __FILE__);
         goto failed;
     }
-    ctrl->slot_device[slot_id] = device;
-    ctrl->port_slot[port] = slot_id;
+    if (parent_slot)
+        ctrl->hubs[parent_slot].ports[parent_port - 1U].child_slot = slot_id;
+    else
+        ctrl->port_slot[root_port] = slot_id;
     info("USB device registered in slot %u (%u interfaces, %u endpoints)",
         __FILE__, slot_id, device->interface_count, device->endpoint_count);
-    done("USB enumeration complete on root port %u", __FILE__, port);
+    done("USB enumeration complete on root port %u", __FILE__, root_port);
     kfree(descriptor_buffer);
     return 0;
 
@@ -1193,6 +1464,11 @@ failed:
         xhci_dma_free(input_physical, PAGE_SIZE);
     if (descriptor_buffer)
         kfree(descriptor_buffer);
+    ctrl->slot_device[slot_id] = NULL;
+    if (ctrl->hubs[slot_id].ports) {
+        kfree(ctrl->hubs[slot_id].ports);
+        memset(&ctrl->hubs[slot_id], 0, sizeof(ctrl->hubs[slot_id]));
+    }
     if (device->configuration_descriptor)
         kfree(device->configuration_descriptor);
     xhci_release_slot(ctrl, slot_id, device_context_physical);
@@ -1204,18 +1480,116 @@ static void xhci_disconnect_port(xhci_controller_t *ctrl, uint8_t port) {
     uint8_t slot_id = ctrl->port_slot[port];
     if (!slot_id)
         return;
-    usb_device_t *device = ctrl->slot_device[slot_id];
     info("USB device disconnected from root port %u (slot %u)", __FILE__,
         port, slot_id);
-    if (device) {
-        usb_device_disconnect(device);
+    xhci_disconnect_slot(ctrl, slot_id);
+    done("USB resources released for root port %u", __FILE__, port);
+}
+
+static void xhci_disconnect_slot(xhci_controller_t *ctrl, uint8_t slot_id) {
+    if (!slot_id || slot_id > ctrl->max_slots)
+        return;
+
+    for (uint16_t child = 1; child <= ctrl->max_slots; ++child) {
+        if (ctrl->slot_parent[child] == slot_id)
+            xhci_disconnect_slot(ctrl, (uint8_t)child);
     }
+
+    usb_device_t *device = ctrl->slot_device[slot_id];
+    uint8_t parent_slot = ctrl->slot_parent[slot_id];
+    uint8_t parent_port = ctrl->slot_parent_port[slot_id];
+    uint8_t root_port = ctrl->slot_root_port[slot_id];
+    if (device)
+        usb_device_disconnect(device);
+
     ctrl->slot_device[slot_id] = NULL;
-    ctrl->port_slot[port] = 0;
+    if (parent_slot && ctrl->hubs[parent_slot].ports &&
+        parent_port <= ctrl->hubs[parent_slot].port_count) {
+        xhci_hub_port_t *port =
+            &ctrl->hubs[parent_slot].ports[parent_port - 1U];
+        port->child_slot = 0;
+    } else if (root_port && root_port <= ctrl->max_ports &&
+        ctrl->port_slot[root_port] == slot_id) {
+        ctrl->port_slot[root_port] = 0;
+    }
+
     xhci_release_slot(ctrl, slot_id,
         device ? device->device_context_physical : ctrl->dcbaa[slot_id]);
     xhci_free_unregistered_device(device);
-    done("USB resources released for root port %u", __FILE__, port);
+}
+
+static void xhci_poll_hubs(xhci_controller_t *ctrl) {
+    for (uint16_t slot = 1; slot <= ctrl->max_slots; ++slot) {
+        xhci_hub_t *hub = &ctrl->hubs[slot];
+        if (!hub->ports || pit_ticks < hub->next_poll_tick)
+            continue;
+        hub->next_poll_tick = pit_ticks + 10U;
+
+        for (uint8_t port_number = 1; port_number <= hub->port_count;
+                ++port_number) {
+            xhci_hub_port_t *port = &hub->ports[port_number - 1U];
+            uint32_t status = 0;
+            if (xhci_hub_get_port_status(ctrl, (uint8_t)slot, port_number,
+                    &status) != 0) {
+                warn("Unable to read xHCI hub slot %u port %u status",
+                    __FILE__, slot, port_number);
+                continue;
+            }
+
+            uint32_t changes = status >> 16;
+            if (changes & (1U << 0))
+                (void)xhci_hub_port_feature(ctrl, (uint8_t)slot,
+                    port_number, USB_REQUEST_CLEAR_FEATURE,
+                    USB_HUB_C_PORT_CONNECTION);
+            if (changes & (1U << 1))
+                (void)xhci_hub_port_feature(ctrl, (uint8_t)slot,
+                    port_number, USB_REQUEST_CLEAR_FEATURE,
+                    USB_HUB_C_PORT_ENABLE);
+            if (changes & (1U << 4))
+                (void)xhci_hub_port_feature(ctrl, (uint8_t)slot,
+                    port_number, USB_REQUEST_CLEAR_FEATURE,
+                    hub->superspeed ? USB_SS_HUB_C_PORT_RESET :
+                        USB_HUB_C_PORT_RESET);
+            if (hub->superspeed && (changes & (1U << 5)))
+                (void)xhci_hub_port_feature(ctrl, (uint8_t)slot,
+                    port_number, USB_REQUEST_CLEAR_FEATURE,
+                    USB_SS_HUB_C_PORT_LINK_STATE);
+            if (hub->superspeed && (changes & (1U << 6)))
+                (void)xhci_hub_port_feature(ctrl, (uint8_t)slot,
+                    port_number, USB_REQUEST_CLEAR_FEATURE,
+                    USB_SS_HUB_C_PORT_CONFIG_ERROR);
+
+            uint8_t connected = (uint8_t)!!(status & (1U << 0));
+            if (!connected) {
+                if (port->child_slot)
+                    xhci_disconnect_slot(ctrl, port->child_slot);
+                port->connected = 0;
+                port->connected_since = 0;
+                continue;
+            }
+
+            if (!port->connected) {
+                port->connected = 1;
+                port->connected_since = pit_ticks;
+                info("xHCI hub slot %u port %u connected", __FILE__,
+                    slot, port_number);
+            }
+            if (port->child_slot || pit_ticks - port->connected_since < 10U)
+                continue;
+
+            uint8_t speed = 0;
+            if (xhci_hub_reset_port(ctrl, (uint8_t)slot, port_number,
+                    &speed) != 0) {
+                warn("xHCI hub slot %u port %u reset failed",
+                    __FILE__, slot, port_number);
+                continue;
+            }
+            if (xhci_enumerate_port(ctrl, ctrl->slot_root_port[slot],
+                    (uint8_t)slot, port_number, speed) != 0)
+                warn("Unable to enumerate xHCI hub slot %u port %u",
+                    __FILE__, slot, port_number);
+        }
+    }
 }
 
 static void xhci_poll_controller(xhci_controller_t *ctrl) {
@@ -1224,6 +1598,7 @@ static void xhci_poll_controller(xhci_controller_t *ctrl) {
     xhci_poll_events(ctrl);
     xhci_poll_ports(ctrl);
     xhci_process_port_work(ctrl);
+    xhci_poll_hubs(ctrl);
 }
 
 static void xhci_spurious_interrupt_handler(InterruptFrame *frame) {

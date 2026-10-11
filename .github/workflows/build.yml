@@ -45,8 +45,8 @@ jobs:
 
       - name: Generate hashes
         run: |
-          make tarball
-          sha256sum FrostWing.iso FrostWing.iso.tar.gz FrostWing.img > sha256sums
+          make img tarball
+          sha256sum FrostWing.iso FrostWing.iso.tar.gz FrostWing.img FrostWing.img.tar.gz > sha256sums
 
       - name: Generate release notes
         if: github.ref == 'refs/heads/main'
@@ -72,7 +72,7 @@ jobs:
 
           # Asset table with size + SHA-256
           ASSETS=""
-          for f in FrostWing.iso FrostWing.iso.tar.gz FrostWing.img; do
+          for f in FrostWing.iso FrostWing.iso.tar.gz FrostWing.img FrostWing.img.tar.gz; do
             SIZE="$(numfmt --to=iec --suffix=B "$(stat -c%s "$f")")"
             HASH="$(sha256sum "$f" | cut -d' ' -f1)"
             ASSETS="${ASSETS}| \`${f}\` | ${SIZE} | \`${HASH}\` |"$'\n'
@@ -104,6 +104,7 @@ jobs:
           | \`FrostWing.iso\` | Bootable ISO for VMs and optical media |
           | \`FrostWing.iso.tar.gz\` | Compressed ISO for faster download |
           | \`FrostWing.img\` | Raw disk image for USB drives |
+          | \`FrostWing.img.tar.gz\` | Compressed disk image for faster download |
           | \`sha256sums\` | Checksums for verifying the files above |
 
           ## Verify your download
