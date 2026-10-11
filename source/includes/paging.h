@@ -46,6 +46,9 @@ void unmap_user_page(uint64_t virt);
 /** @brief Set user-page write and execute permissions. */
 bool paging_set_user_page_permissions(uint64_t virt, bool writable, bool executable);
 
+/** @brief Allow or deny user-mode access to a mapped page. */
+bool paging_set_user_page_access(uint64_t virt, bool accessible);
+
 /**
  * @brief Sets the HHDM offset used to access physical memory virtually.
  *

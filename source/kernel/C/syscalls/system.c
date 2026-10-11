@@ -886,9 +886,6 @@ uint64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, u
     if (length == 0)
         return -LINUX_EINVAL;
 
-    if ((off & 0xFFFULL) != 0)
-        return -LINUX_EINVAL;
-
     if ((prot & ~(LINUX_PROT_READ | LINUX_PROT_WRITE | LINUX_PROT_EXEC)) != 0)
         return -LINUX_EINVAL;
 
@@ -897,10 +894,27 @@ uint64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, u
 
     uint64_t mapped = 0;
     bool anonymous = (flags & LINUX_MAP_ANONYMOUS) != 0;
+    bool reserved_only = false;
+
+    if (!anonymous && (off & 0xFFFULL) != 0)
+        return -LINUX_EINVAL;
 
     if (anonymous) {
         /* Linux ignores fd for anonymous mappings. */
-        mapped = (flags & LINUX_MAP_FIXED) ? userland_mmap_fixed(addr, length) : userland_mmap_anon(length);
+        if (flags & LINUX_MAP_FIXED) {
+            if (userland_mmap_reserved_contains(addr, length)) {
+                if (!userland_mmap_reserved_unmap(addr, length, false))
+                    return -LINUX_EINVAL;
+                mapped = addr;
+            } else {
+                mapped = userland_mmap_fixed(addr, length);
+            }
+        } else if (prot == LINUX_PROT_NONE) {
+            mapped = userland_mmap_reserve(length);
+            reserved_only = mapped != 0;
+        } else {
+            mapped = userland_mmap_anon(length);
+        }
     } else {
         if (!fd_valid((int)fd))
             return -LINUX_EBADF;
@@ -928,7 +942,7 @@ uint64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, u
     if (mapped == 0)
         return -LINUX_ENOMEM;
 
-    if (!userland_mprotect(mapped, length, prot)) {
+    if (!reserved_only && !userland_mprotect(mapped, length, prot)) {
         userland_mmap_unmap(mapped, length);
         return -LINUX_ENOMEM;
     }
@@ -970,8 +984,12 @@ uint64 sys_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
         return -LINUX_EINVAL;
 
     if (addr < USER_CODE_VADDR ||
-        end > USER_PHDR_VADDR + USER_PHDR_REGION_SIZE)
+        end > USER_PHDR_VADDR + USER_PHDR_REGION_SIZE) {
+        if (userland_mmap_reserved_contains(addr, length) &&
+            userland_mmap_reserved_commit(addr, length, prot))
+            return 0;
         return -LINUX_EINVAL;
+    }
 
     return userland_mprotect(addr, length, prot) ? 0 : -LINUX_EINVAL;
 }
@@ -988,6 +1006,8 @@ uint64 sys_madvise(uint64_t addr, uint64_t length, int advice) {
         case LINUX_MADV_RANDOM:
         case LINUX_MADV_SEQUENTIAL:
         case LINUX_MADV_WILLNEED:
+        case LINUX_MADV_DONTDUMP:
+        case LINUX_MADV_DODUMP:
             break;
         default:
             return -LINUX_EINVAL;
@@ -1001,6 +1021,9 @@ uint64 sys_madvise(uint64_t addr, uint64_t length, int advice) {
         return -LINUX_EINVAL;
 
     if (length == 0)
+        return 0;
+
+    if (userland_mmap_reserved_contains(addr, length))
         return 0;
 
     bool in_image = (addr >= USER_CODE_VADDR && end <= USER_HEAP_VADDR);
@@ -1027,6 +1050,9 @@ uint64 sys_munmap(uint64_t addr, uint64_t length) {
     if (end < addr)
         return -LINUX_EINVAL;
 
+    if (userland_mmap_reserved_contains(addr, length))
+        return userland_mmap_reserved_unmap(addr, length, true) ? 0 : -LINUX_EINVAL;
+
     bool in_image = (addr >= USER_CODE_VADDR && end <= USER_HEAP_VADDR);
     bool in_heap = (addr >= USER_HEAP_VADDR && end <= (USER_HEAP_VADDR + USER_HEAP_SIZE));
     bool in_mmap = (addr >= USER_MMAP_VADDR && end <= (USER_MMAP_VADDR + USER_MMAP_SIZE));
@@ -1037,6 +1063,32 @@ uint64 sys_munmap(uint64_t addr, uint64_t length) {
         return -LINUX_EINVAL;
 
     return 0;
+}
+
+uint64 sys_mremap(uint64_t old_addr, uint64_t old_size, uint64_t new_size,
+    uint64_t flags, uint64_t new_addr) {
+    const uint64_t MREMAP_MAYMOVE = 1;
+    const uint64_t MREMAP_FIXED = 2;
+    const uint64_t MREMAP_DONTUNMAP = 4;
+    const uint64_t supported_flags =
+        MREMAP_MAYMOVE | MREMAP_FIXED | MREMAP_DONTUNMAP;
+
+    if ((old_addr & (PAGE_SIZE - 1)) || old_size == 0 || new_size == 0 ||
+        (flags & ~supported_flags) ||
+        ((flags & MREMAP_FIXED) && !(flags & MREMAP_MAYMOVE)) ||
+        ((flags & MREMAP_FIXED) && (new_addr & (PAGE_SIZE - 1))) ||
+        (!(flags & MREMAP_FIXED) && new_addr != 0))
+        return -LINUX_EINVAL;
+
+    if (old_size > UINT64_MAX - old_addr ||
+        new_size > UINT64_MAX - new_addr)
+        return -LINUX_EINVAL;
+
+    /*
+     * The VM does not yet track all mappings as resizable VMAs. Linux returns
+     * ENOMEM for the AOT runtime's observed attempts to grow stack pages.
+     */
+    return -LINUX_ENOMEM;
 }
 
 uint64 sys_arch_prctl(uint64_t code, uint64_t addr) {

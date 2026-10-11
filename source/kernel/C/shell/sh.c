@@ -129,9 +129,9 @@ struct fwrfs *global_fs;
 int show_prompt(int argc, char **argv) {
 
     if (last_status_code == 0)
-        printfnoln("[" green_color "%d" reset_color "] ", last_status_code);
+        printfnoln("[" green_color "%d" reset_color "] ", (int64_t)last_status_code);
     else
-        printfnoln("[" red_color "%d" reset_color "] ", last_status_code);
+        printfnoln("[" red_color "%d" reset_color "] ", (int64_t)last_status_code);
 
     print(vfs_getcwd());
     print(" @ ");

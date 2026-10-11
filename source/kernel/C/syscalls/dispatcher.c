@@ -129,6 +129,9 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_MMAP:
             return sys_mmap(arg1, arg2, arg3, arg4, arg5, arg6);
 
+        case LINUX_SYS_MREMAP:
+            return sys_mremap(arg1, arg2, arg3, arg4, arg5);
+
         case LINUX_SYS_MLOCK:
             return sys_mlock(arg1, arg2);
 

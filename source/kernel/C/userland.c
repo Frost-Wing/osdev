@@ -23,10 +23,24 @@
 #define USERLAND_ARGV_MAX 32
 #define USERLAND_ENV_MAX 32
 
+typedef struct {
+    uint64_t start;
+    uint64_t end;
+} userland_mmap_range_t;
+
+typedef struct {
+    uint64_t vaddr;
+    uint64_t phys;
+} userland_new_page_t;
+
 static uint64_t user_heap_break = USER_HEAP_VADDR;
 static uint64_t user_heap_mapped_end = USER_HEAP_VADDR;
 static uint64_t user_mmap_cursor = USER_MMAP_VADDR;
 static uint64_t user_mmap_end = USER_MMAP_VADDR + USER_MMAP_SIZE;
+static userland_mmap_range_t user_mmap_reservations[USER_MMAP_RESERVATION_MAX];
+static userland_mmap_range_t user_mmap_commits[USER_MMAP_COMMIT_MAX];
+static size_t user_mmap_reservation_count;
+static size_t user_mmap_commit_count;
 
 static volatile bool userland_running = false;
 static uint64_t userland_saved_kernel_stack_top = 0;
@@ -80,6 +94,10 @@ typedef struct {
     uint64_t heap_mapped_end;
     uint64_t mmap_cursor;
     uint64_t mmap_end;
+    userland_mmap_range_t mmap_reservations[USER_MMAP_RESERVATION_MAX];
+    userland_mmap_range_t mmap_commits[USER_MMAP_COMMIT_MAX];
+    size_t mmap_reservation_count;
+    size_t mmap_commit_count;
     saved_user_page_t *user_pages;
 } userland_saved_frame_t;
 
@@ -209,6 +227,14 @@ static bool map_user_stack(void) {
 static void userland_unmap_all(void) {
     for (size_t i = 0; i < USER_REGION_COUNT; i++)
         unmap_user_range(user_regions[i].start, user_regions[i].end);
+
+    for (size_t i = 0; i < user_mmap_commit_count; i++)
+        unmap_user_range(user_mmap_commits[i].start, user_mmap_commits[i].end);
+
+    memset(user_mmap_reservations, 0, sizeof(user_mmap_reservations));
+    memset(user_mmap_commits, 0, sizeof(user_mmap_commits));
+    user_mmap_reservation_count = 0;
+    user_mmap_commit_count = 0;
 }
 
 /* ----------------------------------------------------------- snapshots --- */
@@ -253,6 +279,13 @@ static bool userland_snapshot_mappings(saved_user_page_t **out) {
 
     for (size_t i = 0; i < USER_REGION_COUNT; i++) {
         if (!userland_snapshot_range(&pages, user_regions[i].start, user_regions[i].end)) {
+            userland_free_snapshot(pages);
+            return false;
+        }
+    }
+
+    for (size_t i = 0; i < user_mmap_commit_count; i++) {
+        if (!userland_snapshot_range(&pages, user_mmap_commits[i].start, user_mmap_commits[i].end)) {
             userland_free_snapshot(pages);
             return false;
         }
@@ -308,6 +341,10 @@ static int userland_push_frame(bool fresh_space) {
     f->heap_mapped_end = user_heap_mapped_end;
     f->mmap_cursor = user_mmap_cursor;
     f->mmap_end = user_mmap_end;
+    memcpy(f->mmap_reservations, user_mmap_reservations, sizeof(user_mmap_reservations));
+    memcpy(f->mmap_commits, user_mmap_commits, sizeof(user_mmap_commits));
+    f->mmap_reservation_count = user_mmap_reservation_count;
+    f->mmap_commit_count = user_mmap_commit_count;
     f->user_pages = pages;
 
     int index = userland_depth++;
@@ -370,6 +407,10 @@ static bool userland_pop_frame(void) {
     user_mmap_end = f->mmap_end;
     if (f->user_pages)
         userland_restore_snapshot(f->user_pages);
+    memcpy(user_mmap_reservations, f->mmap_reservations, sizeof(user_mmap_reservations));
+    memcpy(user_mmap_commits, f->mmap_commits, sizeof(user_mmap_commits));
+    user_mmap_reservation_count = f->mmap_reservation_count;
+    user_mmap_commit_count = f->mmap_commit_count;
     userland_free_snapshot(f->user_pages);
     f->user_pages = NULL;
     return true;
@@ -637,6 +678,9 @@ uint64_t userland_mmap_fixed(uint64_t addr, uint64_t length) {
     if (addr == 0 || length == 0)
         return 0;
 
+    if (userland_mmap_reserved_contains(addr, length))
+        return addr;
+
     /* Only inside the regions that are snapshotted and unmapped on exit. */
     if (addr < USER_CODE_VADDR || addr >= USER_TLS_VADDR || length > USER_TLS_VADDR - addr)
         return 0;
@@ -647,6 +691,206 @@ uint64_t userland_mmap_fixed(uint64_t addr, uint64_t length) {
     return addr;
 }
 
+uint64_t userland_mmap_reserve(uint64_t length) {
+    if (length == 0 || length > UINT64_MAX - (PAGE_SIZE - 1))
+        return 0;
+
+    uint64_t aligned_len = align_up_u64(length, PAGE_SIZE);
+    if (aligned_len > USER_MMAP_RESERVE_SIZE ||
+        user_mmap_reservation_count >= USER_MMAP_RESERVATION_MAX)
+        return 0;
+
+    uint64_t arena_end = USER_MMAP_RESERVE_VADDR + USER_MMAP_RESERVE_SIZE;
+    for (uint64_t start = USER_MMAP_RESERVE_VADDR; start <= arena_end - aligned_len;) {
+        uint64_t end = start + aligned_len;
+        bool overlap = false;
+        for (size_t i = 0; i < user_mmap_reservation_count; i++) {
+            const userland_mmap_range_t *range = &user_mmap_reservations[i];
+            if (start < range->end && end > range->start) {
+                start = range->end;
+                overlap = true;
+                break;
+            }
+        }
+        if (!overlap) {
+            for (size_t i = 0; i < USER_MMAP_RESERVATION_MAX; i++) {
+                if (user_mmap_reservations[i].start == 0) {
+                    user_mmap_reservations[i] = (userland_mmap_range_t){start, end};
+                    user_mmap_reservation_count++;
+                    return start;
+                }
+            }
+            return 0;
+        }
+    }
+    return 0;
+}
+
+bool userland_mmap_reserved_contains(uint64_t addr, uint64_t length) {
+    if (length == 0 || length > UINT64_MAX - addr)
+        return false;
+
+    uint64_t end = addr + length;
+    for (size_t i = 0; i < user_mmap_reservation_count; i++) {
+        const userland_mmap_range_t *range = &user_mmap_reservations[i];
+        if (addr >= range->start && end <= range->end)
+            return true;
+    }
+    return false;
+}
+
+static bool userland_record_mmap_commit(uint64_t start, uint64_t end) {
+    for (size_t i = 0; i < user_mmap_commit_count;) {
+        userland_mmap_range_t *range = &user_mmap_commits[i];
+        if (end <= range->start || start >= range->end) {
+            i++;
+            continue;
+        }
+
+        if (range->start < start)
+            start = range->start;
+        if (range->end > end)
+            end = range->end;
+        user_mmap_commits[i] = user_mmap_commits[--user_mmap_commit_count];
+    }
+
+    if (user_mmap_commit_count >= USER_MMAP_COMMIT_MAX)
+        return false;
+    user_mmap_commits[user_mmap_commit_count++] = (userland_mmap_range_t){start, end};
+    return true;
+}
+
+bool userland_mmap_reserved_commit(uint64_t addr, uint64_t length, uint64_t prot) {
+    if (length == 0)
+        return true;
+    if ((addr & (PAGE_SIZE - 1)) || length > UINT64_MAX - addr ||
+        (prot & ~(LINUX_PROT_READ | LINUX_PROT_WRITE | LINUX_PROT_EXEC)))
+        return false;
+
+    uint64_t end = align_up_u64(addr + length, PAGE_SIZE);
+    uint64_t start = addr;
+    if (end < addr || !userland_mmap_reserved_contains(start, end - start))
+        return false;
+
+    if (prot == 0) {
+        for (uint64_t page = start; page < end; page += PAGE_SIZE) {
+            if ((paging_user_page_flags(page) & PAGE_PRESENT) &&
+                !paging_set_user_page_access(page, false))
+                return false;
+        }
+        return true;
+    }
+
+    uint64_t missing_count = 0;
+    for (uint64_t page = start; page < end; page += PAGE_SIZE)
+        missing_count += (paging_user_page_flags(page) & PAGE_PRESENT) == 0;
+
+    if (missing_count > SIZE_MAX / sizeof(userland_new_page_t))
+        return false;
+    userland_new_page_t *new_pages = missing_count ?
+        (userland_new_page_t *)kmalloc((size_t)missing_count * sizeof(userland_new_page_t)) : NULL;
+    if (missing_count && !new_pages)
+        return false;
+
+    uint64_t page_flags = PAGE_PRESENT | PAGE_USER;
+    if (prot & LINUX_PROT_WRITE)
+        page_flags |= PAGE_RW;
+    if (!(prot & LINUX_PROT_EXEC))
+        page_flags |= PAGE_NX;
+
+    size_t new_count = 0;
+    for (uint64_t page = start; page < end; page += PAGE_SIZE) {
+        if (paging_user_page_flags(page) & PAGE_PRESENT)
+            continue;
+
+        uint64_t phys = allocate_page();
+        if (!phys) {
+            for (size_t i = 0; i < new_count; i++)
+                free_page(new_pages[i].phys);
+            if (new_pages)
+                kfree(new_pages);
+            return false;
+        }
+        new_pages[new_count++] = (userland_new_page_t){page, phys};
+    }
+
+    size_t new_index = 0;
+    for (uint64_t page = start; page < end; page += PAGE_SIZE) {
+        if (paging_user_page_flags(page) & PAGE_PRESENT) {
+            if (!paging_set_user_page_permissions(page,
+                    (prot & LINUX_PROT_WRITE) != 0,
+                    (prot & LINUX_PROT_EXEC) != 0) ||
+                !paging_set_user_page_access(page, true))
+                goto rollback;
+            continue;
+        }
+
+        map_user_page(page, new_pages[new_index].phys, page_flags);
+        memset((void *)page, 0, PAGE_SIZE);
+        new_index++;
+    }
+
+    if (!userland_record_mmap_commit(start, end))
+        goto rollback;
+
+    if (new_pages)
+        kfree(new_pages);
+    return true;
+
+rollback:
+    for (size_t i = 0; i < new_index; i++)
+        unmap_user_page(new_pages[i].vaddr);
+    for (size_t i = new_index; i < new_count; i++)
+        free_page(new_pages[i].phys);
+    if (new_pages)
+        kfree(new_pages);
+    return false;
+}
+
+bool userland_mmap_reserved_unmap(uint64_t addr, uint64_t length, bool release) {
+    if (length == 0 || (addr & (PAGE_SIZE - 1)) ||
+        length > UINT64_MAX - addr ||
+        !userland_mmap_reserved_contains(addr, length))
+        return false;
+
+    uint64_t end = align_up_u64(addr + length, PAGE_SIZE);
+    if (end < addr)
+        return false;
+
+    for (size_t i = 0; i < user_mmap_commit_count; i++) {
+        const userland_mmap_range_t *commit = &user_mmap_commits[i];
+        uint64_t start = addr > commit->start ? addr : commit->start;
+        uint64_t stop = end < commit->end ? end : commit->end;
+        if (start < stop)
+            unmap_user_range(start, stop);
+    }
+
+    if (!release)
+        return true;
+
+    for (size_t i = 0; i < user_mmap_reservation_count; i++) {
+        userland_mmap_range_t *range = &user_mmap_reservations[i];
+        if (range->start != addr || range->end != end)
+            continue;
+
+        user_mmap_reservations[i] = user_mmap_reservations[--user_mmap_reservation_count];
+        user_mmap_reservations[user_mmap_reservation_count] = (userland_mmap_range_t){0};
+
+        for (size_t j = 0; j < user_mmap_commit_count;) {
+            userland_mmap_range_t *commit = &user_mmap_commits[j];
+            if (commit->start >= addr && commit->end <= end) {
+                user_mmap_commits[j] = user_mmap_commits[--user_mmap_commit_count];
+                user_mmap_commits[user_mmap_commit_count] = (userland_mmap_range_t){0};
+            } else {
+                j++;
+            }
+        }
+        return true;
+    }
+
+    return false;
+}
+
 bool userland_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
     if (length == 0)
         return true;
@@ -655,6 +899,9 @@ bool userland_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
     if (end < addr || (addr & (PAGE_SIZE - 1)) ||
         (prot & ~(LINUX_PROT_READ | LINUX_PROT_WRITE | LINUX_PROT_EXEC)))
         return false;
+
+    if (userland_mmap_reserved_contains(addr, length))
+        return userland_mmap_reserved_commit(addr, length, prot);
 
     uint64_t aligned_end = (end + PAGE_SIZE - 1) & ~(uint64_t)(PAGE_SIZE - 1);
     if (aligned_end < end ||
@@ -670,7 +917,8 @@ bool userland_mprotect(uint64_t addr, uint64_t length, uint64_t prot) {
     bool writable = (prot & LINUX_PROT_WRITE) != 0;
     bool executable = (prot & LINUX_PROT_EXEC) != 0;
     for (uint64_t page = addr; page < aligned_end; page += PAGE_SIZE) {
-        if (!paging_set_user_page_permissions(page, writable, executable))
+        if (!paging_set_user_page_permissions(page, writable, executable) ||
+            !paging_set_user_page_access(page, prot != 0))
             return false;
     }
     return true;
@@ -861,7 +1109,7 @@ void userland_exec_prepare(
         kfree(image_info.tls_template);
 }
 
-/* Undo a half-finished exec after push_frame(). Always returns -1. */
+/* Undo a half-finished exec after push_frame(). */
 static int userland_exec_fail(elf_image_info_t *info) {
     if (info && info->tls_template) {
         kfree(info->tls_template);
@@ -876,7 +1124,7 @@ static int userland_exec_fail(elf_image_info_t *info) {
 
     wrmsr64_local(IA32_FS_BASE_MSR, userland_restore_fs_base);
     current_fs_base = userland_restore_fs_base;
-    return -1;
+    return 126;
 }
 
 __attribute__((noinline, used))
@@ -1076,6 +1324,12 @@ int userland_exec_replace(const userland_exec_ctx_t *ctx) {
         exec_copy_free(copy);
         return -1;
     }
+    userland_mmap_range_t saved_reservations[USER_MMAP_RESERVATION_MAX];
+    userland_mmap_range_t saved_commits[USER_MMAP_COMMIT_MAX];
+    size_t saved_reservation_count = user_mmap_reservation_count;
+    size_t saved_commit_count = user_mmap_commit_count;
+    memcpy(saved_reservations, user_mmap_reservations, sizeof(saved_reservations));
+    memcpy(saved_commits, user_mmap_commits, sizeof(saved_commits));
 
     userland_unmap_all();
 
@@ -1101,6 +1355,10 @@ int userland_exec_replace(const userland_exec_ctx_t *ctx) {
     if (image_info.tls_template)
         kfree(image_info.tls_template);
     userland_restore_snapshot(backup);
+    memcpy(user_mmap_reservations, saved_reservations, sizeof(saved_reservations));
+    memcpy(user_mmap_commits, saved_commits, sizeof(saved_commits));
+    user_mmap_reservation_count = saved_reservation_count;
+    user_mmap_commit_count = saved_commit_count;
     userland_free_snapshot(backup);
     exec_copy_free(copy);
     return -1;

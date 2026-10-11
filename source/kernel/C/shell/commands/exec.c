@@ -29,6 +29,21 @@ int cmd_exec(int argc, char **argv) {
     }
 
     const char *path = argv[1];
+    vfs_file_t file;
+    if (vfs_open(path, VFS_RDONLY, &file) != 0) {
+        eprintf("exec: %s: not found", path);
+        return 127;
+    }
+
+    uint8_t elf_magic[4];
+    int bytes_read = vfs_read(&file, elf_magic, sizeof(elf_magic));
+    vfs_close(&file);
+    if (bytes_read != (int)sizeof(elf_magic) ||
+        elf_magic[0] != 0x7F || elf_magic[1] != 'E' ||
+        elf_magic[2] != 'L' || elf_magic[3] != 'F') {
+        eprintf("exec: %s: not an ELF executable", path);
+        return 126;
+    }
 
     const char *user_argv[34];
     int user_argc = 0;
@@ -63,7 +78,7 @@ int cmd_exec(int argc, char **argv) {
     if (!pid) {
         keyboard_flush_buffer();
         eprintf("exec: failed to spawn process");
-        return -1;
+        return 126;
     }
 
     int exit_code = 0;

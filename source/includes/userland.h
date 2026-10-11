@@ -18,6 +18,10 @@
 #define USER_STACK_SIZE (8 MiB) // Matches Linux default stack size limit
 #define USER_HEAP_SIZE (512 MiB)
 #define USER_MMAP_SIZE (1 GiB)
+#define USER_MMAP_RESERVE_VADDR 0x0000500000000000ULL
+#define USER_MMAP_RESERVE_SIZE (64ULL * 1024 * 1024 * 1024)
+#define USER_MMAP_RESERVATION_MAX 32
+#define USER_MMAP_COMMIT_MAX 512
 
 #define USER_CODE_VADDR 0x0000400000000000ULL // canonical user space, isolated PML4 slot
 #define USER_INTERP_VADDR 0x0000400008000000ULL // dynamically-linked ELF interpreter base
@@ -179,6 +183,18 @@ bool userland_mmap_unmap(uint64_t addr, uint64_t length);
 
 /** @brief Map user memory at a requested fixed address. */
 uint64_t userland_mmap_fixed(uint64_t addr, uint64_t length);
+
+/** @brief Reserve anonymous virtual address space without allocating pages. */
+uint64_t userland_mmap_reserve(uint64_t length);
+
+/** @brief Check whether a range belongs to a sparse mmap reservation. */
+bool userland_mmap_reserved_contains(uint64_t addr, uint64_t length);
+
+/** @brief Commit physical pages in a sparse reservation with the requested protection. */
+bool userland_mmap_reserved_commit(uint64_t addr, uint64_t length, uint64_t prot);
+
+/** @brief Unmap pages from, and optionally release, a sparse reservation. */
+bool userland_mmap_reserved_unmap(uint64_t addr, uint64_t length, bool release);
 
 /** @brief Change permissions on a user-memory range. */
 bool userland_mprotect(uint64_t addr, uint64_t length, uint64_t prot);
