@@ -733,27 +733,21 @@ typedef struct {
     uint64_t buflen;
     uint64_t *used;
     uint32_t *pos;
-    uint64_t entry_index; /* resume point, from *pos */
-    uint64_t idx;         /* running count of entries seen so far */
     int hide_lost_found;  /* set when listing the fs root */
 } ext2_getdents_ctx_t;
 
-static int ext2_getdents_cb(uint32_t ino, uint8_t file_type, const char *name, void *user) {
+static int ext2_getdents_cb(uint32_t ino, uint8_t file_type, const char *name,
+    uint32_t next_offset, void *user) {
     ext2_getdents_ctx_t *ctx = (ext2_getdents_ctx_t *)user;
 
-    /* Must come BEFORE idx++, so hidden entries don't consume an offset.
-     * Otherwise the resume position in *pos would be off by one. */
     if (ctx->hide_lost_found && strcmp(name, "lost+found") == 0)
         return 0;
 
-    if (ctx->idx++ < ctx->entry_index)
-        return 0; /* not at resume point yet, keep going */
-
     if (!emit_dirent(ctx->buf, ctx->buflen, ctx->used, ino,
-            ext2_filetype_to_dt(file_type), name, ctx->idx))
+            ext2_filetype_to_dt(file_type), name, next_offset))
         return 1; /* output buffer full, stop iteration */
 
-    *ctx->pos = (uint32_t)ctx->idx;
+    *ctx->pos = next_offset;
     return 0;
 }
 
@@ -1543,12 +1537,11 @@ int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
             .buflen = buflen,
             .used = &used,
             .pos = pos,
-            .entry_index = entry_index,
-            .idx = 0,
             .hide_lost_found = (file->f.ext2.ino == EXT2_ROOT_INO),
         };
 
-        int rc = ext2_readdir(file->f.ext2.fs, file->f.ext2.ino, ext2_getdents_cb, &ctx);
+        int rc = ext2_readdir_at(file->f.ext2.fs, file->f.ext2.ino,
+            pos, ext2_getdents_cb, &ctx);
         if (rc == EXT2_ERR_NOTDIR)
             return -LINUX_ENOTDIR;
         if (rc != EXT2_OK)

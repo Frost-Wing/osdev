@@ -23,9 +23,9 @@ int cmd_cat(int argc, char **argv) {
     }
 
     uint8_t buf[CAT_BUF_SIZE];
-    int j;
 
     for (int i = 1; i < argc; i++) {
+        int j = 0;
         vfs_file_t file;
 
         /* Open file */

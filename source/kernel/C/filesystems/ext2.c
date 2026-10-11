@@ -706,13 +706,20 @@ static inline uint16_t ext2_dirent_min_len(uint8_t name_len) {
 
 /* Iterate directory entries of dir_ino; cb returns non-zero to stop. user gets raw entry + its absolute block + offset. */
 typedef int (*ext2_dirent_cb)(ext2_fs_t *fs, uint32_t block, uint32_t off_in_block,
-    ext2_raw_dirent_t *de, const char *name, void *user);
+    ext2_raw_dirent_t *de, const char *name, uint32_t next_offset, void *user);
 
-static int ext2_iterate_dir(ext2_fs_t *fs, ext2_inode_t *dir, ext2_dirent_cb cb, void *user) {
+static int ext2_iterate_dir(ext2_fs_t *fs, ext2_inode_t *dir, ext2_dirent_cb cb,
+    void *user, uint32_t start_offset, uint32_t *next_offset) {
     uint8_t buf[EXT2_MAX_BLOCK_SIZE];
     uint32_t nblocks = (dir->i_size + fs->block_size - 1) / fs->block_size;
+    if (start_offset >= dir->i_size) {
+        if (next_offset)
+            *next_offset = dir->i_size;
+        return 0;
+    }
 
-    for (uint32_t lb = 0; lb < nblocks; lb++) {
+    uint32_t first_block = start_offset / fs->block_size;
+    for (uint32_t lb = first_block; lb < nblocks; lb++) {
         uint32_t pb = ext2_bmap(fs, dir, lb, 0, 0);
         if (pb == 0)
             continue;
@@ -724,6 +731,12 @@ static int ext2_iterate_dir(ext2_fs_t *fs, ext2_inode_t *dir, ext2_dirent_cb cb,
             ext2_raw_dirent_t *de = (ext2_raw_dirent_t *)(buf + off);
             if (de->rec_len == 0)
                 break;
+            uint32_t entry_offset = lb * fs->block_size + off;
+            uint32_t entry_end = entry_offset + de->rec_len;
+            if (entry_end <= start_offset) {
+                off += de->rec_len;
+                continue;
+            }
 
             char name[EXT2_NAME_LEN + 1];
             if (de->inode != 0 && de->name_len > 0) {
@@ -733,12 +746,16 @@ static int ext2_iterate_dir(ext2_fs_t *fs, ext2_inode_t *dir, ext2_dirent_cb cb,
                 name[0] = '\0';
             }
 
-            if (cb(fs, pb, off, de, name, user))
+            if (cb(fs, pb, off, de, name, entry_end, user))
                 return 1;
+            if (next_offset)
+                *next_offset = entry_end;
 
             off += de->rec_len;
         }
     }
+    if (next_offset)
+        *next_offset = dir->i_size;
     return 0;
 }
 
@@ -749,10 +766,12 @@ typedef struct {
     int found;
 } find_ctx_t;
 
-static int find_cb(ext2_fs_t *fs, uint32_t block, uint32_t off, ext2_raw_dirent_t *de, const char *name, void *user) {
+static int find_cb(ext2_fs_t *fs, uint32_t block, uint32_t off,
+    ext2_raw_dirent_t *de, const char *name, uint32_t next_offset, void *user) {
     (void)fs;
     (void)block;
     (void)off;
+    (void)next_offset;
     find_ctx_t *ctx = user;
     if (de->inode != 0 && strcmp(name, ctx->target) == 0) {
         ctx->found_ino = de->inode;
@@ -772,7 +791,7 @@ int ext2_find_in_dir(ext2_fs_t *fs, uint32_t dir_ino, const char *name, uint32_t
         return EXT2_ERR_NOTDIR;
 
     find_ctx_t ctx = {.target = name, .found = 0};
-    int rc = ext2_iterate_dir(fs, &dir, find_cb, &ctx);
+    int rc = ext2_iterate_dir(fs, &dir, find_cb, &ctx, 0, NULL);
     if (rc < 0)
         return rc;
 
@@ -790,10 +809,12 @@ typedef struct {
     char names[256][13]; /* unused placeholder to keep struct simple */
 } unused_t;
 
-static int list_cb(ext2_fs_t *fs, uint32_t block, uint32_t off, ext2_raw_dirent_t *de, const char *name, void *user) {
+static int list_cb(ext2_fs_t *fs, uint32_t block, uint32_t off,
+    ext2_raw_dirent_t *de, const char *name, uint32_t next_offset, void *user) {
     (void)fs;
     (void)block;
     (void)off;
+    (void)next_offset;
     ext2_ls_ctx_t *ctx = user;
 
     if (de->inode == 0)
@@ -819,23 +840,26 @@ int ext2_list_dir(ext2_fs_t *fs, uint32_t dir_ino) {
         return EXT2_ERR_NOTDIR;
 
     ext2_ls_ctx_t ctx = {.hide_lost_found = (dir_ino == EXT2_ROOT_INO)};
-    int rc = ext2_iterate_dir(fs, &dir, list_cb, &ctx);
+    int rc = ext2_iterate_dir(fs, &dir, list_cb, &ctx, 0, NULL);
     return rc < 0 ? rc : EXT2_OK;
 }
 
 typedef struct {
     ext2_readdir_cb cb;
+    ext2_readdir_cursor_cb cursor_cb;
     void *user;
 } ext2_readdir_ctx_t;
 
 static int ext2_readdir_trampoline(ext2_fs_t *fs, uint32_t block, uint32_t off,
-    ext2_raw_dirent_t *de, const char *name, void *user) {
+    ext2_raw_dirent_t *de, const char *name, uint32_t next_offset, void *user) {
     (void)fs;
     (void)block;
     (void)off;
     if (de->inode == 0)
         return 0; /* skip deleted/empty slots */
     ext2_readdir_ctx_t *ctx = (ext2_readdir_ctx_t *)user;
+    if (ctx->cursor_cb)
+        return ctx->cursor_cb(de->inode, de->file_type, name, next_offset, ctx->user);
     return ctx->cb(de->inode, de->file_type, name, ctx->user);
 }
 
@@ -850,11 +874,28 @@ int ext2_readdir(ext2_fs_t *fs, uint32_t dir_ino, ext2_readdir_cb cb, void *user
     if ((dir.i_mode & EXT2_S_IFMT) != EXT2_S_IFDIR)
         return EXT2_ERR_NOTDIR;
 
-    ext2_readdir_ctx_t ctx = {.cb = cb, .user = user};
-    int rc = ext2_iterate_dir(fs, &dir, ext2_readdir_trampoline, &ctx);
+    ext2_readdir_ctx_t ctx = {.cb = cb, .cursor_cb = NULL, .user = user};
+    int rc = ext2_iterate_dir(fs, &dir, ext2_readdir_trampoline, &ctx, 0, NULL);
     return rc < 0 ? rc : EXT2_OK;
 }
 
+int ext2_readdir_at(ext2_fs_t *fs, uint32_t dir_ino, uint32_t *offset,
+    ext2_readdir_cursor_cb cb, void *user) {
+    if (!fs || !offset || !cb)
+        return EXT2_ERR_INVAL;
+
+    ext2_inode_t dir;
+    if (ext2_read_inode(fs, dir_ino, &dir) != EXT2_OK)
+        return EXT2_ERR_IO;
+
+    if ((dir.i_mode & EXT2_S_IFMT) != EXT2_S_IFDIR)
+        return EXT2_ERR_NOTDIR;
+
+    ext2_readdir_ctx_t ctx = {.cb = NULL, .cursor_cb = cb, .user = user};
+    int rc = ext2_iterate_dir(fs, &dir, ext2_readdir_trampoline, &ctx,
+        *offset, offset);
+    return rc < 0 ? rc : EXT2_OK;
+}
 /* Insert a new directory entry (inode, name, type) into dir_ino, growing the
  * directory by one block if no existing entry has enough free space. */
 static int ext2_dir_add_entry(ext2_fs_t *fs, uint32_t dir_ino, ext2_inode_t *dir,
@@ -1956,9 +1997,10 @@ int ext2_truncate(ext2_fs_t *fs, ext2_file_t *f) {
 static int ext2_rm_recursive_inode(ext2_fs_t *fs, uint32_t ino);
 
 static int ext2_rm_recursive_cb(ext2_fs_t *fs, uint32_t block, uint32_t off,
-    ext2_raw_dirent_t *de, const char *name, void *user) {
+    ext2_raw_dirent_t *de, const char *name, uint32_t next_offset, void *user) {
     (void)block;
     (void)off;
+    (void)next_offset;
     (void)user;
     if (de->inode == 0)
         return 0;
@@ -1981,7 +2023,7 @@ static int ext2_rm_recursive_inode(ext2_fs_t *fs, uint32_t ino) {
 
     if (is_dir) {
         /* recurse into every child first */
-        ext2_iterate_dir(fs, &inode, ext2_rm_recursive_cb, NULL);
+        ext2_iterate_dir(fs, &inode, ext2_rm_recursive_cb, NULL, 0, NULL);
         inode.i_links_count = 0;
     } else {
         if (inode.i_links_count > 0)

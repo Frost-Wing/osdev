@@ -345,11 +345,21 @@ int ext2_sync(ext2_fs_t *fs);
  * cb is invoked; "." and ".." are real on-disk entries in ext2 and
  * are NOT filtered — callers that don't want them must skip in cb. */
 typedef int (*ext2_readdir_cb)(uint32_t ino, uint8_t file_type, const char *name, void *user);
+typedef int (*ext2_readdir_cursor_cb)(uint32_t ino, uint8_t file_type,
+    const char *name, uint32_t next_offset, void *user);
 
 /**
  * @brief Iterate every valid entry of a directory inode, in on-disk order.
  * @return EXT2_OK, EXT2_ERR_NOTDIR, or EXT2_ERR_IO.
  */
 int ext2_readdir(ext2_fs_t *fs, uint32_t dir_ino, ext2_readdir_cb cb, void *user);
+
+/**
+ * @brief Continue directory iteration from an on-disk directory offset.
+ * @param offset In/out cursor; updated after each accepted entry.
+ * @return EXT2_OK, EXT2_ERR_NOTDIR, or EXT2_ERR_IO.
+ */
+int ext2_readdir_at(ext2_fs_t *fs, uint32_t dir_ino, uint32_t *offset,
+    ext2_readdir_cursor_cb cb, void *user);
 
 #endif /* EXT2_H */
