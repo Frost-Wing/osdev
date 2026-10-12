@@ -188,6 +188,46 @@ void ksh_exec(void) {
     }
 }
 
+static void shell_set_echo(bool enabled) {
+    linux_termios_t termios;
+    if (!tty_get_termios(&termios))
+        return;
+
+    if (enabled)
+        termios.c_lflag |= LINUX_ECHO;
+    else
+        termios.c_lflag &= (uint32_t)~LINUX_ECHO;
+
+    tty_set_termios(&termios, false);
+}
+
+static void shell_move_cursor(size_t from, size_t to) {
+    const char *sequence = from > to ? "\033[D" : "\033[C";
+    size_t count = from > to ? from - to : to - from;
+    while (count--)
+        print(sequence);
+}
+
+static void shell_redraw_line(const char *command, size_t old_size,
+                              size_t old_cursor, size_t new_size,
+                              size_t new_cursor) {
+    size_t display_size = old_size > new_size ? old_size : new_size;
+
+    shell_move_cursor(old_cursor, 0);
+    for (size_t i = 0; i < new_size; ++i)
+        putc(command[i]);
+    for (size_t i = new_size; i < display_size; ++i)
+        putc(' ');
+    shell_move_cursor(display_size, new_cursor);
+}
+
+static void shell_clear_line(size_t size, size_t cursor) {
+    shell_move_cursor(cursor, 0);
+    for (size_t i = 0; i < size; ++i)
+        putc(' ');
+    shell_move_cursor(size, 0);
+}
+
 int shell_main(int argc, char **argv) {
     running = true;
     char *command = kmalloc(BUFFER_SIZE);
@@ -207,6 +247,7 @@ int shell_main(int argc, char **argv) {
     putc('\n');
 
     show_prompt(argc, argv);
+    shell_set_echo(false);
 
     command_list_entry *entry = NULL;
     int c;
@@ -221,32 +262,38 @@ int shell_main(int argc, char **argv) {
             tty_take_interrupt();
             tty_flush_input();
             keyboard_flush_buffer();
+            shell_clear_line(commandSize, cursor);
             commandSize = 0;
             cursor = 0;
             command[0] = '\0';
-            print("\r\x1b[K");
             if (c == 3)
                 print("^C\n");
+            else
+                putc('\n');
+            entry = NULL;
             show_prompt(argc, argv);
+            shell_set_echo(false);
             continue;
         }
 
         if (c == CUR_UP) {
+            command_list_entry *previous_entry = entry;
             if (entry == NULL)
                 entry = commandHistory.end;
             else if (entry->prev != NULL)
                 entry = entry->prev;
 
             if (entry != NULL) {
-                while (commandSize > 0) {
-                    putc('\b');
-                    commandSize--;
-                }
+                size_t old_size = commandSize;
+                size_t old_cursor = cursor;
                 commandSize = entry->length;
                 cursor = entry->length;
                 memcpy(command, entry->command, commandSize);
                 command[commandSize] = '\0';
-                print(command);
+                shell_redraw_line(command, old_size, old_cursor,
+                                  commandSize, cursor);
+            } else {
+                entry = previous_entry;
             }
             continue;
         }
@@ -255,10 +302,8 @@ int shell_main(int argc, char **argv) {
             if (entry != NULL)
                 entry = entry->next;
 
-            while (commandSize > 0) {
-                putc('\b');
-                commandSize--;
-            }
+            size_t old_size = commandSize;
+            size_t old_cursor = cursor;
             commandSize = 0;
             cursor = 0;
             command[0] = '\0';
@@ -268,14 +313,19 @@ int shell_main(int argc, char **argv) {
                 cursor = entry->length;
                 memcpy(command, entry->command, commandSize);
                 command[commandSize] = '\0';
-                print(command);
             }
+            shell_redraw_line(command, old_size, old_cursor,
+                              commandSize, cursor);
             continue;
         }
 
         if (c == '\n') {
-            command[cursor] = '\0'; // Null-terminate the string
+            shell_move_cursor(cursor, commandSize);
+            putc('\n');
+            command[commandSize] = '\0';
 
+            tty_flush_input();
+            shell_set_echo(true);
             last_status_code = execute_chain(command);
             int interrupt_exit_code = tty_take_interrupt();
             if (interrupt_exit_code >= 0) {
@@ -284,31 +334,91 @@ int shell_main(int argc, char **argv) {
                 last_status_code = interrupt_exit_code;
             }
 
-            push_command_to_list(&commandHistory, command, cursor);
+            push_command_to_list(&commandHistory, command, commandSize);
             entry = NULL;
             cursor = 0;
             commandSize = 0;
             memset(command, 0, commandBufferSize);
 
             if (running) {
+                shell_set_echo(false);
                 show_prompt(argc, argv);
             }
             continue;
-        } else if (c == '\b') {
-            if (cursor > 0)
-                cursor--;
-            else
-                continue;
-        } else {
-            if (commandSize + 1 >= commandBufferSize) {
-                commandBufferSize += BUFFER_SIZE;
-                command = krealloc(command, commandBufferSize);
-            }
-
-            command[cursor] = (char)c;
-            cursor++;
-            commandSize++;
         }
+
+        if (c == CUR_LEFT) {
+            if (cursor > 0) {
+                shell_move_cursor(cursor, cursor - 1);
+                cursor--;
+            }
+            continue;
+        }
+
+        if (c == CUR_RIGHT) {
+            if (cursor < commandSize) {
+                shell_move_cursor(cursor, cursor + 1);
+                cursor++;
+            }
+            continue;
+        }
+
+        if (c == KEY_HOME) {
+            shell_move_cursor(cursor, 0);
+            cursor = 0;
+            continue;
+        }
+
+        if (c == KEY_END) {
+            shell_move_cursor(cursor, commandSize);
+            cursor = commandSize;
+            continue;
+        }
+
+        if (c == '\b' || c == 127) {
+            if (cursor == 0)
+                continue;
+
+            size_t old_size = commandSize;
+            size_t old_cursor = cursor;
+            memmove(command + cursor - 1, command + cursor,
+                    commandSize - cursor + 1);
+            commandSize--;
+            cursor--;
+            shell_redraw_line(command, old_size, old_cursor,
+                              commandSize, cursor);
+            continue;
+        }
+
+        if (c == KEY_DEL) {
+            if (cursor >= commandSize)
+                continue;
+
+            size_t old_size = commandSize;
+            memmove(command + cursor, command + cursor + 1,
+                    commandSize - cursor);
+            commandSize--;
+            shell_redraw_line(command, old_size, cursor,
+                              commandSize, cursor);
+            continue;
+        }
+
+        if (c < 32 || c > 126)
+            continue;
+
+        if (commandSize + 1 >= commandBufferSize) {
+            commandBufferSize += BUFFER_SIZE;
+            command = krealloc(command, commandBufferSize);
+        }
+
+        size_t old_cursor = cursor;
+        memmove(command + cursor + 1, command + cursor,
+                commandSize - cursor + 1);
+        command[cursor] = (char)c;
+        commandSize++;
+        cursor++;
+        shell_redraw_line(command, commandSize - 1, old_cursor,
+                          commandSize, cursor);
     }
     kfree(command);
 
