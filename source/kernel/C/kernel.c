@@ -22,6 +22,7 @@
 #include <ringbuffer.h>
 #include <graphics.h>
 #include <cmdline.h>
+#include <secure-boot.h>
 #include <stdint.h>
 #include <syslog.h>
 #include <smp.h>
@@ -237,7 +238,7 @@ void main(void) {
         error("Failed to register USB HID keyboard class driver", __FILE__);
     probe_pci();
 
-    printf(public_key);
+    log_public_key();
 
     info("Display Resolution: %dx%d (%d) pixels. Pitch: %d", __FILE__ , framebuffer->width, framebuffer->height, framebuffer->width * framebuffer->height, framebuffer->pitch);
 
@@ -333,15 +334,13 @@ void main(void) {
 
             info("Module[%d]: %s, size: %d bytes", __FILE__, i, mod->path, mod->size);
         }
-
-        // sample
     } else {
         info("No modules provided by Limine", __FILE__);
     }
 
     enable_fpu();
 
-    info("Welcome to FrostWing Operating System! %s", __FILE__, "(https://github.com/Frost-Wing)");
+    info("Welcome to FrostWing Operating System by Prad! %s", __FILE__, "(https://github.com/Frost-Wing)");
     frost_compilation_information();
 
     log_tree_set(false);  /* flat logs from now on */

@@ -19,4 +19,9 @@
  */
 extern cstring public_key;
 
+/** @brief Logs the public key.
+ *
+ */
+void log_public_key();
+
 #endif // SECURE_BOOT_H

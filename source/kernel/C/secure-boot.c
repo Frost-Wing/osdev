@@ -9,5 +9,27 @@
  *
  */
 #include <secure-boot.h>
+#include <strings.h>
+#include <memory.h>
+#include <graphics.h>
 
 cstring public_key = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA57d9MU2NlOW8WGspodrm\n7cAsdU4NYXVrTpHIxc4a6wJDpajnjVmZ1h7HOh/DBN3lyznrqsPkqadlvBS4dfRu\nFfBtEs10VcLqhKBxaoT+5xLJr7EOIzO4JXsHJSGr5Dng3A6h0xwUCntRVIpQsuHw\nlp5zgCtPK7XF6PC4a4+YNelusILZN2egizrWnZAE3Ws7Qng2JrQJoiJgFWagrdss\nm29yIcTLdDy8Tp41l4VyJC2UcfKU8+nb1bhml4VpGCqufTU5/fNq37jVSiFF72XZ\nUVzD5A880T5/zo8OQp3N/M3NEhK7du+gwR/GxNDm0aCdVCp0xKC61ps1x8L6teAg\neQIDAQAB\n-----END PUBLIC KEY-----";
+
+void log_public_key() {
+    const char *start = public_key;
+    const char *end;
+
+    while ((end = strchr(start, '\n')) != NULL) {
+        size_t len = end - start;
+        char line[256];
+
+        if (len >= sizeof(line)) len = sizeof(line) - 1;
+        memcpy(line, start, len);
+        line[len] = '\0';
+
+        info("%s", __FILE__, line);
+        start = end + 1;
+    }
+
+    if (*start) info("%s", __FILE__, start);
+}
