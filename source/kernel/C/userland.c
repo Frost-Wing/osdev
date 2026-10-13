@@ -308,9 +308,21 @@ static void userland_restore_snapshot(saved_user_page_t *pages) {
             eprintf("userland: out of memory restoring %x", page->vaddr);
             continue;
         }
-        if (!map_user_page(page->vaddr, phys, page->flags)) {
+        /*
+         * PROT_NONE clears PAGE_USER, so map first with user access and then
+         * restore the saved effective permissions on the leaf mapping.
+         */
+        if (!map_user_page(page->vaddr, phys, page->flags | PAGE_USER)) {
             free_page(phys);
             eprintf("userland: failed to restore mapping %x", page->vaddr);
+            continue;
+        }
+        if (!paging_set_user_page_permissions(page->vaddr,
+                (page->flags & PAGE_RW) != 0, (page->flags & PAGE_NX) == 0) ||
+            (!(page->flags & PAGE_USER) &&
+                !paging_set_user_page_access(page->vaddr, false))) {
+            unmap_user_page(page->vaddr);
+            eprintf("userland: failed to restore permissions %x", page->vaddr);
             continue;
         }
         memcpy(paging_phys_to_virt(phys), paging_phys_to_virt(page->data_phys), PAGE_SIZE);
