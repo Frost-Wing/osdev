@@ -1,7 +1,9 @@
 #include <syscalls/internal.h>
 
+#include <heap.h>
 #include <multitasking.h>
 #include <net/net.h>
+#include <paging.h>
 #include <rtc.h>
 #include <tty.h>
 #include <ahci.h>
@@ -1767,6 +1769,11 @@ uint64 sys_statx(int dirfd, const char *path, int flags, unsigned int mask, linu
 uint64 sys_read(uint64_t fd, char *buf, uint64_t count) {
     if (buf == NULL || count == 0)
         return 0;
+    if (count > UINT32_MAX)
+        return -LINUX_EINVAL;
+    if (userland_is_running() &&
+        !paging_validate_user_range((uint64_t)(uintptr_t)buf, count, true))
+        return -LINUX_EFAULT;
 
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
@@ -1818,6 +1825,11 @@ uint64 sys_read(uint64_t fd, char *buf, uint64_t count) {
 uint64 sys_write(uint64_t fd, const char *buf, uint64_t count) {
     if (buf == NULL || count == 0)
         return 0;
+    if (count > UINT32_MAX)
+        return -LINUX_EINVAL;
+    if (userland_is_running() &&
+        !paging_validate_user_range((uint64_t)(uintptr_t)buf, count, false))
+        return -LINUX_EFAULT;
 
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;
@@ -1872,19 +1884,35 @@ uint64 sys_write(uint64_t fd, const char *buf, uint64_t count) {
 }
 
 uint64 sys_writev(uint64_t fd, const linux_iovec_t *iov, uint64_t iovcnt) {
-    if (iov == NULL)
+    if (iovcnt == 0)
+        return 0;
+    if (!iov || iovcnt > 1024 || iovcnt > UINT64_MAX / sizeof(*iov))
         return -LINUX_EINVAL;
+
+    size_t bytes = (size_t)(iovcnt * sizeof(*iov));
+    if (userland_is_running() &&
+        !paging_validate_user_range((uint64_t)(uintptr_t)iov, bytes, false))
+        return -LINUX_EFAULT;
+
+    linux_iovec_t *kernel_iov = kmalloc(bytes);
+    if (!kernel_iov)
+        return -LINUX_ENOMEM;
+    memcpy(kernel_iov, iov, bytes);
 
     uint64 total = 0;
     for (uint64_t i = 0; i < iovcnt; ++i) {
-        int64_t written = (int64_t)sys_write(fd, (const char *)iov[i].iov_base, iov[i].iov_len);
-        if (written < 0)
+        int64_t written = (int64_t)sys_write(fd,
+            (const char *)kernel_iov[i].iov_base, kernel_iov[i].iov_len);
+        if (written < 0) {
+            kfree(kernel_iov);
             return total > 0 ? total : (uint64)written;
+        }
         total += (uint64)written;
-        if ((uint64_t)written < iov[i].iov_len)
+        if ((uint64_t)written < kernel_iov[i].iov_len)
             break; /* short write, stop like Linux does */
     }
 
+    kfree(kernel_iov);
     return total;
 }
 

@@ -1,5 +1,6 @@
 #include <syscalls/internal.h>
 #include <limits.h>
+#include <heap.h>
 #include <paging.h>
 #include <pit.h>
 #include <smp.h>
@@ -50,26 +51,8 @@ static void membarrier_fence(bool sync_core) {
 }
 
 static bool syscall_user_range_accessible(uint64_t addr, uint64_t length) {
-    if (!length)
-        return true;
-
-    uint64_t end = addr + length;
-    if (end < addr || !userland_is_running())
-        return false;
-
-    uint64_t page = addr & ~(PAGE_SIZE - 1);
-    uint64_t aligned_end = end > UINT64_MAX - (PAGE_SIZE - 1)
-        ? 0
-        : (end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-    if (!aligned_end)
-        return false;
-
-    for (; page < aligned_end; page += PAGE_SIZE) {
-        uint64_t page_flags = paging_user_page_flags(page);
-        if ((page_flags & (PAGE_PRESENT | PAGE_USER)) != (PAGE_PRESENT | PAGE_USER))
-            return false;
-    }
-    return true;
+    return userland_is_running() &&
+        paging_validate_user_range(addr, length, true);
 }
 
 uint64 sys_sched_getaffinity(int64_t pid, uint64_t cpusetsize, void *mask) {
@@ -1396,14 +1379,35 @@ uint64 sys_sysinfo(linux_sysinfo_t *info) {
 }
 
 int64_t sys_readv(uint64_t fd, linux_iovec_t *iov, uint64_t cnt) {
+    if (cnt == 0)
+        return 0;
+    if (!iov || cnt > 1024 || cnt > UINT64_MAX / sizeof(*iov))
+        return -LINUX_EINVAL;
+
+    size_t bytes = (size_t)(cnt * sizeof(*iov));
+    if (userland_is_running() &&
+        !paging_validate_user_range((uint64_t)(uintptr_t)iov, bytes, false))
+        return -LINUX_EFAULT;
+    linux_iovec_t *kernel_iov = kmalloc(bytes);
+    if (!kernel_iov)
+        return -LINUX_ENOMEM;
+    memcpy(kernel_iov, iov, bytes);
+
     int64_t total = 0;
     for (uint64_t i = 0; i < cnt; i++) {
-        if (!iov[i].iov_len) continue;
-        int64_t n = sys_read(fd, (char *)iov[i].iov_base, iov[i].iov_len);
-        if (n < 0) return total ? total : n;   /* report error only if nothing was read */
+        if (!kernel_iov[i].iov_len)
+            continue;
+        int64_t n = sys_read(fd, (char *)kernel_iov[i].iov_base,
+            kernel_iov[i].iov_len);
+        if (n < 0) {
+            kfree(kernel_iov);
+            return total ? total : n; /* report error only if nothing was read */
+        }
         total += n;
-        if ((uint64_t)n < iov[i].iov_len) break; /* short read, stop */
+        if ((uint64_t)n < kernel_iov[i].iov_len)
+            break; /* short read, stop */
     }
+    kfree(kernel_iov);
     return total;
 }
 

@@ -214,7 +214,11 @@ static bool map_user_range(uint64_t start, uint64_t end, uint64_t flags) {
         }
         if (paging_user_page_flags(vaddr) & PAGE_PRESENT)
             unmap_user_page(vaddr);
-        map_user_page(vaddr, phys, flags);
+        if (!map_user_page(vaddr, phys, flags)) {
+            free_page(phys);
+            unmap_user_range(a, vaddr);
+            return false;
+        }
         memset((void *)vaddr, 0, PAGE_SIZE);
     }
     return true;
@@ -304,7 +308,11 @@ static void userland_restore_snapshot(saved_user_page_t *pages) {
             eprintf("userland: out of memory restoring %x", page->vaddr);
             continue;
         }
-        map_user_page(page->vaddr, phys, page->flags);
+        if (!map_user_page(page->vaddr, phys, page->flags)) {
+            free_page(phys);
+            eprintf("userland: failed to restore mapping %x", page->vaddr);
+            continue;
+        }
         memcpy(paging_phys_to_virt(phys), paging_phys_to_virt(page->data_phys), PAGE_SIZE);
     }
 }
@@ -825,7 +833,8 @@ bool userland_mmap_reserved_commit(uint64_t addr, uint64_t length, uint64_t prot
             continue;
         }
 
-        map_user_page(page, new_pages[new_index].phys, page_flags);
+        if (!map_user_page(page, new_pages[new_index].phys, page_flags))
+            goto rollback;
         memset((void *)page, 0, PAGE_SIZE);
         new_index++;
     }

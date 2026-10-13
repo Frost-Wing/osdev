@@ -37,8 +37,6 @@ typedef struct {
 
 typedef struct {
     uint64_t mapped_end;
-    uint64_t last_phys;
-    uint64_t last_flags;
 } elf_map_state_t;
 
 /* ---------------------------------------------------------------- VFS ---- */
@@ -211,6 +209,10 @@ static int elf_apply_rela_table(const Elf64_Rela *relocs,
             continue;
 
         uint64_t target_addr = load_bias + reloc->r_offset;
+        if (target_addr < load_bias) {
+            eprintf("elf: relocation target address overflow");
+            return -1;
+        }
         if (!elf_in_range(lo, hi, target_addr, sizeof(uint64_t))) {
             eprintf("elf: relocation target outside image off=%x", reloc->r_offset);
             return -1;
@@ -380,7 +382,8 @@ static int elf_validate_header(const Elf64_Ehdr *header, uint64_t file_size) {
         return -1;
     }
 
-    if (header->e_phentsize != sizeof(Elf64_Phdr) || header->e_phnum == 0 || header->e_phnum > ELF_MAX_PHNUM ||
+    if (header->e_ehsize != sizeof(Elf64_Ehdr) ||
+        header->e_phentsize != sizeof(Elf64_Phdr) || header->e_phnum == 0 || header->e_phnum > ELF_MAX_PHNUM ||
         header->e_phoff > file_size ||
         (uint64_t)header->e_phnum * header->e_phentsize > file_size - header->e_phoff) {
         eprintf("elf: invalid program header table");
@@ -395,16 +398,34 @@ static int elf_scan_segments(const Elf64_Phdr *phdrs, uint16_t phnum, uint64_t f
     uint64_t lo = UINT64_MAX;
     uint64_t hi = 0;
     uint64_t prev_end = 0;
+    uint64_t prev_page_end = 0;
+    uint32_t prev_flags = 0;
     uint64_t total = 0;
 
     for (uint16_t i = 0; i < phnum; ++i) {
         const Elf64_Phdr *ph = &phdrs[i];
-        if (ph->p_type != PT_LOAD || ph->p_memsz == 0)
+        if (ph->p_type != PT_LOAD)
             continue;
+
+        if (ph->p_memsz == 0) {
+            if (ph->p_filesz != 0)
+                return -1;
+            continue;
+        }
 
         if (ph->p_memsz < ph->p_filesz || ph->p_memsz > ELF_MAX_IMAGE_SIZE ||
             ph->p_offset > file_size || ph->p_filesz > file_size - ph->p_offset ||
-            ph->p_vaddr >= ELF_USER_VADDR_MAX) {
+            ph->p_vaddr >= ELF_USER_VADDR_MAX ||
+            ph->p_memsz > ELF_USER_VADDR_MAX - ph->p_vaddr ||
+            (ph->p_flags & ~(PF_R | PF_W | PF_X)) != 0 ||
+            !(ph->p_flags & PF_R) ||
+            ((ph->p_flags & (PF_W | PF_X)) == (PF_W | PF_X)) ||
+            (ph->p_align > 1 &&
+                ((ph->p_align & (ph->p_align - 1)) != 0 ||
+                    (ph->p_vaddr & (ph->p_align - 1)) !=
+                        (ph->p_offset & (ph->p_align - 1)))) ||
+            ph->p_memsz > UINT64_MAX - ph->p_vaddr ||
+            ph->p_vaddr + ph->p_memsz > UINT64_MAX - (PAGE_SIZE - 1)) {
             eprintf("elf: invalid PT_LOAD bounds");
             return -1;
         }
@@ -414,15 +435,24 @@ static int elf_scan_segments(const Elf64_Phdr *phdrs, uint16_t phnum, uint64_t f
             return -1;
         }
 
-        prev_end = ph->p_vaddr + ph->p_memsz;
+        uint64_t segment_end = ph->p_vaddr + ph->p_memsz;
+        uint64_t start = ph->p_vaddr & ELF_PAGE_MASK;
+        uint64_t end = (segment_end + PAGE_SIZE - 1) & ELF_PAGE_MASK;
+        if (start < prev_page_end &&
+            ((prev_flags | ph->p_flags) & (PF_W | PF_X)) == (PF_W | PF_X)) {
+            eprintf("elf: shared PT_LOAD page would be writable and executable");
+            return -1;
+        }
+
+        prev_end = segment_end;
+        prev_page_end = end;
+        prev_flags = ph->p_flags;
         total += ph->p_memsz;
         if (total > ELF_MAX_IMAGE_SIZE) {
             eprintf("elf: image too large");
             return -1;
         }
 
-        uint64_t start = ph->p_vaddr & ELF_PAGE_MASK;
-        uint64_t end = (prev_end + 0xFFFULL) & ELF_PAGE_MASK;
         if (start < lo)
             lo = start;
         if (end > hi)
@@ -439,31 +469,19 @@ static int elf_scan_segments(const Elf64_Phdr *phdrs, uint16_t phnum, uint64_t f
     return 0;
 }
 
-static uint64_t elf_merge_flags(uint64_t a, uint64_t b) {
-    uint64_t nx = a & b & (uint64_t)PAGE_NX;
-    return ((a | b) & ~(uint64_t)PAGE_NX) | nx;
-}
-
 static int elf_map_segment(const Elf64_Phdr *ph, const elf_src_t *src, uint64_t load_bias, elf_map_state_t *st) {
     uint64_t vaddr = load_bias + ph->p_vaddr;
     uint64_t seg_start = vaddr & ELF_PAGE_MASK;
-    uint64_t seg_end = (vaddr + ph->p_memsz + 0xFFFULL) & ELF_PAGE_MASK;
+    uint64_t mem_end = vaddr + ph->p_memsz;
+    uint64_t seg_end = (mem_end + PAGE_SIZE - 1) & ELF_PAGE_MASK;
 
-    uint64_t page_flags = PAGE_PRESENT | PAGE_USER | PAGE_RW;
-    if (!(ph->p_flags & PF_X))
-        page_flags |= PAGE_NX;
+    uint64_t page_flags = PAGE_PRESENT | PAGE_USER | PAGE_RW | PAGE_NX;
 
     /* Sorted segments can only share the last page of the previous one. */
     bool shared = seg_start < st->mapped_end;
     uint64_t first = seg_start;
-    if (shared) {
-        uint64_t merged = elf_merge_flags(st->last_flags, page_flags);
-        if (merged != st->last_flags) {
-            map_user_page(seg_start, st->last_phys, merged);
-            st->last_flags = merged;
-        }
+    if (shared)
         first = seg_start + PAGE_SIZE;
-    }
 
     for (uint64_t page = first; page < seg_end; page += PAGE_SIZE) {
         uint64_t phys = allocate_page();
@@ -471,9 +489,11 @@ static int elf_map_segment(const Elf64_Phdr *ph, const elf_src_t *src, uint64_t 
             eprintf("elf: out of memory mapping segment");
             return -1;
         }
-        map_user_page(page, phys, page_flags);
-        st->last_phys = phys;
-        st->last_flags = page_flags;
+        if (!map_user_page(page, phys, page_flags)) {
+            free_page(phys);
+            eprintf("elf: failed to map segment page at %x", page);
+            return -1;
+        }
     }
     st->mapped_end = seg_end;
 
@@ -485,10 +505,61 @@ static int elf_map_segment(const Elf64_Phdr *ph, const elf_src_t *src, uint64_t 
         return -1;
     }
 
-    memset((uint8_t *)vaddr + ph->p_filesz, 0, seg_end - (vaddr + ph->p_filesz));
+    if (ph->p_memsz > ph->p_filesz)
+        memset((uint8_t *)vaddr + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
 
     // printf("Loaded user segment -> vaddr=%x size=%u flags=%x", vaddr, ph->p_memsz, ph->p_flags);
     return 0;
+}
+
+static int elf_finalize_segment_permissions(const Elf64_Phdr *phdrs,
+    uint16_t phnum, uint64_t load_bias) {
+    for (uint16_t i = 0; i < phnum; ++i) {
+        const Elf64_Phdr *ph = &phdrs[i];
+        if (ph->p_type != PT_LOAD || ph->p_memsz == 0)
+            continue;
+
+        uint64_t start = (load_bias + ph->p_vaddr) & ELF_PAGE_MASK;
+        uint64_t end_addr = load_bias + ph->p_vaddr + ph->p_memsz;
+        uint64_t end = (end_addr + PAGE_SIZE - 1) & ELF_PAGE_MASK;
+        for (uint64_t page = start; page < end; page += PAGE_SIZE) {
+            uint32_t merged_flags = 0;
+            for (uint16_t j = 0; j < phnum; ++j) {
+                const Elf64_Phdr *other = &phdrs[j];
+                if (other->p_type != PT_LOAD || other->p_memsz == 0)
+                    continue;
+                uint64_t other_start = (load_bias + other->p_vaddr) & ELF_PAGE_MASK;
+                uint64_t other_end_addr = load_bias + other->p_vaddr + other->p_memsz;
+                uint64_t other_end = (other_end_addr + PAGE_SIZE - 1) & ELF_PAGE_MASK;
+                if (page >= other_start && page < other_end)
+                    merged_flags |= other->p_flags;
+            }
+
+            bool writable = (merged_flags & PF_W) != 0;
+            bool executable = (merged_flags & PF_X) != 0;
+            if (writable && executable) {
+                eprintf("elf: refusing writable executable page at %x", page);
+                return -1;
+            }
+            if (!paging_set_user_page_permissions(page, writable, executable)) {
+                eprintf("elf: failed to apply page permissions at %x", page);
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+
+static bool elf_entry_is_executable(const Elf64_Phdr *phdrs, uint16_t phnum,
+    uint64_t entry, uint64_t load_bias) {
+    for (uint16_t i = 0; i < phnum; ++i) {
+        const Elf64_Phdr *ph = &phdrs[i];
+        if (ph->p_type == PT_LOAD && (ph->p_flags & PF_X) &&
+            entry >= load_bias + ph->p_vaddr &&
+            entry - (load_bias + ph->p_vaddr) < ph->p_memsz)
+            return true;
+    }
+    return false;
 }
 
 static int elf_record_interp_segment(const Elf64_Phdr *ph, const elf_src_t *src, elf_image_info_t *info) {
@@ -540,7 +611,10 @@ static uint64_t elf_stage_phdrs_for_user(const Elf64_Phdr *headers, uint64_t phd
         uint64_t phys = allocate_page();
         if (!phys)
             return 0;
-        map_user_page(base + off, phys, USER_DATA_FLAGS);
+        if (!map_user_page(base + off, phys, USER_DATA_FLAGS)) {
+            free_page(phys);
+            return 0;
+        }
     }
 
     memcpy((void *)base, headers, phdr_bytes);
@@ -594,9 +668,16 @@ static void *elf_load_image(const elf_src_t *src, uint64_t dyn_base, bool is_int
     if (elf_scan_segments(phdrs, header.e_phnum, src->size, &lo, &hi) != 0)
         goto out;
 
+    if (header.e_type == ET_DYN && dyn_base < lo) {
+        eprintf("elf: dynamic image base underflow");
+        goto out;
+    }
     bias = (header.e_type == ET_DYN) ? dyn_base - lo : 0;
     rlo = lo + bias;
-    if (rlo < ELF_USER_VADDR_MIN || rlo >= ELF_USER_VADDR_MAX || hi - lo > ELF_USER_VADDR_MAX - rlo) {
+    uint64_t image_floor = is_interp ? USER_INTERP_VADDR : USER_CODE_VADDR;
+    uint64_t image_limit = is_interp ? USER_HEAP_VADDR : USER_INTERP_VADDR;
+    if (rlo < image_floor || rlo >= image_limit ||
+        hi - lo > image_limit - rlo) {
         eprintf("elf: image outside user address range");
         goto out;
     }
@@ -624,14 +705,19 @@ static void *elf_load_image(const elf_src_t *src, uint64_t dyn_base, bool is_int
         }
     }
 
+    if (header.e_entry > UINT64_MAX - bias) {
+        eprintf("elf: entry point address overflow");
+        goto out;
+    }
     info->entry = bias + header.e_entry;
     info->requested_entry = header.e_entry;
     info->load_bias = bias;
     info->phentsize = header.e_phentsize;
     info->phnum = header.e_phnum;
 
-    if (!elf_in_range(rlo, rhi, info->entry, 1)) {
-        eprintf("elf: entry point outside image");
+    if (!elf_in_range(rlo, rhi, info->entry, 1) ||
+        !elf_entry_is_executable(phdrs, header.e_phnum, info->entry, bias)) {
+        eprintf("elf: entry point is outside an executable segment");
         goto out;
     }
 
@@ -645,6 +731,9 @@ static void *elf_load_image(const elf_src_t *src, uint64_t dyn_base, bool is_int
     /* The interpreter applies its own relocations and those of the main image. */
     if (!is_interp && !info->has_interp &&
         elf_apply_runtime_relocations(bias, phdrs, header.e_phnum, rlo, rhi) != 0)
+        goto out;
+
+    if (elf_finalize_segment_permissions(phdrs, header.e_phnum, bias) != 0)
         goto out;
 
     entry = (void *)info->entry;

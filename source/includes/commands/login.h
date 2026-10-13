@@ -21,21 +21,10 @@
 #define MAX_PASSWORD_LENGTH 40
 
 /**
- * @brief Function to create an user with an hash.
- *
- * @param name
- * @param password
+ * Load the persisted root verifier or perform first-boot setup on a writable
+ * FAT16, FAT32, or ext2 root filesystem. The password itself is never stored.
  */
-void create_user(uint64 name, uint64 password);
-
-/**
- * @brief Function to create an user with plain string.
- * @warning Potential security risk.
- *
- * @param name
- * @param password
- */
-void create_user_str(cstring name, cstring password);
+int login_setup_first_user(void);
 
 /**
  * @brief Read a login name into a caller-provided buffer.

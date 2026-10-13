@@ -54,7 +54,6 @@ uint64_t memory_used = 0;
 
 static spinlock_t heap_lock = SPINLOCK_INITIALIZER;
 
-#define ALIGN_UP(x, a) (((x) + ((a) - 1)) & ~((a) - 1))
 #define ALIGNED_ALLOC_MAGIC 0x46574B414C49474EULL /* "FWKALIGN" */
 
 /* A free block is only split if the leftover can hold a header + this much. */
@@ -78,6 +77,14 @@ typedef struct {
 static heap_fault_t g_fault;
 static volatile bool g_fault_pending = false;
 static uintptr_t g_last_fault_addr = 0;
+
+static bool align_up_checked(uintptr_t value, size_t alignment, uintptr_t *out) {
+    uintptr_t mask = (uintptr_t)alignment - 1;
+    if (value > UINTPTR_MAX - mask)
+        return false;
+    *out = (value + mask) & ~mask;
+    return true;
+}
 
 /* Call with heap_lock held. Remembers the first fault until it is flushed. */
 static void heap_note_fault(const char *where, const alloc_t *a) {
@@ -279,11 +286,13 @@ void mm_init(uintptr_t kernel_end, uint64 heap_size) {
 
     spinlock_lock(&heap_lock);
 
-    heap_begin = ALIGN_UP(kernel_end, 8);
-    if (heap_size <= 0 || (uint64_t)heap_size > UINT64_MAX - heap_begin) {
+    uintptr_t aligned_begin = 0;
+    if (!align_up_checked(kernel_end, 8, &aligned_begin) ||
+        heap_size == 0 || heap_size > UINTPTR_MAX - aligned_begin) {
         meltdown_screen("Invalid heap size!", __FILE__, __LINE__, 0, getCR2(), 0, null);
         hcf();
     }
+    heap_begin = aligned_begin;
     heap_end = heap_begin + (uint64_t)heap_size;
     last_alloc = heap_begin;
     alloc_count = 0;
@@ -341,13 +350,13 @@ static void *kmalloc_locked(size_t size) {
     }
 
     // Align new block start
-    last_alloc = ALIGN_UP(last_alloc, 8);
-
-    if (size > UINT64_MAX - last_alloc - sizeof(alloc_t) ||
-        last_alloc + sizeof(alloc_t) + size > heap_end) {
-        meltdown_screen("Heap out of memory!", __FILE__, __LINE__, 0, getCR2(), 0, null);
-        hcf();
-    }
+    uintptr_t aligned_last;
+    if (!align_up_checked(last_alloc, 8, &aligned_last) ||
+        aligned_last > heap_end ||
+        heap_end - aligned_last < sizeof(alloc_t) ||
+        size > heap_end - aligned_last - sizeof(alloc_t))
+        return NULL;
+    last_alloc = aligned_last;
 
     alloc_t *new_alloc = (alloc_t *)last_alloc;
     new_alloc->size = size;
@@ -357,8 +366,7 @@ static void *kmalloc_locked(size_t size) {
     uint8_t *user_ptr = (uint8_t *)new_alloc + sizeof(alloc_t);
     memset(user_ptr, 0, size);
 
-    last_alloc += sizeof(alloc_t) + size;
-    last_alloc = ALIGN_UP(last_alloc, 8);
+    last_alloc = aligned_last + sizeof(alloc_t) + size;
 
     memory_used += size + sizeof(alloc_t);
     alloc_count++;
@@ -413,7 +421,11 @@ void *kmalloc(size_t size) {
         return NULL;
     }
 
-    size = ALIGN_UP(size, 8);
+    if (size > SIZE_MAX - 7) {
+        warn("kmalloc: allocation size overflow", __FILE__);
+        return NULL;
+    }
+    size = (size + 7) & ~(size_t)7;
 
     spinlock_lock(&heap_lock);
     void *ptr = kmalloc_locked(size);
@@ -444,10 +456,14 @@ void ikfree(void *ptr, const char *function, const char *file, int line) {
 /* ===================== Aligned allocation ===================== */
 
 static bool aligned_total(size_t size, size_t align, size_t *total) {
-    if (size == 0 || size > SIZE_MAX - align - sizeof(aligned_alloc_header_t) - 7)
+    if (size == 0 || align < sizeof(void *) ||
+        (align & (align - 1)) != 0 ||
+        align - 1 > SIZE_MAX - sizeof(aligned_alloc_header_t) ||
+        size > SIZE_MAX - (align - 1) - sizeof(aligned_alloc_header_t) - 7)
         return false;
 
-    *total = ALIGN_UP(size + align - 1 + sizeof(aligned_alloc_header_t), 8);
+    size_t raw = size + align - 1 + sizeof(aligned_alloc_header_t);
+    *total = (raw + 7) & ~(size_t)7;
     return true;
 }
 
@@ -456,7 +472,15 @@ static void *kmalloc_aligned_locked(size_t total, size_t align) {
     if (!raw)
         return NULL;
 
-    uintptr_t aligned = ALIGN_UP(raw + sizeof(aligned_alloc_header_t), align);
+    if (raw > UINTPTR_MAX - sizeof(aligned_alloc_header_t)) {
+        (void)kfree_locked((void *)raw);
+        return NULL;
+    }
+    uintptr_t aligned;
+    if (!align_up_checked(raw + sizeof(aligned_alloc_header_t), align, &aligned)) {
+        (void)kfree_locked((void *)raw);
+        return NULL;
+    }
     aligned_alloc_header_t *hdr =
         (aligned_alloc_header_t *)(aligned - sizeof(aligned_alloc_header_t));
     hdr->magic = ALIGNED_ALLOC_MAGIC;
@@ -496,7 +520,9 @@ void *krealloc(void *ptr, size_t size) {
         return NULL;
     }
 
-    size = ALIGN_UP(size, 8);
+    if (size > SIZE_MAX - 7)
+        return NULL;
+    size = (size + 7) & ~(size_t)7;
 
     spinlock_lock(&heap_lock);
 

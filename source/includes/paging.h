@@ -38,7 +38,7 @@ extern struct limine_memmap_response *memmap;
  * @param phys Physical memory address of kernel's user code.
  * @param flags Permissions
  */
-void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags);
+bool map_user_page(uint64_t virt, uint64_t phys, uint64_t flags);
 
 /** @brief Remove a user page mapping. */
 void unmap_user_page(uint64_t virt);
@@ -73,6 +73,9 @@ bool paging_map_mmio(uintptr_t phys, size_t size);
 
 /** @brief Return the page-table flags for a user virtual address. */
 uint64_t paging_user_page_flags(uint64_t virt);
+
+/** @brief Check that every page in a user range is mapped with the requested access. */
+bool paging_validate_user_range(uint64_t addr, uint64_t length, bool writable);
 
 /** @brief Translate a virtual address to a physical address using the fast path. */
 uint64_t fast_virt_to_phys(void *v);

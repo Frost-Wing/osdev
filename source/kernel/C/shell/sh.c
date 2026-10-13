@@ -153,6 +153,11 @@ int show_prompt(int argc, char **argv) {
 }
 
 void ksh_exec(void) {
+    if (login_setup_first_user() != 0) {
+        error("No account was configured; refusing interactive login.", __FILE__);
+        hcf2();
+    }
+
     int failed_attempts = 0;
 
     while (true) {

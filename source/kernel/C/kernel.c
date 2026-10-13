@@ -289,8 +289,6 @@ void main(void) {
     if (smp_cpu_count() > 1 && !smp_start_cursor_blink())
         warn("No application processor available for cursor blinking.", __FILE__);
 
-    create_user_str("root", "prad"); //ik this is unsafe, stfu
-
     const char *cmdline = null;
     if (kernel_file_request.response != null && kernel_file_request.response->kernel_file != null) {
         cmdline = kernel_file_request.response->kernel_file->cmdline;

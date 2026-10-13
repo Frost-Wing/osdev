@@ -80,6 +80,10 @@ static int overlaps_reserved(uintptr_t start, uintptr_t end) {
  * allocate_page(). Safe to call later: the current bump region is clipped.
  */
 void paging_reserve_range(uintptr_t phys_start, uintptr_t phys_end) {
+    if (phys_end > UINTPTR_MAX - (PAGE_SIZE - 1)) {
+        error("paging_reserve_range(): physical range overflow", __FILE__);
+        return;
+    }
     phys_start = PAGE_ALIGN_DOWN(phys_start);
     phys_end = PAGE_ALIGN_UP(phys_end);
 
@@ -121,18 +125,26 @@ static int find_free_region(uintptr_t from, size_t needed, uintptr_t *out_start,
         if (e->type != LIMINE_MEMMAP_USABLE)
             continue;
 
+        if (e->base > UINTPTR_MAX - e->length ||
+            e->base > UINTPTR_MAX - (PAGE_SIZE - 1))
+            continue;
         uintptr_t region_start = PAGE_ALIGN_UP(e->base);
         uintptr_t region_end = PAGE_ALIGN_DOWN(e->base + e->length);
         if (region_end <= region_start)
             continue;
 
-        uintptr_t p = PAGE_ALIGN_UP(region_start > from ? region_start : from);
+        uintptr_t candidate = region_start > from ? region_start : from;
+        if (candidate > UINTPTR_MAX - (PAGE_SIZE - 1))
+            continue;
+        uintptr_t p = PAGE_ALIGN_UP(candidate);
 
         /* Slide forward past any reserved range we would overlap. */
         int moved;
         do {
             moved = 0;
             for (size_t r = 0; r < reserved_count; r++) {
+                if (p > UINTPTR_MAX - needed)
+                    break;
                 if (p < reserved[r].end && p + needed > reserved[r].start) {
                     p = reserved[r].end;
                     moved = 1;
@@ -140,6 +152,8 @@ static int find_free_region(uintptr_t from, size_t needed, uintptr_t *out_start,
             }
         } while (moved);
 
+        if (p > UINTPTR_MAX - needed)
+            continue;
         if (p + needed > region_end)
             continue;
 
@@ -241,12 +255,13 @@ uintptr_t allocate_page(void) {
         }
     }
 
-    if (!bump_ptr || bump_ptr + PAGE_SIZE > bump_end) {
-        uintptr_t start, end;
+    if (!bump_ptr || bump_ptr > bump_end || PAGE_SIZE > bump_end - bump_ptr) {
+        uintptr_t start = 0, end = 0;
         if (!find_free_region(bump_ptr, PAGE_SIZE, &start, &end)) {
             LOG_SCOPE();
             error("Out of physical memory", __FILE__);
             hcf2();
+            return 0;
         }
         bump_ptr = start;
         bump_end = end;
@@ -267,22 +282,26 @@ uintptr_t allocate_pages_contiguous(size_t count) {
         LOG_SCOPE();
         error("Limine failed to give the memory map", __FILE__);
         hcf2();
+        return 0;
     }
     if (count == 0)
+        return 0;
+    if (count > SIZE_MAX / PAGE_SIZE)
         return 0;
 
     size_t needed = count * PAGE_SIZE;
     uintptr_t base;
 
-    if (bump_ptr && bump_ptr + needed <= bump_end) {
+    if (bump_ptr && bump_ptr <= bump_end && needed <= bump_end - bump_ptr) {
         base = bump_ptr;
         bump_ptr += needed;
     } else {
-        uintptr_t start, end;
+        uintptr_t start = 0, end = 0;
         if (!find_free_region(bump_ptr, needed, &start, &end)) {
             LOG_SCOPE();
             error("Out of contiguous physical memory", __FILE__);
             hcf2();
+            return 0;
         }
         base = start;
         bump_ptr = start + needed;
@@ -312,7 +331,10 @@ static inline uint64_t get_kernel_pml4(void) {
 }
 
 uint64_t paging_user_page_flags(uint64_t virt) {
-    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
+    if (virt >= 0x0000800000000000ULL)
+        return 0;
+
+    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & PAGE_PHYS_ADDR_MASK);
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
     uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
     uint64_t pd_idx = (virt >> 21) & 0x1FF;
@@ -320,30 +342,70 @@ uint64_t paging_user_page_flags(uint64_t virt) {
 
     if (!(pml4[pml4_idx] & PAGE_PRESENT))
         return 0;
-    uint64_t *pdpt = phys_to_virt_ptr(pml4[pml4_idx] & ~0xFFFULL);
+    uint64_t effective = pml4[pml4_idx];
+    uint64_t *pdpt = phys_to_virt_ptr(pml4[pml4_idx] & PAGE_PHYS_ADDR_MASK);
 
     if (!(pdpt[pdpt_idx] & PAGE_PRESENT))
         return 0;
-    uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & ~0xFFFULL);
+    effective &= pdpt[pdpt_idx];
+    if (pdpt[pdpt_idx] & (1ULL << 7))
+        return (effective & (PAGE_PRESENT | PAGE_USER | PAGE_RW)) |
+            ((effective | pdpt[pdpt_idx]) & PAGE_NX);
+
+    uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & PAGE_PHYS_ADDR_MASK);
 
     if (!(pd[pd_idx] & PAGE_PRESENT))
         return 0;
-    uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & ~0xFFFULL);
+    effective &= pd[pd_idx];
+    if (pd[pd_idx] & (1ULL << 7))
+        return (effective & (PAGE_PRESENT | PAGE_USER | PAGE_RW)) |
+            ((effective | pd[pd_idx]) & PAGE_NX);
+
+    uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & PAGE_PHYS_ADDR_MASK);
 
     if (!(pt[pt_idx] & PAGE_PRESENT))
         return 0;
 
-    return pt[pt_idx] & 0xFFF0000000000FFFULL;
+    effective &= pt[pt_idx];
+    return (effective & (PAGE_PRESENT | PAGE_USER | PAGE_RW)) |
+        ((effective | pt[pt_idx]) & PAGE_NX);
 }
 
-void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
+bool paging_validate_user_range(uint64_t addr, uint64_t length, bool writable) {
+    const uint64_t user_limit = 0x0000800000000000ULL;
+    if (length == 0)
+        return true;
+    if (addr >= user_limit || length > user_limit - addr)
+        return false;
+
+    uint64_t end = addr + length;
+    for (uint64_t page = addr & ~(PAGE_SIZE - 1); page < end; page += PAGE_SIZE) {
+        uint64_t flags = paging_user_page_flags(page);
+        if ((flags & (PAGE_PRESENT | PAGE_USER)) != (PAGE_PRESENT | PAGE_USER) ||
+            (writable && !(flags & PAGE_RW)))
+            return false;
+    }
+    return true;
+}
+
+bool map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
+    if (virt >= 0x0000800000000000ULL || (virt & (PAGE_SIZE - 1)) != 0 ||
+        (phys & (PAGE_SIZE - 1)) != 0 ||
+        (phys & ~PAGE_PHYS_ADDR_MASK) != 0 ||
+        (flags & (PAGE_PRESENT | PAGE_USER)) != (PAGE_PRESENT | PAGE_USER)) {
+        error("map_user_page(): invalid user mapping virt=%p phys=%p flags=%p",
+            __FILE__, (void *)virt, (void *)phys, (void *)flags);
+        return false;
+    }
+
     if (phys_in_heap(phys & PAGE_PHYS_ADDR_MASK)) {
         error("map_user_page(): mapping HEAP phys %p at virt %p, caller=%p",
             __FILE__, (void *)phys, (void *)virt, __builtin_return_address(0));
+        return false;
     }
 
     // Traverse or create PML4 -> PDPT -> PD -> PT
-    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL); // kernel PML4
+    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & PAGE_PHYS_ADDR_MASK); // kernel PML4
     uint64_t *pdpt, *pd, *pt;
     uint64_t pdpt_phys, pd_phys, pt_phys;
 
@@ -355,36 +417,46 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
     // Create PDPT if missing
     if (!(pml4[pml4_idx] & PAGE_PRESENT)) {
         pdpt_phys = allocate_page();
+        if (!pdpt_phys)
+            return false;
         pdpt = phys_to_virt_ptr(pdpt_phys);
         memset(pdpt, 0, 0x1000);
         pml4[pml4_idx] = pdpt_phys | PAGE_PRESENT | PAGE_RW | PAGE_USER;
     } else {
         pml4[pml4_idx] |= (PAGE_RW | PAGE_USER);
-        pdpt_phys = pml4[pml4_idx] & ~0xFFFULL;
+        pdpt_phys = pml4[pml4_idx] & PAGE_PHYS_ADDR_MASK;
         pdpt = phys_to_virt_ptr(pdpt_phys);
     }
 
     // Create PD if missing
+    if (pdpt[pdpt_idx] & (1ULL << 7))
+        return false; /* Do not reinterpret a 1 GiB mapping as a page table. */
     if (!(pdpt[pdpt_idx] & PAGE_PRESENT)) {
         pd_phys = allocate_page();
+        if (!pd_phys)
+            return false;
         pd = phys_to_virt_ptr(pd_phys);
         memset(pd, 0, 0x1000);
         pdpt[pdpt_idx] = pd_phys | PAGE_PRESENT | PAGE_RW | PAGE_USER;
     } else {
         pdpt[pdpt_idx] |= (PAGE_RW | PAGE_USER);
-        pd_phys = pdpt[pdpt_idx] & ~0xFFFULL;
+        pd_phys = pdpt[pdpt_idx] & PAGE_PHYS_ADDR_MASK;
         pd = phys_to_virt_ptr(pd_phys);
     }
 
     // Create PT if missing
+    if (pd[pd_idx] & (1ULL << 7))
+        return false; /* Do not reinterpret a 2 MiB mapping as a page table. */
     if (!(pd[pd_idx] & PAGE_PRESENT)) {
         pt_phys = allocate_page();
+        if (!pt_phys)
+            return false;
         pt = phys_to_virt_ptr(pt_phys);
         memset(pt, 0, 0x1000);
         pd[pd_idx] = pt_phys | PAGE_PRESENT | PAGE_RW | PAGE_USER;
     } else {
         pd[pd_idx] |= (PAGE_RW | PAGE_USER);
-        pt_phys = pd[pd_idx] & ~0xFFFULL;
+        pt_phys = pd[pd_idx] & PAGE_PHYS_ADDR_MASK;
         pt = phys_to_virt_ptr(pt_phys);
     }
 
@@ -392,6 +464,7 @@ void map_user_page(uint64_t virt, uint64_t phys, uint64_t flags) {
 
     // Flush TLB
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
+    return true;
 }
 
 bool paging_map_mmio(uintptr_t phys, size_t size) {
@@ -411,7 +484,7 @@ bool paging_map_mmio(uintptr_t phys, size_t size) {
             return false;
 
         uintptr_t virt = page + hhdm_offset;
-        uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
+        uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & PAGE_PHYS_ADDR_MASK);
         uint64_t pml4_idx = (virt >> 39) & 0x1FF;
         uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
         uint64_t pd_idx = (virt >> 21) & 0x1FF;
@@ -474,7 +547,13 @@ bool paging_map_mmio(uintptr_t phys, size_t size) {
 }
 
 bool paging_set_user_page_permissions(uint64_t virt, bool writable, bool executable) {
-    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
+    if (virt >= 0x0000800000000000ULL)
+        return false;
+
+    if (!(paging_user_page_flags(virt) & PAGE_USER))
+        return false;
+
+    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & PAGE_PHYS_ADDR_MASK);
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
     uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
     uint64_t pd_idx = (virt >> 21) & 0x1FF;
@@ -482,13 +561,17 @@ bool paging_set_user_page_permissions(uint64_t virt, bool writable, bool executa
 
     if (!(pml4[pml4_idx] & PAGE_PRESENT))
         return false;
-    uint64_t *pdpt = phys_to_virt_ptr(pml4[pml4_idx] & ~0xFFFULL);
+    uint64_t *pdpt = phys_to_virt_ptr(pml4[pml4_idx] & PAGE_PHYS_ADDR_MASK);
     if (!(pdpt[pdpt_idx] & PAGE_PRESENT))
         return false;
-    uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & ~0xFFFULL);
+    if (pdpt[pdpt_idx] & (1ULL << 7))
+        return false;
+    uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & PAGE_PHYS_ADDR_MASK);
     if (!(pd[pd_idx] & PAGE_PRESENT))
         return false;
-    uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & ~0xFFFULL);
+    if (pd[pd_idx] & (1ULL << 7))
+        return false;
+    uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & PAGE_PHYS_ADDR_MASK);
     if (!(pt[pt_idx] & PAGE_PRESENT))
         return false;
 
@@ -496,17 +579,24 @@ bool paging_set_user_page_permissions(uint64_t virt, bool writable, bool executa
         pt[pt_idx] |= PAGE_RW;
     else
         pt[pt_idx] &= ~((uint64_t)PAGE_RW);
-    if (executable)
+    if (executable) {
+        pml4[pml4_idx] &= ~PAGE_NX;
+        pdpt[pdpt_idx] &= ~PAGE_NX;
+        pd[pd_idx] &= ~PAGE_NX;
         pt[pt_idx] &= ~PAGE_NX;
-    else
+    } else {
         pt[pt_idx] |= PAGE_NX;
+    }
 
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
     return true;
 }
 
 bool paging_set_user_page_access(uint64_t virt, bool accessible) {
-    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
+    if (virt >= 0x0000800000000000ULL)
+        return false;
+
+    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & PAGE_PHYS_ADDR_MASK);
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
     uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
     uint64_t pd_idx = (virt >> 21) & 0x1FF;
@@ -514,13 +604,17 @@ bool paging_set_user_page_access(uint64_t virt, bool accessible) {
 
     if (!(pml4[pml4_idx] & PAGE_PRESENT))
         return false;
-    uint64_t *pdpt = phys_to_virt_ptr(pml4[pml4_idx] & ~0xFFFULL);
+    uint64_t *pdpt = phys_to_virt_ptr(pml4[pml4_idx] & PAGE_PHYS_ADDR_MASK);
     if (!(pdpt[pdpt_idx] & PAGE_PRESENT))
         return false;
-    uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & ~0xFFFULL);
+    if (pdpt[pdpt_idx] & (1ULL << 7))
+        return false;
+    uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & PAGE_PHYS_ADDR_MASK);
     if (!(pd[pd_idx] & PAGE_PRESENT))
         return false;
-    uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & ~0xFFFULL);
+    if (pd[pd_idx] & (1ULL << 7))
+        return false;
+    uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & PAGE_PHYS_ADDR_MASK);
     if (!(pt[pt_idx] & PAGE_PRESENT))
         return false;
 
@@ -544,7 +638,8 @@ static int phys_page_is_usable(uintptr_t phys) {
         return 0;
 
     /* Reserved memory (kernel heap etc.) is never ours to recycle. */
-    if (overlaps_reserved(phys, phys + PAGE_SIZE))
+    if (phys > UINTPTR_MAX - PAGE_SIZE ||
+        overlaps_reserved(phys, phys + PAGE_SIZE))
         return 0;
 
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
@@ -554,6 +649,8 @@ static int phys_page_is_usable(uintptr_t phys) {
             continue;
 
         uintptr_t region_start = e->base;
+        if (e->base > UINTPTR_MAX - e->length)
+            continue;
         uintptr_t region_end = e->base + e->length;
 
         /* Avoid overflow in base + length. */
@@ -611,7 +708,10 @@ static int table_is_empty(uint64_t *table) {
 }
 
 void unmap_user_page(uint64_t virt) {
-    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & ~0xFFFULL);
+    if (virt >= 0x0000800000000000ULL || (virt & (PAGE_SIZE - 1)) != 0)
+        return;
+
+    uint64_t *pml4 = phys_to_virt_ptr(get_kernel_pml4() & PAGE_PHYS_ADDR_MASK);
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
     uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
     uint64_t pd_idx = (virt >> 21) & 0x1FF;
@@ -619,17 +719,21 @@ void unmap_user_page(uint64_t virt) {
 
     if (!(pml4[pml4_idx] & PAGE_PRESENT))
         return;
-    uint64_t pdpt_phys = pml4[pml4_idx] & ~0xFFFULL;
+    uint64_t pdpt_phys = pml4[pml4_idx] & PAGE_PHYS_ADDR_MASK;
     uint64_t *pdpt = phys_to_virt_ptr(pdpt_phys);
 
     if (!(pdpt[pdpt_idx] & PAGE_PRESENT))
         return;
-    uint64_t pd_phys = pdpt[pdpt_idx] & ~0xFFFULL;
+    if (pdpt[pdpt_idx] & (1ULL << 7))
+        return;
+    uint64_t pd_phys = pdpt[pdpt_idx] & PAGE_PHYS_ADDR_MASK;
     uint64_t *pd = phys_to_virt_ptr(pd_phys);
 
     if (!(pd[pd_idx] & PAGE_PRESENT))
         return;
-    uint64_t pt_phys = pd[pd_idx] & ~0xFFFULL;
+    if (pd[pd_idx] & (1ULL << 7))
+        return;
+    uint64_t pt_phys = pd[pd_idx] & PAGE_PHYS_ADDR_MASK;
     uint64_t *pt = phys_to_virt_ptr(pt_phys);
 
     if (!(pt[pt_idx] & PAGE_PRESENT))
