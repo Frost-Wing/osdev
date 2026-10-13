@@ -17,6 +17,7 @@
 #include <graphics.h>
 #include <keyboard.h>
 #include <memory.h>
+#include <tty.h>
 
 #define LOGIN_AUTH_PATH "/etc/fwauth.dat"
 #define LOGIN_AUTH_TEMP_PATH "/etc/fwauth.tmp"
@@ -40,8 +41,17 @@ uint8 passwords_total[MAX_USERS_ALLOWED][PASSWORD_HASH_SIZE];
 uint8 password_salts[MAX_USERS_ALLOWED][PASSWORD_SALT_SIZE];
 int users_index = 0;
 
-static void login_read_line(const char *prompt, char *buffer, size_t capacity,
+static bool login_read_line(const char *prompt, char *buffer, size_t capacity,
     bool hide_input) {
+    linux_termios_t original_termios;
+    if (!tty_get_termios(&original_termios))
+        return false;
+
+    linux_termios_t input_termios = original_termios;
+    input_termios.c_lflag &= (uint32_t)~LINUX_ECHO;
+    if (!tty_set_termios(&input_termios, false))
+        return false;
+
     size_t length = 0;
 
     print(prompt);
@@ -56,10 +66,7 @@ static void login_read_line(const char *prompt, char *buffer, size_t capacity,
         if (ch == '\b') {
             if (length) {
                 buffer[--length] = '\0';
-                if (hide_input)
-                    print("\b \b");
-                else
-                    putc('\b');
+                print("\b \b");
             }
             continue;
         }
@@ -70,9 +77,13 @@ static void login_read_line(const char *prompt, char *buffer, size_t capacity,
         buffer[length] = '\0';
         if (hide_input)
             putc('*');
+        else
+            putc(ch);
     }
     buffer[length] = '\0';
     putc('\n');
+    tty_flush_input();
+    return tty_set_termios(&original_termios, false);
 }
 
 static void login_clear_secret(char *secret, size_t length) {
@@ -208,9 +219,15 @@ int login_setup_first_user(void) {
 
     print("==========================\n");
     info("No stored root account. Set a unique root password for this installation.", __FILE__);
-    login_read_line("New root password (12-40 characters): ",
-        password, sizeof(password), true);
-    login_read_line("Confirm password: ", confirmation, sizeof(confirmation), true);
+    if (!login_read_line("New root password (12-40 characters): ",
+            password, sizeof(password), true) ||
+        !login_read_line("Confirm password: ", confirmation,
+            sizeof(confirmation), true)) {
+        error("Unable to configure terminal input for password setup.", __FILE__);
+        login_clear_secret(password, sizeof(password));
+        login_clear_secret(confirmation, sizeof(confirmation));
+        return -1;
+    }
 
     if (strlen(password) < 12 || strcmp(password, confirmation) != 0) {
         error("Password setup failed: use 12-40 characters and confirm it exactly.", __FILE__);
@@ -255,8 +272,13 @@ int login_request(char *userbuf, int max) {
         putc('=');
     putc('\n');
 
-    login_read_line("Username: ", username, sizeof(username), false);
-    login_read_line("Password: ", password, sizeof(password), true);
+    if (!login_read_line("Username: ", username, sizeof(username), false) ||
+        !login_read_line("Password: ", password, sizeof(password), true)) {
+        error("Unable to configure terminal input for login.", __FILE__);
+        login_clear_secret(password, sizeof(password));
+        memset(username, 0, sizeof(username));
+        return -1;
+    }
 
     uint64 username_hash = baranium_hash(username);
     for (int i = 0; i < users_index; i++) {
@@ -284,7 +306,11 @@ int ask_password(const char *username) {
     uint64 username_hash = baranium_hash(username);
     static char password[MAX_PASSWORD_LENGTH + 1];
     memset(password, 0, sizeof(password));
-    login_read_line("Password: ", password, sizeof(password), true);
+    if (!login_read_line("Password: ", password, sizeof(password), true)) {
+        error("Unable to configure terminal input for password entry.", __FILE__);
+        login_clear_secret(password, sizeof(password));
+        return 1;
+    }
     putc('\n');
 
     for (int i = 0; i < users_index; i++) {
