@@ -107,6 +107,9 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_RT_SIGPROCMASK:
             if (arg3) *(uint64_t *)arg3 = 0;
             return 0;
+
+        case LINUX_SYS_RT_SIGSUSPEND:
+            return sys_rt_sigsuspend((const uint64_t *)arg1, arg2);
             
         case LINUX_SYS_SIGALTSTACK:
             return -LINUX_ENOSYS;
@@ -125,6 +128,9 @@ uint64_t syscall_dispatch(
 
         case LINUX_SYS_GETRLIMIT:
             return sys_getrlimit(arg1, (linux_rlimit64_t *)arg2);
+
+        case LINUX_SYS_GETRUSAGE:
+            return sys_getrusage((int)arg1, (linux_rusage_t *)arg2);
 
         case LINUX_SYS_SETRLIMIT:
             return sys_setrlimit(arg1, (const linux_rlimit64_t *)arg2);
@@ -178,6 +184,9 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_NANOSLEEP:
             return sys_nanosleep((const linux_timespec_t *)arg1, (linux_timespec_t *)arg2);
 
+        case LINUX_SYS_ALARM:
+            return sys_alarm(arg1);
+
         case LINUX_SYS_CLOCK_NANOSLEEP:
             return sys_clock_nanosleep(arg1, arg2,
                 (const linux_timespec_t *)arg3, (linux_timespec_t *)arg4);
@@ -220,9 +229,7 @@ uint64_t syscall_dispatch(
             return sys_getsockopt(arg1, arg2, arg3, (void *)arg4, (uint64_t *)arg5);
 
         case LINUX_SYS_CLONE:
-            if (arg1 != 17 || arg2 || arg3 || arg4 || arg5)
-                return -LINUX_ENOSYS;
-            return sys_fork();
+            return sys_clone(arg1, arg2, arg3, arg4, arg5);
 
         case LINUX_SYS_CLONE3:
             return sys_clone3((const void *)arg1, arg2);

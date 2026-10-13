@@ -84,6 +84,7 @@ typedef struct task {
     uint64_t created_at_tick;
     uint64_t runtime_ticks;
     uint64_t wakeup_tick;
+    uint64_t alarm_deadline_tick;
     uint32_t parent_pid;
     uint32_t process_group_id;
     uint32_t session_id;
@@ -162,6 +163,8 @@ bool multitasking_kill_task(uint32_t pid, int signal);
 
 /** @brief Put a task to sleep until the specified scheduler tick. */
 bool multitasking_sleep_task(uint32_t pid, uint64_t wakeup_tick);
+bool multitasking_set_alarm(uint32_t pid, uint64_t deadline_tick,
+    uint64_t *previous_deadline_tick);
 
 /** @brief Yield the current task's execution opportunity. */
 void multitasking_yield(void);

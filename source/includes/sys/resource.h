@@ -12,11 +12,37 @@
 #define SYS_RESOURCE_H
 
 #include <stdint.h>
+#include <sys/time.h>
 
 typedef struct {
     uint64_t rlim_cur;
     uint64_t rlim_max;
 } linux_rlimit64_t;
+
+typedef struct {
+    linux_timeval_t ru_utime;
+    linux_timeval_t ru_stime;
+    long ru_maxrss;
+    long ru_ixrss;
+    long ru_idrss;
+    long ru_isrss;
+    long ru_minflt;
+    long ru_majflt;
+    long ru_nswap;
+    long ru_inblock;
+    long ru_oublock;
+    long ru_msgsnd;
+    long ru_msgrcv;
+    long ru_nsignals;
+    long ru_nvcsw;
+    long ru_nivcsw;
+} linux_rusage_t;
+
+_Static_assert(sizeof(linux_rusage_t) == 144, "Linux x86_64 rusage ABI size");
+
+#define LINUX_RUSAGE_SELF 0
+#define LINUX_RUSAGE_CHILDREN (-1)
+#define LINUX_RUSAGE_THREAD 1
 
 #define LINUX_RLIMIT_CPU 0
 #define LINUX_RLIMIT_FSIZE 1

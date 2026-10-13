@@ -22,6 +22,22 @@ uint64 sys_rt_sigaction(int signum, const task_signal_action_t *action,
     return 0;
 }
 
+uint64 sys_rt_sigsuspend(const uint64_t *mask, uint64_t sigsetsize) {
+    if (sigsetsize != sizeof(uint64_t))
+        return -LINUX_EINVAL;
+    if (!mask)
+        return -LINUX_EFAULT;
+    if (!multitasking_get_current_task())
+        return -LINUX_ESRCH;
+
+    /*
+     * Signal masks and catchable signal delivery are not implemented yet.
+     * Return the interruption result rather than ENOSYS so libc can follow
+     * the documented rt_sigsuspend failure path without hanging the task.
+     */
+    return -LINUX_EINTR;
+}
+
 uint64 sys_execve(const char *target,
     char *const *argv,
     char *const *envp) {
@@ -138,6 +154,27 @@ typedef struct {
 
 _Static_assert(sizeof(linux_clone_args_t) == 88, "clone3 ABI size");
 
+#define LINUX_CLONE_CHILD_CLEARTID (1ULL << 21)
+#define LINUX_CLONE_CHILD_SETTID (1ULL << 24)
+#define LINUX_CLONE_FORK_FLAGS \
+    (LINUX_CLONE_CHILD_CLEARTID | LINUX_CLONE_CHILD_SETTID)
+
+static bool clone_flags_are_fork_compatible(uint64_t flags) {
+    return (flags & ~LINUX_CLONE_FORK_FLAGS) == 0;
+}
+
+uint64 sys_clone(uint64_t flags, uint64_t child_stack, uint64_t parent_tid,
+    uint64_t child_tid, uint64_t tls) {
+    const uint64_t LINUX_SIGCHLD = 17;
+    uint64_t clone_flags = flags & ~0xFFULL;
+    if ((flags & 0xFF) != LINUX_SIGCHLD ||
+        !clone_flags_are_fork_compatible(clone_flags) ||
+        child_stack || parent_tid || tls ||
+        (child_tid && !(clone_flags & LINUX_CLONE_FORK_FLAGS)))
+        return -LINUX_ENOSYS;
+    return sys_fork();
+}
+
 uint64 sys_clone3(const void *args, uint64_t size) {
     const uint64_t LINUX_SIGCHLD = 17;
     const uint64_t CLONE_ARGS_MIN_SIZE = 64;
@@ -152,8 +189,10 @@ uint64 sys_clone3(const void *args, uint64_t size) {
     linux_clone_args_t clone_args = {0};
     memcpy(&clone_args, args, size);
 
-    if (clone_args.flags != 0 || clone_args.exit_signal != LINUX_SIGCHLD ||
-        clone_args.pidfd || clone_args.child_tid || clone_args.parent_tid ||
+    if (!clone_flags_are_fork_compatible(clone_args.flags) ||
+        clone_args.exit_signal != LINUX_SIGCHLD ||
+        clone_args.pidfd || clone_args.parent_tid ||
+        (clone_args.child_tid && !(clone_args.flags & LINUX_CLONE_FORK_FLAGS)) ||
         clone_args.stack || clone_args.stack_size || clone_args.tls ||
         clone_args.set_tid || clone_args.set_tid_size || clone_args.cgroup)
         return -LINUX_ENOSYS;

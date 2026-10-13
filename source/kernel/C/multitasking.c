@@ -7,6 +7,7 @@
 #include <userland.h>
 #include <memory.h>
 #include <stream.h>
+#include <syscalls.h>
 #include <sys/resource.h>
 
 #define ARGV_MAX 32
@@ -447,6 +448,18 @@ bool multitasking_sleep_task(uint32_t pid, uint64_t wakeup_tick) {
     return true;
 }
 
+bool multitasking_set_alarm(uint32_t pid, uint64_t deadline_tick,
+    uint64_t *previous_deadline_tick) {
+    IRQ_GUARD();
+    task_t *task = find_task_locked(pid);
+    if (!task || task->state == TASK_STATE_EXITED)
+        return false;
+    if (previous_deadline_tick)
+        *previous_deadline_tick = task->alarm_deadline_tick;
+    task->alarm_deadline_tick = deadline_tick;
+    return true;
+}
+
 void multitasking_yield(void) {
     multitasking_pump();
 }
@@ -592,6 +605,16 @@ void multitasking_on_pit_tick(uint64_t now_ticks) {
     task_t *task = g_task_head;
     while (task) {
         uint32_t pid = task->pid;
+
+        if (task->alarm_deadline_tick &&
+            task->alarm_deadline_tick <= now_ticks &&
+            task->state != TASK_STATE_EXITED) {
+            task->alarm_deadline_tick = 0;
+            if (task->signal_actions[SIGALRM].handler != 1) {
+                task->state = TASK_STATE_EXITED;
+                task->exit_code = 128 + SIGALRM;
+            }
+        }
 
         if (task->state == TASK_STATE_SLEEPING && task->wakeup_tick <= now_ticks)
             task->state = TASK_STATE_READY;

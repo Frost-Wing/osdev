@@ -41,12 +41,13 @@
  *
  * ## Process and thread compatibility
  * - `execve(2)`            -> `sys_execve()`            -> `userland_exec()` / `execute_chain()`
- * - `fork(2)` / `clone(2)` -> `sys_fork()`              -> fork-compatible clone arguments
- * - `clone3(2)`            -> `sys_clone3()`            -> restricted fork-compatible clone arguments
+ * - `fork(2)` / `clone(2)` -> `sys_fork()`              -> fork-compatible clone arguments; child-TID flags are accepted but not tracked
+ * - `clone3(2)`            -> `sys_clone3()`            -> restricted fork-compatible clone arguments; child-TID flags are accepted but not tracked
  * - `setfsuid(2)` / `setfsgid(2)` -> accept changes while all processes use root credentials
  * - `wait4(2)`             -> `sys_wait4()`             -> multitasking task-state polling
  * - `set_tid_address(2)`   -> `sys_set_tid_address()`   -> kernel clear-child-tid bookkeeping
  * - `set_robust_list(2)`   -> `sys_set_robust_list()`   -> ABI validation
+ * - `rt_sigsuspend(2)`     -> `sys_rt_sigsuspend()`     -> ABI validation; returns `EINTR` because catchable signal delivery is not implemented
  * - `tgkill(2)`            -> `sys_tgkill()`            -> argument validation + stubbed signal path
  * - `sched_getaffinity(2)` -> `sys_sched_getaffinity()` -> online CPU mask for the current or requested task
  * - `get_mempolicy(2)`     -> `sys_get_mempolicy()`     -> default policy and the single supported NUMA node
@@ -61,6 +62,8 @@
  * - socket `read(2)` / `write(2)` -> socket receive/send paths
  *
  * ## Time and randomness
+ * - `alarm(2)`             -> `sys_alarm()`             -> per-task PIT deadline; expiry terminates unless `SIGALRM` is ignored
+ * - `getrusage(2)`         -> `sys_getrusage()`         -> validates selector and returns zeroed counters (accounting not implemented)
  * - `gettimeofday(2)`     -> `sys_gettimeofday()`   -> RTC-backed seconds and zeroed timezone
  * - `clock_gettime(2)`     -> `sys_clock_gettime()`  -> RTC-backed time fetch
  * - `clock_nanosleep(2)`   -> `sys_clock_nanosleep()` -> PIT-backed relative and absolute sleeps

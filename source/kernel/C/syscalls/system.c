@@ -495,6 +495,43 @@ uint64 sys_gettimeofday(linux_timeval_t *tv, linux_timezone_t *tz) {
     return 0;
 }
 
+uint64 sys_alarm(uint64_t seconds) {
+    uint32_t pid = multitasking_current_pid();
+    if (!pid)
+        return -LINUX_ESRCH;
+
+    uint64_t now = pit_ticks;
+    uint64_t deadline = 0;
+    if (seconds) {
+        uint64_t ticks_per_second = PIT_TICKS_PER_SECOND;
+        uint64_t ticks = seconds > UINT64_MAX / ticks_per_second ?
+            UINT64_MAX : seconds * ticks_per_second;
+        deadline = ticks > UINT64_MAX - now ? UINT64_MAX : now + ticks;
+    }
+
+    uint64_t previous_deadline;
+    if (!multitasking_set_alarm(pid, deadline, &previous_deadline))
+        return -LINUX_ESRCH;
+    if (previous_deadline <= now)
+        return 0;
+
+    uint64_t remaining_ticks = previous_deadline - now;
+    return remaining_ticks / PIT_TICKS_PER_SECOND +
+        (remaining_ticks % PIT_TICKS_PER_SECOND != 0);
+}
+
+uint64 sys_getrusage(int who, linux_rusage_t *usage) {
+    if (!usage)
+        return -LINUX_EFAULT;
+    if (who != LINUX_RUSAGE_SELF && who != LINUX_RUSAGE_CHILDREN &&
+        who != LINUX_RUSAGE_THREAD)
+        return -LINUX_EINVAL;
+
+    /* CPU and resource counters are not tracked yet; return a valid empty ABI record. */
+    memset(usage, 0, sizeof(*usage));
+    return 0;
+}
+
 typedef struct {
     int32_t fd;
     int16_t events;
