@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define TASK_RLIMIT_COUNT 16
+#define TASK_RLIMIT_COUNT         16
 #define TASK_SUPPLEMENTARY_GROUPS 16
 
 typedef enum {

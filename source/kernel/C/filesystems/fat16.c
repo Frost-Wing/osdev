@@ -1601,8 +1601,7 @@ int fat16_rmdir(fat16_fs_t *fs, uint16_t dir_cluster) {
         cluster = fat16_read_fat_fs(fs, cluster);
     }
 
-pass2:
-    ;
+pass2:;
     cluster = dir_cluster;
 
     /* ---------- PASS 2: mark entries deleted ---------- */
@@ -1682,8 +1681,7 @@ int fat16_mv(
         ahci_write_sector(fs->portno, lba, buf, 1);
     }
 
-inserted:
-    ;
+inserted:;
     // 5. Delete source entry (DO NOT FREE CLUSTERS)
     uint8_t fatname[11];
     fat16_format_name(src_name, fatname);

@@ -15,45 +15,45 @@
 #include <executables/elf.h>
 #include <syscalls.h>
 
-#define USER_STACK_SIZE (8 MiB) // Matches Linux default stack size limit
-#define USER_HEAP_SIZE (512 MiB)
-#define USER_MMAP_SIZE (1 GiB)
-#define USER_MMAP_RESERVE_VADDR 0x0000500000000000ULL
-#define USER_MMAP_RESERVE_SIZE (64ULL * 1024 * 1024 * 1024)
+#define USER_STACK_SIZE           (8 MiB) // Matches Linux default stack size limit
+#define USER_HEAP_SIZE            (512 MiB)
+#define USER_MMAP_SIZE            (1 GiB)
+#define USER_MMAP_RESERVE_VADDR   0x0000500000000000ULL
+#define USER_MMAP_RESERVE_SIZE    (64ULL * 1024 * 1024 * 1024)
 #define USER_MMAP_RESERVATION_MAX 32
-#define USER_MMAP_COMMIT_MAX 512
+#define USER_MMAP_COMMIT_MAX      512
 
-#define USER_CODE_VADDR 0x0000400000000000ULL // canonical user space, isolated PML4 slot
-#define USER_INTERP_VADDR 0x0000400008000000ULL // dynamically-linked ELF interpreter base
-#define USER_HEAP_VADDR 0x0000400010000000ULL // user heap right above code region
-#define USER_MMAP_VADDR (USER_HEAP_VADDR + USER_HEAP_SIZE)
-#define USER_TLS_VADDR (USER_MMAP_VADDR + USER_MMAP_SIZE)
-#define USER_TLS_REGION_SIZE (16 * 1024)
-#define USER_PHDR_VADDR (USER_TLS_VADDR + USER_TLS_REGION_SIZE)
+#define USER_CODE_VADDR       0x0000400000000000ULL // canonical user space, isolated PML4 slot
+#define USER_INTERP_VADDR     0x0000400008000000ULL // dynamically-linked ELF interpreter base
+#define USER_HEAP_VADDR       0x0000400010000000ULL // user heap right above code region
+#define USER_MMAP_VADDR       (USER_HEAP_VADDR + USER_HEAP_SIZE)
+#define USER_TLS_VADDR        (USER_MMAP_VADDR + USER_MMAP_SIZE)
+#define USER_TLS_REGION_SIZE  (16 * 1024)
+#define USER_PHDR_VADDR       (USER_TLS_VADDR + USER_TLS_REGION_SIZE)
 #define USER_PHDR_REGION_SIZE (2 * 4096)
-#define USER_STACK_TOP 0x00007FFFFFFFF000ULL // near top of canonical lower half
+#define USER_STACK_TOP        0x00007FFFFFFFF000ULL // near top of canonical lower half
 
-#define LINUX_AT_NULL 0
-#define LINUX_AT_PHDR 3
-#define LINUX_AT_PHENT 4
-#define LINUX_AT_PHNUM 5
-#define LINUX_AT_PAGESZ 6
-#define LINUX_AT_BASE 7
-#define LINUX_AT_FLAGS 8
-#define LINUX_AT_ENTRY 9
-#define LINUX_AT_UID 11
-#define LINUX_AT_EUID 12
-#define LINUX_AT_GID 13
-#define LINUX_AT_EGID 14
+#define LINUX_AT_NULL     0
+#define LINUX_AT_PHDR     3
+#define LINUX_AT_PHENT    4
+#define LINUX_AT_PHNUM    5
+#define LINUX_AT_PAGESZ   6
+#define LINUX_AT_BASE     7
+#define LINUX_AT_FLAGS    8
+#define LINUX_AT_ENTRY    9
+#define LINUX_AT_UID      11
+#define LINUX_AT_EUID     12
+#define LINUX_AT_GID      13
+#define LINUX_AT_EGID     14
 #define LINUX_AT_PLATFORM 15
-#define LINUX_AT_HWCAP 16
-#define LINUX_AT_HWCAP2 26
-#define LINUX_AT_CLKTCK 17
-#define LINUX_AT_SECURE 23
-#define LINUX_AT_RANDOM 25
-#define LINUX_AT_EXECFN 31
-#define IA32_FS_BASE_MSR 0xC0000100
-#define USER_AUXV_MAX 20
+#define LINUX_AT_HWCAP    16
+#define LINUX_AT_HWCAP2   26
+#define LINUX_AT_CLKTCK   17
+#define LINUX_AT_SECURE   23
+#define LINUX_AT_RANDOM   25
+#define LINUX_AT_EXECFN   31
+#define IA32_FS_BASE_MSR  0xC0000100
+#define USER_AUXV_MAX     20
 
 typedef struct {
     int i[4];
@@ -144,7 +144,7 @@ typedef struct {
  * @param regs Register state to copy into the child.
  * @return Child identifier in the parent, zero in the child, or an error value.
  */
-int  userland_fork(const userland_regs_t *regs);
+int userland_fork(const userland_regs_t *regs);
 
 /** @brief Return to user mode using the supplied register state. */
 extern void userland_iret_regs(const userland_regs_t *regs) __attribute__((noreturn));

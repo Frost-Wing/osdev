@@ -31,7 +31,7 @@ int check_mbr(int portno) {
     memset(buf, 0, 512);
 
     if (block_read_sector(portno, 0, buf, 1) != 0) {
-        error("[BLOCK/MBR] Read LBA failed on device %d",__FILE__ , portno);
+        error("[BLOCK/MBR] Read LBA failed on device %d", __FILE__, portno);
         kfree(buf);
         return -2;
     }

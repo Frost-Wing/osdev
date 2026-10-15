@@ -64,25 +64,25 @@ void update_system_time(uint8 *second, uint8 *minute, uint8 *hour, uint8 *day, u
     int is_bcd = !(regB & 0x04);
     int is_24h = regB & 0x02;
 
-    uint8 sec   = rtc_read_stable(RTC_SECONDS);
-    uint8 min   = rtc_read_stable(RTC_MINUTES);
-    uint8 hr    = rtc_read_stable(RTC_HOURS);
+    uint8 sec = rtc_read_stable(RTC_SECONDS);
+    uint8 min = rtc_read_stable(RTC_MINUTES);
+    uint8 hr = rtc_read_stable(RTC_HOURS);
     uint8 day_r = rtc_read_stable(RTC_DAY);
-    uint8 mon   = rtc_read_stable(RTC_MONTH);
-    uint8 yr    = rtc_read_stable(RTC_YEAR);
-    uint8 cent  = rtc_read_stable(RTC_CENTURY); // optional
+    uint8 mon = rtc_read_stable(RTC_MONTH);
+    uint8 yr = rtc_read_stable(RTC_YEAR);
+    uint8 cent = rtc_read_stable(RTC_CENTURY); // optional
 
     // Capture PM flag BEFORE it gets masked off by BCD conversion.
     int pm = hr & 0x80;
     hr &= 0x7F;
 
-    sec   = rtc_norm(sec, is_bcd);
-    min   = rtc_norm(min, is_bcd);
-    hr    = rtc_norm(hr, is_bcd);
+    sec = rtc_norm(sec, is_bcd);
+    min = rtc_norm(min, is_bcd);
+    hr = rtc_norm(hr, is_bcd);
     day_r = rtc_norm(day_r, is_bcd);
-    mon   = rtc_norm(mon, is_bcd);
-    yr    = rtc_norm(yr, is_bcd);
-    cent  = rtc_norm(cent, is_bcd);
+    mon = rtc_norm(mon, is_bcd);
+    yr = rtc_norm(yr, is_bcd);
+    cent = rtc_norm(cent, is_bcd);
 
     // Handle 12-hour mode using the PM flag captured earlier.
     if (!is_24h && pm) {
@@ -93,9 +93,9 @@ void update_system_time(uint8 *second, uint8 *minute, uint8 *hour, uint8 *day, u
 
     *second = sec;
     *minute = min;
-    *hour   = hr;
-    *day    = day_r;
-    *month  = mon;
+    *hour = hr;
+    *day = day_r;
+    *month = mon;
 
     // Build a full 4-digit year. Century register isn't present/reliable
     // on all hardware, so fall back to 2000+yr if it looks bogus.
@@ -126,7 +126,7 @@ void display_time(void) {
 static uint32 rtc_seconds_of_day(int is_bcd) {
     uint8 sec = rtc_norm(rtc_read_stable(RTC_SECONDS), is_bcd);
     uint8 min = rtc_norm(rtc_read_stable(RTC_MINUTES), is_bcd);
-    uint8 hr  = rtc_norm((uint8)(rtc_read_stable(RTC_HOURS) & 0x7F), is_bcd);
+    uint8 hr = rtc_norm((uint8)(rtc_read_stable(RTC_HOURS) & 0x7F), is_bcd);
     return (uint32)hr * 3600U + (uint32)min * 60U + (uint32)sec;
 }
 
@@ -142,8 +142,8 @@ void sleep(int seconds) {
         uint32 cur = rtc_seconds_of_day(is_bcd);
 
         uint32 diff = cur >= start
-            ? cur - start
-            : cur + 24U * 3600U - start;
+                          ? cur - start
+                          : cur + 24U * 3600U - start;
 
         elapsed = diff;
     }
@@ -156,8 +156,7 @@ static int rtc_is_leap_year(uint16 year) {
 static uint8 rtc_days_in_month(uint16 year, uint8 month) {
     static const uint8 days[] = {
         31, 28, 31, 30, 31, 30,
-        31, 31, 30, 31, 30, 31
-    };
+        31, 31, 30, 31, 30, 31};
 
     if (month < 1 || month > 12)
         return 0;
@@ -176,10 +175,7 @@ static uint64 rtc_days_before_year(uint16 year) {
 
     y = year - 1;
 
-    return (uint64)365 * (year - 1970)
-         + (y / 4 - 1969 / 4)
-         - (y / 100 - 1969 / 100)
-         + (y / 400 - 1969 / 400);
+    return (uint64)365 * (year - 1970) + (y / 4 - 1969 / 4) - (y / 100 - 1969 / 100) + (y / 400 - 1969 / 400);
 }
 
 uint64 rtc_get_unix_time(void) {
@@ -202,8 +198,5 @@ uint64 rtc_get_unix_time(void) {
 
     days += day - 1;
 
-    return days * 86400ULL
-         + (uint64)hour * 3600ULL
-         + (uint64)min * 60ULL
-         + sec;
+    return days * 86400ULL + (uint64)hour * 3600ULL + (uint64)min * 60ULL + sec;
 }

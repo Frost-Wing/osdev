@@ -105,18 +105,18 @@ static bool ssfn_module_is_valid(const struct limine_file *module) {
 
     uint32_t size = font->size;
     return font->magic[0] == 'S' && font->magic[1] == 'F' &&
-        font->magic[2] == 'N' && font->magic[3] == '2' &&
-        size >= sizeof(*font) && size <= module->size &&
-        ((const uint8_t *)font)[size - 4] == '2' &&
-        ((const uint8_t *)font)[size - 3] == 'N' &&
-        ((const uint8_t *)font)[size - 2] == 'F' &&
-        ((const uint8_t *)font)[size - 1] == 'S';
+           font->magic[2] == 'N' && font->magic[3] == '2' &&
+           size >= sizeof(*font) && size <= module->size &&
+           ((const uint8_t *)font)[size - 4] == '2' &&
+           ((const uint8_t *)font)[size - 3] == 'N' &&
+           ((const uint8_t *)font)[size - 2] == 'F' &&
+           ((const uint8_t *)font)[size - 1] == 'S';
 }
 
 #define MOUSE_COLOR_DEFAULT 0xffffffff
-#define MOUSE_COLOR_LEFT 0x00ff00ff
-#define MOUSE_COLOR_RIGHT 0xff00ff00
-#define MOUSE_COLOR_MIDDLE 0xaaaaaaaa
+#define MOUSE_COLOR_LEFT    0x00ff00ff
+#define MOUSE_COLOR_RIGHT   0xff00ff00
+#define MOUSE_COLOR_MIDDLE  0xaaaaaaaa
 
 uint32_t mouseColor = MOUSE_COLOR_DEFAULT;
 
@@ -212,8 +212,8 @@ void main(void) {
     mm_init(heap_page + hhdm_request.response->offset, 64 MiB);
 
     if (!tty_init_terminals(ft_ctx, framebuffer->address, framebuffer->width,
-                            framebuffer->height, framebuffer->pitch,
-                            ssfn_module->address, ssfn_module->size)) {
+            framebuffer->height, framebuffer->pitch,
+            ssfn_module->address, ssfn_module->size)) {
         error("Unable to initialize all virtual terminals", __FILE__);
     }
 
@@ -240,7 +240,7 @@ void main(void) {
 
     log_public_key();
 
-    info("Display Resolution: %dx%d (%d) pixels. Pitch: %d", __FILE__ , framebuffer->width, framebuffer->height, framebuffer->width * framebuffer->height, framebuffer->pitch);
+    info("Display Resolution: %dx%d (%d) pixels. Pitch: %d", __FILE__, framebuffer->width, framebuffer->height, framebuffer->width * framebuffer->height, framebuffer->pitch);
 
     info("Memory Values begin! ===", __FILE__);
     display_memory_formatted(limine_memory_ctx);
@@ -286,7 +286,7 @@ void main(void) {
     multitasking_init();
 
     multitasking_selftest();
-    
+
     if (smp_cpu_count() > 1 && !smp_start_cursor_blink())
         warn("No application processor available for cursor blinking.", __FILE__);
 
@@ -343,7 +343,7 @@ void main(void) {
     info("Welcome to FrostWing Operating System by Prad! %s", __FILE__, "(https://github.com/Frost-Wing)");
     frost_compilation_information();
 
-    log_tree_set(false);  /* flat logs from now on */
+    log_tree_set(false); /* flat logs from now on */
     ksh_exec();
 }
 

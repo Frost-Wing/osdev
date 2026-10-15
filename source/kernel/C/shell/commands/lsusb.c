@@ -4,9 +4,9 @@
  * @brief Linux similar implementation of lsusb for kernel
  * @version 0.1
  * @date 2026-10-08
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 #include <commands/commands.h>
 #include <usb.h>
@@ -56,8 +56,8 @@ int cmd_lsusb(int argc, char **argv) {
         snprintf(port, sizeof(port), "%hu", (uint32_t)device->root_port);
         snprintf(slot, sizeof(slot), "%hu", (uint32_t)device->slot_id);
         snprintf(id, sizeof(id), "%04hx:%04hx",
-                 (uint32_t)device->descriptor.vendor_id,
-                 (uint32_t)device->descriptor.product_id);
+            (uint32_t)device->descriptor.vendor_id,
+            (uint32_t)device->descriptor.product_id);
 
         cell("001", COL_BUS);
         cell(port, COL_PORT);

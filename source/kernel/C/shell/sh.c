@@ -219,12 +219,12 @@ static void shell_move_cursor(size_t from, size_t to) {
 static char shell_ghost[256];
 static size_t shell_display_size;
 static bool shell_completion_suggestion(const char *command, size_t size,
-                                        size_t cursor, char *out,
-                                        size_t out_size);
+    size_t cursor, char *out,
+    size_t out_size);
 
 static void shell_redraw_line(const char *command, size_t old_size,
-                              size_t old_cursor, size_t new_size,
-                              size_t new_cursor) {
+    size_t old_cursor, size_t new_size,
+    size_t new_cursor) {
     (void)old_size;
     shell_move_cursor(old_cursor, 0);
     for (size_t i = 0; i < new_size; ++i)
@@ -232,7 +232,7 @@ static void shell_redraw_line(const char *command, size_t old_size,
 
     shell_ghost[0] = '\0';
     shell_completion_suggestion(command, new_size, new_cursor,
-                                shell_ghost, sizeof(shell_ghost));
+        shell_ghost, sizeof(shell_ghost));
     size_t ghost_size = strlen(shell_ghost);
     if (ghost_size != 0) {
         print("\x1b[90m");
@@ -242,7 +242,8 @@ static void shell_redraw_line(const char *command, size_t old_size,
 
     size_t new_display_size = new_size + ghost_size;
     size_t display_size = shell_display_size > new_display_size
-        ? shell_display_size : new_display_size;
+                              ? shell_display_size
+                              : new_display_size;
     for (size_t i = new_display_size; i < display_size; ++i)
         putc(' ');
     shell_move_cursor(display_size, new_cursor);
@@ -260,7 +261,7 @@ static void shell_clear_line(size_t size, size_t cursor) {
 }
 
 static size_t shell_complete_command(char *command, size_t *command_size,
-                                     size_t capacity);
+    size_t capacity);
 static void shell_print_command_matches(void);
 
 int shell_main(int argc, char **argv) {
@@ -305,7 +306,7 @@ int shell_main(int argc, char **argv) {
 
                 if (commandSize != old_size) {
                     shell_redraw_line(command, old_size, old_cursor,
-                                      commandSize, cursor);
+                        commandSize, cursor);
                 } else if (matches > 0) {
                     size_t ghost_size = strlen(shell_ghost);
                     for (size_t i = 0; i < ghost_size; ++i)
@@ -360,7 +361,7 @@ int shell_main(int argc, char **argv) {
                 memcpy(command, entry->command, commandSize);
                 command[commandSize] = '\0';
                 shell_redraw_line(command, old_size, old_cursor,
-                                  commandSize, cursor);
+                    commandSize, cursor);
             } else {
                 entry = previous_entry;
             }
@@ -384,7 +385,7 @@ int shell_main(int argc, char **argv) {
                 command[commandSize] = '\0';
             }
             shell_redraw_line(command, old_size, old_cursor,
-                              commandSize, cursor);
+                commandSize, cursor);
             continue;
         }
 
@@ -429,7 +430,7 @@ int shell_main(int argc, char **argv) {
                 size_t old_cursor = cursor;
                 cursor--;
                 shell_redraw_line(command, commandSize, old_cursor,
-                                  commandSize, cursor);
+                    commandSize, cursor);
             }
             continue;
         }
@@ -439,7 +440,7 @@ int shell_main(int argc, char **argv) {
                 size_t old_cursor = cursor;
                 cursor++;
                 shell_redraw_line(command, commandSize, old_cursor,
-                                  commandSize, cursor);
+                    commandSize, cursor);
             }
             continue;
         }
@@ -448,7 +449,7 @@ int shell_main(int argc, char **argv) {
             size_t old_cursor = cursor;
             cursor = 0;
             shell_redraw_line(command, commandSize, old_cursor,
-                              commandSize, cursor);
+                commandSize, cursor);
             continue;
         }
 
@@ -456,7 +457,7 @@ int shell_main(int argc, char **argv) {
             size_t old_cursor = cursor;
             cursor = commandSize;
             shell_redraw_line(command, commandSize, old_cursor,
-                              commandSize, cursor);
+                commandSize, cursor);
             continue;
         }
 
@@ -467,11 +468,11 @@ int shell_main(int argc, char **argv) {
             size_t old_size = commandSize;
             size_t old_cursor = cursor;
             memmove(command + cursor - 1, command + cursor,
-                    commandSize - cursor + 1);
+                commandSize - cursor + 1);
             commandSize--;
             cursor--;
             shell_redraw_line(command, old_size, old_cursor,
-                              commandSize, cursor);
+                commandSize, cursor);
             continue;
         }
 
@@ -481,10 +482,10 @@ int shell_main(int argc, char **argv) {
 
             size_t old_size = commandSize;
             memmove(command + cursor, command + cursor + 1,
-                    commandSize - cursor);
+                commandSize - cursor);
             commandSize--;
             shell_redraw_line(command, old_size, cursor,
-                              commandSize, cursor);
+                commandSize, cursor);
             continue;
         }
 
@@ -498,12 +499,12 @@ int shell_main(int argc, char **argv) {
 
         size_t old_cursor = cursor;
         memmove(command + cursor + 1, command + cursor,
-                commandSize - cursor + 1);
+            commandSize - cursor + 1);
         command[cursor] = (char)c;
         commandSize++;
         cursor++;
         shell_redraw_line(command, commandSize - 1, old_cursor,
-                          commandSize, cursor);
+            commandSize, cursor);
     }
     kfree(command);
 
@@ -695,13 +696,13 @@ typedef struct {
 } shell_completion_t;
 
 static char shell_completion_list[SHELL_COMPLETION_LIST_MAX]
-                                [SHELL_COMPLETION_NAME_MAX];
+                                 [SHELL_COMPLETION_NAME_MAX];
 static bool shell_completion_list_is_dir[SHELL_COMPLETION_LIST_MAX];
 static size_t shell_completion_list_count;
 
 static void shell_completion_add(shell_completion_t *result,
-                                 const char *name, bool is_dir,
-                                 const char *prefix, size_t prefix_size) {
+    const char *name, bool is_dir,
+    const char *prefix, size_t prefix_size) {
     size_t name_size = strlen(name);
     if (name_size == 0 || name_size >= SHELL_COMPLETION_NAME_MAX ||
         name_size < prefix_size || strncmp(name, prefix, prefix_size) != 0)
@@ -714,7 +715,8 @@ static void shell_completion_add(shell_completion_t *result,
         result->first_is_dir = is_dir;
     } else {
         size_t limit = result->common_size < name_size
-            ? result->common_size : name_size;
+                           ? result->common_size
+                           : name_size;
         size_t i = 0;
         while (i < limit && result->common_name[i] == name[i])
             ++i;
@@ -738,9 +740,9 @@ static size_t shell_token_start(const char *command, size_t size) {
 }
 
 static void shell_completion_collect(const char *command, size_t size,
-                                     size_t start, shell_completion_t *result,
-                                     size_t *directory_size,
-                                     size_t *base_size, bool *command_position) {
+    size_t start, shell_completion_t *result,
+    size_t *directory_size,
+    size_t *base_size, bool *command_position) {
     memset(result, 0, sizeof(*result));
     shell_completion_list_count = 0;
     *directory_size = 0;
@@ -755,7 +757,7 @@ static void shell_completion_collect(const char *command, size_t size,
             in_double_quote = !in_double_quote;
         else if (!in_single_quote && !in_double_quote && i + 1 < start &&
                  ((command[i] == '&' && command[i + 1] == '&') ||
-                  (command[i] == '|' && command[i + 1] == '|'))) {
+                     (command[i] == '|' && command[i + 1] == '|'))) {
             segment_start = i + 2;
             ++i;
         }
@@ -771,7 +773,7 @@ static void shell_completion_collect(const char *command, size_t size,
     if (*command_position) {
         for (size_t i = 0; i < sizeof(commands) / sizeof(commands[0]); ++i)
             shell_completion_add(result, commands[i].name, false,
-                                 command + start, *base_size);
+                command + start, *base_size);
         shell_completion_list_count = result->listed;
         return;
     }
@@ -831,32 +833,34 @@ static void shell_completion_collect(const char *command, size_t size,
 }
 
 static size_t shell_complete_command(char *command, size_t *command_size,
-                                     size_t capacity) {
+    size_t capacity) {
     size_t start = shell_token_start(command, *command_size);
     size_t directory_size, base_size;
     bool command_position;
     shell_completion_t result;
     shell_completion_collect(command, *command_size, start, &result,
-                             &directory_size, &base_size, &command_position);
+        &directory_size, &base_size, &command_position);
     if (result.matches == 0)
         return 0;
 
     size_t completed_base_size = result.matches == 1
-        ? (size_t)strlen(result.first_name) : result.common_size;
+                                     ? (size_t)strlen(result.first_name)
+                                     : result.common_size;
     bool unique = result.matches == 1;
     char suffix = unique
-        ? (command_position || !result.first_is_dir ? ' ' : '/') : '\0';
+                      ? (command_position || !result.first_is_dir ? ' ' : '/')
+                      : '\0';
     size_t new_size = start + directory_size + completed_base_size +
-        (suffix ? 1 : 0);
+                      (suffix ? 1 : 0);
     if (new_size >= capacity)
         return result.matches;
 
     size_t current_base_size = base_size - directory_size;
     if (completed_base_size > current_base_size) {
         memcpy(command + *command_size,
-               result.matches == 1 ? result.first_name + current_base_size
-                                   : result.common_name + current_base_size,
-               completed_base_size - current_base_size);
+            result.matches == 1 ? result.first_name + current_base_size
+                                : result.common_name + current_base_size,
+            completed_base_size - current_base_size);
     }
     if (suffix)
         command[new_size - 1] = suffix;
@@ -869,8 +873,8 @@ static size_t shell_complete_command(char *command, size_t *command_size,
 }
 
 static bool shell_completion_suggestion(const char *command, size_t size,
-                                        size_t cursor, char *out,
-                                        size_t out_size) {
+    size_t cursor, char *out,
+    size_t out_size) {
     if (cursor != size || out_size == 0)
         return false;
 
@@ -879,7 +883,7 @@ static bool shell_completion_suggestion(const char *command, size_t size,
     bool command_position;
     shell_completion_t result;
     shell_completion_collect(command, size, start, &result,
-                             &directory_size, &base_size, &command_position);
+        &directory_size, &base_size, &command_position);
     if (result.matches != 1)
         return false;
 

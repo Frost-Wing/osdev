@@ -21,7 +21,7 @@ extern uint64_t last_alloc;
 extern uint64_t alloc_count;
 extern uint64_t memory_used;
 
-#define HEAP_CANARY 0xDEADC0DECAFEBEEFULL
+#define HEAP_CANARY  0xDEADC0DECAFEBEEFULL
 #define HEAP_REDZONE 16
 
 #define kfree(ptr) ikfree(ptr, __FUNCTION__, __FILE__, __LINE__)
@@ -87,7 +87,7 @@ void *kmalloc_aligned(size_t size, size_t align);
  * @param file Source file containing the release call.
  * @param line Source line containing the release call.
  */
-extern void ikfree(void *ptr, const char *function, const char* file, int line);
+extern void ikfree(void *ptr, const char *function, const char *file, int line);
 
 /**
  * @brief Validate the kernel heap's allocation metadata.

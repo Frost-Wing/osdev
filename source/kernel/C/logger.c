@@ -39,9 +39,9 @@ static void console_lock_release(uint64_t flags) {
 
 #define LINE_BUF_MAX 256
 
-static char   line_buf[LINE_BUF_MAX];
-static size_t line_len   = 0;
-static bool   line_valid = true;   /* false if the line overflowed the buffer */
+static char line_buf[LINE_BUF_MAX];
+static size_t line_len = 0;
+static bool line_valid = true; /* false if the line overflowed the buffer */
 
 static void line_track(char c) {
     if (c == '\n' || c == '\r') {
@@ -98,10 +98,10 @@ void __log_scope_exit(int *unused) {
 }
 
 /* --- Icons --- */
-#define NF_INFO   "\uF05A"
-#define NF_WARN   "\uF071"
-#define NF_ERROR  "\uF057"
-#define NF_DONE   "\uF058"
+#define NF_INFO  "\uF05A"
+#define NF_WARN  "\uF071"
+#define NF_ERROR "\uF057"
+#define NF_DONE  "\uF058"
 
 #define LOG_USE_NERD_ICONS
 #ifdef LOG_USE_NERD_ICONS
@@ -120,9 +120,9 @@ void __log_scope_exit(int *unused) {
 // #define TREE_TRUNK  "\xB3  "      /* │   */
 // #define TREE_END    "\xC0\xC4 "   /* └─  */
 
+#define TREE_TRUNK " \u2502  "
+#define TREE_END   " \u2570\u2500\u2500"
 
-#define TREE_TRUNK  " \u2502  "
-#define TREE_END    " \u2570\u2500\u2500"
 // #define TREE_BRANCH " \u251C\u2500\u2500 "
 
 static cstring strip_path(cstring file) {
@@ -145,7 +145,7 @@ static void print_prefix_unlocked(void) {
 }
 
 static void log_tree(int level, cstring icon, cstring color, cstring tag,
-                     cstring file, cstring fmt, va_list args) {
+    cstring file, cstring fmt, va_list args) {
     char message[LOG_MSG_MAX];
     vsnprintf(message, sizeof(message), fmt, args);
 
@@ -162,14 +162,21 @@ static void log_tree(int level, cstring icon, cstring color, cstring tag,
         for (size_t i = 0; i < saved_len; i++)
             saved[i] = line_buf[i];
         saved[saved_len] = '\0';
-        print_unlocked("\r\x1b[2K");          /* CR + erase line */
+        print_unlocked("\r\x1b[2K"); /* CR + erase line */
     }
 
     print_prefix_unlocked();
-    print_unlocked(color);  print_unlocked(icon);  print_unlocked(" ");
-    print_unlocked(tag);    print_unlocked(reset_color " ");
-    print_unlocked(blue_color); print_unlocked(file); print_unlocked(reset_color);
-    print_unlocked(": ");   print_unlocked(message); print_unlocked("\n");
+    print_unlocked(color);
+    print_unlocked(icon);
+    print_unlocked(" ");
+    print_unlocked(tag);
+    print_unlocked(reset_color " ");
+    print_unlocked(blue_color);
+    print_unlocked(file);
+    print_unlocked(reset_color);
+    print_unlocked(": ");
+    print_unlocked(message);
+    print_unlocked("\n");
 
     /* put the prompt back */
     if (saved_len)
@@ -178,10 +185,17 @@ static void log_tree(int level, cstring icon, cstring color, cstring tag,
     console_lock_release(irq_flags);
 
     /* serial/debug output and klog outside the console lock */
-    debug_print(color); debug_print(icon); debug_print(" ");
-    debug_print(tag); debug_print(reset_color " ");
-    debug_print(blue_color); debug_print(file); debug_print(reset_color);
-    debug_print(": "); debug_print(message); debug_print("\n");
+    debug_print(color);
+    debug_print(icon);
+    debug_print(" ");
+    debug_print(tag);
+    debug_print(reset_color " ");
+    debug_print(blue_color);
+    debug_print(file);
+    debug_print(reset_color);
+    debug_print(": ");
+    debug_print(message);
+    debug_print("\n");
 
     klog_printf_level(level, "%s: %s (%s)", tag, message, file);
     last_filename = (string)file;
@@ -333,38 +347,38 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, 
             case 'd':
             case 'i':
                 format_number(buf, (uint64_t)FETCH_SIGNED(argp, is32),
-                              true, 10, width, zero_pad, false);
+                    true, 10, width, zero_pad, false);
                 print_unlocked(buf);
                 break;
 
             case 'u':
                 format_number(buf, FETCH_UNSIGNED(argp, is32),
-                              false, 10, width, zero_pad, false);
+                    false, 10, width, zero_pad, false);
                 print_unlocked(buf);
                 break;
 
             case 'x':
                 format_number(buf, FETCH_UNSIGNED(argp, is32),
-                              false, 16, width, zero_pad, false);
+                    false, 16, width, zero_pad, false);
                 print_unlocked(buf);
                 break;
 
             case 'X':
                 format_number(buf, FETCH_UNSIGNED(argp, is32),
-                              false, 16, width, zero_pad, true);
+                    false, 16, width, zero_pad, true);
                 print_unlocked(buf);
                 break;
 
             case 'b':
                 format_number(buf, FETCH_UNSIGNED(argp, is32),
-                              false, 2, width, zero_pad, false);
+                    false, 2, width, zero_pad, false);
                 print_unlocked(buf);
                 break;
 
             case 'p':
                 print_unlocked("0x");
                 format_number(buf, (uint64_t)va_arg(argp, void *),
-                              false, 16, 16, true, false);
+                    false, 16, 16, true, false);
                 print_unlocked(buf);
                 break;
 
@@ -540,31 +554,31 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
             case 'd':
             case 'i':
                 format_number(numbuf, (uint64_t)FETCH_SIGNED(ap, is32),
-                              true, 10, width, zero, false);
+                    true, 10, width, zero, false);
                 APPEND_STR(numbuf);
                 break;
 
             case 'u':
                 format_number(numbuf, FETCH_UNSIGNED(ap, is32),
-                              false, 10, width, zero, false);
+                    false, 10, width, zero, false);
                 APPEND_STR(numbuf);
                 break;
 
             case 'x':
                 format_number(numbuf, FETCH_UNSIGNED(ap, is32),
-                              false, 16, width, zero, false);
+                    false, 16, width, zero, false);
                 APPEND_STR(numbuf);
                 break;
 
             case 'X':
                 format_number(numbuf, FETCH_UNSIGNED(ap, is32),
-                              false, 16, width, zero, true);
+                    false, 16, width, zero, true);
                 APPEND_STR(numbuf);
                 break;
 
             case 'b':
                 format_number(numbuf, FETCH_UNSIGNED(ap, is32),
-                              false, 2, width, zero, false);
+                    false, 2, width, zero, false);
                 APPEND_STR(numbuf);
                 break;
 
@@ -572,7 +586,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
                 APPEND('0');
                 APPEND('x');
                 format_number(numbuf, (uint64_t)va_arg(ap, void *),
-                              false, 16, 16, true, false);
+                    false, 16, 16, true, false);
                 APPEND_STR(numbuf);
                 break;
 

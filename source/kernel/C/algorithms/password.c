@@ -25,8 +25,7 @@ static const uint32_t sha256_k[64] = {
     0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
     0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
-    0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-};
+    0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2};
 
 static uint32_t rotate_right(uint32_t value, unsigned int bits) {
     return (value >> bits) | (value << (32 - bits));
@@ -36,15 +35,15 @@ static void sha256_transform(sha256_ctx_t *ctx, const uint8_t block[64]) {
     uint32_t w[64];
     for (size_t i = 0; i < 16; ++i) {
         w[i] = ((uint32_t)block[i * 4] << 24) |
-            ((uint32_t)block[i * 4 + 1] << 16) |
-            ((uint32_t)block[i * 4 + 2] << 8) |
-            (uint32_t)block[i * 4 + 3];
+               ((uint32_t)block[i * 4 + 1] << 16) |
+               ((uint32_t)block[i * 4 + 2] << 8) |
+               (uint32_t)block[i * 4 + 3];
     }
     for (size_t i = 16; i < 64; ++i) {
         uint32_t s0 = rotate_right(w[i - 15], 7) ^
-            rotate_right(w[i - 15], 18) ^ (w[i - 15] >> 3);
+                      rotate_right(w[i - 15], 18) ^ (w[i - 15] >> 3);
         uint32_t s1 = rotate_right(w[i - 2], 17) ^
-            rotate_right(w[i - 2], 19) ^ (w[i - 2] >> 10);
+                      rotate_right(w[i - 2], 19) ^ (w[i - 2] >> 10);
         w[i] = w[i - 16] + s0 + w[i - 7] + s1;
     }
 
@@ -54,28 +53,37 @@ static void sha256_transform(sha256_ctx_t *ctx, const uint8_t block[64]) {
     uint32_t g = ctx->state[6], h = ctx->state[7];
     for (size_t i = 0; i < 64; ++i) {
         uint32_t s1 = rotate_right(e, 6) ^ rotate_right(e, 11) ^
-            rotate_right(e, 25);
+                      rotate_right(e, 25);
         uint32_t choice = (e & f) ^ (~e & g);
         uint32_t t1 = h + s1 + choice + sha256_k[i] + w[i];
         uint32_t s0 = rotate_right(a, 2) ^ rotate_right(a, 13) ^
-            rotate_right(a, 22);
+                      rotate_right(a, 22);
         uint32_t majority = (a & b) ^ (a & c) ^ (b & c);
         uint32_t t2 = s0 + majority;
-        h = g; g = f; f = e; e = d + t1;
-        d = c; c = b; b = a; a = t1 + t2;
+        h = g;
+        g = f;
+        f = e;
+        e = d + t1;
+        d = c;
+        c = b;
+        b = a;
+        a = t1 + t2;
     }
 
-    ctx->state[0] += a; ctx->state[1] += b;
-    ctx->state[2] += c; ctx->state[3] += d;
-    ctx->state[4] += e; ctx->state[5] += f;
-    ctx->state[6] += g; ctx->state[7] += h;
+    ctx->state[0] += a;
+    ctx->state[1] += b;
+    ctx->state[2] += c;
+    ctx->state[3] += d;
+    ctx->state[4] += e;
+    ctx->state[5] += f;
+    ctx->state[6] += g;
+    ctx->state[7] += h;
 }
 
 static void sha256_init(sha256_ctx_t *ctx) {
     static const uint32_t initial[8] = {
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
-    };
+        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
     memcpy(ctx->state, initial, sizeof(initial));
     ctx->bit_count = 0;
     ctx->block_len = 0;

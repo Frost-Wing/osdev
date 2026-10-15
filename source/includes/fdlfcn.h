@@ -66,8 +66,8 @@ void *fdlsym(fdlfcn_handle *handle, const char *symbol_name);
 int fdlclose(fdlfcn_handle *handle);
 
 // defines that make my life easier
-#define dlopen fdlopen
-#define dlsym fdlsym
+#define dlopen  fdlopen
+#define dlsym   fdlsym
 #define dlclose fdlclose
 
 #endif

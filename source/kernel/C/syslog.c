@@ -119,38 +119,38 @@ void syslog_printf(cstring format, ...) {
             case 'd':
             case 'i':
                 format_number(buf, (uint64_t)FETCH_SIGNED(argp, is32),
-                              true, 10, width, zero_pad, false);
+                    true, 10, width, zero_pad, false);
                 syslog_puts(buf);
                 break;
 
             case 'u':
                 format_number(buf, FETCH_UNSIGNED(argp, is32),
-                              false, 10, width, zero_pad, false);
+                    false, 10, width, zero_pad, false);
                 syslog_puts(buf);
                 break;
 
             case 'x':
                 format_number(buf, FETCH_UNSIGNED(argp, is32),
-                              false, 16, width, zero_pad, false);
+                    false, 16, width, zero_pad, false);
                 syslog_puts(buf);
                 break;
 
             case 'X':
                 format_number(buf, FETCH_UNSIGNED(argp, is32),
-                              false, 16, width, zero_pad, true);
+                    false, 16, width, zero_pad, true);
                 syslog_puts(buf);
                 break;
 
             case 'b':
                 format_number(buf, FETCH_UNSIGNED(argp, is32),
-                              false, 2, width, zero_pad, false);
+                    false, 2, width, zero_pad, false);
                 syslog_puts(buf);
                 break;
 
             case 'p':
                 syslog_puts("0x");
                 format_number(buf, (uint64_t)va_arg(argp, void *),
-                              false, 16, 16, true, false);
+                    false, 16, 16, true, false);
                 syslog_puts(buf);
                 break;
 

@@ -1,12 +1,12 @@
 /**
  * @file sys.h
  * @author Pradosh (pradoshgame@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-09-26
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 #ifndef SYS_H
 #define SYS_H

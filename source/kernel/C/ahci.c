@@ -776,7 +776,7 @@ static bool usb_mounted_range_valid(int device_id, uint64_t lba,
         if (lba >= part->lba_start &&
             lba - part->lba_start < part->sector_count &&
             (uint64_t)count <= part->sector_count -
-                (lba - part->lba_start))
+                                   (lba - part->lba_start))
             return true;
     }
     return !has_mounted_partition;

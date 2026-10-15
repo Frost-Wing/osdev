@@ -15,8 +15,8 @@
 
 extern volatile uint64_t pit_ticks;
 
-#define PING_COUNT 4
-#define PING_PAYLOAD 56    // bytes, like real ping's default
+#define PING_COUNT      4
+#define PING_PAYLOAD    56 // bytes, like real ping's default
 #define PIT_MS_PER_TICK 10 // 1000 / pit_freq(100)
 
 int cmd_ping(int argc, char **argv) {

@@ -44,7 +44,7 @@ static phys_range_t reserved[MAX_RESERVED];
 static size_t reserved_count = 0;
 
 #define PAGE_ALIGN_DOWN(x) ((x) & ~(uintptr_t)(PAGE_SIZE - 1))
-#define PAGE_ALIGN_UP(x) (((x) + PAGE_SIZE - 1) & ~(uintptr_t)(PAGE_SIZE - 1))
+#define PAGE_ALIGN_UP(x)   (((x) + PAGE_SIZE - 1) & ~(uintptr_t)(PAGE_SIZE - 1))
 
 #ifdef PAGING_DEBUG
 #define DBG_MAX_PAGES (1ULL << 24) /* 64 GiB of physical memory */
@@ -54,11 +54,13 @@ static inline int dbg_test(uintptr_t phys) {
     uint64_t pfn = phys >> 12;
     return pfn < DBG_MAX_PAGES && (dbg_alloc[pfn >> 3] & (1 << (pfn & 7)));
 }
+
 static inline void dbg_set(uintptr_t phys) {
     uint64_t pfn = phys >> 12;
     if (pfn < DBG_MAX_PAGES)
         dbg_alloc[pfn >> 3] |= (1 << (pfn & 7));
 }
+
 static inline void dbg_clear(uintptr_t phys) {
     uint64_t pfn = phys >> 12;
     if (pfn < DBG_MAX_PAGES)
@@ -350,7 +352,7 @@ uint64_t paging_user_page_flags(uint64_t virt) {
     effective &= pdpt[pdpt_idx];
     if (pdpt[pdpt_idx] & (1ULL << 7))
         return (effective & (PAGE_PRESENT | PAGE_USER | PAGE_RW)) |
-            ((effective | pdpt[pdpt_idx]) & PAGE_NX);
+               ((effective | pdpt[pdpt_idx]) & PAGE_NX);
 
     uint64_t *pd = phys_to_virt_ptr(pdpt[pdpt_idx] & PAGE_PHYS_ADDR_MASK);
 
@@ -359,7 +361,7 @@ uint64_t paging_user_page_flags(uint64_t virt) {
     effective &= pd[pd_idx];
     if (pd[pd_idx] & (1ULL << 7))
         return (effective & (PAGE_PRESENT | PAGE_USER | PAGE_RW)) |
-            ((effective | pd[pd_idx]) & PAGE_NX);
+               ((effective | pd[pd_idx]) & PAGE_NX);
 
     uint64_t *pt = phys_to_virt_ptr(pd[pd_idx] & PAGE_PHYS_ADDR_MASK);
 
@@ -368,7 +370,7 @@ uint64_t paging_user_page_flags(uint64_t virt) {
 
     effective &= pt[pt_idx];
     return (effective & (PAGE_PRESENT | PAGE_USER | PAGE_RW)) |
-        ((effective | pt[pt_idx]) & PAGE_NX);
+           ((effective | pt[pt_idx]) & PAGE_NX);
 }
 
 bool paging_validate_user_range(uint64_t addr, uint64_t length, bool writable) {
@@ -509,7 +511,7 @@ bool paging_map_mmio(uintptr_t phys, size_t size) {
             pdpt[pdpt_idx] = table_phys | PAGE_PRESENT | PAGE_RW;
         } else if (pdpt[pdpt_idx] & (1U << 7)) {
             uintptr_t mapped = (uintptr_t)(pdpt[pdpt_idx] & 0x000FFFFFC0000000ULL) |
-                (virt & 0x3FFFFFFFULL);
+                               (virt & 0x3FFFFFFFULL);
             if (mapped != page)
                 return false;
             continue;
@@ -526,7 +528,7 @@ bool paging_map_mmio(uintptr_t phys, size_t size) {
             pd[pd_idx] = table_phys | PAGE_PRESENT | PAGE_RW;
         } else if (pd[pd_idx] & (1U << 7)) {
             uintptr_t mapped = (uintptr_t)(pd[pd_idx] & 0x000FFFFFFFE00000ULL) |
-                (virt & 0x1FFFFFULL);
+                               (virt & 0x1FFFFFULL);
             if (mapped != page)
                 return false;
             continue;

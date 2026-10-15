@@ -9,24 +9,24 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define NET_MTU 1500
-#define NET_FRAME_MAX 1518
-#define NET_PKT_HEADROOM 64
-#define NET_PKT_STORAGE (NET_PKT_HEADROOM + NET_FRAME_MAX)
-#define NET_ARP_CACHE_SIZE 16
+#define NET_MTU             1500
+#define NET_FRAME_MAX       1518
+#define NET_PKT_HEADROOM    64
+#define NET_PKT_STORAGE     (NET_PKT_HEADROOM + NET_FRAME_MAX)
+#define NET_ARP_CACHE_SIZE  16
 #define NET_TCP_MAX_SOCKETS 8
-#define NET_DEBUG 1
+#define NET_DEBUG           1
 
-#define NET_OK 0
-#define NET_ERR (-1)
-#define NET_EINVAL (-2)
-#define NET_ENOMEM (-3)
-#define NET_ETIMEDOUT (-4)
-#define NET_ENOTSUP (-5)
-#define NET_EINTR (-6)
+#define NET_OK         0
+#define NET_ERR        (-1)
+#define NET_EINVAL     (-2)
+#define NET_ENOMEM     (-3)
+#define NET_ETIMEDOUT  (-4)
+#define NET_ENOTSUP    (-5)
+#define NET_EINTR      (-6)
 #define NET_ECONNRESET (-7)
-#define NET_EPIPE (-8)
-#define NET_EOF 1000
+#define NET_EPIPE      (-8)
+#define NET_EOF        1000
 
 typedef uint32 net_ipv4_t;
 

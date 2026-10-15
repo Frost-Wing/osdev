@@ -17,11 +17,11 @@
 #include <filesystems/fat.h>
 #include <graphics.h>
 
-#define FAT16_EOC 0xFFF8
-#define FAT16_ROOT_CLUSTER 0
+#define FAT16_EOC              0xFFF8
+#define FAT16_ROOT_CLUSTER     0
 #define DIR_ENTRIES_PER_SECTOR 16
-#define BYTES_PER_DIR_ENTRY 32
-#define FAT16_MAX_CLUSTERS 65525
+#define BYTES_PER_DIR_ENTRY    32
+#define FAT16_MAX_CLUSTERS     65525
 
 typedef struct {
     uint8_t jmp[3];

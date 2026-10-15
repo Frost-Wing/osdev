@@ -102,15 +102,15 @@ struct tcp_hdr {
     uint16 win, sum, urg;
 } __attribute__((packed));
 
-#define TCP_FIN 0x01
-#define TCP_SYN 0x02
-#define TCP_RST 0x04
-#define TCP_PSH 0x08
-#define TCP_ACK 0x10
-#define TCP_SOCK_UNUSED 0
-#define TCP_SOCK_SYN_SENT 1
+#define TCP_FIN              0x01
+#define TCP_SYN              0x02
+#define TCP_RST              0x04
+#define TCP_PSH              0x08
+#define TCP_ACK              0x10
+#define TCP_SOCK_UNUSED      0
+#define TCP_SOCK_SYN_SENT    1
 #define TCP_SOCK_ESTABLISHED 2
-#define TCP_SOCK_CLOSING 3
+#define TCP_SOCK_CLOSING     3
 
 // Increased from 2048 -> 65536 (64 KB) to prevent packet drops during high-throughput
 // transfers and allow proper TCP window scaling. The original 2048 was way too small
@@ -262,18 +262,18 @@ int tcp_send(int sock, const void *data, size_t len) {
 
 bool tcp_has_data(int sock) {
     return sock >= 0 && sock < NET_TCP_MAX_SOCKETS &&
-        tcp_socks[sock].used && tcp_socks[sock].rx_len != 0;
+           tcp_socks[sock].used && tcp_socks[sock].rx_len != 0;
 }
 
 bool tcp_is_closed(int sock) {
     return sock >= 0 && sock < NET_TCP_MAX_SOCKETS &&
-        tcp_socks[sock].used && (tcp_socks[sock].fin || tcp_socks[sock].reset);
+           tcp_socks[sock].used && (tcp_socks[sock].fin || tcp_socks[sock].reset);
 }
 
 bool tcp_is_connected(int sock) {
     return sock >= 0 && sock < NET_TCP_MAX_SOCKETS &&
-        tcp_socks[sock].used && tcp_socks[sock].state == TCP_SOCK_ESTABLISHED &&
-        !tcp_socks[sock].fin && !tcp_socks[sock].reset;
+           tcp_socks[sock].used && tcp_socks[sock].state == TCP_SOCK_ESTABLISHED &&
+           !tcp_socks[sock].fin && !tcp_socks[sock].reset;
 }
 
 // `timeout` is now a millisecond duration, measured against real pit_ticks
@@ -344,7 +344,7 @@ void tcp_input(net_ipv4_t src, const uint8 *p, size_t len) {
     size_t dlen = len - off;
     if (h->flags & TCP_RST) {
         bool valid = (s->state == TCP_SOCK_ESTABLISHED && seq == s->ack) ||
-            (s->state == TCP_SOCK_SYN_SENT && (h->flags & TCP_ACK) && ack == s->seq);
+                     (s->state == TCP_SOCK_SYN_SENT && (h->flags & TCP_ACK) && ack == s->seq);
         if (valid) {
             s->reset = true;
             s->state = TCP_SOCK_CLOSING;

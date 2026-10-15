@@ -91,8 +91,8 @@ uint64 sys_execve(const char *target,
         tb_ctx.argv[toybox_argc] = NULL;
 
         if (current_pid && !multitasking_update_user_image(current_pid,
-                tb_ctx.path, tb_ctx.argc, tb_ctx.argv,
-                (const char *const *)copied_envp)) {
+                               tb_ctx.path, tb_ctx.argc, tb_ctx.argv,
+                               (const char *const *)copied_envp)) {
             free_copied_string_array(copied_argv, argc);
             free_copied_string_array(copied_envp, envc);
             return -LINUX_ENOMEM;
@@ -114,8 +114,8 @@ uint64 sys_execve(const char *target,
         }
 
         if (current_pid && !multitasking_update_user_image(current_pid,
-                ctx.path, ctx.argc, ctx.argv,
-                (const char *const *)copied_envp)) {
+                               ctx.path, ctx.argc, ctx.argv,
+                               (const char *const *)copied_envp)) {
             free_copied_string_array(copied_argv, argc);
             free_copied_string_array(copied_envp, envc);
             return -LINUX_ENOMEM;
@@ -155,7 +155,7 @@ typedef struct {
 _Static_assert(sizeof(linux_clone_args_t) == 88, "clone3 ABI size");
 
 #define LINUX_CLONE_CHILD_CLEARTID (1ULL << 21)
-#define LINUX_CLONE_CHILD_SETTID (1ULL << 24)
+#define LINUX_CLONE_CHILD_SETTID   (1ULL << 24)
 #define LINUX_CLONE_FORK_FLAGS \
     (LINUX_CLONE_CHILD_CLEARTID | LINUX_CLONE_CHILD_SETTID)
 
@@ -219,7 +219,7 @@ uint64 sys_fork(void) {
         spec.argv[i] = cur->user_spec.argv[i] ? cur->user_spec.argv[i] : "";
     spec.parent_pid = parent_pid;
     spec.tty_index = cur->tty_index;
-    spec.fork_child = true;              /* means "already running", see multitasking.c */
+    spec.fork_child = true; /* means "already running", see multitasking.c */
 
     uint32_t child = multitasking_spawn_userland(NULL, &spec);
     if (!child)
@@ -231,19 +231,28 @@ uint64 sys_fork(void) {
 
     /* Copy everything out of the frame now. */
     userland_regs_t regs = {
-        .rax = 0,                        /* fork() returns 0 in the child */
-        .rbx = f->rbx, .rcx = f->rip, .rdx = f->rdx,
-        .rsi = f->rsi, .rdi = f->rdi, .rbp = f->rbp,
-        .r8 = f->r8, .r9 = f->r9, .r10 = f->r10,
+        .rax = 0, /* fork() returns 0 in the child */
+        .rbx = f->rbx,
+        .rcx = f->rip,
+        .rdx = f->rdx,
+        .rsi = f->rsi,
+        .rdi = f->rdi,
+        .rbp = f->rbp,
+        .r8 = f->r8,
+        .r9 = f->r9,
+        .r10 = f->r10,
         .r11 = f->rflags,
-        .r12 = f->r12, .r13 = f->r13, .r14 = f->r14, .r15 = f->r15,
+        .r12 = f->r12,
+        .r13 = f->r13,
+        .r14 = f->r14,
+        .r15 = f->r15,
         .rip = f->rip,
         .rflags = f->rflags | 0x202,
         .rsp = f->rsp,
     };
 
-    multitasking_set_current_pid(child);     /* getpid()/tty/execve now see the child */
-    int rc = userland_fork(&regs);           /* returns only when the child has exited */
+    multitasking_set_current_pid(child); /* getpid()/tty/execve now see the child */
+    int rc = userland_fork(&regs);       /* returns only when the child has exited */
     multitasking_set_current_pid(parent_pid);
 
     if (rc == USERLAND_FORK_FAILED) {
@@ -252,7 +261,7 @@ uint64 sys_fork(void) {
         return -LINUX_EAGAIN;
     }
 
-    multitasking_exit_task(child, rc);       /* no-op if the exit syscall already marked it */
+    multitasking_exit_task(child, rc); /* no-op if the exit syscall already marked it */
     return child;
 }
 
@@ -300,7 +309,8 @@ uint64 sys_setpgid(uint64_t pid, uint64_t pgid) {
     uint32_t parent_pid, target_group, target_session;
     bool exited;
     if (!multitasking_get_process_ids(target_pid, &parent_pid, &target_group,
-            &target_session, &exited) || exited)
+            &target_session, &exited) ||
+        exited)
         return -LINUX_ESRCH;
 
     uint32_t current_session;
@@ -315,8 +325,7 @@ uint64 sys_setpgid(uint64_t pid, uint64_t pgid) {
     if (target_pgid != target_pid &&
         !multitasking_process_group_exists(target_pgid, target_session))
         return -LINUX_EPERM;
-    return multitasking_set_process_group(target_pid, target_pgid) ?
-        0 : (uint64)-LINUX_ESRCH;
+    return multitasking_set_process_group(target_pid, target_pgid) ? 0 : (uint64)-LINUX_ESRCH;
 }
 
 uint64 sys_getpgid(uint64_t pid) {
@@ -325,8 +334,7 @@ uint64 sys_getpgid(uint64_t pid) {
     uint32_t target_pid = pid ? (uint32_t)pid : multitasking_current_pid();
     uint32_t process_group_id;
     bool exited;
-    if (!target_pid || !multitasking_get_process_ids(target_pid, NULL,
-            &process_group_id, NULL, &exited) || exited)
+    if (!target_pid || !multitasking_get_process_ids(target_pid, NULL, &process_group_id, NULL, &exited) || exited)
         return -LINUX_ESRCH;
     return process_group_id;
 }
@@ -337,8 +345,7 @@ uint64 sys_getsid(uint64_t pid) {
     uint32_t target_pid = pid ? (uint32_t)pid : multitasking_current_pid();
     uint32_t session_id;
     bool exited;
-    if (!target_pid || !multitasking_get_process_ids(target_pid, NULL, NULL,
-            &session_id, &exited) || exited)
+    if (!target_pid || !multitasking_get_process_ids(target_pid, NULL, NULL, &session_id, &exited) || exited)
         return -LINUX_ESRCH;
     return session_id;
 }
@@ -388,7 +395,9 @@ uint64 sys_prctl(uint64_t option, uint64_t arg2, uint64_t arg3,
             if (arg2 > 64)
                 return -LINUX_EINVAL;
             return multitasking_set_parent_death_signal(task->pid,
-                (int)arg2) ? 0 : (uint64)-LINUX_ESRCH;
+                       (int)arg2)
+                       ? 0
+                       : (uint64)-LINUX_ESRCH;
         case LINUX_PR_GET_PDEATHSIG:
             if (!arg2)
                 return -LINUX_EFAULT;
@@ -426,14 +435,14 @@ uint64 sys_prctl(uint64_t option, uint64_t arg2, uint64_t arg3,
     }
 }
 
-#define FUTEX_WAIT 0
-#define FUTEX_WAKE 1
-#define FUTEX_REQUEUE 3
-#define FUTEX_CMP_REQUEUE 4
-#define FUTEX_WAKE_OP 5
-#define FUTEX_WAIT_BITSET 9
-#define FUTEX_WAKE_BITSET 10
-#define FUTEX_PRIVATE_FLAG 128
+#define FUTEX_WAIT           0
+#define FUTEX_WAKE           1
+#define FUTEX_REQUEUE        3
+#define FUTEX_CMP_REQUEUE    4
+#define FUTEX_WAKE_OP        5
+#define FUTEX_WAIT_BITSET    9
+#define FUTEX_WAKE_BITSET    10
+#define FUTEX_PRIVATE_FLAG   128
 #define FUTEX_CLOCK_REALTIME 256
 
 uint64 sys_futex(uint32_t *uaddr, int op, uint32_t val,
@@ -475,8 +484,7 @@ uint64 sys_futex(uint32_t *uaddr, int op, uint32_t val,
         case FUTEX_CMP_REQUEUE:
             if (!uaddr2)
                 return -LINUX_EINVAL;
-            return __atomic_load_n(uaddr, __ATOMIC_SEQ_CST) == val3 ?
-                0 : -LINUX_EAGAIN;
+            return __atomic_load_n(uaddr, __ATOMIC_SEQ_CST) == val3 ? 0 : -LINUX_EAGAIN;
 
         case FUTEX_WAKE_OP:
             return uaddr2 ? -LINUX_ENOSYS : -LINUX_EINVAL;

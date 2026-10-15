@@ -23,7 +23,8 @@ void log_public_key() {
         size_t len = end - start;
         char line[256];
 
-        if (len >= sizeof(line)) len = sizeof(line) - 1;
+        if (len >= sizeof(line))
+            len = sizeof(line) - 1;
         memcpy(line, start, len);
         line[len] = '\0';
 
@@ -31,5 +32,6 @@ void log_public_key() {
         start = end + 1;
     }
 
-    if (*start) info("%s", __FILE__, start);
+    if (*start)
+        info("%s", __FILE__, start);
 }

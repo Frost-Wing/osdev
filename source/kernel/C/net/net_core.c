@@ -153,7 +153,7 @@ void netif_account_rx(size_t len) {
 
 /**
  * @brief Poll for network packets
- * 
+ *
  * If RTL8139 is in interrupt-driven mode, polling is largely a no-op since packets
  * are processed in the IRQ handler. However, we keep this for:
  * 1. Compatibility with existing code
@@ -165,9 +165,9 @@ void netif_poll(void) {
     uint8 buf[NET_FRAME_MAX];
     uint16 len = 0;
     uint64_t flags;
-    asm volatile("pushfq; popq %0; cli" : "=r"(flags) :: "memory");
+    asm volatile("pushfq; popq %0; cli" : "=r"(flags)::"memory");
     rtl8139_rx_to_queue();
-    asm volatile("pushq %0; popfq" :: "r"(flags) : "memory", "cc");
+    asm volatile("pushq %0; popfq" ::"r"(flags) : "memory", "cc");
 
     if (__sync_lock_test_and_set(&busy, 1))
         return;

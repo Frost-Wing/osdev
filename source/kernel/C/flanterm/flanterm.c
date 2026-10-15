@@ -66,7 +66,7 @@ static const uint32_t col256[] = {
     0x585858, 0x626262, 0x6c6c6c, 0x767676, 0x808080, 0x8a8a8a, 0x949494, 0x9e9e9e,
     0xa8a8a8, 0xb2b2b2, 0xbcbcbc, 0xc6c6c6, 0xd0d0d0, 0xdadada, 0xe4e4e4, 0xeeeeee};
 
-#define CHARSET_DEFAULT 0
+#define CHARSET_DEFAULT     0
 #define CHARSET_DEC_SPECIAL 1
 
 void flanterm_context_reinit(struct flanterm_context *ctx) {

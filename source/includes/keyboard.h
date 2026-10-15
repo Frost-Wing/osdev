@@ -16,28 +16,28 @@
 #include <isr.h>
 #include <stdbool.h>
 
-#define MOD_LCTRL 0x01U
-#define MOD_RCTRL 0x02U
-#define MOD_CTRL 0x03U
-#define MOD_LSHIFT 0x04U
-#define MOD_RSHIFT 0x08U
-#define MOD_SHIFT 0x0CU
-#define MOD_LALT 0x10U
-#define MOD_RALT 0x20U
-#define MOD_ALT 0x30U
+#define MOD_LCTRL    0x01U
+#define MOD_RCTRL    0x02U
+#define MOD_CTRL     0x03U
+#define MOD_LSHIFT   0x04U
+#define MOD_RSHIFT   0x08U
+#define MOD_SHIFT    0x0CU
+#define MOD_LALT     0x10U
+#define MOD_RALT     0x20U
+#define MOD_ALT      0x30U
 #define MOD_CAPSLOCK 0x40U
-#define MOD_NUMLOCK 0x80U
+#define MOD_NUMLOCK  0x80U
 
-#define CUR_UP -1
-#define CUR_DOWN -2
-#define CUR_LEFT -3
+#define CUR_UP    -1
+#define CUR_DOWN  -2
+#define CUR_LEFT  -3
 #define CUR_RIGHT -4
 
-#define KEY_HOME   0x112
-#define KEY_END    0x113
-#define KEY_DEL    0x114
-#define KEY_PGUP   0x115
-#define KEY_PGDN   0x116
+#define KEY_HOME 0x112
+#define KEY_END  0x113
+#define KEY_DEL  0x114
+#define KEY_PGUP 0x115
+#define KEY_PGDN 0x116
 
 #define KB_BUFFER_SIZE 256
 

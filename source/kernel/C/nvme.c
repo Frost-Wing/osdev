@@ -14,22 +14,22 @@
 #include <paging.h>
 #include <pci.h>
 
-#define NVME_CC_EN (1U << 0)
-#define NVME_CC_CSS_NVM (0U << 4)
-#define NVME_CC_MPS_SHIFT 7
-#define NVME_CC_AMS_RR (0U << 11)
-#define NVME_CC_IOSQES_SHIFT 16
-#define NVME_CC_IOCQES_SHIFT 20
-#define NVME_CSTS_RDY (1U << 0)
-#define NVME_COMMAND_TIMEOUT_MS 5000
+#define NVME_CC_EN                 (1U << 0)
+#define NVME_CC_CSS_NVM            (0U << 4)
+#define NVME_CC_MPS_SHIFT          7
+#define NVME_CC_AMS_RR             (0U << 11)
+#define NVME_CC_IOSQES_SHIFT       16
+#define NVME_CC_IOCQES_SHIFT       20
+#define NVME_CSTS_RDY              (1U << 0)
+#define NVME_COMMAND_TIMEOUT_MS    5000
 #define NVME_ADMIN_OP_CREATE_IO_SQ 0x01
 #define NVME_ADMIN_OP_CREATE_IO_CQ 0x05
-#define NVME_ADMIN_OP_IDENTIFY 0x06
+#define NVME_ADMIN_OP_IDENTIFY     0x06
 #define NVME_ADMIN_OP_SET_FEATURES 0x09
-#define NVME_NVM_OP_WRITE 0x01
-#define NVME_NVM_OP_READ 0x02
-#define NVME_NVM_OP_FLUSH 0x00
-#define NVME_FEAT_NUM_QUEUES 0x07
+#define NVME_NVM_OP_WRITE          0x01
+#define NVME_NVM_OP_READ           0x02
+#define NVME_NVM_OP_FLUSH          0x00
+#define NVME_FEAT_NUM_QUEUES       0x07
 
 nvme_controller_t nvme_controllers[NVME_MAX_CONTROLLERS];
 nvme_namespace_t nvme_namespaces[NVME_MAX_NAMESPACES];
@@ -366,7 +366,7 @@ void probe_nvme(uint8_t bus, uint8_t slot, uint8_t function) {
         }
 
         if (nvme_init_controller(ctrl) != 0) {
-            error("[NVMe] init failure: CAP=0x%X:%X CC=0x%X CSTS=0x%X", __FILE__, 
+            error("[NVMe] init failure: CAP=0x%X:%X CC=0x%X CSTS=0x%X", __FILE__,
                 (uint32_t)(ctrl->regs->cap >> 32),
                 (uint32_t)(ctrl->regs->cap & 0xFFFFFFFFU),
                 ctrl->regs->cc,

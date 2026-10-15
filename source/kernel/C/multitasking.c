@@ -80,7 +80,7 @@ int multitasking_get_cmdline(uint32_t pid, char *buf, size_t size) {
 
         size_t n = strlen(s) + 1; /* include the NUL separator */
         if (len + n > size)
-            n = size - len;       /* truncate, like Linux does */
+            n = size - len; /* truncate, like Linux does */
         memcpy(buf + len, s, n);
         len += n;
         if (len >= size)
@@ -701,12 +701,17 @@ void multitasking_pump(void) {
 // Multitasking testing ground below
 
 static bool idle_fn(uint32_t pid, uint64_t now, void *ctx, int *exit_code) {
-    (void)pid; (void)now; (void)ctx; (void)exit_code;
+    (void)pid;
+    (void)now;
+    (void)ctx;
+    (void)exit_code;
     return false;
 }
 
 static bool suicide_fn(uint32_t pid, uint64_t now, void *ctx, int *exit_code) {
-    (void)now; (void)ctx; (void)exit_code;
+    (void)now;
+    (void)ctx;
+    (void)exit_code;
     multitasking_kill_task(pid, 9);
     return false;
 }
@@ -773,7 +778,7 @@ void multitasking_selftest(void) {
 
     /* orphan reparenting: killing a parent moves its children to pid 1 */
     uint32_t p = multitasking_spawn_kernel("p", idle_fn, NULL);
-    user_task_spec_t spec = { .path = "/bin/x", .argc = 0, .parent_pid = p, .tty_index = 0xFF };
+    user_task_spec_t spec = {.path = "/bin/x", .argc = 0, .parent_pid = p, .tty_index = 0xFF};
     uint32_t c = multitasking_spawn_userland("c", &spec);
     assert(c != 0);
     multitasking_kill_task(p, 9);

@@ -175,7 +175,7 @@ void display_memory_formatted(struct memory_context *memory) {
 void analyze_memory_map(struct memory_context *memory, struct limine_memmap_request memory_map_request) {
 
     LOG_SCOPE();
-    
+
     memory->total = 0;
     memory->usable = 0;
     memory->reserved = 0;

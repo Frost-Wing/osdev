@@ -12,9 +12,9 @@
 
 struct flanterm_context;
 
-#define TTY_LINE_MAX 256
+#define TTY_LINE_MAX   256
 #define TTY_COOKED_MAX 1024
-#define TTY_COUNT 1
+#define TTY_COUNT      1
 /* Ask the task layer to inherit its parent's terminal. */
 #define TTY_INDEX_CURRENT UINT8_MAX
 
@@ -36,9 +36,9 @@ void tty_init(void);
  * @return true on success, otherwise false.
  */
 bool tty_init_terminals(struct flanterm_context *default_terminal,
-                        uint32_t *framebuffer, size_t width, size_t height,
-                        size_t pitch, const void *ssfn_font,
-                        size_t ssfn_font_size);
+    uint32_t *framebuffer, size_t width, size_t height,
+    size_t pitch, const void *ssfn_font,
+    size_t ssfn_font_size);
 
 /** @brief Queue a character as terminal input. */
 void tty_input_char(char c);

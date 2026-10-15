@@ -26,10 +26,10 @@
 #include <stream.h>
 #include <strings.h>
 
-#define BUFFER_SIZE 128
+#define BUFFER_SIZE      128
 #define MAX_COMMAND_LINE 1024
-#define MAX_SUBCOMMANDS 64
-#define MAX_ARGV 64
+#define MAX_SUBCOMMANDS  64
+#define MAX_ARGV         64
 
 typedef struct command_list_entry {
     struct command_list_entry *prev;

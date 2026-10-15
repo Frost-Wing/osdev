@@ -17,8 +17,8 @@ typedef struct {
 
 _Static_assert(sizeof(linux_rseq_t) == 32, "Linux rseq ABI size");
 
-#define LINUX_RSEQ_FLAG_UNREGISTER 1
-#define LINUX_RSEQ_CPU_ID_UNINITIALIZED UINT32_MAX
+#define LINUX_RSEQ_FLAG_UNREGISTER            1
+#define LINUX_RSEQ_CPU_ID_UNINITIALIZED       UINT32_MAX
 #define LINUX_RSEQ_CPU_ID_REGISTRATION_FAILED (UINT32_MAX - 1)
 
 static uint64_t fallback_rseq_area;
@@ -28,14 +28,14 @@ static bool membarrier_global_expedited_registered;
 #define LINUX_MAX_NUMA_NODES 1024
 #define LINUX_CPU_MASK_BYTES (SMP_MAX_CPUS / 8)
 
-#define LINUX_MEMBARRIER_PRIVATE_REGISTERED (1U << 0)
+#define LINUX_MEMBARRIER_PRIVATE_REGISTERED   (1U << 0)
 #define LINUX_MEMBARRIER_SYNC_CORE_REGISTERED (1U << 1)
-#define LINUX_MEMBARRIER_SUPPORTED_COMMANDS \
-    ((1U << LINUX_MEMBARRIER_CMD_GLOBAL) | \
-        (1U << LINUX_MEMBARRIER_CMD_GLOBAL_EXPEDITED) | \
-        (1U << LINUX_MEMBARRIER_CMD_REGISTER_GLOBAL_EXPEDITED) | \
-        (1U << LINUX_MEMBARRIER_CMD_PRIVATE_EXPEDITED) | \
-        (1U << LINUX_MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED) | \
+#define LINUX_MEMBARRIER_SUPPORTED_COMMANDS                        \
+    ((1U << LINUX_MEMBARRIER_CMD_GLOBAL) |                         \
+        (1U << LINUX_MEMBARRIER_CMD_GLOBAL_EXPEDITED) |            \
+        (1U << LINUX_MEMBARRIER_CMD_REGISTER_GLOBAL_EXPEDITED) |   \
+        (1U << LINUX_MEMBARRIER_CMD_PRIVATE_EXPEDITED) |           \
+        (1U << LINUX_MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED) |  \
         (1U << LINUX_MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE) | \
         (1U << LINUX_MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE))
 
@@ -52,7 +52,7 @@ static void membarrier_fence(bool sync_core) {
 
 static bool syscall_user_range_accessible(uint64_t addr, uint64_t length) {
     return userland_is_running() &&
-        paging_validate_user_range(addr, length, true);
+           paging_validate_user_range(addr, length, true);
 }
 
 uint64 sys_sched_getaffinity(int64_t pid, uint64_t cpusetsize, void *mask) {
@@ -457,7 +457,7 @@ uint64_t sys_clock_gettime(uint64_t clockid, linux_timespec_t *tp) {
             uint64_t ticks = pit_ticks;
             tp->tv_sec = ticks / PIT_TICKS_PER_SECOND;
             tp->tv_nsec = (ticks % PIT_TICKS_PER_SECOND) *
-                (1000000000ULL / PIT_TICKS_PER_SECOND);
+                          (1000000000ULL / PIT_TICKS_PER_SECOND);
             return 0;
         }
 
@@ -487,8 +487,7 @@ uint64 sys_alarm(uint64_t seconds) {
     uint64_t deadline = 0;
     if (seconds) {
         uint64_t ticks_per_second = PIT_TICKS_PER_SECOND;
-        uint64_t ticks = seconds > UINT64_MAX / ticks_per_second ?
-            UINT64_MAX : seconds * ticks_per_second;
+        uint64_t ticks = seconds > UINT64_MAX / ticks_per_second ? UINT64_MAX : seconds * ticks_per_second;
         deadline = ticks > UINT64_MAX - now ? UINT64_MAX : now + ticks;
     }
 
@@ -500,7 +499,7 @@ uint64 sys_alarm(uint64_t seconds) {
 
     uint64_t remaining_ticks = previous_deadline - now;
     return remaining_ticks / PIT_TICKS_PER_SECOND +
-        (remaining_ticks % PIT_TICKS_PER_SECOND != 0);
+           (remaining_ticks % PIT_TICKS_PER_SECOND != 0);
 }
 
 uint64 sys_getrusage(int who, linux_rusage_t *usage) {
@@ -526,14 +525,14 @@ typedef struct {
     uint64_t sigsetsize;
 } linux_pselect_sigarg_t;
 
-#define LINUX_PSELECT_FD_WORDS 16
-#define LINUX_PSELECT_FD_LIMIT (LINUX_PSELECT_FD_WORDS * 64)
-#define LINUX_POLLIN 0x001
-#define LINUX_POLLPRI 0x002
-#define LINUX_POLLOUT 0x004
-#define LINUX_POLLERR 0x008
-#define LINUX_POLLHUP 0x010
-#define LINUX_POLLNVAL 0x020
+#define LINUX_PSELECT_FD_WORDS   16
+#define LINUX_PSELECT_FD_LIMIT   (LINUX_PSELECT_FD_WORDS * 64)
+#define LINUX_POLLIN             0x001
+#define LINUX_POLLPRI            0x002
+#define LINUX_POLLOUT            0x004
+#define LINUX_POLLERR            0x008
+#define LINUX_POLLHUP            0x010
+#define LINUX_POLLNVAL           0x020
 #define LINUX_KERNEL_SIGSET_SIZE 8
 
 uint64 sys_pselect6(int nfds, uint64_t *readfds, uint64_t *writefds,
@@ -541,7 +540,7 @@ uint64 sys_pselect6(int nfds, uint64_t *readfds, uint64_t *writefds,
     if (nfds < 0 || nfds > LINUX_PSELECT_FD_LIMIT)
         return -LINUX_EINVAL;
     if (timeout && (timeout->tv_sec < 0 || timeout->tv_nsec < 0 ||
-        timeout->tv_nsec >= 1000000000L))
+                       timeout->tv_nsec >= 1000000000L))
         return -LINUX_EINVAL;
     if (sigarg) {
         const linux_pselect_sigarg_t *arg = sigarg;
@@ -601,12 +600,12 @@ uint64 sys_pselect6(int nfds, uint64_t *readfds, uint64_t *writefds,
         bool want_except = exceptfds && (exceptfds[fd / 64] & mask);
         bool fd_ready = false;
         if (want_read && (pollfds[i].revents &
-            (LINUX_POLLIN | LINUX_POLLERR | LINUX_POLLHUP))) {
+                             (LINUX_POLLIN | LINUX_POLLERR | LINUX_POLLHUP))) {
             ready_read[fd / 64] |= mask;
             fd_ready = true;
         }
         if (want_write && (pollfds[i].revents &
-            (LINUX_POLLOUT | LINUX_POLLERR | LINUX_POLLHUP))) {
+                              (LINUX_POLLOUT | LINUX_POLLERR | LINUX_POLLHUP))) {
             ready_write[fd / 64] |= mask;
             fd_ready = true;
         }
@@ -732,8 +731,7 @@ uint64 sys_nanosleep(const linux_timespec_t *req, linux_timespec_t *rem) {
         return -LINUX_EINVAL;
     uint64_t seconds = (uint64_t)req->tv_sec;
     uint64_t ticks_per_second = PIT_TICKS_PER_SECOND;
-    uint64_t ticks = seconds > UINT64_MAX / ticks_per_second ?
-        UINT64_MAX : seconds * ticks_per_second;
+    uint64_t ticks = seconds > UINT64_MAX / ticks_per_second ? UINT64_MAX : seconds * ticks_per_second;
     uint64_t fractional_ticks =
         ((uint64_t)req->tv_nsec * ticks_per_second + 999999999ULL) /
         1000000000ULL;
@@ -771,8 +769,7 @@ uint64 sys_clock_nanosleep(uint64_t clockid, uint64_t flags,
             uint64_t ticks_per_second = PIT_TICKS_PER_SECOND;
             uint64_t target_seconds = (uint64_t)req->tv_sec;
             uint64_t target_ticks =
-                target_seconds > UINT64_MAX / ticks_per_second ?
-                    UINT64_MAX : target_seconds * ticks_per_second;
+                target_seconds > UINT64_MAX / ticks_per_second ? UINT64_MAX : target_seconds * ticks_per_second;
             uint64_t fractional_ticks =
                 ((uint64_t)req->tv_nsec * ticks_per_second + 999999999ULL) /
                 1000000000ULL;
@@ -789,7 +786,8 @@ uint64 sys_clock_nanosleep(uint64_t clockid, uint64_t flags,
             uint64_t remaining_ticks = delay_ticks % ticks_per_second;
             duration.tv_sec = seconds > LONG_MAX ? LONG_MAX : (long)seconds;
             duration.tv_nsec = (long)((remaining_ticks * 1000000000ULL +
-                ticks_per_second - 1) / ticks_per_second);
+                                          ticks_per_second - 1) /
+                                      ticks_per_second);
         }
     }
 
@@ -893,8 +891,7 @@ uint64 sys_syslog(int type, char *buf, uint64_t len) {
             return 0;
 
         case LINUX_SYSLOG_ACTION_SIZE_UNREAD:
-        case LINUX_SYSLOG_ACTION_SIZE_BUFFER:
-            ;
+        case LINUX_SYSLOG_ACTION_SIZE_BUFFER:;
             size_t sz = klog_size();
             return (uint64)sz;
 
@@ -979,8 +976,8 @@ uint64 sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, u
 }
 
 #define LINUX_EFD_SEMAPHORE 0x1
-#define LINUX_EFD_NONBLOCK 0x800
-#define LINUX_EFD_CLOEXEC 0x80000
+#define LINUX_EFD_NONBLOCK  0x800
+#define LINUX_EFD_CLOEXEC   0x80000
 
 uint64 sys_eventfd2(uint64_t initial_value, uint64_t flags) {
     const uint64_t supported_flags =
@@ -1336,9 +1333,9 @@ uint64 sys_fstatfs(uint64_t fd, linux_statfs_t *buf) {
 }
 
 extern struct memory_context *limine_memory_ctx;
-extern uint64_t memory_used;            /* kernel heap bytes in use (from your proc heap file) */
+extern uint64_t memory_used; /* kernel heap bytes in use (from your proc heap file) */
 
-#define SYSINFO_MAX_PID 1024            /* set to your task table size */
+#define SYSINFO_MAX_PID 1024 /* set to your task table size */
 
 uint64_t boot_unix_time;
 
@@ -1359,9 +1356,9 @@ uint64 sys_sysinfo(linux_sysinfo_t *info) {
 
     /* RAM: Linux's totalram is usable RAM, not the whole memory map */
     uint64_t total = limine_memory_ctx->total;
-    uint64_t used  = total - limine_memory_ctx->usable;
+    uint64_t used = total - limine_memory_ctx->usable;
     info->totalram = total;
-    info->freeram  = (used < total) ? total - used : 0;
+    info->freeram = (used < total) ? total - used : 0;
 
     /* process count: walk live pids */
     uint16_t procs = 0;
@@ -1374,7 +1371,7 @@ uint64 sys_sysinfo(linux_sysinfo_t *info) {
 
     /* No page cache, shared memory, swap or highmem exist in FrostWing,
        so these are genuinely zero (already cleared by memset). */
-    info->mem_unit = 1;                 /* every size above is in bytes */
+    info->mem_unit = 1; /* every size above is in bytes */
     return 0;
 }
 
@@ -1412,10 +1409,12 @@ int64_t sys_readv(uint64_t fd, linux_iovec_t *iov, uint64_t cnt) {
 }
 
 int64_t sys_pread64(uint64_t fd, char *buf, uint64_t len, int64_t off) {
-    int64_t saved = sys_lseek(fd, 0, 1);          /* SEEK_CUR */
-    if (saved < 0) return saved;
-    int64_t r = sys_lseek(fd, off, 0);            /* SEEK_SET */
-    if (r < 0) return r;
+    int64_t saved = sys_lseek(fd, 0, 1); /* SEEK_CUR */
+    if (saved < 0)
+        return saved;
+    int64_t r = sys_lseek(fd, off, 0); /* SEEK_SET */
+    if (r < 0)
+        return r;
     int64_t n = sys_read(fd, buf, len);
     sys_lseek(fd, saved, 0);
     return n;
@@ -1423,9 +1422,11 @@ int64_t sys_pread64(uint64_t fd, char *buf, uint64_t len, int64_t off) {
 
 int64_t sys_pwrite64(uint64_t fd, const char *buf, uint64_t len, int64_t off) {
     int64_t saved = sys_lseek(fd, 0, 1);
-    if (saved < 0) return saved;
+    if (saved < 0)
+        return saved;
     int64_t r = sys_lseek(fd, off, 0);
-    if (r < 0) return r;
+    if (r < 0)
+        return r;
     int64_t n = sys_write(fd, buf, len);
     sys_lseek(fd, saved, 0);
     return n;

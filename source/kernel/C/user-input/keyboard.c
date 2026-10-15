@@ -360,13 +360,20 @@ int handle_char_from_scancode(uint8_t data) {
             case 0x50: // Down arrow press
                 return CUR_DOWN;
 
-            case 0x4B: return CUR_LEFT;
-            case 0x4D: return CUR_RIGHT;
-            case 0x47: return KEY_HOME;
-            case 0x4F: return KEY_END;
-            case 0x53: return KEY_DEL;
-            case 0x49: return KEY_PGUP;
-            case 0x51: return KEY_PGDN;
+            case 0x4B:
+                return CUR_LEFT;
+            case 0x4D:
+                return CUR_RIGHT;
+            case 0x47:
+                return KEY_HOME;
+            case 0x4F:
+                return KEY_END;
+            case 0x53:
+                return KEY_DEL;
+            case 0x49:
+                return KEY_PGUP;
+            case 0x51:
+                return KEY_PGDN;
         }
 
         return 0;
@@ -434,11 +441,16 @@ int handle_char_from_scancode(uint8_t data) {
         return 0;
 
     if (modifiers & MOD_CTRL) {
-        if (c >= 'a' && c <= 'z') return c - 'a' + 1;
-        if (c >= 'A' && c <= 'Z') return c - 'A' + 1;
-        if (c == '[')  return 27;
-        if (c == '\\') return 28;
-        if (c == ']')  return 29;
+        if (c >= 'a' && c <= 'z')
+            return c - 'a' + 1;
+        if (c >= 'A' && c <= 'Z')
+            return c - 'A' + 1;
+        if (c == '[')
+            return 27;
+        if (c == '\\')
+            return 28;
+        if (c == ']')
+            return 29;
         return 0;
     }
 

@@ -32,7 +32,7 @@
 #ifndef PIT_HZ
 #define PIT_HZ 100
 #endif
-#define PROC_USER_HZ 100    /* what Linux userspace assumes (sysconf(_SC_CLK_TCK)) */
+#define PROC_USER_HZ 100 /* what Linux userspace assumes (sysconf(_SC_CLK_TCK)) */
 
 static procfs_entry_t *proc_files[PROCFS_MAX_FILES];
 static int proc_file_count = 0;
@@ -86,8 +86,8 @@ static int proc_cpuinfo_read(vfs_file_t *file, uint8_t *buf, uint32_t size, void
             {0, "fpu"}, {3, "pse"}, {4, "tsc"}, {5, "msr"},
             {6, "pae"}, {8, "cx8"}, {9, "apic"}, {11, "sep"},
             {12, "mtrr"}, {13, "pge"}, {15, "cmov"}, {19, "clflush"},
-            {23, "mmx"}, {24, "fxsr"}, {25, "sse"}, {26, "sse2"}
-        };
+            {23, "mmx"}, {24, "fxsr"}, {25, "sse"}, {26, "sse2"}};
+
         for (size_t i = 0; i < sizeof(feature_names) / sizeof(feature_names[0]); i++) {
             if (!(edx & (1U << feature_names[i].bit)))
                 continue;
@@ -213,8 +213,10 @@ static int proc_stat_read(vfs_file_t *file, uint8_t *buf, uint32_t size, void *p
         multitasking_last_pid(),
         multitasking_count_running());
 
-    if (len < 0) len = 0;
-    if ((size_t)len >= sizeof(tmp)) len = sizeof(tmp) - 1;
+    if (len < 0)
+        len = 0;
+    if ((size_t)len >= sizeof(tmp))
+        len = sizeof(tmp) - 1;
     return ns_reply(file, buf, size, tmp, len);
 }
 
@@ -478,8 +480,10 @@ static int proc_meminfo_read(vfs_file_t *file, uint8_t *buf, uint32_t size, void
         kb_reserved, kb_acpi_reclaim, kb_acpi_nvs, kb_bad,
         kb_boot, kb_kernel, kb_fb, kb_unknown);
 
-    if (len < 0) len = 0;
-    if ((size_t)len >= sizeof(tmp)) len = sizeof(tmp) - 1;
+    if (len < 0)
+        len = 0;
+    if ((size_t)len >= sizeof(tmp))
+        len = sizeof(tmp) - 1;
     return ns_reply(file, buf, size, tmp, len);
 }
 
@@ -517,30 +521,38 @@ static int proc_uptime_read(vfs_file_t *file, uint8_t *buf, uint32_t size, void 
     char tmp[64];
     /* "%02u" spelled out by hand so we don't depend on snprintf flag support */
     int len = snprintf(tmp, sizeof(tmp), "%u.%u%u %u.%u%u\n",
-                       secs, cs / 10, cs % 10, secs, cs / 10, cs % 10);
-    if (len < 0) len = 0;
-    if ((size_t)len >= sizeof(tmp)) len = sizeof(tmp) - 1;
+        secs, cs / 10, cs % 10, secs, cs / 10, cs % 10);
+    if (len < 0)
+        len = 0;
+    if ((size_t)len >= sizeof(tmp))
+        len = sizeof(tmp) - 1;
     return ns_reply(file, buf, size, tmp, len);
 }
 
 static procfs_entry_t proc_uptime = {
-    .name = "uptime", .type = PROC_FILE, .read = proc_uptime_read};
+    .name = "uptime",
+    .type = PROC_FILE,
+    .read = proc_uptime_read};
 
 static int proc_loadavg_read(vfs_file_t *file, uint8_t *buf, uint32_t size, void *priv) {
     (void)priv;
 
     char tmp[64];
     int len = snprintf(tmp, sizeof(tmp), "0.00 0.00 0.00 %u/%u %u\n",
-                       multitasking_count_running(),
-                       multitasking_count_tasks(),
-                       multitasking_last_pid());
-    if (len < 0) len = 0;
-    if ((size_t)len >= sizeof(tmp)) len = sizeof(tmp) - 1;
+        multitasking_count_running(),
+        multitasking_count_tasks(),
+        multitasking_last_pid());
+    if (len < 0)
+        len = 0;
+    if ((size_t)len >= sizeof(tmp))
+        len = sizeof(tmp) - 1;
     return ns_reply(file, buf, size, tmp, len);
 }
 
 static procfs_entry_t proc_loadavg = {
-    .name = "loadavg", .type = PROC_FILE, .read = proc_loadavg_read};
+    .name = "loadavg",
+    .type = PROC_FILE,
+    .read = proc_loadavg_read};
 
 static int proc_pid_max_read(vfs_file_t *file, uint8_t *buf, uint32_t size, void *priv) {
     (void)priv;
@@ -549,7 +561,9 @@ static int proc_pid_max_read(vfs_file_t *file, uint8_t *buf, uint32_t size, void
 }
 
 static procfs_entry_t proc_pid_max = {
-    .name = "sys/kernel/pid_max", .type = PROC_FILE, .read = proc_pid_max_read};
+    .name = "sys/kernel/pid_max",
+    .type = PROC_FILE,
+    .read = proc_pid_max_read};
 
 /* ============================ /proc/<pid>/... ========================== */
 
@@ -574,19 +588,27 @@ static void proc_comm(const task_info_t *ti, char *out /* >= 16 */) {
 
 static const char *proc_state_letter(task_state_t s) {
     switch (s) {
-        case TASK_STATE_READY:    return "R";
-        case TASK_STATE_RUNNING:  return "R";
-        case TASK_STATE_SLEEPING: return "S";
-        case TASK_STATE_EXITED:   return "Z"; /* zombie until the parent reaps it */
-        default:                  return "R";
+        case TASK_STATE_READY:
+            return "R";
+        case TASK_STATE_RUNNING:
+            return "R";
+        case TASK_STATE_SLEEPING:
+            return "S";
+        case TASK_STATE_EXITED:
+            return "Z"; /* zombie until the parent reaps it */
+        default:
+            return "R";
     }
 }
 
 static const char *proc_state_long(task_state_t s) {
     switch (s) {
-        case TASK_STATE_SLEEPING: return "S (sleeping)";
-        case TASK_STATE_EXITED:   return "Z (zombie)";
-        default:                  return "R (running)";
+        case TASK_STATE_SLEEPING:
+            return "S (sleeping)";
+        case TASK_STATE_EXITED:
+            return "Z (zombie)";
+        default:
+            return "R (running)";
     }
 }
 
@@ -596,7 +618,9 @@ static int proc_pid_cmdline(const task_info_t *ti, char *buf, size_t sz) {
 }
 
 static int proc_pid_environ(const task_info_t *ti, char *buf, size_t sz) {
-    (void)ti; (void)buf; (void)sz;
+    (void)ti;
+    (void)buf;
+    (void)sz;
     return 0; /* empty, like a process with no environment */
 }
 
@@ -624,17 +648,17 @@ static int proc_pid_stat(const task_info_t *ti, char *buf, size_t sz) {
 
     /* All 52 fields of proc(5) /proc/<pid>/stat, in order. */
     return snprintf(buf, sz,
-        "%u (%s) %s %u %u %u %d %d %u "      /* 1-9   pid comm state ppid pgrp session tty tpgid flags */
-        "0 0 0 0 "                           /* 10-13 minflt cminflt majflt cmajflt */
-        "%u 0 0 0 "                          /* 14-17 utime stime cutime cstime */
-        "20 0 1 0 "                          /* 18-21 priority nice num_threads itrealvalue */
-        "%u "                                /* 22    starttime */
-        "0 0 18446744073709551615 "          /* 23-25 vsize rss rsslim */
-        "0 0 0 0 0 0 0 0 0 0 0 0 "           /* 26-37 code/stack/eip/signals/wchan/nswap/cnswap */
-        "17 0 0 0 0 0 0 "                    /* 38-44 exit_signal processor rt_prio policy blkio guest cguest */
-        "0 0 0 0 0 0 "                       /* 45-50 start_data end_data start_brk arg/env ranges */
-        "0 "                                 /* 51    env_end */
-        "%d\n",                              /* 52    exit_code */
+        "%u (%s) %s %u %u %u %d %d %u " /* 1-9   pid comm state ppid pgrp session tty tpgid flags */
+        "0 0 0 0 "                      /* 10-13 minflt cminflt majflt cmajflt */
+        "%u 0 0 0 "                     /* 14-17 utime stime cutime cstime */
+        "20 0 1 0 "                     /* 18-21 priority nice num_threads itrealvalue */
+        "%u "                           /* 22    starttime */
+        "0 0 18446744073709551615 "     /* 23-25 vsize rss rsslim */
+        "0 0 0 0 0 0 0 0 0 0 0 0 "      /* 26-37 code/stack/eip/signals/wchan/nswap/cnswap */
+        "17 0 0 0 0 0 0 "               /* 38-44 exit_signal processor rt_prio policy blkio guest cguest */
+        "0 0 0 0 0 0 "                  /* 45-50 start_data end_data start_brk arg/env ranges */
+        "0 "                            /* 51    env_end */
+        "%d\n",                         /* 52    exit_code */
         ti->pid, comm, proc_state_letter(ti->state),
         ti->parent_pid, ti->pid, ti->pid, tty_nr, tpgid, flags,
         proc_ticks_to_clk(ti->runtime_ticks),
@@ -685,6 +709,7 @@ static const struct {
     {"statm", proc_pid_statm},
     {"status", proc_pid_status},
 };
+
 #define PROC_PID_FILE_COUNT ((int)(sizeof(proc_pid_files) / sizeof(proc_pid_files[0])))
 
 /* Classify a path:
@@ -745,8 +770,10 @@ static int proc_pid_read(vfs_file_t *file, uint8_t *buf, uint32_t size, uint32_t
 
     char tmp[PROC_PID_BUF];
     int len = proc_pid_files[idx].gen(&ti, tmp, sizeof(tmp));
-    if (len < 0) len = 0;
-    if ((size_t)len >= sizeof(tmp)) len = sizeof(tmp) - 1;
+    if (len < 0)
+        len = 0;
+    if ((size_t)len >= sizeof(tmp))
+        len = sizeof(tmp) - 1;
     return ns_reply(file, buf, size, tmp, len);
 }
 
@@ -900,7 +927,7 @@ int procfs_getdent(const char *path, uint64_t index, const char **out_name, proc
         return 1;
     }
 
-    proc_pid_cursor_t cur = { .want = index - static_count - 1, .seen = 0, .pid = 0, .found = false };
+    proc_pid_cursor_t cur = {.want = index - static_count - 1, .seen = 0, .pid = 0, .found = false};
     multitasking_for_each_task(proc_pid_cursor_cb, &cur);
     if (!cur.found)
         return 0;

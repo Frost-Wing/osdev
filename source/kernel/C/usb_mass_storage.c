@@ -11,17 +11,17 @@
 #include <usb_mass_storage.h>
 #include <usb.h>
 
-#define USB_MSC_CLASS 0x08U
+#define USB_MSC_CLASS            0x08U
 #define USB_MSC_SCSI_TRANSPARENT 0x06U
-#define USB_MSC_BULK_ONLY 0x50U
-#define USB_MSC_GET_MAX_LUN 0xFEU
-#define USB_MSC_RESET 0xFFU
-#define USB_MSC_CBW_SIGNATURE 0x43425355U
-#define USB_MSC_CSW_SIGNATURE 0x53425355U
-#define USB_MSC_MAX_LUNS 16U
-#define USB_MSC_MAX_TARGETS 64U
-#define USB_MSC_MAX_GPT_ENTRIES 128U
-#define USB_MSC_MAX_TRANSFER 0x1FFFFU
+#define USB_MSC_BULK_ONLY        0x50U
+#define USB_MSC_GET_MAX_LUN      0xFEU
+#define USB_MSC_RESET            0xFFU
+#define USB_MSC_CBW_SIGNATURE    0x43425355U
+#define USB_MSC_CSW_SIGNATURE    0x53425355U
+#define USB_MSC_MAX_LUNS         16U
+#define USB_MSC_MAX_TARGETS      64U
+#define USB_MSC_MAX_GPT_ENTRIES  128U
+#define USB_MSC_MAX_TRANSFER     0x1FFFFU
 
 #define clean_spaces(str) leading_trailing_trim(collapse_spaces(str))
 
@@ -87,8 +87,7 @@ static int msc_bulk(usb_msc_transport_t *transport, uint8_t endpoint,
         if (chunk > USB_MSC_MAX_TRANSFER)
             chunk = USB_MSC_MAX_TRANSFER;
         uint32_t transferred = 0;
-        uint8_t address = endpoint == transport->in_endpoint ?
-            transport->in_address : transport->out_address;
+        uint8_t address = endpoint == transport->in_endpoint ? transport->in_address : transport->out_address;
         if (usb_bulk_request(transport->device, address, endpoint,
                 (uint8_t *)buffer + done, chunk, &transferred) != 0)
             return -1;
@@ -115,7 +114,9 @@ static int msc_reset_recovery(usb_msc_transport_t *transport) {
     int out_reset = usb_reset_endpoint(transport->device,
         transport->out_address, transport->out_endpoint);
     return result == 0 && in_result == 0 && out_result == 0 &&
-        in_reset == 0 && out_reset == 0 ? 0 : -1;
+                   in_reset == 0 && out_reset == 0
+               ? 0
+               : -1;
 }
 
 /* Returns 0 for passed CSW, 1 for failed command, and -1 for transport error. */
@@ -203,7 +204,8 @@ static int msc_request_sense(usb_msc_target_t *target, uint8_t *sense_key,
     memset(sense, 0, sizeof(sense));
     uint32_t actual = 0;
     if (msc_command(target, cdb, sizeof(cdb), 0x80U, sense,
-            sizeof(sense), &actual) != 0 || actual < 14U)
+            sizeof(sense), &actual) != 0 ||
+        actual < 14U)
         return -1;
     if (sense_key)
         *sense_key = sense[2] & 0x0FU;
@@ -220,14 +222,15 @@ static int msc_inquiry(usb_msc_target_t *target) {
     memset(inquiry, 0, sizeof(inquiry));
     uint32_t actual = 0;
     if (msc_command(target, cdb, sizeof(cdb), 0x80U, inquiry,
-            sizeof(inquiry), &actual) != 0 || actual < sizeof(inquiry))
+            sizeof(inquiry), &actual) != 0 ||
+        actual < sizeof(inquiry))
         return -1;
     info("USB SCSI LUN %u: peripheral type 0x%02x",
         __FILE__, target->lun, inquiry[0] & 0x1FU);
 
     LOG_SCOPE();
     info("\"%s\" \"%s\"", __FILE__, clean_spaces((const char *)&inquiry[8]), clean_spaces((const char *)&inquiry[16]));
-    
+
     return 0;
 }
 
@@ -265,11 +268,11 @@ static int msc_read_capacity(usb_msc_target_t *target) {
         return -1;
 
     uint32_t last_lba = ((uint32_t)response[0] << 24) |
-        ((uint32_t)response[1] << 16) |
-        ((uint32_t)response[2] << 8) | response[3];
+                        ((uint32_t)response[1] << 16) |
+                        ((uint32_t)response[2] << 8) | response[3];
     uint32_t block_size = ((uint32_t)response[4] << 24) |
-        ((uint32_t)response[5] << 16) |
-        ((uint32_t)response[6] << 8) | response[7];
+                          ((uint32_t)response[5] << 16) |
+                          ((uint32_t)response[6] << 8) | response[7];
     if (block_size < 512U || block_size > 65536U)
         return -1;
     target->block_size = block_size;
@@ -362,9 +365,9 @@ static int msc_parse_gpt(usb_msc_target_t *target, const uint8_t *mbr) {
         goto done;
 
     size_t entries_bytes = (size_t)header.NumEntries *
-        header.PartitionEntrySize;
+                           header.PartitionEntrySize;
     size_t sector_count = (entries_bytes + target->block_size - 1U) /
-        target->block_size;
+                          target->block_size;
     if (!sector_count || sector_count > SIZE_MAX / target->block_size ||
         sector_count > target->block_count - header.StartLBA_GUID_Entries)
         goto done;
@@ -383,7 +386,7 @@ static int msc_parse_gpt(usb_msc_target_t *target, const uint8_t *mbr) {
     unsigned int ordinal = 0;
     for (uint32_t i = 0; i < header.NumEntries; ++i) {
         const uint8_t *entry = partition_data +
-            (size_t)i * header.PartitionEntrySize;
+                               (size_t)i * header.PartitionEntrySize;
         const struct GPT_PartitionEntry *partition =
             (const struct GPT_PartitionEntry *)entry;
         bool unused = true;
@@ -466,7 +469,7 @@ static void msc_parse_mbr(usb_msc_target_t *target, const uint8_t *mbr) {
                 ebr_lba <= UINT64_MAX - logical[0].lba_start &&
                 ebr_lba + logical[0].lba_start < extended_end &&
                 logical[0].num_sectors <= extended_end -
-                    (ebr_lba + logical[0].lba_start)) {
+                                              (ebr_lba + logical[0].lba_start)) {
                 msc_add_partition(target, ebr_lba + logical[0].lba_start,
                     logical[0].num_sectors, PART_TABLE_MBR,
                     logical[0].boot_flag == MBR_PART_BOOTABLE,
@@ -542,8 +545,7 @@ static int msc_rw_blocks(usb_msc_target_t *target, uint64_t lba,
             goto done;
         if (max_blocks > UINT16_MAX)
             max_blocks = UINT16_MAX;
-        uint32_t blocks = blocks_left > max_blocks ?
-            (uint32_t)max_blocks : (uint32_t)blocks_left;
+        uint32_t blocks = blocks_left > max_blocks ? (uint32_t)max_blocks : (uint32_t)blocks_left;
         if (current_lba > UINT32_MAX ||
             (uint64_t)(blocks - 1U) > UINT32_MAX - current_lba)
             goto done;

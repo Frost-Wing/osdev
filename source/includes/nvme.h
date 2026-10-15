@@ -7,10 +7,10 @@
 
 #include <basics.h>
 
-#define NVME_MAX_CONTROLLERS 8
-#define NVME_MAX_NAMESPACES 16
+#define NVME_MAX_CONTROLLERS   8
+#define NVME_MAX_NAMESPACES    16
 #define NVME_ADMIN_QUEUE_DEPTH 16
-#define NVME_IO_QUEUE_DEPTH 64
+#define NVME_IO_QUEUE_DEPTH    64
 
 typedef volatile struct {
     uint64_t cap;

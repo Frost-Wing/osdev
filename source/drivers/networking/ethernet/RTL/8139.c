@@ -15,36 +15,36 @@
 #include <net/net.h>
 #include <paging.h>
 
-#define RTL8139_REG_MAR0 0x08
+#define RTL8139_REG_MAR0    0x08
 #define RTL8139_REG_RBSTART 0x30
-#define RTL8139_REG_CAPR 0x38
-#define RTL8139_REG_CBR 0x3A
-#define RTL8139_REG_IMR 0x3C
-#define RTL8139_REG_ISR 0x3E
-#define RTL8139_REG_TCR 0x40
-#define RTL8139_REG_RCR 0x44
+#define RTL8139_REG_CAPR    0x38
+#define RTL8139_REG_CBR     0x3A
+#define RTL8139_REG_IMR     0x3C
+#define RTL8139_REG_ISR     0x3E
+#define RTL8139_REG_TCR     0x40
+#define RTL8139_REG_RCR     0x44
 #define RTL8139_REG_CONFIG1 0x52
 
-#define RTL8139_ISR_ROK 0x0001
-#define RTL8139_ISR_TOK 0x0004
+#define RTL8139_ISR_ROK   0x0001
+#define RTL8139_ISR_TOK   0x0004
 #define RTL8139_ISR_RXOVW 0x0010
-#define RTL8139_ISR_TER 0x0008
-#define RTL8139_ISR_RER 0x0002
+#define RTL8139_ISR_TER   0x0008
+#define RTL8139_ISR_RER   0x0002
 
-#define RTL8139_RCR_AAP 0x00000001
-#define RTL8139_RCR_APM 0x00000002
-#define RTL8139_RCR_AM 0x00000004
-#define RTL8139_RCR_AB 0x00000008
-#define RTL8139_RCR_WRAP 0x00000080
+#define RTL8139_RCR_AAP             0x00000001
+#define RTL8139_RCR_APM             0x00000002
+#define RTL8139_RCR_AM              0x00000004
+#define RTL8139_RCR_AB              0x00000008
+#define RTL8139_RCR_WRAP            0x00000080
 #define RTL8139_RCR_MXDMA_UNLIMITED (7U << 8)
-#define RTL8139_RCR_RBLEN_64K (3U << 11)
-#define RTL8139_RX_WRAP_PAD 2048
+#define RTL8139_RCR_RBLEN_64K       (3U << 11)
+#define RTL8139_RX_WRAP_PAD         2048
 
-#define RTL8139_TX_DESC_COUNT 4
-#define RTL8139_TX_BUFFER_SIZE 2048
-#define RTL8139_RX_BUFFER_SIZE 65536
+#define RTL8139_TX_DESC_COUNT       4
+#define RTL8139_TX_BUFFER_SIZE      2048
+#define RTL8139_RX_BUFFER_SIZE      65536
 #define RTL8139_RX_READ_POINTER_GAP 16
-#define RTL8139_RXQ_LEN 64
+#define RTL8139_RXQ_LEN             64
 
 struct rtl8139_rxq_entry {
     uint16 len;
@@ -139,7 +139,7 @@ void rtl8139_init(struct rtl8139 *nic) {
         ;
 
     read_mac_address();
-    info("Mac Address : %x:%x:%x:%x:%x:%x", __FILE__ , nic->mac_address[0], nic->mac_address[1], nic->mac_address[2], nic->mac_address[3], nic->mac_address[4], nic->mac_address[5]);
+    info("Mac Address : %x:%x:%x:%x:%x:%x", __FILE__, nic->mac_address[0], nic->mac_address[1], nic->mac_address[2], nic->mac_address[3], nic->mac_address[4], nic->mac_address[5]);
 
     rx_buffer = kmalloc_aligned(RTL8139_RX_BUFFER_SIZE + 16 + RTL8139_RX_WRAP_PAD, 256);
     if (!rx_buffer) {
@@ -178,10 +178,10 @@ void rtl8139_init(struct rtl8139 *nic) {
 
     // Accept packets for this MAC, broadcasts, and multicast ARP/DNS traffic.
     rtl8139_rcr_value = RTL8139_RCR_APM | RTL8139_RCR_AM | RTL8139_RCR_AB |
-        RTL8139_RCR_WRAP | RTL8139_RCR_MXDMA_UNLIMITED | RTL8139_RCR_RBLEN_64K;
+                        RTL8139_RCR_WRAP | RTL8139_RCR_MXDMA_UNLIMITED | RTL8139_RCR_RBLEN_64K;
     outl(nic->io_base + RTL8139_REG_RCR, rtl8139_rcr_value);
     outl(nic->io_base + RTL8139_REG_TCR, 0x00000700);
-    
+
     // Enable interrupts for RX ready, TX OK, RX overflow, TX error, RX error
     outw(nic->io_base + RTL8139_REG_IMR, RTL8139_ISR_ROK | RTL8139_ISR_TOK | RTL8139_ISR_RXOVW | RTL8139_ISR_TER | RTL8139_ISR_RER);
     outw(nic->io_base + RTL8139_REG_ISR, 0xFFFF);

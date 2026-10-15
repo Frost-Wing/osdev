@@ -79,7 +79,6 @@ extern int terminal_rows;
  */
 extern int terminal_columns;
 
-
 void meltdown_screen(cstring message, cstring file, int line, uint64 error_code, uint64 cr2, uint64 int_no, InterruptFrame *frame) {
 #ifndef clean_mode
     print("\x1b[2J");

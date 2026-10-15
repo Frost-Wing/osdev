@@ -17,22 +17,22 @@
 /*   FAT32 CONSTANTS & MACROS    */
 /* ============================= */
 
-#define FAT32_SECTOR_SIZE 512
+#define FAT32_SECTOR_SIZE   512
 #define FAT32_MAX_LFN_CHARS 255
 
 /* FAT entry values */
 #define FAT32_CLUSTER_FREE 0x00000000
-#define FAT32_CLUSTER_BAD 0x0FFFFFF7
-#define FAT32_CLUSTER_EOC 0x0FFFFFF8
+#define FAT32_CLUSTER_BAD  0x0FFFFFF7
+#define FAT32_CLUSTER_EOC  0x0FFFFFF8
 
 /* Directory entry attributes */
 #define FAT_ATTR_READ_ONLY 0x01
-#define FAT_ATTR_HIDDEN 0x02
-#define FAT_ATTR_SYSTEM 0x04
+#define FAT_ATTR_HIDDEN    0x02
+#define FAT_ATTR_SYSTEM    0x04
 #define FAT_ATTR_VOLUME_ID 0x08
 #define FAT_ATTR_DIRECTORY 0x10
-#define FAT_ATTR_ARCHIVE 0x20
-#define FAT_ATTR_LFN 0x0F
+#define FAT_ATTR_ARCHIVE   0x20
+#define FAT_ATTR_LFN       0x0F
 
 /* ============================= */
 /*   BIOS PARAMETER BLOCK (BPB)  */
@@ -197,45 +197,45 @@ void fat32_free_chain_from(
     uint32_t start,
     uint32_t keep);
 
-    /** @brief Extend a cluster chain by the requested number of clusters. */
-    void fat32_extend_chain(
+/** @brief Extend a cluster chain by the requested number of clusters. */
+void fat32_extend_chain(
     fat32_fs_t *fs,
     uint32_t start,
     uint32_t count);
 
-    /** @brief Calculate the number of clusters needed to store a file size. */
-    uint32_t fat32_clusters_for_size(
+/** @brief Calculate the number of clusters needed to store a file size. */
+uint32_t fat32_clusters_for_size(
     fat32_fs_t *fs,
     uint32_t size);
 
-    /** @brief Write a directory entry back to disk. */
-    void fat32_update_entry(
+/** @brief Write a directory entry back to disk. */
+void fat32_update_entry(
     fat32_fs_t *fs,
     fat32_dir_entry_t *entry);
 
-    /** @brief Create a directory entry in a directory cluster. */
-    int fat32_create_entry(
+/** @brief Create a directory entry in a directory cluster. */
+int fat32_create_entry(
     fat32_fs_t *fs,
     uint32_t dir_cluster,
     const char *name,
     uint8_t attr,
     fat32_dir_entry_t *out);
 
-    /** @brief Remove a file at a path. */
-    int fat32_unlink_path(fat32_fs_t *fs, const char *path);
+/** @brief Remove a file at a path. */
+int fat32_unlink_path(fat32_fs_t *fs, const char *path);
 
-    /** @brief Recursively remove a directory tree. */
-    int fat32_rm_recursive(fat32_fs_t *fs, const char *path);
+/** @brief Recursively remove a directory tree. */
+int fat32_rm_recursive(fat32_fs_t *fs, const char *path);
 
-    /** @brief Move or rename a FAT32 path. */
-    int fat32_mv(fat32_fs_t *fs, const char *src, const char *dst);
+/** @brief Move or rename a FAT32 path. */
+int fat32_mv(fat32_fs_t *fs, const char *src, const char *dst);
 
-    /** @brief Delete a named directory entry. */
-    int fat32_delete_entry(fat32_fs_t *fs, uint32_t dir_cluster, const char *name);
+/** @brief Delete a named directory entry. */
+int fat32_delete_entry(fat32_fs_t *fs, uint32_t dir_cluster, const char *name);
 
-    /** @brief Remove an empty directory. */
-    int fat32_rmdir(fat32_fs_t *fs, uint32_t dir_cluster);
+/** @brief Remove an empty directory. */
+int fat32_rmdir(fat32_fs_t *fs, uint32_t dir_cluster);
 
-    /** @brief Flush pending changes associated with an open FAT32 file. */
-    int fat32_sync(fat32_file_t *f);
+/** @brief Flush pending changes associated with an open FAT32 file. */
+int fat32_sync(fat32_file_t *f);
 #endif

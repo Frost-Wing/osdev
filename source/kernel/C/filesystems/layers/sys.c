@@ -22,11 +22,24 @@
 #define SYSFS_STATIC_FILES 8
 
 /* Attribute files that live inside bus/pci/devices/<addr>/ */
-enum { PCI_ATTR_VENDOR, PCI_ATTR_DEVICE, PCI_ATTR_CLASS, PCI_ATTR_REVISION, PCI_ATTR_UEVENT, PCI_ATTR_COUNT };
+enum { PCI_ATTR_VENDOR,
+    PCI_ATTR_DEVICE,
+    PCI_ATTR_CLASS,
+    PCI_ATTR_REVISION,
+    PCI_ATTR_UEVENT,
+    PCI_ATTR_COUNT };
+
 enum {
-    USB_ATTR_VENDOR, USB_ATTR_PRODUCT, USB_ATTR_CLASS, USB_ATTR_SUBCLASS,
-    USB_ATTR_PROTOCOL, USB_ATTR_BUSNUM, USB_ATTR_DEVNUM, USB_ATTR_SPEED,
-    USB_ATTR_UEVENT, USB_ATTR_COUNT
+    USB_ATTR_VENDOR,
+    USB_ATTR_PRODUCT,
+    USB_ATTR_CLASS,
+    USB_ATTR_SUBCLASS,
+    USB_ATTR_PROTOCOL,
+    USB_ATTR_BUSNUM,
+    USB_ATTR_DEVNUM,
+    USB_ATTR_SPEED,
+    USB_ATTR_UEVENT,
+    USB_ATTR_COUNT
 };
 
 static const char *pci_attr_names[PCI_ATTR_COUNT] = {
@@ -178,12 +191,24 @@ static int sysfs_usb_attr_read(vfs_file_t *file, uint8_t *buf,
             break;
         case USB_ATTR_SPEED:
             switch (device->speed) {
-                case 1: len = snprintf(tmp, sizeof(tmp), "12\n"); break;
-                case 2: len = snprintf(tmp, sizeof(tmp), "1.5\n"); break;
-                case 3: len = snprintf(tmp, sizeof(tmp), "480\n"); break;
-                case 4: len = snprintf(tmp, sizeof(tmp), "5000\n"); break;
-                case 5: len = snprintf(tmp, sizeof(tmp), "10000\n"); break;
-                default: len = snprintf(tmp, sizeof(tmp), "unknown\n"); break;
+                case 1:
+                    len = snprintf(tmp, sizeof(tmp), "12\n");
+                    break;
+                case 2:
+                    len = snprintf(tmp, sizeof(tmp), "1.5\n");
+                    break;
+                case 3:
+                    len = snprintf(tmp, sizeof(tmp), "480\n");
+                    break;
+                case 4:
+                    len = snprintf(tmp, sizeof(tmp), "5000\n");
+                    break;
+                case 5:
+                    len = snprintf(tmp, sizeof(tmp), "10000\n");
+                    break;
+                default:
+                    len = snprintf(tmp, sizeof(tmp), "unknown\n");
+                    break;
             }
             break;
         case USB_ATTR_UEVENT:

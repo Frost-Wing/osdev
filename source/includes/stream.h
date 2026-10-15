@@ -36,7 +36,7 @@ typedef enum {
     STDERR = 2
 } stream_t;
 
-#define STREAM_MAX_FDS 256
+#define STREAM_MAX_FDS      256
 #define FD_PIPE_WOULD_BLOCK (-2)
 
 /** @brief Initialize the standard streams. */
@@ -50,14 +50,14 @@ void stream_init(void);
  *
  * @returns File descriptor of the given file.
  */
-int stream_set_file(stream_t s, vfs_file_t* file);
+int stream_set_file(stream_t s, vfs_file_t *file);
 
 /**
  * @brief Get the file currently backing a standard stream.
  * @param s Stream to query.
  * @return Its file, or NULL if it is not file-backed.
  */
-vfs_file_t* stream_get_file(stream_t s);
+vfs_file_t *stream_get_file(stream_t s);
 
 /**
  * @brief Write bytes to a standard stream.

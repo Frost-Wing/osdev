@@ -5,8 +5,8 @@
 #define BAR_WIDTH 30
 
 static uint64 g_last_downloaded = 0;
-static uint64 g_last_time_ms    = 0;
-static uint64 g_start_time_ms   = 0;
+static uint64 g_last_time_ms = 0;
+static uint64 g_start_time_ms = 0;
 
 /* Formats a byte count as e.g. "1.4 MB", "532 KB", "87 B"
  * Uses integer math only: scales by 10 to get one decimal digit. */
@@ -47,7 +47,7 @@ static void wget_progress(uint64 downloaded, uint64 total, void *ctx) {
     uint64 now_ms = get_time_ms();
     if (g_last_time_ms == 0) {
         g_start_time_ms = now_ms;
-        g_last_time_ms  = now_ms;
+        g_last_time_ms = now_ms;
     }
 
     uint64 dt_ms = now_ms - g_last_time_ms;
@@ -58,7 +58,7 @@ static void wget_progress(uint64 downloaded, uint64 total, void *ctx) {
     }
 
     g_last_downloaded = downloaded;
-    g_last_time_ms    = now_ms;
+    g_last_time_ms = now_ms;
 
     char downloaded_str[32];
     char total_str[32];
@@ -84,11 +84,11 @@ static void wget_progress(uint64 downloaded, uint64 total, void *ctx) {
             line[pos++] = c;
         }
         pos += snprintf(line + pos, sizeof(line) - pos,
-                         "] %3d%%  %s/%s  %s",
-                         pct, downloaded_str, total_str, speed_str);
+            "] %3d%%  %s/%s  %s",
+            pct, downloaded_str, total_str, speed_str);
     } else {
         pos += snprintf(line + pos, sizeof(line) - pos,
-                         "%s downloaded...  %s", downloaded_str, speed_str);
+            "%s downloaded...  %s", downloaded_str, speed_str);
     }
 
     printfnoln("%s", line);
@@ -104,8 +104,8 @@ int cmd_wget(int argc, char **argv) {
     printf("Saving to: '%s'\n", argv[2]);
 
     g_last_downloaded = 0;
-    g_last_time_ms    = 0;
-    g_start_time_ms   = 0;
+    g_last_time_ms = 0;
+    g_start_time_ms = 0;
 
     int r = http_get_to_file(argv[1], argv[2], wget_progress, NULL);
 
@@ -116,8 +116,8 @@ int cmd_wget(int argc, char **argv) {
 
         uint64 total_time_ms = get_time_ms() - g_start_time_ms;
         uint64 avg_speed = total_time_ms > 0
-            ? (g_last_downloaded * 1000ULL) / total_time_ms
-            : 0;
+                               ? (g_last_downloaded * 1000ULL) / total_time_ms
+                               : 0;
         format_speed(avg_speed, avg_speed_str, sizeof(avg_speed_str));
 
         printf("%s saved (%s, avg %s)", argv[2], final_size, avg_speed_str);

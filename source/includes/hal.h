@@ -15,9 +15,9 @@
 #include <stdint.h>
 
 #define pic1_command 0x20
-#define pic1_data 0x21
+#define pic1_data    0x21
 #define pic2_command 0xA0
-#define pic2_data 0xA1
+#define pic2_data    0xA1
 
 /**
  * @brief Initializes HAL by remapping the PIC interrupts to avoid conflicts

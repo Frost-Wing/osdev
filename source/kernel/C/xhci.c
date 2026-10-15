@@ -13,100 +13,100 @@
 #include <xhci.h>
 #include <usb_keyboard.h>
 
-#define XHCI_CAPLENGTH 0x00
+#define XHCI_CAPLENGTH  0x00
 #define XHCI_HCSPARAMS1 0x04
 #define XHCI_HCSPARAMS2 0x08
 #define XHCI_HCCPARAMS1 0x10
-#define XHCI_DBOFF 0x14
-#define XHCI_RTSOFF 0x18
+#define XHCI_DBOFF      0x14
+#define XHCI_RTSOFF     0x18
 
-#define XHCI_USBCMD 0x00
-#define XHCI_USBSTS 0x04
+#define XHCI_USBCMD   0x00
+#define XHCI_USBSTS   0x04
 #define XHCI_PAGESIZE 0x08
-#define XHCI_CRCR 0x18
-#define XHCI_DCBAAP 0x30
-#define XHCI_CONFIG 0x38
-#define XHCI_PORTS 0x400
+#define XHCI_CRCR     0x18
+#define XHCI_DCBAAP   0x30
+#define XHCI_CONFIG   0x38
+#define XHCI_PORTS    0x400
 
-#define XHCI_CMD_RUN (1U << 0)
+#define XHCI_CMD_RUN   (1U << 0)
 #define XHCI_CMD_RESET (1U << 1)
-#define XHCI_CMD_INTE (1U << 2)
-#define XHCI_STS_HCH (1U << 0)
-#define XHCI_STS_HSE (1U << 2)
-#define XHCI_STS_EINT (1U << 3)
-#define XHCI_STS_CNR (1U << 11)
+#define XHCI_CMD_INTE  (1U << 2)
+#define XHCI_STS_HCH   (1U << 0)
+#define XHCI_STS_HSE   (1U << 2)
+#define XHCI_STS_EINT  (1U << 3)
+#define XHCI_STS_CNR   (1U << 11)
 
-#define XHCI_TRB_CYCLE (1U << 0)
-#define XHCI_TRB_TC (1U << 1)
-#define XHCI_TRB_IOC (1U << 5)
-#define XHCI_TRB_TYPE_SHIFT 10
-#define XHCI_TRB_TYPE_MASK (0x3FU << XHCI_TRB_TYPE_SHIFT)
-#define XHCI_TRB_LINK 6
-#define XHCI_TRB_ENABLE_SLOT 9
-#define XHCI_TRB_NOOP_COMMAND 23
+#define XHCI_TRB_CYCLE              (1U << 0)
+#define XHCI_TRB_TC                 (1U << 1)
+#define XHCI_TRB_IOC                (1U << 5)
+#define XHCI_TRB_TYPE_SHIFT         10
+#define XHCI_TRB_TYPE_MASK          (0x3FU << XHCI_TRB_TYPE_SHIFT)
+#define XHCI_TRB_LINK               6
+#define XHCI_TRB_ENABLE_SLOT        9
+#define XHCI_TRB_NOOP_COMMAND       23
 #define XHCI_TRB_COMMAND_COMPLETION 33
 #define XHCI_TRB_PORT_STATUS_CHANGE 34
-#define XHCI_TRB_TRANSFER_EVENT 32
-#define XHCI_TRB_NORMAL 1
-#define XHCI_TRB_SETUP_STAGE 2
-#define XHCI_TRB_DATA_STAGE 3
-#define XHCI_TRB_STATUS_STAGE 4
-#define XHCI_TRB_DISABLE_SLOT 10
-#define XHCI_TRB_ADDRESS_DEVICE 11
+#define XHCI_TRB_TRANSFER_EVENT     32
+#define XHCI_TRB_NORMAL             1
+#define XHCI_TRB_SETUP_STAGE        2
+#define XHCI_TRB_DATA_STAGE         3
+#define XHCI_TRB_STATUS_STAGE       4
+#define XHCI_TRB_DISABLE_SLOT       10
+#define XHCI_TRB_ADDRESS_DEVICE     11
 #define XHCI_TRB_CONFIGURE_ENDPOINT 12
-#define XHCI_TRB_EVALUATE_CONTEXT 13
-#define XHCI_TRB_RESET_ENDPOINT 14
+#define XHCI_TRB_EVALUATE_CONTEXT   13
+#define XHCI_TRB_RESET_ENDPOINT     14
 
-#define XHCI_TRB_CHAIN (1U << 4)
-#define XHCI_TRB_IDT (1U << 6)
+#define XHCI_TRB_CHAIN  (1U << 4)
+#define XHCI_TRB_IDT    (1U << 6)
 #define XHCI_TRB_DIR_IN (1U << 16)
 
-#define XHCI_PORT_CCS (1U << 0)
-#define XHCI_PORT_PED (1U << 1)
-#define XHCI_PORT_PR (1U << 4)
-#define XHCI_PORT_PP (1U << 9)
+#define XHCI_PORT_CCS         (1U << 0)
+#define XHCI_PORT_PED         (1U << 1)
+#define XHCI_PORT_PR          (1U << 4)
+#define XHCI_PORT_PP          (1U << 9)
 #define XHCI_PORT_SPEED_SHIFT 10
-#define XHCI_PORT_CSC (1U << 17)
-#define XHCI_PORT_PRC (1U << 21)
-#define XHCI_PORT_WPR (1U << 31)
+#define XHCI_PORT_CSC         (1U << 17)
+#define XHCI_PORT_PRC         (1U << 21)
+#define XHCI_PORT_WPR         (1U << 31)
 #define XHCI_PORT_CHANGE_MASK (0x7FU << 17)
-#define XHCI_PORT_RW_MASK ((1U << 9) | (7U << 25))
+#define XHCI_PORT_RW_MASK     ((1U << 9) | (7U << 25))
 
-#define XHCI_EVENT_RING_SIZE 256
-#define XHCI_HUB_MAX_PORTS 15U
-#define XHCI_MAX_HUB_DEPTH 5U
-#define USB_REGISTRY_CAPACITY 64
-#define USB_CONFIGURATION_MAX 4096
-#define USB_DESCRIPTOR_DEVICE 1
-#define USB_DESCRIPTOR_CONFIGURATION 2
-#define USB_DESCRIPTOR_INTERFACE 4
-#define USB_DESCRIPTOR_ENDPOINT 5
-#define USB_DESCRIPTOR_HUB 0x29
-#define USB_DESCRIPTOR_SS_HUB 0x2A
-#define USB_REQUEST_GET_DESCRIPTOR 6
-#define USB_REQUEST_SET_CONFIGURATION 9
-#define USB_CLASS_HUB 9
-#define USB_REQUEST_GET_STATUS 0
-#define USB_REQUEST_CLEAR_FEATURE 1
-#define USB_REQUEST_SET_FEATURE 3
-#define USB_REQUEST_SET_HUB_DEPTH 12
-#define USB_HUB_PORT_POWER 8
-#define USB_HUB_PORT_RESET 4
-#define USB_SS_HUB_PORT_RESET 28
-#define USB_HUB_C_PORT_CONNECTION 16
-#define USB_HUB_C_PORT_ENABLE 17
-#define USB_HUB_C_PORT_RESET 20
-#define USB_SS_HUB_C_PORT_LINK_STATE 25
+#define XHCI_EVENT_RING_SIZE           256
+#define XHCI_HUB_MAX_PORTS             15U
+#define XHCI_MAX_HUB_DEPTH             5U
+#define USB_REGISTRY_CAPACITY          64
+#define USB_CONFIGURATION_MAX          4096
+#define USB_DESCRIPTOR_DEVICE          1
+#define USB_DESCRIPTOR_CONFIGURATION   2
+#define USB_DESCRIPTOR_INTERFACE       4
+#define USB_DESCRIPTOR_ENDPOINT        5
+#define USB_DESCRIPTOR_HUB             0x29
+#define USB_DESCRIPTOR_SS_HUB          0x2A
+#define USB_REQUEST_GET_DESCRIPTOR     6
+#define USB_REQUEST_SET_CONFIGURATION  9
+#define USB_CLASS_HUB                  9
+#define USB_REQUEST_GET_STATUS         0
+#define USB_REQUEST_CLEAR_FEATURE      1
+#define USB_REQUEST_SET_FEATURE        3
+#define USB_REQUEST_SET_HUB_DEPTH      12
+#define USB_HUB_PORT_POWER             8
+#define USB_HUB_PORT_RESET             4
+#define USB_SS_HUB_PORT_RESET          28
+#define USB_HUB_C_PORT_CONNECTION      16
+#define USB_HUB_C_PORT_ENABLE          17
+#define USB_HUB_C_PORT_RESET           20
+#define USB_SS_HUB_C_PORT_LINK_STATE   25
 #define USB_SS_HUB_C_PORT_CONFIG_ERROR 26
-#define USB_SS_HUB_C_PORT_RESET 29
-#define XHCI_COMMAND_TIMEOUT 500000
-#define XHCI_MSI_VECTOR 0x50
-#define XHCI_APIC_SPURIOUS_VECTOR 0xFE
-#define XHCI_APIC_BASE_MSR 0x1B
-#define XHCI_APIC_SVR 0xF0
-#define XHCI_APIC_EOI 0xB0
-#define XHCI_PCI_CAP_MSI 0x05
-#define XHCI_PCI_CAP_MSIX 0x11
+#define USB_SS_HUB_C_PORT_RESET        29
+#define XHCI_COMMAND_TIMEOUT           500000
+#define XHCI_MSI_VECTOR                0x50
+#define XHCI_APIC_SPURIOUS_VECTOR      0xFE
+#define XHCI_APIC_BASE_MSR             0x1B
+#define XHCI_APIC_SVR                  0xF0
+#define XHCI_APIC_EOI                  0xB0
+#define XHCI_PCI_CAP_MSI               0x05
+#define XHCI_PCI_CAP_MSIX              0x11
 
 typedef struct {
     volatile uint32_t iman;
@@ -398,7 +398,8 @@ static void xhci_process_event(xhci_controller_t *ctrl, const xhci_trb_t *event)
                     (uint16_t)(event_offset / sizeof(xhci_trb_t));
                 for (uint8_t i = 0; i < ctrl->pending_transfer_trb_count; ++i) {
                     if ((start_index + i) %
-                            (XHCI_TRB_RING_ENTRIES - 1U) == event_index) {
+                            (XHCI_TRB_RING_ENTRIES - 1U) ==
+                        event_index) {
                         matches_pending = 1;
                         break;
                     }
@@ -476,7 +477,7 @@ static uint32_t *xhci_input_context_slot(xhci_controller_t *ctrl, void *input) {
 static uint32_t *xhci_input_context_endpoint(xhci_controller_t *ctrl,
     void *input, uint8_t endpoint_id) {
     return (uint32_t *)((uint8_t *)input +
-        (size_t)(endpoint_id + 1U) * ctrl->context_size);
+                        (size_t)(endpoint_id + 1U) * ctrl->context_size);
 }
 
 static uint32_t *xhci_device_context_slot(xhci_controller_t *ctrl,
@@ -488,7 +489,7 @@ static uint32_t *xhci_device_context_slot(xhci_controller_t *ctrl,
 static uint32_t *xhci_device_context_endpoint(xhci_controller_t *ctrl,
     uint64_t physical, uint8_t endpoint_id) {
     return (uint32_t *)((uint8_t *)xhci_device_context_slot(ctrl, physical) +
-        (size_t)endpoint_id * ctrl->context_size);
+                        (size_t)endpoint_id * ctrl->context_size);
 }
 
 static int xhci_ring_push(xhci_ring_t *ring, const xhci_trb_t *source,
@@ -505,7 +506,7 @@ static int xhci_ring_push(xhci_ring_t *ring, const xhci_trb_t *source,
     target->control = (source->control & ~XHCI_TRB_CYCLE) | ring->cycle;
     if (trb_physical)
         *trb_physical = ring->physical +
-            (uint64_t)ring->enqueue * sizeof(xhci_trb_t);
+                        (uint64_t)ring->enqueue * sizeof(xhci_trb_t);
     __atomic_thread_fence(__ATOMIC_RELEASE);
 
     if (++ring->enqueue == XHCI_TRB_RING_ENTRIES - 1U) {
@@ -566,21 +567,19 @@ static int xhci_control_transfer(xhci_controller_t *ctrl, uint8_t slot_id,
     uint8_t setup[8] = {
         request_type, request, (uint8_t)value, (uint8_t)(value >> 8),
         (uint8_t)index, (uint8_t)(index >> 8),
-        (uint8_t)length, (uint8_t)(length >> 8)
-    };
+        (uint8_t)length, (uint8_t)(length >> 8)};
     uint64_t setup_parameter = 0;
     for (uint8_t i = 0; i < sizeof(setup); ++i)
         setup_parameter |= (uint64_t)setup[i] << (i * 8U);
 
     uint64_t first_trb_phys = ring->physical +
-        (uint64_t)ring->enqueue * sizeof(xhci_trb_t);
+                              (uint64_t)ring->enqueue * sizeof(xhci_trb_t);
     xhci_trb_t trb = {0};
     trb.parameter = setup_parameter;
     trb.status = sizeof(setup);
-    uint32_t transfer_type = length ?
-        ((request_type & 0x80U) ? 3U : 2U) : 0U;
+    uint32_t transfer_type = length ? ((request_type & 0x80U) ? 3U : 2U) : 0U;
     trb.control = (XHCI_TRB_SETUP_STAGE << XHCI_TRB_TYPE_SHIFT) |
-        XHCI_TRB_IDT | XHCI_TRB_CHAIN | (transfer_type << 16);
+                  XHCI_TRB_IDT | XHCI_TRB_CHAIN | (transfer_type << 16);
     if (xhci_ring_push(ring, &trb, NULL) != 0)
         return -1;
 
@@ -592,8 +591,8 @@ static int xhci_control_transfer(xhci_controller_t *ctrl, uint8_t slot_id,
         trb.parameter = data_physical;
         trb.status = length;
         trb.control = (XHCI_TRB_DATA_STAGE << XHCI_TRB_TYPE_SHIFT) |
-            XHCI_TRB_CHAIN |
-            ((request_type & 0x80U) ? XHCI_TRB_DIR_IN : 0U);
+                      XHCI_TRB_CHAIN |
+                      ((request_type & 0x80U) ? XHCI_TRB_DIR_IN : 0U);
         if (xhci_ring_push(ring, &trb, NULL) != 0)
             return -1;
     }
@@ -601,8 +600,8 @@ static int xhci_control_transfer(xhci_controller_t *ctrl, uint8_t slot_id,
     trb.parameter = 0;
     trb.status = 0;
     trb.control = (XHCI_TRB_STATUS_STAGE << XHCI_TRB_TYPE_SHIFT) |
-        XHCI_TRB_IOC |
-        ((!length || !(request_type & 0x80U)) ? XHCI_TRB_DIR_IN : 0U);
+                  XHCI_TRB_IOC |
+                  ((!length || !(request_type & 0x80U)) ? XHCI_TRB_DIR_IN : 0U);
     if (xhci_ring_push(ring, &trb, &ctrl->pending_transfer_phys) != 0)
         return -1;
     ctrl->pending_transfer_start_phys = first_trb_phys;
@@ -654,7 +653,7 @@ static int xhci_set_hub_context(xhci_controller_t *ctrl, uint8_t slot_id,
     input_control[1] = 1U;
     input_slot[0] |= (1U << 26) | (multi_tt ? (1U << 25) : 0U);
     input_slot[1] = (input_slot[1] & 0x00FFFFFFU) |
-        ((uint32_t)port_count << 24);
+                    ((uint32_t)port_count << 24);
 
     int result = xhci_issue_slot_command(XHCI_TRB_EVALUATE_CONTEXT,
         input_physical, slot_id);
@@ -671,7 +670,7 @@ static int xhci_hub_get_port_status(xhci_controller_t *ctrl, uint8_t slot_id,
             response, sizeof(response)) != 0)
         return -1;
     *status = (uint32_t)response[0] | ((uint32_t)response[1] << 8) |
-        ((uint32_t)response[2] << 16) | ((uint32_t)response[3] << 24);
+              ((uint32_t)response[2] << 16) | ((uint32_t)response[3] << 24);
     return 0;
 }
 
@@ -693,8 +692,7 @@ static int xhci_hub_initialize(xhci_controller_t *ctrl, uint8_t slot_id) {
     hub->depth = ctrl->slot_depth[slot_id];
     hub->superspeed = device->speed >= 4U;
     uint8_t descriptor[64] __attribute__((aligned(16))) = {0};
-    uint8_t descriptor_type = device->speed >= 4U ?
-        USB_DESCRIPTOR_SS_HUB : USB_DESCRIPTOR_HUB;
+    uint8_t descriptor_type = device->speed >= 4U ? USB_DESCRIPTOR_SS_HUB : USB_DESCRIPTOR_HUB;
     uint16_t header_length = device->speed >= 4U ? 10U : 7U;
     if (device->speed >= 4U &&
         usb_control_request(device, 0x20U, USB_REQUEST_SET_HUB_DEPTH,
@@ -730,7 +728,7 @@ static int xhci_hub_initialize(xhci_controller_t *ctrl, uint8_t slot_id) {
     memset(hub->ports, 0, (size_t)port_count * sizeof(*hub->ports));
     hub->port_count = port_count;
     hub->multi_tt = !hub->superspeed &&
-        device->descriptor.device_protocol == 2U;
+                    device->descriptor.device_protocol == 2U;
     hub->tt_think_time = (uint8_t)((descriptor[3] >> 5) & 3U);
 
     if (xhci_set_hub_context(ctrl, slot_id, port_count, hub->multi_tt) != 0) {
@@ -766,8 +764,7 @@ static int xhci_hub_initialize(xhci_controller_t *ctrl, uint8_t slot_id) {
 static int xhci_hub_reset_port(xhci_controller_t *ctrl, uint8_t slot_id,
     uint8_t port, uint8_t *speed) {
     xhci_hub_t *hub = &ctrl->hubs[slot_id];
-    uint16_t reset_feature = hub->superspeed ?
-        USB_SS_HUB_PORT_RESET : USB_HUB_PORT_RESET;
+    uint16_t reset_feature = hub->superspeed ? USB_SS_HUB_PORT_RESET : USB_HUB_PORT_RESET;
     if (xhci_hub_port_feature(ctrl, slot_id, port,
             USB_REQUEST_SET_FEATURE, reset_feature) != 0)
         return -1;
@@ -779,9 +776,7 @@ static int xhci_hub_reset_port(xhci_controller_t *ctrl, uint8_t slot_id,
         if (xhci_hub_get_port_status(ctrl, slot_id, port, &status) != 0)
             return -1;
         if (!(status & (1U << 4)) &&
-            (hub->superspeed ?
-                ((status & (1U << 0)) && !(status & (0xFU << 5))) :
-                ((status & (1U << 0)) && (status & (1U << 1)))))
+            (hub->superspeed ? ((status & (1U << 0)) && !(status & (0xFU << 5))) : ((status & (1U << 0)) && (status & (1U << 1)))))
             break;
     } while (pit_ticks < deadline);
     if ((status & (1U << 4)) || !(status & (1U << 0)) ||
@@ -809,7 +804,7 @@ static void xhci_fill_endpoint_context(uint32_t *context,
     uint16_t average_trb_length) {
     context[0] = 0;
     context[1] = (3U << 1) | ((uint32_t)endpoint_type << 3) |
-        ((uint32_t)max_packet_size << 16);
+                 ((uint32_t)max_packet_size << 16);
     context[2] = (uint32_t)dequeue;
     context[3] = (uint32_t)(dequeue >> 32);
     context[4] = average_trb_length;
@@ -818,11 +813,11 @@ static void xhci_fill_endpoint_context(uint32_t *context,
 static int usb_class_matches(const usb_class_driver_t *driver,
     const usb_interface_t *interface) {
     return (driver->interface_class == 0xFFU ||
-            driver->interface_class == interface->interface_class) &&
-        (driver->interface_subclass == 0xFFU ||
-            driver->interface_subclass == interface->interface_subclass) &&
-        (driver->interface_protocol == 0xFFU ||
-            driver->interface_protocol == interface->interface_protocol);
+               driver->interface_class == interface->interface_class) &&
+           (driver->interface_subclass == 0xFFU ||
+               driver->interface_subclass == interface->interface_subclass) &&
+           (driver->interface_protocol == 0xFFU ||
+               driver->interface_protocol == interface->interface_protocol);
 }
 
 int usb_register_class_driver(uint8_t interface_class,
@@ -1013,7 +1008,7 @@ static int usb_parse_configuration(usb_device_t *device) {
                 device->interfaces[current_interface].number;
             uint8_t number = endpoint->address & 0x0FU;
             endpoint->endpoint_id = (uint8_t)(number * 2U +
-                ((endpoint->address & 0x80U) ? 1U : 0U));
+                                              ((endpoint->address & 0x80U) ? 1U : 0U));
             info("USB endpoint 0x%02x: type %u max packet %u interval %u",
                 __FILE__, endpoint->address, endpoint->attributes & 3U,
                 endpoint->max_packet_size, endpoint->interval);
@@ -1064,9 +1059,7 @@ static int xhci_configure_data_endpoints(xhci_controller_t *ctrl,
             result = -1;
             break;
         }
-        uint8_t endpoint_type = transfer_type == 3U ?
-            ((endpoint->address & 0x80U) ? 7U : 3U) :
-            ((endpoint->address & 0x80U) ? 6U : 2U);
+        uint8_t endpoint_type = transfer_type == 3U ? ((endpoint->address & 0x80U) ? 7U : 3U) : ((endpoint->address & 0x80U) ? 6U : 2U);
         uint32_t *context = xhci_input_context_endpoint(ctrl, input,
             endpoint->endpoint_id);
         xhci_fill_endpoint_context(context, endpoint_type,
@@ -1094,7 +1087,7 @@ static int xhci_configure_data_endpoints(xhci_controller_t *ctrl,
     }
     if (result == 0 && configured) {
         input_slot[0] = (input_slot[0] & ~(0x1FU << 27)) |
-            ((uint32_t)max_context << 27);
+                        ((uint32_t)max_context << 27);
         result = xhci_issue_slot_command(XHCI_TRB_CONFIGURE_ENDPOINT,
             input_physical, device->slot_id);
         if (result == 0)
@@ -1190,9 +1183,9 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t root_port,
         info("USB root port %u reset complete; speed ID %u", __FILE__,
             root_port, speed);
     } else if (parent_port == 0 || parent_port > XHCI_HUB_MAX_PORTS ||
-        !ctrl->hubs[parent_slot].ports ||
-        !ctrl->hubs[parent_slot].ports[parent_port - 1U].connected ||
-        speed < 1U || speed > 5U) {
+               !ctrl->hubs[parent_slot].ports ||
+               !ctrl->hubs[parent_slot].ports[parent_port - 1U].connected ||
+               speed < 1U || speed > 5U) {
         return -1;
     }
 
@@ -1217,8 +1210,7 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t root_port,
     device->slot_id = slot_id;
     device->root_port = root_port;
     device->speed = speed;
-    uint8_t depth = parent_slot ?
-        (uint8_t)(ctrl->slot_depth[parent_slot] + 1U) : 0U;
+    uint8_t depth = parent_slot ? (uint8_t)(ctrl->slot_depth[parent_slot] + 1U) : 0U;
     if (depth > XHCI_MAX_HUB_DEPTH ||
         (parent_slot && parent_port > 0x0FU)) {
         error("Unsupported xHCI hub topology below slot %u port %u",
@@ -1230,9 +1222,9 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t root_port,
     ctrl->slot_root_port[slot_id] = root_port;
     ctrl->slot_speed[slot_id] = speed;
     ctrl->slot_depth[slot_id] = depth;
-    ctrl->slot_route[slot_id] = parent_slot ?
-        (ctrl->slot_route[parent_slot] |
-         ((uint32_t)parent_port << ((depth - 1U) * 4U))) : 0U;
+    ctrl->slot_route[slot_id] = parent_slot ? (ctrl->slot_route[parent_slot] |
+                                                  ((uint32_t)parent_port << ((depth - 1U) * 4U)))
+                                            : 0U;
     if (parent_slot && speed < 3U) {
         if (ctrl->slot_speed[parent_slot] == 3U) {
             ctrl->slot_tt_hub[slot_id] = parent_slot;
@@ -1273,16 +1265,15 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t root_port,
     uint32_t *ep0_context = xhci_input_context_endpoint(ctrl, input, 1);
     input_control[1] = 3U;
     slot_context[0] = ctrl->slot_route[slot_id] |
-        ((uint32_t)speed << 20) | (1U << 27);
+                      ((uint32_t)speed << 20) | (1U << 27);
     slot_context[1] = (uint32_t)root_port << 16;
     if (ctrl->slot_tt_hub[slot_id]) {
         slot_context[2] = ctrl->slot_tt_hub[slot_id] |
-            ((uint32_t)ctrl->slot_tt_port[slot_id] << 8) |
-            ((uint32_t)ctrl->slot_tt_think_time[slot_id] << 16);
+                          ((uint32_t)ctrl->slot_tt_port[slot_id] << 8) |
+                          ((uint32_t)ctrl->slot_tt_think_time[slot_id] << 16);
     }
 
-    uint16_t initial_packet = speed == 2U ? 8U :
-        (speed == 3U ? 64U : (speed >= 4U ? 512U : 8U));
+    uint16_t initial_packet = speed == 2U ? 8U : (speed == 3U ? 64U : (speed >= 4U ? 512U : 8U));
     xhci_fill_endpoint_context(ep0_context, 4U, initial_packet,
         ep0_dequeue, 8U);
     if (xhci_issue_slot_command(XHCI_TRB_ADDRESS_DEVICE, input_physical,
@@ -1343,7 +1334,7 @@ static int xhci_enumerate_port(xhci_controller_t *ctrl, uint8_t root_port,
             xhci_device_context_endpoint(ctrl, device_context_physical, 1),
             ctrl->context_size);
         ep0_context[1] = (ep0_context[1] & 0xFFFFU) |
-            ((uint32_t)packet_size << 16);
+                         ((uint32_t)packet_size << 16);
         if (xhci_issue_slot_command(XHCI_TRB_EVALUATE_CONTEXT,
                 input_physical, slot_id) != 0) {
             error("Unable to update EP0 max packet size on slot %u", __FILE__,
@@ -1511,7 +1502,7 @@ static void xhci_disconnect_slot(xhci_controller_t *ctrl, uint8_t slot_id) {
             &ctrl->hubs[parent_slot].ports[parent_port - 1U];
         port->child_slot = 0;
     } else if (root_port && root_port <= ctrl->max_ports &&
-        ctrl->port_slot[root_port] == slot_id) {
+               ctrl->port_slot[root_port] == slot_id) {
         ctrl->port_slot[root_port] = 0;
     }
 
@@ -1528,7 +1519,7 @@ static void xhci_poll_hubs(xhci_controller_t *ctrl) {
         hub->next_poll_tick = pit_ticks + 10U;
 
         for (uint8_t port_number = 1; port_number <= hub->port_count;
-                ++port_number) {
+            ++port_number) {
             xhci_hub_port_t *port = &hub->ports[port_number - 1U];
             uint32_t status = 0;
             if (xhci_hub_get_port_status(ctrl, (uint8_t)slot, port_number,
@@ -1550,8 +1541,7 @@ static void xhci_poll_hubs(xhci_controller_t *ctrl) {
             if (changes & (1U << 4))
                 (void)xhci_hub_port_feature(ctrl, (uint8_t)slot,
                     port_number, USB_REQUEST_CLEAR_FEATURE,
-                    hub->superspeed ? USB_SS_HUB_C_PORT_RESET :
-                        USB_HUB_C_PORT_RESET);
+                    hub->superspeed ? USB_SS_HUB_C_PORT_RESET : USB_HUB_C_PORT_RESET);
             if (hub->superspeed && (changes & (1U << 5)))
                 (void)xhci_hub_port_feature(ctrl, (uint8_t)slot,
                     port_number, USB_REQUEST_CLEAR_FEATURE,
@@ -2096,11 +2086,11 @@ int xhci_bulk_transfer(uint8_t slot_id, uint8_t endpoint_id, void *buffer,
         return -1;
 
     uint64_t trb_phys = ring->physical +
-        (uint64_t)ring->enqueue * sizeof(xhci_trb_t);
+                        (uint64_t)ring->enqueue * sizeof(xhci_trb_t);
     trb->parameter = buffer_phys;
     trb->status = length & 0x1FFFFU;
     trb->control = (XHCI_TRB_NORMAL << XHCI_TRB_TYPE_SHIFT) |
-        XHCI_TRB_IOC | ring->cycle;
+                   XHCI_TRB_IOC | ring->cycle;
     __atomic_thread_fence(__ATOMIC_RELEASE);
     if (++ring->enqueue == XHCI_TRB_RING_ENTRIES - 1U) {
         ring->enqueue = 0;
@@ -2178,7 +2168,7 @@ int xhci_reset_endpoint(uint8_t slot_id, uint8_t endpoint_id) {
         return -1;
 
     uint32_t control = ((uint32_t)slot_id << 24) |
-        ((uint32_t)endpoint_id << 16);
+                       ((uint32_t)endpoint_id << 16);
     if (xhci_submit_command(XHCI_TRB_RESET_ENDPOINT, 0, 0, control, NULL) != 0)
         return -1;
 
@@ -2302,11 +2292,11 @@ void probe_xhci(uint8_t bus, uint8_t slot, uint8_t function) {
     }
 
     uint64_t register_end = (uint64_t)cap_length + XHCI_PORTS +
-        (uint64_t)ctrl->max_ports * 0x10U;
+                            (uint64_t)ctrl->max_ports * 0x10U;
     uint64_t doorbell_end = (uint64_t)dboff +
-        ((uint64_t)ctrl->max_slots + 1U) * sizeof(uint32_t);
+                            ((uint64_t)ctrl->max_slots + 1U) * sizeof(uint32_t);
     uint64_t runtime_end = (uint64_t)rtsoff + 0x20U +
-        sizeof(xhci_interrupter_t);
+                           sizeof(xhci_interrupter_t);
     if (doorbell_end > register_end)
         register_end = doorbell_end;
     if (runtime_end > register_end)

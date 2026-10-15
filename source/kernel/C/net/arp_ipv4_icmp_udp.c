@@ -4,13 +4,13 @@
 #include <pit.h>
 #include <tty.h>
 #include <strings.h>
-#define ETH_ARP 0x0806
-#define ETH_IP 0x0800
+#define ETH_ARP     0x0806
+#define ETH_IP      0x0800
 #define ARP_REQUEST 1
-#define ARP_REPLY 2
-#define IP_ICMP 1
-#define IP_TCP 6
-#define IP_UDP 17
+#define ARP_REPLY   2
+#define IP_ICMP     1
+#define IP_TCP      6
+#define IP_UDP      17
 
 extern volatile uint64_t pit_ticks;
 #define PIT_MS_PER_TICK 10 // 1000 / pit_freq(100) -- keep in sync with pit.c / net.c
@@ -306,6 +306,7 @@ void udp_input(net_ipv4_t src, const uint8 *p, size_t len) {
             .protocol = IP_UDP,
             .length = net_htons((uint16)ulen),
         };
+
         uint8 checksum_data[sizeof(pseudo) + 1500];
         if (ulen > sizeof(checksum_data) - sizeof(pseudo))
             return;

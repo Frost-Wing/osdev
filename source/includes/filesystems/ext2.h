@@ -22,15 +22,15 @@
 
 /* ===================== On-disk constants ===================== */
 
-#define EXT2_SUPER_MAGIC 0xEF53
+#define EXT2_SUPER_MAGIC       0xEF53
 #define EXT2_SUPERBLOCK_OFFSET 1024U /* bytes from partition start */
 
 /* Defines to prevent accidental mounting of ext3/4 fs as ext2*/
-#define EXT3_FEATURE_COMPAT_HAS_JOURNAL  0x0004
+#define EXT3_FEATURE_COMPAT_HAS_JOURNAL 0x0004
 
-#define EXT4_FEATURE_INCOMPAT_EXTENTS    0x0040
-#define EXT4_FEATURE_INCOMPAT_64BIT      0x0080
-#define EXT4_FEATURE_INCOMPAT_FLEX_BG    0x0200
+#define EXT4_FEATURE_INCOMPAT_EXTENTS 0x0040
+#define EXT4_FEATURE_INCOMPAT_64BIT   0x0080
+#define EXT4_FEATURE_INCOMPAT_FLEX_BG 0x0200
 
 #define EXT4_FEATURE_RO_COMPAT_HUGE_FILE   0x0008
 #define EXT4_FEATURE_RO_COMPAT_GDT_CSUM    0x0010
@@ -38,28 +38,28 @@
 #define EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE 0x0040
 
 #define EXT4_INCOMPAT_MASK (EXT4_FEATURE_INCOMPAT_EXTENTS | \
-                            EXT4_FEATURE_INCOMPAT_64BIT   | \
+                            EXT4_FEATURE_INCOMPAT_64BIT |   \
                             EXT4_FEATURE_INCOMPAT_FLEX_BG)
 
-#define EXT4_RO_COMPAT_MASK (EXT4_FEATURE_RO_COMPAT_HUGE_FILE   | \
-                             EXT4_FEATURE_RO_COMPAT_GDT_CSUM    | \
-                             EXT4_FEATURE_RO_COMPAT_DIR_NLINK   | \
+#define EXT4_RO_COMPAT_MASK (EXT4_FEATURE_RO_COMPAT_HUGE_FILE | \
+                             EXT4_FEATURE_RO_COMPAT_GDT_CSUM |  \
+                             EXT4_FEATURE_RO_COMPAT_DIR_NLINK | \
                              EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE)
 
 #define EXT2_GOOD_OLD_REV 0
-#define EXT2_DYNAMIC_REV 1
+#define EXT2_DYNAMIC_REV  1
 
 #define EXT2_GOOD_OLD_INODE_SIZE 128
 
-#define EXT2_ROOT_INO 2
-#define EXT2_BAD_INO 1
+#define EXT2_ROOT_INO  2
+#define EXT2_BAD_INO   1
 #define EXT2_FIRST_INO 11
 
 #define EXT2_NDIR_BLOCKS 12
-#define EXT2_IND_BLOCK 12
-#define EXT2_DIND_BLOCK 13
-#define EXT2_TIND_BLOCK 14
-#define EXT2_N_BLOCKS 15
+#define EXT2_IND_BLOCK   12
+#define EXT2_DIND_BLOCK  13
+#define EXT2_TIND_BLOCK  14
+#define EXT2_N_BLOCKS    15
 
 #define EXT2_NAME_LEN 255
 
@@ -67,14 +67,14 @@
 #define EXT2_ERROR_FS 0x0002
 
 /* i_mode values */
-#define EXT2_S_IFMT 0xF000
+#define EXT2_S_IFMT   0xF000
 #define EXT2_S_IFSOCK 0xC000
-#define EXT2_S_IFLNK 0xA000
-#define EXT2_S_IFREG 0x8000
-#define EXT2_S_IFBLK 0x6000
-#define EXT2_S_IFDIR 0x4000
-#define EXT2_S_IFCHR 0x2000
-#define EXT2_S_IFIFO 0x1000
+#define EXT2_S_IFLNK  0xA000
+#define EXT2_S_IFREG  0x8000
+#define EXT2_S_IFBLK  0x6000
+#define EXT2_S_IFDIR  0x4000
+#define EXT2_S_IFCHR  0x2000
+#define EXT2_S_IFIFO  0x1000
 
 #define EXT2_S_IRWXU 0x01C0
 #define EXT2_S_IRUSR 0x0100
@@ -84,30 +84,30 @@
 #define EXT2_S_IRWXO 0x0007
 
 /* directory entry file types (filetype feature) */
-#define EXT2_FT_UNKNOWN 0
+#define EXT2_FT_UNKNOWN  0
 #define EXT2_FT_REG_FILE 1
-#define EXT2_FT_DIR 2
-#define EXT2_FT_CHRDEV 3
-#define EXT2_FT_BLKDEV 4
-#define EXT2_FT_FIFO 5
-#define EXT2_FT_SOCK 6
-#define EXT2_FT_SYMLINK 7
+#define EXT2_FT_DIR      2
+#define EXT2_FT_CHRDEV   3
+#define EXT2_FT_BLKDEV   4
+#define EXT2_FT_FIFO     5
+#define EXT2_FT_SOCK     6
+#define EXT2_FT_SYMLINK  7
 
 /* feature flags we understand */
-#define EXT2_FEATURE_INCOMPAT_FILETYPE 0x0002
+#define EXT2_FEATURE_INCOMPAT_FILETYPE      0x0002
 #define EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER 0x0001
 
 /* error codes (kept consistent with FAT driver's style) */
-#define EXT2_OK 0
-#define EXT2_ERR_NOT_FOUND -1
-#define EXT2_ERR_CORRUPT -2
-#define EXT2_ERR_NOSPACE -3
-#define EXT2_ERR_IO -4
-#define EXT2_ERR_EXISTS -5
-#define EXT2_ERR_NOTDIR -6
-#define EXT2_ERR_ISDIR -7
-#define EXT2_ERR_INVAL -8
-#define EXT2_ERR_NOTEMPTY -9
+#define EXT2_OK             0
+#define EXT2_ERR_NOT_FOUND  -1
+#define EXT2_ERR_CORRUPT    -2
+#define EXT2_ERR_NOSPACE    -3
+#define EXT2_ERR_IO         -4
+#define EXT2_ERR_EXISTS     -5
+#define EXT2_ERR_NOTDIR     -6
+#define EXT2_ERR_ISDIR      -7
+#define EXT2_ERR_INVAL      -8
+#define EXT2_ERR_NOTEMPTY   -9
 #define EXT2_ERR_LINK_LIMIT -10
 
 /* ===================== On-disk structures ===================== */

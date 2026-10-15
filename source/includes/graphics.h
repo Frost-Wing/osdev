@@ -66,9 +66,9 @@ void __log_scope_exit(int *unused);
 #define LOG_SCOPE() \
     int __log_guard__ __attribute__((cleanup(__log_scope_exit))) = (log_depth++, 0)
 
-#define LOG_BLOCK \
+#define LOG_BLOCK                                                                         \
     for (int __log_guard__ __attribute__((cleanup(__log_scope_exit))) = (log_depth++, 0); \
-         !__log_guard__; __log_guard__ = 1)
+        !__log_guard__; __log_guard__ = 1)
 
 #define printf(fmt, ...) \
     printf_internal(__FILE__, __func__, __LINE__, fmt, ##__VA_ARGS__)
@@ -143,19 +143,19 @@ void vputc(char c);
 void printbin(uint8_t value);
 
 /**
-* @brief Format an integer into a buffer using the requested base and width.
-*
-* @param out Destination buffer.
-* @param value Integer value to format.
-* @param is_signed Whether the value should be treated as signed.
-* @param base Numeric base.
-* @param width Minimum output width.
-* @param zero Whether to pad with zeroes.
-* @param upper Whether to use uppercase digits.
-* @return Number of characters written, or a negative value on error.
-*/
+ * @brief Format an integer into a buffer using the requested base and width.
+ *
+ * @param out Destination buffer.
+ * @param value Integer value to format.
+ * @param is_signed Whether the value should be treated as signed.
+ * @param base Numeric base.
+ * @param width Minimum output width.
+ * @param zero Whether to pad with zeroes.
+ * @param upper Whether to use uppercase digits.
+ * @return Number of characters written, or a negative value on error.
+ */
 int format_number(char *out, uint64_t value, bool is_signed,
-                  int base, int width, bool zero, bool upper);
+    int base, int width, bool zero, bool upper);
 
 /**
  * @brief Prints with formatting supported.

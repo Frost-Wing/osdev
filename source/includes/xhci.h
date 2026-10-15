@@ -8,7 +8,7 @@
 #include <isr.h>
 #include <usb.h>
 
-#define XHCI_MAX_CONTROLLERS 4
+#define XHCI_MAX_CONTROLLERS  4
 #define XHCI_TRB_RING_ENTRIES 256
 
 /** xHCI transfer request block, laid out as required by the controller. */

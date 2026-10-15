@@ -46,7 +46,7 @@ extern "C" {
 #include <unifont.h>
 #include <ssfn.h>
 
-#define FLANTERM_FB_FONT_GLYPHS 256
+#define FLANTERM_FB_FONT_GLYPHS      256
 #define FLANTERM_FB_SCROLLBACK_LINES 1024
 
 #define FLANTERM_FB_SSFN_FONT_HEIGHT 20
@@ -124,10 +124,10 @@ struct flanterm_fb_context {
 
     struct flanterm_fb_char *grid; /**< The grid for rendering. */
 
-    size_t scrollback_size;   /**< Number of lines retained for scrollback. */
-    size_t scrollback_start;  /**< Oldest retained scrollback line. */
-    size_t scrollback_count;  /**< Number of retained scrollback lines. */
-    size_t scrollback_offset; /**< Lines above the live terminal being viewed. */
+    size_t scrollback_size;              /**< Number of lines retained for scrollback. */
+    size_t scrollback_start;             /**< Oldest retained scrollback line. */
+    size_t scrollback_count;             /**< Number of retained scrollback lines. */
+    size_t scrollback_offset;            /**< Lines above the live terminal being viewed. */
     struct flanterm_fb_char *scrollback; /**< Retained lines scrolled off-screen. */
 
     struct flanterm_fb_queue_item *queue; /**< The rendering queue. */

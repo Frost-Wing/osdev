@@ -86,10 +86,14 @@ static void cell(const char *s, int width) {
 
 static const char *device_type_name(block_device_type_t type) {
     switch (type) {
-        case BLOCK_DEVICE_AHCI: return "disk";
-        case BLOCK_DEVICE_NVME: return "nvme";
-        case BLOCK_DEVICE_USB:  return "usb" ;
-        default:                return "block";
+        case BLOCK_DEVICE_AHCI:
+            return "disk";
+        case BLOCK_DEVICE_NVME:
+            return "nvme";
+        case BLOCK_DEVICE_USB:
+            return "usb";
+        default:
+            return "block";
     }
 }
 

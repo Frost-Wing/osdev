@@ -209,7 +209,7 @@ int iso9660_mount(int portno, uint32_t partition_lba, iso9660_fs_t *fs) {
      * These sectors are ALWAYS 2048 bytes, independent of logical_block_size. */
     uint8_t svd[ISO9660_SECTOR_SIZE];
     for (uint32_t vd_lba = pvd_lba + (ISO9660_SECTOR_SIZE / SECTOR_SIZE);;
-         vd_lba += (ISO9660_SECTOR_SIZE / SECTOR_SIZE)) {
+        vd_lba += (ISO9660_SECTOR_SIZE / SECTOR_SIZE)) {
 
         if (ahci_read_sector(portno, vd_lba, svd, ISO9660_SECTOR_SIZE / SECTOR_SIZE) != 0)
             break;

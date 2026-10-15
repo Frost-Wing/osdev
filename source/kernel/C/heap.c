@@ -31,20 +31,20 @@ typedef struct alloc_t {
 } alloc_t;
 
 _Static_assert(sizeof(alloc_t) == 24,
-               "Unexpected allocation header size");
+    "Unexpected allocation header size");
 
 _Static_assert(_Alignof(alloc_t) >= 8,
-               "Allocation header must be 8-byte aligned");
+    "Allocation header must be 8-byte aligned");
 
 /* Sits directly below the pointer returned by kmalloc_aligned(). */
 typedef struct {
     uint64_t magic;
-    uintptr_t raw;   /* user pointer of the underlying kmalloc block */
-    uint64_t align;  /* requested alignment, kept so krealloc can honour it */
+    uintptr_t raw;  /* user pointer of the underlying kmalloc block */
+    uint64_t align; /* requested alignment, kept so krealloc can honour it */
 } aligned_alloc_header_t;
 
 _Static_assert(sizeof(aligned_alloc_header_t) == 24,
-               "Unexpected aligned allocation header size");
+    "Unexpected aligned allocation header size");
 
 uint64_t heap_begin = 0;
 uint64_t heap_end = 0;
@@ -218,7 +218,9 @@ static alloc_t *heap_get_block(void *ptr, const char *where, aligned_alloc_heade
 
 /* ===================== Heap consistency check ===================== */
 
-enum { HEAP_CHECK_OK = 0, HEAP_CHECK_STRUCT = 1, HEAP_CHECK_ACCOUNT = 2 };
+enum { HEAP_CHECK_OK = 0,
+    HEAP_CHECK_STRUCT = 1,
+    HEAP_CHECK_ACCOUNT = 2 };
 
 static int kheap_check_locked(uint64_t *chk_used, uint64_t *chk_count) {
     if (heap_begin == 0 || heap_end <= heap_begin || last_alloc < heap_begin ||

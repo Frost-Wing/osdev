@@ -25,13 +25,12 @@ extern cstring versions __attribute__((weak));
  * @brief Contains the exact time when the compilation started.
  *
  */
-extern cstring date     __attribute__((weak));
+extern cstring date __attribute__((weak));
 
 /**
  * @brief Print compiler-provided build version and date information.
  */
-static inline void frost_compilation_information(void)
-{
+static inline void frost_compilation_information(void) {
     LOG_SCOPE();
 
     /* Symbols were not provided by the linker */

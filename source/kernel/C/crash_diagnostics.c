@@ -56,16 +56,9 @@ void crash_diagnostics_analyze(uint64 int_no, uint64 error_code, uint64 cr2, con
         bool fetch = (error_code & 0x10) != 0;
 
         if (address_near_null(cr2)) {
-            out->what_happened = write ?
-                "Kernel code attempted to write to a virtual address very close to NULL." :
-                (fetch ? "Kernel code attempted to execute instructions from an address very close to NULL." :
-                         "Kernel code attempted to read from a virtual address very close to NULL.");
-            out->likely_cause = pointerish ?
-                "Possible NULL pointer dereference. The source line contains pointer-like access, and the CPU fault address is close to NULL, which commonly means a NULL structure pointer plus a member offset." :
-                "Possible NULL pointer dereference. The CPU fault address is close to NULL, but the source line does not clearly identify which value was invalid.";
-            out->what_to_fix = pointerish ?
-                "Check every pointer dereference on the crashing line. Then inspect where those pointers were assigned and whether any helper can return NULL. If NULL is valid, handle it before dereferencing." :
-                "Trace the address used by the crashing instruction. Check whether a NULL pointer or small integer was used as a pointer before this exception.";
+            out->what_happened = write ? "Kernel code attempted to write to a virtual address very close to NULL." : (fetch ? "Kernel code attempted to execute instructions from an address very close to NULL." : "Kernel code attempted to read from a virtual address very close to NULL.");
+            out->likely_cause = pointerish ? "Possible NULL pointer dereference. The source line contains pointer-like access, and the CPU fault address is close to NULL, which commonly means a NULL structure pointer plus a member offset." : "Possible NULL pointer dereference. The CPU fault address is close to NULL, but the source line does not clearly identify which value was invalid.";
+            out->what_to_fix = pointerish ? "Check every pointer dereference on the crashing line. Then inspect where those pointers were assigned and whether any helper can return NULL. If NULL is valid, handle it before dereferencing." : "Trace the address used by the crashing instruction. Check whether a NULL pointer or small integer was used as a pointer before this exception.";
             out->source_hint = "First inspect the crashing line and the assignments immediately above it.";
             out->confidence = pointerish ? CRASH_CONFIDENCE_HIGH : CRASH_CONFIDENCE_MEDIUM;
             return;
@@ -88,13 +81,9 @@ void crash_diagnostics_analyze(uint64 int_no, uint64 error_code, uint64 cr2, con
         }
 
         if (!present) {
-            out->what_happened = write ?
-                (user ? "User-mode code attempted to write to a virtual address whose page is not present." : "Kernel code attempted to write to a virtual address whose page is not mapped.") :
-                (user ? "User-mode code attempted to read from a virtual address whose page is not present." : "Kernel code attempted to read from a virtual address whose page is not mapped.");
+            out->what_happened = write ? (user ? "User-mode code attempted to write to a virtual address whose page is not present." : "Kernel code attempted to write to a virtual address whose page is not mapped.") : (user ? "User-mode code attempted to read from a virtual address whose page is not present." : "Kernel code attempted to read from a virtual address whose page is not mapped.");
             out->likely_cause = "The address was not mapped at the time of access. This may be an invalid pointer, missing page-table mapping, use-after-free, or corrupted address.";
-            out->what_to_fix = pointerish ?
-                "Check the pointer used on the crashing source line. Verify where it was assigned, whether its page should be mapped, and whether it could have been freed or corrupted earlier." :
-                "Verify the virtual address is intentionally mapped before this code runs. If it comes from a pointer, trace where that pointer was assigned.";
+            out->what_to_fix = pointerish ? "Check the pointer used on the crashing source line. Verify where it was assigned, whether its page should be mapped, and whether it could have been freed or corrupted earlier." : "Verify the virtual address is intentionally mapped before this code runs. If it comes from a pointer, trace where that pointer was assigned.";
             out->confidence = CRASH_CONFIDENCE_LOW;
             return;
         }

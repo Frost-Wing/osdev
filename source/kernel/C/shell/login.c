@@ -20,14 +20,14 @@
 #include <strings.h>
 #include <tty.h>
 
-#define LOGIN_PASSWD_PATH "/etc/passwd"
-#define LOGIN_SHADOW_PATH "/etc/shadow"
-#define LOGIN_PASSWD_TEMP_PATH "/etc/passwd.tmp"
-#define LOGIN_SHADOW_TEMP_PATH "/etc/shadow.tmp"
-#define LOGIN_LEGACY_AUTH_PATH "/etc/fwauth.dat"
-#define LOGIN_KDF_ITERATIONS 100000U
-#define LOGIN_DB_MAX_BYTES 4096U
-#define LOGIN_SHADOW_HASH_PREFIX "$fwauth$100000$"
+#define LOGIN_PASSWD_PATH          "/etc/passwd"
+#define LOGIN_SHADOW_PATH          "/etc/shadow"
+#define LOGIN_PASSWD_TEMP_PATH     "/etc/passwd.tmp"
+#define LOGIN_SHADOW_TEMP_PATH     "/etc/shadow.tmp"
+#define LOGIN_LEGACY_AUTH_PATH     "/etc/fwauth.dat"
+#define LOGIN_KDF_ITERATIONS       100000U
+#define LOGIN_DB_MAX_BYTES         4096U
+#define LOGIN_SHADOW_HASH_PREFIX   "$fwauth$100000$"
 #define LOGIN_SHADOW_SALT_HEX_SIZE (PASSWORD_SALT_SIZE * 2)
 #define LOGIN_SHADOW_HASH_HEX_SIZE (PASSWORD_HASH_SIZE * 2)
 
@@ -147,7 +147,7 @@ static bool login_auth_filesystem_writable(void) {
         return false;
 
     return mount.mnt->type == FS_FAT16 || mount.mnt->type == FS_FAT32 ||
-        mount.mnt->type == FS_EXT2;
+           mount.mnt->type == FS_EXT2;
 }
 
 static int login_read_auth_record(login_auth_record_t *record) {
@@ -159,8 +159,8 @@ static int login_read_auth_record(login_auth_record_t *record) {
     int read = vfs_read(&file, (uint8_t *)record, sizeof(*record));
     uint8_t extra;
     int trailing = read == (int)sizeof(*record)
-        ? vfs_read(&file, &extra, sizeof(extra))
-        : -1;
+                       ? vfs_read(&file, &extra, sizeof(extra))
+                       : -1;
     vfs_close(&file);
 
     if (read != (int)sizeof(*record) || trailing != 0)
@@ -187,7 +187,7 @@ static bool login_set_private_file_mode(const char *path) {
         return true;
 
     return ext2_chmod_inode(fs, inode_number, 0600, &inode) == EXT2_OK &&
-        ext2_sync(fs) == EXT2_OK;
+           ext2_sync(fs) == EXT2_OK;
 }
 
 static int login_read_text_file(const char *path, char *buffer, size_t capacity) {
@@ -302,13 +302,13 @@ static bool login_parse_shadow_hash(const char *value, uint8_t salt[PASSWORD_SAL
 
     const char *salt_hex = value + prefix_length;
     if (strlen(salt_hex) != LOGIN_SHADOW_SALT_HEX_SIZE + 1 +
-            LOGIN_SHADOW_HASH_HEX_SIZE ||
+                                LOGIN_SHADOW_HASH_HEX_SIZE ||
         salt_hex[LOGIN_SHADOW_SALT_HEX_SIZE] != '$')
         return false;
 
     return login_decode_hex(salt_hex, salt, PASSWORD_SALT_SIZE) &&
-        login_decode_hex(salt_hex + LOGIN_SHADOW_SALT_HEX_SIZE + 1,
-            password_hash, PASSWORD_HASH_SIZE);
+           login_decode_hex(salt_hex + LOGIN_SHADOW_SALT_HEX_SIZE + 1,
+               password_hash, PASSWORD_HASH_SIZE);
 }
 
 static bool login_split_fields(char *line, char **fields, size_t expected_count) {
@@ -605,7 +605,7 @@ int login_request(char *userbuf, int max) {
         password_derive_key((const uint8_t *)password, strlen(password),
             password_salts[i], LOGIN_KDF_ITERATIONS, password_hash);
         bool matches = usernames_total[i] == username_hash &&
-            login_hash_matches(passwords_total[i], password_hash);
+                       login_hash_matches(passwords_total[i], password_hash);
         memset(password_hash, 0, sizeof(password_hash));
         if (matches) {
 
@@ -638,7 +638,7 @@ int ask_password(const char *username) {
         password_derive_key((const uint8_t *)password, strlen(password),
             password_salts[i], LOGIN_KDF_ITERATIONS, password_hash);
         bool matches = current_username == username_hash &&
-            login_hash_matches(passwords_total[i], password_hash);
+                       login_hash_matches(passwords_total[i], password_hash);
         memset(password_hash, 0, sizeof(password_hash));
         if (matches) {
             login_clear_secret(password, sizeof(password));

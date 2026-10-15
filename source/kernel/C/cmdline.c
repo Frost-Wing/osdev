@@ -4,9 +4,9 @@
  * @brief Handles the Limine boot cmdline and parses it for the root disk and other parameters
  * @version 0.1
  * @date 2026-09-26
- * 
+ *
  * @copyright Copyright (c) Pradosh 2026
- * 
+ *
  */
 #include <cmdline.h>
 #include <basics.h>
@@ -21,11 +21,14 @@ const char *cmdline_get(const char *cmdline, const char *key, char *out, size_t 
     const char *p = cmdline;
 
     while (*p) {
-        while (*p == ' ') p++;
-        if (!*p) break;
+        while (*p == ' ')
+            p++;
+        if (!*p)
+            break;
 
         const char *tok_start = p;
-        while (*p && *p != ' ') p++;
+        while (*p && *p != ' ')
+            p++;
         size_t tok_len = (size_t)(p - tok_start);
 
         if (tok_len > key_len && tok_start[key_len] == '=' &&

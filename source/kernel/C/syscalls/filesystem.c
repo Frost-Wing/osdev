@@ -26,10 +26,8 @@ extern uint64 *font_address;
 extern void reboot();
 extern void shutdown();
 
-
-
-#define LINUX_AF_INET 2
-#define LINUX_SOCK_RAW 3
+#define LINUX_AF_INET      2
+#define LINUX_SOCK_RAW     3
 #define LINUX_IPPROTO_ICMP 1
 
 extern string current_user;
@@ -111,8 +109,7 @@ static int linux_flags_to_vfs(int linux_flags) {
 static bool syscall_shadow_protected_path(const char *path) {
     static const char *const protected_paths[] = {
         "/etc/shadow",
-        "/etc/shadow.tmp"
-    };
+        "/etc/shadow.tmp"};
     for (size_t i = 0; i < sizeof(protected_paths) / sizeof(protected_paths[0]); ++i) {
         if (strcasecmp(path, protected_paths[i]) == 0)
             return true;
@@ -147,7 +144,7 @@ static bool syscall_shadow_directory(const char *path) {
 
 static bool syscall_shadow_read_denied(const char *path) {
     return syscall_shadow_protected_path(path) &&
-        (!current_user || strcmp(current_user, "root") != 0);
+           (!current_user || strcmp(current_user, "root") != 0);
 }
 
 static void fill_stat_from_info(linux_stat_t *st, const vfs_stat_info_t *info) {
@@ -172,9 +169,9 @@ static void fill_stat_from_info(linux_stat_t *st, const vfs_stat_info_t *info) {
 
 static uint64_t linux_makedev(uint32_t major, uint32_t minor) {
     return ((uint64_t)(minor & 0xffU)) |
-        ((uint64_t)(major & 0xfffU) << 8) |
-        ((uint64_t)(minor & ~0xffU) << 12) |
-        ((uint64_t)(major & ~0xfffU) << 32);
+           ((uint64_t)(major & 0xfffU) << 8) |
+           ((uint64_t)(minor & ~0xffU) << 12) |
+           ((uint64_t)(major & ~0xfffU) << 32);
 }
 
 static uint64_t fat_datetime_to_unix(uint16_t date, uint16_t time) {
@@ -217,9 +214,13 @@ static void unix_to_fat_datetime(uint64_t unix_time, uint16_t *date, uint16_t *t
     uint32_t seconds = (uint32_t)(unix_time % 86400ULL);
     uint32_t year = 1970;
     while (days >= (((year % 4U) == 0U &&
-        ((year % 100U) != 0U || (year % 400U) == 0U)) ? 366U : 365U)) {
+                        ((year % 100U) != 0U || (year % 400U) == 0U))
+                           ? 366U
+                           : 365U)) {
         uint32_t year_days = ((year % 4U) == 0U &&
-            ((year % 100U) != 0U || (year % 400U) == 0U)) ? 366U : 365U;
+                                 ((year % 100U) != 0U || (year % 400U) == 0U))
+                                 ? 366U
+                                 : 365U;
         days -= year_days;
         year++;
     }
@@ -244,7 +245,7 @@ static void unix_to_fat_datetime(uint64_t unix_time, uint16_t *date, uint16_t *t
     uint32_t minute = (seconds / 60U) % 60U;
     uint32_t second = (seconds % 60U) / 2U;
     *date = (uint16_t)(((year - 1980U) << 9) |
-        ((month + 1U) << 5) | ((uint32_t)days + 1U));
+                       ((month + 1U) << 5) | ((uint32_t)days + 1U));
     *time = (uint16_t)((hour << 11) | (minute << 5) | second);
 }
 
@@ -278,9 +279,7 @@ uint64 sys_set_file_times(const char *path, uint64_t atime, uint64_t mtime) {
         file.entry.last_access_date = atime_date;
         file.entry.last_mod_date = mtime_date;
         file.entry.last_mod_time = mtime_time;
-        int rc = file.parent_cluster == FAT16_ROOT_CLUSTER ?
-            (fat16_update_root_entry(fs, &file.entry), 0) :
-            fat16_update_dir_entry(fs, file.parent_cluster, &file.entry);
+        int rc = file.parent_cluster == FAT16_ROOT_CLUSTER ? (fat16_update_root_entry(fs, &file.entry), 0) : fat16_update_dir_entry(fs, file.parent_cluster, &file.entry);
         return rc == 0 ? 0 : -LINUX_EIO;
     }
     if (res.mnt->type == FS_FAT32) {
@@ -421,10 +420,10 @@ static bool fill_vfs_stat_for_path_at_impl(int dirfd, const char *path, vfs_stat
         if (devfs_open(&devf) != 0)
             return false;
         info->is_dir = false;
-        
+
         bool is_block = false;
         int disk_id = -1;
-        
+
         for (int i = 0; i < block_device_count; i++) {
             block_device_info_t *dev = &block_devices[i];
             if (!dev->present)
@@ -435,7 +434,7 @@ static bool fill_vfs_stat_for_path_at_impl(int dirfd, const char *path, vfs_stat
                 break;
             }
         }
-        
+
         if (!is_block) {
             for (int i = 0; i < general_partition_count; i++) {
                 if (strcmp(ahci_partitions[i].name, res.rel_path) == 0) {
@@ -444,7 +443,7 @@ static bool fill_vfs_stat_for_path_at_impl(int dirfd, const char *path, vfs_stat
                 }
             }
         }
-        
+
         if (is_block) {
             info->mode = LINUX_S_IFBLK | 0666;
             if (disk_id >= 0) {
@@ -478,7 +477,7 @@ static bool fill_vfs_stat_for_path_at_impl(int dirfd, const char *path, vfs_stat
             info->mode = LINUX_S_IFCHR | 0666;
             info->size = 0;
         }
-        
+
         if (strcmp(res.rel_path, "tty") == 0)
             info->rdev = 0x500; /* /dev/tty: major 5, minor 0 */
         else if (strcmp(res.rel_path, "tty1") == 0)
@@ -589,12 +588,12 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
     switch (file->mnt->type) {
         case FS_PROC:
             info->is_dir = (file->rel_path[0] == '\0') ||
-                        (procfs_path_is_dir(file->rel_path) > 0);
+                           (procfs_path_is_dir(file->rel_path) > 0);
             info->size = 0;
             break;
         case FS_SYS:
             info->is_dir = (file->rel_path[0] == '\0') ||
-                        sysfs_is_dir(file->rel_path);
+                           sysfs_is_dir(file->rel_path);
             info->size = 0;
             break;
         case FS_DEV:
@@ -785,7 +784,7 @@ typedef struct {
     uint64_t buflen;
     uint64_t *used;
     uint32_t *pos;
-    int hide_lost_found;  /* set when listing the fs root */
+    int hide_lost_found; /* set when listing the fs root */
 } ext2_getdents_ctx_t;
 
 static int ext2_getdents_cb(uint32_t ino, uint8_t file_type, const char *name,
@@ -941,8 +940,7 @@ uint64 sys_link(const char *oldpath, const char *newpath) {
     if (old_mount.mnt != new_mount.mnt)
         return -LINUX_EXDEV;
     if (old_mount.mnt->type != FS_EXT2)
-        return old_mount.mnt->type == FS_ISO9660 ?
-            (uint64)-LINUX_EROFS : (uint64)-LINUX_EOPNOTSUPP;
+        return old_mount.mnt->type == FS_ISO9660 ? (uint64)-LINUX_EROFS : (uint64)-LINUX_EOPNOTSUPP;
 
     int rc = ext2_link_path((ext2_fs_t *)old_mount.mnt->fs,
         old_mount.rel_path, new_mount.rel_path);
@@ -964,8 +962,7 @@ uint64 sys_symlink(const char *target, const char *linkpath) {
     if (vfs_resolve_mount(link_norm, &mount) != 0)
         return -LINUX_ENOENT;
     if (mount.mnt->type != FS_EXT2)
-        return mount.mnt->type == FS_ISO9660 ?
-            (uint64)-LINUX_EROFS : (uint64)-LINUX_EOPNOTSUPP;
+        return mount.mnt->type == FS_ISO9660 ? (uint64)-LINUX_EROFS : (uint64)-LINUX_EOPNOTSUPP;
 
     return ext2_link_error(ext2_symlink_path((ext2_fs_t *)mount.mnt->fs,
         target, mount.rel_path));
@@ -1015,8 +1012,7 @@ uint64 sys_chmod(const char *user_path, uint64_t mode) {
     if (vfs_resolve_mount(path, &mount) != 0)
         return -LINUX_ENOENT;
     if (mount.mnt->type != FS_EXT2)
-        return mount.mnt->type == FS_ISO9660 ?
-            (uint64)-LINUX_EROFS : (uint64)-LINUX_EOPNOTSUPP;
+        return mount.mnt->type == FS_ISO9660 ? (uint64)-LINUX_EROFS : (uint64)-LINUX_EOPNOTSUPP;
 
     ext2_fs_t *fs = (ext2_fs_t *)mount.mnt->fs;
     uint32_t ino;
@@ -1041,8 +1037,7 @@ uint64 sys_fchmod(uint64_t fd, uint64_t mode) {
     if (path && syscall_shadow_protected_path(path))
         return -LINUX_EPERM;
     if (file->mnt->type != FS_EXT2)
-        return file->mnt->type == FS_ISO9660 ?
-            (uint64_t)-LINUX_EROFS : (uint64_t)-LINUX_EOPNOTSUPP;
+        return file->mnt->type == FS_ISO9660 ? (uint64_t)-LINUX_EROFS : (uint64_t)-LINUX_EOPNOTSUPP;
 
     int rc = ext2_chmod_inode((ext2_fs_t *)file->mnt->fs,
         file->f.ext2.ino, (uint16_t)(mode & 07777U), &file->f.ext2.inode);
@@ -1075,8 +1070,7 @@ uint64 sys_fsync(uint64_t fd) {
     if (!file || !file->mnt)
         return -LINUX_EINVAL;
     if (file->mnt->type == FS_EXT2)
-        return ext2_sync((ext2_fs_t *)file->mnt->fs) == EXT2_OK ?
-            0 : (uint64_t)-LINUX_EIO;
+        return ext2_sync((ext2_fs_t *)file->mnt->fs) == EXT2_OK ? 0 : (uint64_t)-LINUX_EIO;
     if (file->mnt->type == FS_ISO9660)
         return -LINUX_EROFS;
     return -LINUX_EOPNOTSUPP;
@@ -1271,9 +1265,9 @@ uint64 sys_mount(const char *source, const char *target, const char *filesystem,
             partition_fs_type_t expected = part->fs_type;
             bool matches =
                 (expected == FS_FAT16 && (strcmp(filesystem, "fat16") == 0 ||
-                    strcmp(filesystem, "vfat") == 0)) ||
+                                             strcmp(filesystem, "vfat") == 0)) ||
                 (expected == FS_FAT32 && (strcmp(filesystem, "fat32") == 0 ||
-                    strcmp(filesystem, "vfat") == 0)) ||
+                                             strcmp(filesystem, "vfat") == 0)) ||
                 (expected == FS_EXT2 && strcmp(filesystem, "ext2") == 0) ||
                 (expected == FS_ISO9660 && strcmp(filesystem, "iso9660") == 0);
             if (!matches)
@@ -1284,8 +1278,8 @@ uint64 sys_mount(const char *source, const char *target, const char *filesystem,
     const char *mount_source = source;
     if (filesystem &&
         ((strcmp(filesystem, "devtmpfs") == 0 &&
-                (strcmp(source, "devtmpfs") == 0 || strcmp(source, "none") == 0)) ||
-         (strcmp(filesystem, "sysfs") == 0 &&
+             (strcmp(source, "devtmpfs") == 0 || strcmp(source, "none") == 0)) ||
+            (strcmp(filesystem, "sysfs") == 0 &&
                 (strcmp(source, "sysfs") == 0 || strcmp(source, "none") == 0))))
         mount_source = strcmp(filesystem, "devtmpfs") == 0 ? "dev" : "sys";
     if (filesystem && strcmp(filesystem, "proc") == 0 && strcmp(source, "none") == 0)
@@ -1308,6 +1302,7 @@ uint64 sys_umount2(const char *target, int flags) {
 
     return vfs_umount(target_norm, true) == 0 ? 0 : -LINUX_EINVAL;
 }
+
 static int getdents_iso9660(vfs_file_t *file, char *buf, uint64_t buflen, uint32_t *pos) {
     iso9660_fs_t *fs = file->f.iso9660.fs;
     iso9660_dirent_t dir = file->f.iso9660.entry;
@@ -1413,8 +1408,7 @@ int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
         procfs_type_t type;
 
         while (procfs_getdent(file->rel_path, i, &name, &type)) {
-            uint8_t d_type = type == PROC_DIR ? 4 :
-                (type == PROC_SYMLINK ? 10 : 8);
+            uint8_t d_type = type == PROC_DIR ? 4 : (type == PROC_SYMLINK ? 10 : 8);
 
             if (!emit_dirent(buf, buflen, &used, path_inode_hash(name), d_type, name, i + 1))
                 break;
@@ -1432,8 +1426,7 @@ int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
         procfs_type_t type;
 
         while (sysfs_getdent(file->rel_path, i, &name, &type)) {
-            uint8_t d_type = type == PROC_DIR ? 4 :
-                (type == PROC_SYMLINK ? 10 : 8);
+            uint8_t d_type = type == PROC_DIR ? 4 : (type == PROC_SYMLINK ? 10 : 8);
 
             if (!emit_dirent(buf, buflen, &used, path_inode_hash(name), d_type, name, i + 1))
                 break;
@@ -1800,12 +1793,12 @@ uint64 sys_newfstatat(int dirfd, const char *path, linux_stat_t *st, int flags) 
         return -LINUX_EINVAL;
     vfs_stat_info_t info;
     bool nofollow = (known & LINUX_AT_SYMLINK_NOFOLLOW) != 0;
-    if (!(nofollow ? fill_vfs_lstat_for_path_at(dirfd, path, &info) :
-              fill_vfs_stat_for_path_at(dirfd, path, &info)))
+    if (!(nofollow ? fill_vfs_lstat_for_path_at(dirfd, path, &info) : fill_vfs_stat_for_path_at(dirfd, path, &info)))
         return -LINUX_ENOENT;
     fill_stat_from_info(st, &info);
     return 0;
 }
+
 uint64 sys_statx(int dirfd, const char *path, int flags, unsigned int mask, linux_statx_t *stx) {
     (void)mask;
     linux_stat_t st;
@@ -1999,14 +1992,21 @@ uint64 sys_writev(uint64_t fd, const linux_iovec_t *iov, uint64_t iovcnt) {
 
 static int64_t statfs_magic_for_type(partition_fs_type_t type) {
     switch (type) {
-        case FS_PROC:    return LINUX_PROC_SUPER_MAGIC;
-        case FS_SYS:     return LINUX_SYSFS_MAGIC;
-        case FS_DEV:     return LINUX_TMPFS_MAGIC;
+        case FS_PROC:
+            return LINUX_PROC_SUPER_MAGIC;
+        case FS_SYS:
+            return LINUX_SYSFS_MAGIC;
+        case FS_DEV:
+            return LINUX_TMPFS_MAGIC;
         case FS_FAT16:
-        case FS_FAT32:   return LINUX_MSDOS_SUPER_MAGIC;
-        case FS_ISO9660: return LINUX_ISOFS_SUPER_MAGIC;
-        case FS_EXT2:    return LINUX_EXT2_SUPER_MAGIC;
-        default:         return 0;
+        case FS_FAT32:
+            return LINUX_MSDOS_SUPER_MAGIC;
+        case FS_ISO9660:
+            return LINUX_ISOFS_SUPER_MAGIC;
+        case FS_EXT2:
+            return LINUX_EXT2_SUPER_MAGIC;
+        default:
+            return 0;
     }
 }
 
@@ -2115,13 +2115,12 @@ int fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out) {
             !fs->bs.sectors_per_cluster || !fs->bs.num_fats)
             return -1;
 
-        uint64_t total_sectors = fs->bs.total_sectors_short ?
-            fs->bs.total_sectors_short : fs->bs.total_sectors_long;
+        uint64_t total_sectors = fs->bs.total_sectors_short ? fs->bs.total_sectors_short : fs->bs.total_sectors_long;
         uint64_t root_sectors =
             ((uint64_t)fs->bs.max_root_dir_entries * 32 + SECTOR_SIZE - 1) /
             SECTOR_SIZE;
         uint64_t overhead = (uint64_t)fs->bs.reserved_sectors +
-            (uint64_t)fs->bs.num_fats * fs->bs.sectors_per_fat + root_sectors;
+                            (uint64_t)fs->bs.num_fats * fs->bs.sectors_per_fat + root_sectors;
         if (total_sectors < overhead)
             return -1;
 
@@ -2149,7 +2148,7 @@ int fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out) {
 
         uint64_t total_sectors = fs->bpb.total_sectors_32;
         uint64_t overhead = (uint64_t)fs->bpb.reserved_sectors +
-            (uint64_t)fs->bpb.fat_count * fs->bpb.fat_size_32;
+                            (uint64_t)fs->bpb.fat_count * fs->bpb.fat_size_32;
         if (total_sectors < overhead)
             return -1;
 
@@ -2177,8 +2176,7 @@ int fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out) {
         out->f_frsize = fs->block_size;
         out->f_blocks = fs->sb.s_blocks_count;
         out->f_bfree = fs->sb.s_free_blocks_count;
-        out->f_bavail = fs->sb.s_free_blocks_count > fs->sb.s_r_blocks_count ?
-            fs->sb.s_free_blocks_count - fs->sb.s_r_blocks_count : 0;
+        out->f_bavail = fs->sb.s_free_blocks_count > fs->sb.s_r_blocks_count ? fs->sb.s_free_blocks_count - fs->sb.s_r_blocks_count : 0;
         out->f_files = fs->sb.s_inodes_count;
         out->f_ffree = fs->sb.s_free_inodes_count;
         return 0;
@@ -2194,8 +2192,7 @@ int fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out) {
 
     if (mnt->type == FS_ISO9660) {
         iso9660_fs_t *fs = mnt->fs;
-        uint32_t block_size = fs && fs->logical_block_size ?
-            fs->logical_block_size : ISO9660_SECTOR_SIZE;
+        uint32_t block_size = fs && fs->logical_block_size ? fs->logical_block_size : ISO9660_SECTOR_SIZE;
         if (sectors > UINT64_MAX / sector_size)
             return -1;
         uint64_t bytes = sectors * sector_size;

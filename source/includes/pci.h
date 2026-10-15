@@ -35,7 +35,7 @@ extern char deviceNames[MAX_PCI_DEVICES][64];
 
 // Define the base address for the PCI configuration space
 #define PCI_CONFIG_ADDRESS 0xCF8
-#define PCI_CONFIG_DATA 0xCFC
+#define PCI_CONFIG_DATA    0xCFC
 
 /**
  * @brief Callback invoked when a matching PCI function is probed.

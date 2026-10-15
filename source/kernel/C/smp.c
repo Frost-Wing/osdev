@@ -140,16 +140,15 @@ bool smp_init(struct limine_smp_response *response) {
 
     uint32_t online_count = 0;
     for (uint32_t i = 0; i < cpu_count; ++i) {
-        if (response->cpus[i]->lapic_id != response->bsp_lapic_id){
+        if (response->cpus[i]->lapic_id != response->bsp_lapic_id) {
             while (!__atomic_load_n(&cpus[i].online, __ATOMIC_ACQUIRE))
                 __asm__ volatile("pause");
         }
 
         ++online_count;
         info("CPU %u (LAPIC ID 0x%x)%s initialized", __FILE__, i,
-             response->cpus[i]->lapic_id,
-             cpus[i].is_bsp ? " [BSP]" : "");
-
+            response->cpus[i]->lapic_id,
+            cpus[i].is_bsp ? " [BSP]" : "");
     }
 
     info("SMP initialization complete: " green_color "%u" reset_color "/" red_color "%u " reset_color " CPU(s) " green_color "online" reset_color, __FILE__, online_count, cpu_count);

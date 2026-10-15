@@ -16,7 +16,7 @@
 #include <basics.h>
 #include <graphics.h>
 
-#define MAX_USERS_ALLOWED 7
+#define MAX_USERS_ALLOWED   7
 #define MAX_USERNAME_LENGTH 20
 #define MAX_PASSWORD_LENGTH 40
 

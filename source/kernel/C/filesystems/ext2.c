@@ -25,9 +25,9 @@
 #include <rtc.h>
 #include <strings.h>
 
-#define EXT2_MAX_BLOCK_SIZE 4096U
+#define EXT2_MAX_BLOCK_SIZE     4096U
 #define EXT2_PTRS_PER_BLOCK_MAX (EXT2_MAX_BLOCK_SIZE / 4)
-#define EXT2_READ_BATCH_SIZE (64U * 1024U)
+#define EXT2_READ_BATCH_SIZE    (64U * 1024U)
 
 /* ===================== Low level block I/O ===================== */
 
@@ -129,7 +129,7 @@ partition_fs_type_t detect_ext2_type_enum(int portno, uint32_t partition_lba) {
         return FS_UNKNOWN;
 
     // ext4 if any ext4-only feature is present
-    if ((sb->s_feature_incompat  & EXT4_INCOMPAT_MASK) ||
+    if ((sb->s_feature_incompat & EXT4_INCOMPAT_MASK) ||
         (sb->s_feature_ro_compat & EXT4_RO_COMPAT_MASK))
         return FS_EXT4;
 
@@ -219,7 +219,7 @@ void ext2_unmount(ext2_fs_t *fs) {
 static int ext2_inode_location(ext2_fs_t *fs, uint32_t ino, uint32_t *out_block, uint32_t *out_offset) {
     if (ino == 0)
         return EXT2_ERR_INVAL;
-    
+
     uint32_t group = (ino - 1) / fs->inodes_per_group;
     uint32_t index = (ino - 1) % fs->inodes_per_group;
 
@@ -896,6 +896,7 @@ int ext2_readdir_at(ext2_fs_t *fs, uint32_t dir_ino, uint32_t *offset,
         *offset, offset);
     return rc < 0 ? rc : EXT2_OK;
 }
+
 /* Insert a new directory entry (inode, name, type) into dir_ino, growing the
  * directory by one block if no existing entry has enough free space. */
 static int ext2_dir_add_entry(ext2_fs_t *fs, uint32_t dir_ino, ext2_inode_t *dir,
@@ -1375,8 +1376,7 @@ int ext2_link_path(ext2_fs_t *fs, const char *existing_path,
 
     uint32_t group = (parent_ino - 1) / fs->inodes_per_group;
     rc = ext2_dir_add_entry(fs, parent_ino, &parent, target_ino, name,
-        (target.i_mode & EXT2_S_IFMT) == EXT2_S_IFLNK ?
-            EXT2_FT_SYMLINK : EXT2_FT_REG_FILE, group);
+        (target.i_mode & EXT2_S_IFMT) == EXT2_S_IFLNK ? EXT2_FT_SYMLINK : EXT2_FT_REG_FILE, group);
     if (rc != EXT2_OK)
         return rc;
 

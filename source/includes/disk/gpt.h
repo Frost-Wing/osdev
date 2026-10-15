@@ -9,12 +9,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define GPT_EFI_PMBR_SECTOR 0
-#define GPT_EFI_PART_HEADER_SECTOR 1
+#define GPT_EFI_PMBR_SECTOR          0
+#define GPT_EFI_PART_HEADER_SECTOR   1
 #define GPT_PARTITION_ENTRIES_SECTOR 2
-#define GPT_PART_ATTRIB_FIRMWARE 0b1
-#define GPT_PART_ATTRIB_USED_BY_OS 0b10
-#define GPT_ENTRIES_SIZE (512 * 31) / sizeof(GPT_PartitionEntry)
+#define GPT_PART_ATTRIB_FIRMWARE     0b1
+#define GPT_PART_ATTRIB_USED_BY_OS   0b10
+#define GPT_ENTRIES_SIZE             (512 * 31) / sizeof(GPT_PartitionEntry)
 
 extern uint8_t GPT_EFI_SIGNATURE[]; // it's just "EFI PART"
 

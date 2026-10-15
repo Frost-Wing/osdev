@@ -24,10 +24,10 @@
 #define ELF_USER_VADDR_MAX 0x0000800000000000ULL
 
 #define ELF_MAX_IMAGE_SIZE (1ULL << 30)
-#define ELF_MAX_PHNUM 128
-#define ELF_PAGE_MASK (~0xFFFULL)
-#define ELF_GLIBC_INTERP "/lib64/ld-linux-x86-64.so.2"
-#define ELF_MUSL_INTERP "/lib/ld-musl-x86_64.so.1"
+#define ELF_MAX_PHNUM      128
+#define ELF_PAGE_MASK      (~0xFFFULL)
+#define ELF_GLIBC_INTERP   "/lib64/ld-linux-x86-64.so.2"
+#define ELF_MUSL_INTERP    "/lib/ld-musl-x86_64.so.1"
 
 typedef struct {
     int (*read)(void *ctx, uint64_t off, void *dst, uint64_t len);

@@ -5,36 +5,36 @@
 #include <tty.h>
 #include <sys/termios.h>
 
-#define LINUX_AF_INET 2
-#define LINUX_SOCK_STREAM 1
-#define LINUX_SOCK_DGRAM 2
-#define LINUX_SOCK_RAW 3
+#define LINUX_AF_INET       2
+#define LINUX_SOCK_STREAM   1
+#define LINUX_SOCK_DGRAM    2
+#define LINUX_SOCK_RAW      3
 #define LINUX_SOCK_NONBLOCK 0x800
-#define LINUX_SOCK_CLOEXEC 0x80000
-#define LINUX_IPPROTO_IP 0
-#define LINUX_IPPROTO_ICMP 1
-#define LINUX_IPPROTO_TCP 6
-#define LINUX_IPPROTO_UDP 17
-#define LINUX_IP_RECVTTL 12
-#define LINUX_SOL_SOCKET 1
-#define LINUX_SO_RCVTIMEO 20
-#define LINUX_SO_SNDTIMEO 21
-#define LINUX_SO_TYPE 3
-#define LINUX_SO_ERROR 4
-#define LINUX_SO_BROADCAST 6
-#define LINUX_SO_REUSEADDR 2
-#define LINUX_IP_TTL 2
+#define LINUX_SOCK_CLOEXEC  0x80000
+#define LINUX_IPPROTO_IP    0
+#define LINUX_IPPROTO_ICMP  1
+#define LINUX_IPPROTO_TCP   6
+#define LINUX_IPPROTO_UDP   17
+#define LINUX_IP_RECVTTL    12
+#define LINUX_SOL_SOCKET    1
+#define LINUX_SO_RCVTIMEO   20
+#define LINUX_SO_SNDTIMEO   21
+#define LINUX_SO_TYPE       3
+#define LINUX_SO_ERROR      4
+#define LINUX_SO_BROADCAST  6
+#define LINUX_SO_REUSEADDR  2
+#define LINUX_IP_TTL        2
 
-#define LINUX_POLLIN 0x001
-#define LINUX_POLLOUT 0x004
-#define LINUX_POLLHUP 0x010
-#define LINUX_POLLNVAL 0x020
-#define LINUX_POLLERR 0x008
+#define LINUX_POLLIN     0x001
+#define LINUX_POLLOUT    0x004
+#define LINUX_POLLHUP    0x010
+#define LINUX_POLLNVAL   0x020
+#define LINUX_POLLERR    0x008
 #define LINUX_MSG_CTRUNC 0x008
 
 #define SOCKET_TIMEOUT_DEFAULT_MS 30000U
-#define SOCKET_TIMEOUT_MAX_MS 60000U
-#define SOCKET_PORT_FIRST 49153U
+#define SOCKET_TIMEOUT_MAX_MS     60000U
+#define SOCKET_PORT_FIRST         49153U
 
 typedef struct {
     uint16_t family;
@@ -62,6 +62,7 @@ typedef struct {
 
 typedef struct {
     char name[16];
+
     union {
         linux_sockaddr_t address;
         int16_t flags;
@@ -77,16 +78,16 @@ typedef struct {
     linux_ifreq_t *buffer;
 } linux_ifconf_t;
 
-#define LINUX_SIOCGIFCONF 0x8912
-#define LINUX_SIOCGIFFLAGS 0x8913
-#define LINUX_SIOCGIFADDR 0x8915
+#define LINUX_SIOCGIFCONF    0x8912
+#define LINUX_SIOCGIFFLAGS   0x8913
+#define LINUX_SIOCGIFADDR    0x8915
 #define LINUX_SIOCGIFDSTADDR 0x8917
 #define LINUX_SIOCGIFBRDADDR 0x8919
 #define LINUX_SIOCGIFNETMASK 0x891B
-#define LINUX_SIOCGIFMTU 0x8921
-#define LINUX_SIOCGIFHWADDR 0x8927
-#define LINUX_SIOCGIFINDEX 0x8933
-#define LINUX_FIONBIO 0x5421
+#define LINUX_SIOCGIFMTU     0x8921
+#define LINUX_SIOCGIFHWADDR  0x8927
+#define LINUX_SIOCGIFINDEX   0x8933
+#define LINUX_FIONBIO        0x5421
 
 typedef struct {
     bool used;
@@ -245,7 +246,7 @@ uint64 sys_poll(void *pollfds, uint64_t nfds, int timeout_ms) {
             } else if (fd_is_pipe(fds[i].fd)) {
                 /* Only report what was asked for, but POLLERR/POLLHUP are always reported. */
                 fds[i].revents = (short)(fd_pipe_poll(fds[i].fd) &
-                    (fds[i].events | LINUX_POLLERR | LINUX_POLLHUP));
+                                         (fds[i].events | LINUX_POLLERR | LINUX_POLLHUP));
             } else if (fd_is_eventfd(fds[i].fd)) {
                 fds[i].revents = (short)fd_eventfd_poll(fds[i].fd, fds[i].events);
             } else if (fd_is_epoll(fds[i].fd)) {
@@ -253,7 +254,7 @@ uint64 sys_poll(void *pollfds, uint64_t nfds, int timeout_ms) {
                     epoll_fd_has_ready_event(fds[i].fd))
                     fds[i].revents = LINUX_POLLIN;
             } else {
-                fds[i].revents = fds[i].events;   /* regular files/devices: always ready */
+                fds[i].revents = fds[i].events; /* regular files/devices: always ready */
             }
             if (fds[i].revents)
                 ready++;
@@ -279,7 +280,7 @@ static uint32_t epoll_ready_events(int fd, uint32_t events) {
         revents = socket_poll_events(sock, poll_events);
     } else if (fd_is_pipe(fd)) {
         revents = (short)(fd_pipe_poll(fd) &
-            (poll_events | LINUX_POLLERR | LINUX_POLLHUP));
+                          (poll_events | LINUX_POLLERR | LINUX_POLLHUP));
     } else if (fd_is_eventfd(fd)) {
         revents = (short)fd_eventfd_poll(fd, poll_events);
     } else {
@@ -401,7 +402,7 @@ uint64 sys_socket(uint64_t domain, uint64_t type, uint64_t protocol) {
     int base_type = (int)(type & 0xFU);
     int proto = (int)protocol;
     if ((type & ~((uint64_t)0xFU | LINUX_SOCK_NONBLOCK |
-            LINUX_SOCK_CLOEXEC)) != 0)
+                    LINUX_SOCK_CLOEXEC)) != 0)
         return -LINUX_EINVAL;
     if (base_type == LINUX_SOCK_STREAM) {
         if (proto != 0 && proto != LINUX_IPPROTO_TCP)
@@ -645,6 +646,7 @@ uint64 sys_recvfrom(uint64_t fd, void *buf, uint64_t len, uint64_t flags,
                 uint32_t source;
                 uint32_t destination;
             } __attribute__((packed)) ip_header;
+
             uint8_t packet[sizeof(ip_header) + sizeof(sock->reply)];
             size_t packet_len = sizeof(ip_header) + sock->reply_len;
 
@@ -709,8 +711,7 @@ uint64 sys_recvmsg(uint64_t fd, void *message, uint64_t flags) {
         return received;
 
     if (msg->name) {
-        size_t copy_len = msg->namelen < sizeof(source) ?
-            msg->namelen : sizeof(source);
+        size_t copy_len = msg->namelen < sizeof(source) ? msg->namelen : sizeof(source);
         memcpy(msg->name, &source, copy_len);
         msg->namelen = sizeof(source);
     } else {
@@ -720,9 +721,8 @@ uint64 sys_recvmsg(uint64_t fd, void *message, uint64_t flags) {
     uint64_t remaining = received;
     size_t offset = 0;
     for (uint64_t i = 0; i < msg->iovlen && remaining; ++i) {
-        uint64_t chunk = msg->iov[i].iov_len < remaining ?
-            msg->iov[i].iov_len : remaining;
-        memcpy((void*)msg->iov[i].iov_base, data + offset, chunk);
+        uint64_t chunk = msg->iov[i].iov_len < remaining ? msg->iov[i].iov_len : remaining;
+        memcpy((void *)msg->iov[i].iov_base, data + offset, chunk);
         offset += (size_t)chunk;
         remaining -= chunk;
     }
@@ -741,11 +741,11 @@ uint64 sys_recvmsg(uint64_t fd, void *message, uint64_t flags) {
             .type = LINUX_IP_TTL,
             .ttl = 64,
         };
+
         const uint64_t cmsg_space = 24;
         if (msg->control && control_capacity >= sizeof(cmsg)) {
             memcpy(msg->control, &cmsg, sizeof(cmsg));
-            msg->controllen = control_capacity < cmsg_space ?
-                sizeof(cmsg) : cmsg_space;
+            msg->controllen = control_capacity < cmsg_space ? sizeof(cmsg) : cmsg_space;
         } else if (msg->control || control_capacity) {
             msg->flags |= LINUX_MSG_CTRUNC;
         }
@@ -792,7 +792,7 @@ uint64 sys_setsockopt(uint64_t fd, uint64_t level, uint64_t optname,
         return 0;
     }
     if (level == LINUX_IPPROTO_IP && (optname == 1 || optname == 3 ||
-        optname == 8 || optname == 11 || optname == 12))
+                                         optname == 8 || optname == 11 || optname == 12))
         return optval && optlen >= sizeof(int) ? 0 : -LINUX_EINVAL;
     return -LINUX_ENOPROTOOPT;
 }
@@ -815,17 +815,15 @@ uint64 sys_getsockopt(uint64_t fd, uint64_t level, uint64_t optname,
     else if (level == LINUX_IPPROTO_IP && optname == LINUX_IP_RECVTTL)
         value = sock->recv_ttl ? 1 : 0;
     else if (level == LINUX_SOL_SOCKET &&
-        (optname == LINUX_SO_RCVTIMEO || optname == LINUX_SO_SNDTIMEO)) {
+             (optname == LINUX_SO_RCVTIMEO || optname == LINUX_SO_SNDTIMEO)) {
         if (*optlen < sizeof(int64_t) * 2)
             return -LINUX_EINVAL;
-        uint32_t ms = optname == LINUX_SO_RCVTIMEO ?
-            sock->recv_timeout_ms : sock->send_timeout_ms;
-        int64_t timeval[2] = { ms / 1000U, (ms % 1000U) * 1000U };
+        uint32_t ms = optname == LINUX_SO_RCVTIMEO ? sock->recv_timeout_ms : sock->send_timeout_ms;
+        int64_t timeval[2] = {ms / 1000U, (ms % 1000U) * 1000U};
         memcpy(optval, timeval, sizeof(timeval));
         *optlen = sizeof(timeval);
         return 0;
-    }
-    else
+    } else
         return -LINUX_ENOPROTOOPT;
 
     if (*optlen < sizeof(value))
@@ -925,10 +923,10 @@ static bool ioctl_fd_is_tty(vfs_file_t *file, int fd) {
     if (sys_socket_is_fd(fd))
         return false;
     return fd_is_tty(fd) ||
-        ioctl_path_matches(file, fd, "/dev/tty") ||
-        ioctl_path_matches(file, fd, "tty") ||
-        ioctl_path_matches(file, fd, "/dev/tty1") ||
-        ioctl_path_matches(file, fd, "tty1");
+           ioctl_path_matches(file, fd, "/dev/tty") ||
+           ioctl_path_matches(file, fd, "tty") ||
+           ioctl_path_matches(file, fd, "/dev/tty1") ||
+           ioctl_path_matches(file, fd, "tty1");
 }
 
 static uint64 ioctl_rtc_read_time(vfs_file_t *file, int fd, uint64_t arg) {
@@ -1047,8 +1045,7 @@ static uint64 ioctl_network_request(int fd, uint64_t req, uint64_t arg) {
             return 0;
         case LINUX_SIOCGIFBRDADDR:
             ioctl_set_if_address(&request->value.address,
-                loopback ? net_ipv4_from_octets(127, 255, 255, 255) :
-                (net_cfg.ip | ~net_cfg.netmask));
+                loopback ? net_ipv4_from_octets(127, 255, 255, 255) : (net_cfg.ip | ~net_cfg.netmask));
             return 0;
         case LINUX_SIOCGIFMTU:
             request->value.mtu = loopback ? 65536 : NET_MTU;
@@ -1187,7 +1184,9 @@ uint64 sys_ioctl(uint64_t fd, uint64_t req, uint64_t arg) {
             if (!arg)
                 return -LINUX_EINVAL;
             return tty_set_termios((const linux_termios_t *)arg,
-                req == LINUX_TCSETSF) ? 0 : -LINUX_EIO;
+                       req == LINUX_TCSETSF)
+                       ? 0
+                       : -LINUX_EIO;
         }
         case LINUX_TIOCGPGRP:
             if (!ioctl_fd_is_tty(file, (int)fd))
@@ -1235,7 +1234,8 @@ uint64 sys_fcntl(uint64_t fd, uint64_t cmd, uint64_t arg) {
             return 0;
         case LINUX_F_SETFL: {
             linux_socket_t *s = linux_socket_by_fd((int)fd);
-            if (s) s->nonblocking = (arg & 0x800) != 0;
+            if (s)
+                s->nonblocking = (arg & 0x800) != 0;
             return 0;
         }
         case LINUX_F_GETFL: {

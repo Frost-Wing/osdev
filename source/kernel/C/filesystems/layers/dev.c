@@ -186,10 +186,9 @@ int devfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
         if (chunk > (size - done))
             chunk = size - done;
 
-        int read_result = is_partition ?
-            block_read_partition(disk_id, partition_start, total_sectors,
-                local_lba, 1, secbuf) :
-            block_read_sector(disk_id, lba, secbuf, 1);
+        int read_result = is_partition ? block_read_partition(disk_id, partition_start, total_sectors,
+                                             local_lba, 1, secbuf)
+                                       : block_read_sector(disk_id, lba, secbuf, 1);
         if (read_result != 0) {
             kfree(secbuf);
             return done > 0 ? (int)done : -1;
@@ -292,10 +291,9 @@ int devfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
             chunk = size - done;
 
         if (off != 0 || chunk != dev->sector_size) {
-            int read_result = is_partition ?
-                block_read_partition(disk_id, partition_start, total_sectors,
-                    local_lba, 1, secbuf) :
-                block_read_sector(disk_id, lba, secbuf, 1);
+            int read_result = is_partition ? block_read_partition(disk_id, partition_start, total_sectors,
+                                                 local_lba, 1, secbuf)
+                                           : block_read_sector(disk_id, lba, secbuf, 1);
             if (read_result != 0) {
                 kfree(secbuf);
                 return done > 0 ? (int)done : -1;
@@ -306,10 +304,9 @@ int devfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
 
         memcpy(secbuf + off, buf + done, chunk);
 
-        int write_result = is_partition ?
-            block_write_partition(disk_id, partition_start, total_sectors,
-                local_lba, 1, secbuf) :
-            block_write_sector(disk_id, lba, secbuf, 1);
+        int write_result = is_partition ? block_write_partition(disk_id, partition_start, total_sectors,
+                                              local_lba, 1, secbuf)
+                                        : block_write_sector(disk_id, lba, secbuf, 1);
         if (write_result != 0) {
             kfree(secbuf);
             return done > 0 ? (int)done : -1;

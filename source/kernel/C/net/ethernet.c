@@ -1,7 +1,7 @@
 #include <memory.h>
 #include <net/net.h>
 #define ETH_ARP 0x0806
-#define ETH_IP 0x0800
+#define ETH_IP  0x0800
 
 struct eth_hdr {
     uint8 dst[6];

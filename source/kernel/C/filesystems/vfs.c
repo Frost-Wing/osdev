@@ -35,8 +35,7 @@ extern string current_user;
 static bool vfs_shadow_access_denied(const char *path) {
     static const char *const protected_paths[] = {
         "/etc/shadow",
-        "/etc/shadow.tmp"
-    };
+        "/etc/shadow.tmp"};
     if ((current_user && strcmp(current_user, "root") == 0) ||
         (!current_user && !userland_is_running()))
         return false;
@@ -83,8 +82,7 @@ static bool vfs_shadow_file_access_denied(const vfs_file_t *file) {
 
     static const char *const protected_paths[] = {
         "/etc/shadow",
-        "/etc/shadow.tmp"
-    };
+        "/etc/shadow.tmp"};
     for (size_t i = 0; i < sizeof(protected_paths) / sizeof(protected_paths[0]); ++i) {
         vfs_mount_res_t protected_mount;
         uint32_t protected_inode;
@@ -1246,7 +1244,7 @@ int vfs_mv(const char *src, const char *dst) {
 
         if (vfs_unlink(src_norm) != 0) {
             eprintf("mv: copied '%s' -> '%s' but failed to remove source",
-                     src_norm, dst_norm);
+                src_norm, dst_norm);
             return -10;
         }
 
@@ -1399,7 +1397,7 @@ int vfs_sync(bool kernel_call) {
     }
 
     klog_printf("Sync has been called!");
-    if(kernel_call){
+    if (kernel_call) {
         LOG_SCOPE();
         info("Syncing all disks", __FILE__);
     }
@@ -1419,8 +1417,8 @@ int vfs_exec(const char *path, int argc, const char **argv) {
     userland_exec_ctx_t exec_ctx = {.path = path, .argc = argc > 0 ? argc : 0};
     for (int i = 0; i < exec_ctx.argc && i < 32; i++)
         exec_ctx.argv[i] = argv ? argv[i] : NULL;
-    spec.fork_child = true;      /* start as RUNNING + started=1 so multitasking_pump() won't launch it a second time */
-    spec.tty_index = 0xFF;       /* inherit the current terminal; any value >= TTY_COUNT does this */
+    spec.fork_child = true; /* start as RUNNING + started=1 so multitasking_pump() won't launch it a second time */
+    spec.tty_index = 0xFF;  /* inherit the current terminal; any value >= TTY_COUNT does this */
 
     uint32_t saved_pid = multitasking_current_pid();
     uint32_t pid = multitasking_spawn_userland(path, &spec);
@@ -1432,7 +1430,7 @@ int vfs_exec(const char *path, int argc, const char **argv) {
 
     multitasking_exit_task(pid, rc);
     multitasking_set_current_pid(saved_pid);
-    multitasking_reap_task(pid, NULL);  /* nobody wait4()s a shell-launched exec, so reap it here */
+    multitasking_reap_task(pid, NULL); /* nobody wait4()s a shell-launched exec, so reap it here */
     return rc;
 }
 
@@ -1466,7 +1464,6 @@ const char *fs_type_to_string(int fs) {
             return "UNKNOWN";
     }
 }
-
 
 int vfs_mount(const char *diskname, const char *mount_point, bool is_kernel_call) {
     // Strip leading "/dev/" if present
@@ -1693,10 +1690,10 @@ int vfs_mount(const char *diskname, const char *mount_point, bool is_kernel_call
                 ext2_fs_t *efs = (ext2_fs_t *)fs_struct;
                 if (efs->was_clean)
                     info("%s: clean, %u/%u files, %u/%u blocks", __FILE__, device,
-                           efs->sb.s_inodes_count - efs->sb.s_free_inodes_count,
-                           efs->sb.s_inodes_count,
-                           efs->sb.s_blocks_count - efs->sb.s_free_blocks_count,
-                           efs->sb.s_blocks_count);
+                        efs->sb.s_inodes_count - efs->sb.s_free_inodes_count,
+                        efs->sb.s_inodes_count,
+                        efs->sb.s_blocks_count - efs->sb.s_free_blocks_count,
+                        efs->sb.s_blocks_count);
                 else
                     warn("%s: not cleanly unmounted, run e2fsck", __FILE__, device);
             }

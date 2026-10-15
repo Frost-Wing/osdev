@@ -15,30 +15,30 @@
 #include <graphics.h>
 
 #define AHCI_PORT_DET_PRESENT 3
-#define AHCI_PORT_IPM_ACTIVE 1
-#define AHCI_PORT_CMD_ST (1 << 0)
-#define AHCI_PORT_CMD_FRE (1 << 4)
-#define AHCI_PORT_CMD_FR (1 << 14)
-#define AHCI_PORT_CMD_CR (1 << 15)
-#define READ_DMA_EXT 0x25
-#define SECTOR_SIZE 512
+#define AHCI_PORT_IPM_ACTIVE  1
+#define AHCI_PORT_CMD_ST      (1 << 0)
+#define AHCI_PORT_CMD_FRE     (1 << 4)
+#define AHCI_PORT_CMD_FR      (1 << 14)
+#define AHCI_PORT_CMD_CR      (1 << 15)
+#define READ_DMA_EXT          0x25
+#define SECTOR_SIZE           512
 
 #define ATA_CMD_WRITE_DMA_EXT 0x35
-#define ATA_CMD_FLUSH_CACHE 0xE7
-#define ATA_CMD_IDENTIFY 0xEC
+#define ATA_CMD_FLUSH_CACHE   0xE7
+#define ATA_CMD_IDENTIFY      0xEC
 
-#define MAX_PARTITIONS 128
+#define MAX_PARTITIONS    128
 #define MAX_BLOCK_DEVICES 64
 
-#define AHCI_MAX_PRDT 16                 // 8,16 OR 32
+#define AHCI_MAX_PRDT  16                // 8,16 OR 32
 #define PRDT_MAX_BYTES (4 * 1024 * 1024) // 4 KiB
 
 /**
  * @brief AHCI device signatures.
  */
-#define sata_disk 0x00000101
-#define satapi_disk 0xEB140101
-#define semb_disk 0xC33C0101
+#define sata_disk       0x00000101
+#define satapi_disk     0xEB140101
+#define semb_disk       0xC33C0101
 #define port_multiplier 0x96690101
 
 /**
@@ -57,12 +57,12 @@ typedef struct __attribute__((packed)) {
 } ahci_cmd_header_t;
 
 #define AHCI_CMD_HDR_CFL_MASK 0x001F /* bits 0-4 */
-#define AHCI_CMD_HDR_A_BIT 0x0020
-#define AHCI_CMD_HDR_W_BIT 0x0040
-#define AHCI_CMD_HDR_P_BIT 0x0080
-#define AHCI_CMD_HDR_R_BIT 0x0100
-#define AHCI_CMD_HDR_B_BIT 0x0200
-#define AHCI_CMD_HDR_C_BIT 0x0400
+#define AHCI_CMD_HDR_A_BIT    0x0020
+#define AHCI_CMD_HDR_W_BIT    0x0040
+#define AHCI_CMD_HDR_P_BIT    0x0080
+#define AHCI_CMD_HDR_R_BIT    0x0100
+#define AHCI_CMD_HDR_B_BIT    0x0200
+#define AHCI_CMD_HDR_C_BIT    0x0400
 #define AHCI_CMD_HDR_PMP_MASK 0xF000 /* bits 12-15 */
 
 /**

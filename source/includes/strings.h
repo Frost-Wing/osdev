@@ -16,7 +16,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define MAX_WORDS 30
+#define MAX_WORDS    30
 #define MAX_WORD_LEN 40
 
 #define CONCAT(...) \
@@ -339,6 +339,6 @@ char *strtok(char *str, const char *delim);
  * @return A newly allocated string with repeated spaces collapsed,
  *         or NULL if str is NULL or allocation fails.
  */
-char *collapse_spaces(const char *str) ;
+char *collapse_spaces(const char *str);
 
 #endif // STRINGS_H

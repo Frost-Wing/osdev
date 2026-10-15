@@ -13,3 +13,7 @@ PointerAlignment: Right
 SpaceBeforeParens: ControlStatements
 IndentCaseLabels: true
 SeparateDefinitionBlocks: Always
+SortIncludes: Never          # include order often matters in low-level code
+AlignConsecutiveMacros: Consecutive
+AlignEscapedNewlines: Left
+AllowShortIfStatementsOnASingleLine: Never

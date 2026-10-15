@@ -13,7 +13,8 @@
 
 void ns_normalize_path(const char *in, char *out, size_t out_sz) {
     if (!in || out_sz == 0) {
-        if (out_sz) out[0] = '\0';
+        if (out_sz)
+            out[0] = '\0';
         return;
     }
 
@@ -61,7 +62,7 @@ procfs_entry_t *ns_find(procfs_entry_t **entries, int count, const char *path) {
  * report whether that component is the whole rest of the name (a leaf)
  * or has further nesting beneath it (implying a directory). */
 static bool ns_child_of(const char *name, const char *prefix, size_t prefix_len,
-                         const char **child, size_t *child_len, bool *is_leaf) {
+    const char **child, size_t *child_len, bool *is_leaf) {
     if (prefix_len) {
         if (strncmp(name, prefix, prefix_len) != 0)
             return false;
@@ -102,7 +103,7 @@ static int ns_child_cmp(const void *a, const void *b) {
 }
 
 int ns_getdent(procfs_entry_t **entries, int count, const char *path,
-               uint64_t index, const char **out_name, procfs_type_t *out_type) {
+    uint64_t index, const char **out_name, procfs_type_t *out_type) {
     if (!path || !out_name || !out_type)
         return 0;
 
@@ -146,10 +147,10 @@ int ns_getdent(procfs_entry_t **entries, int count, const char *path,
         if (n >= NS_MAX_CHILDREN)
             break;
 
-        children[n].name   = child;
-        children[n].len    = child_len;
+        children[n].name = child;
+        children[n].len = child_len;
         children[n].is_dir = dir;
-        children[n].type   = dir ? PROC_DIR : entries[i]->type;
+        children[n].type = dir ? PROC_DIR : entries[i]->type;
         n++;
     }
 

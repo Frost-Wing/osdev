@@ -10,7 +10,7 @@
 #include <basics.h>
 
 #define ISO9660_SECTOR_SIZE 2048
-#define ISO9660_FLAG_DIR 0x02
+#define ISO9660_FLAG_DIR    0x02
 
 typedef struct {
     int portno;

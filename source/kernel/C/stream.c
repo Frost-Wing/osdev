@@ -240,7 +240,7 @@ bool fd_get_cloexec(int fd) {
 
 bool fd_is_tty(int fd) {
     return fd_valid(fd) && fd_table[fd].object &&
-        fd_table[fd].object->tty;
+           fd_table[fd].object->tty;
 }
 
 vfs_file_t *fd_get_file(int fd) {
@@ -466,7 +466,7 @@ int fd_pipe_create(int fds[2], bool nonblocking) {
 
 bool fd_is_pipe(int fd) {
     return fd_valid(fd) && fd_table[fd].object &&
-        fd_table[fd].object->pipe != NULL;
+           fd_table[fd].object->pipe != NULL;
 }
 
 int fd_pipe_read(int fd, void *buf, size_t count) {
@@ -475,7 +475,7 @@ int fd_pipe_read(int fd, void *buf, size_t count) {
 
     fd_pipe_t *pipe = fd_table[fd].object->pipe;
     while (pipe->count == 0 && pipe->writers > 0 &&
-        !fd_table[fd].object->pipe_nonblocking)
+           !fd_table[fd].object->pipe_nonblocking)
         multitasking_yield();
     if (pipe->count == 0)
         return pipe->writers > 0 ? FD_PIPE_WOULD_BLOCK : 0;
@@ -501,7 +501,7 @@ int fd_pipe_write(int fd, const void *buf, size_t count) {
         if (pipe->readers == 0)
             return written ? (int)written : -1;
         while (pipe->count == sizeof(pipe->data) && pipe->readers > 0 &&
-            !fd_table[fd].object->pipe_nonblocking)
+               !fd_table[fd].object->pipe_nonblocking)
             multitasking_yield();
         if (pipe->readers == 0)
             return written ? (int)written : -1;
@@ -541,10 +541,10 @@ int fd_pipe_poll(int fd) {
         if (pipe->count > 0)
             r |= FD_POLLIN;
         if (pipe->writers == 0)
-            r |= FD_POLLHUP;                 /* EOF: read() returns 0 */
+            r |= FD_POLLHUP; /* EOF: read() returns 0 */
     } else {
         if (pipe->readers == 0)
-            r |= FD_POLLERR;                 /* write() would get EPIPE */
+            r |= FD_POLLERR; /* write() would get EPIPE */
         else if (pipe->count < sizeof(pipe->data))
             r |= FD_POLLOUT;
     }
@@ -620,7 +620,7 @@ int fd_eventfd_poll(int fd, int events) {
 
 int fd_flock(int fd, int operation) {
     const int allowed = LINUX_LOCK_SH | LINUX_LOCK_EX |
-        LINUX_LOCK_NB | LINUX_LOCK_UN;
+                        LINUX_LOCK_NB | LINUX_LOCK_UN;
     if (operation & ~allowed)
         return LINUX_EINVAL;
 
@@ -696,7 +696,7 @@ int fd_epoll_create(void) {
 
 bool fd_is_epoll(int fd) {
     return fd_valid(fd) && fd_table[fd].object &&
-        fd_table[fd].object->epoll;
+           fd_table[fd].object->epoll;
 }
 
 int fd_epoll_ctl(int epfd, int operation, int fd, uint32_t events,

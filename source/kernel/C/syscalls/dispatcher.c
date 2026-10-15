@@ -105,12 +105,13 @@ uint64_t syscall_dispatch(
                 (task_signal_action_t *)arg3, arg4);
 
         case LINUX_SYS_RT_SIGPROCMASK:
-            if (arg3) *(uint64_t *)arg3 = 0;
+            if (arg3)
+                *(uint64_t *)arg3 = 0;
             return 0;
 
         case LINUX_SYS_RT_SIGSUSPEND:
             return sys_rt_sigsuspend((const uint64_t *)arg1, arg2);
-            
+
         case LINUX_SYS_SIGALTSTACK:
             return -LINUX_ENOSYS;
 
@@ -466,9 +467,9 @@ uint64_t syscall_dispatch(
             return sys_access_common((int)arg1, (const char *)arg2, (int)arg3);
         case 99:
             return sys_sysinfo((linux_sysinfo_t *)arg1);
-        case LINUX_SYS_READV:   /* 19 */
+        case LINUX_SYS_READV: /* 19 */
             return sys_readv(arg1, (linux_iovec_t *)arg2, arg3);
-        case LINUX_SYS_PREAD64:  /* 17 */
+        case LINUX_SYS_PREAD64: /* 17 */
             return sys_pread64(arg1, (char *)arg2, arg3, (int64_t)arg4);
         case LINUX_SYS_PWRITE64: /* 18 */
             return sys_pwrite64(arg1, (const char *)arg2, arg3, (int64_t)arg4);

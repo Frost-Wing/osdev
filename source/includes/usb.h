@@ -9,8 +9,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define USB_MAX_INTERFACES 16
-#define USB_MAX_ENDPOINTS 32
+#define USB_MAX_INTERFACES    16
+#define USB_MAX_ENDPOINTS     32
 #define USB_MAX_CLASS_DRIVERS 8
 
 /** Host-controller backend currently servicing a USB device. */

@@ -14,7 +14,7 @@
 #include <basics.h>
 #include <stdint.h>
 
-#define UNIFONT_WIDTH 8
+#define UNIFONT_WIDTH  8
 #define UNIFONT_HEIGHT 16
 
 /**

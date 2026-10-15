@@ -12,62 +12,62 @@
 #include <pit.h>
 #include <strings.h>
 
-#define EHCI_MAX_CONTROLLERS 4
-#define EHCI_MAX_DEVICES 32
-#define EHCI_CAP_LENGTH 0x00
-#define EHCI_HCSPARAMS 0x04
-#define EHCI_HCCPARAMS 0x08
-#define EHCI_USBCMD 0x00
-#define EHCI_USBSTS 0x04
-#define EHCI_USBINTR 0x08
-#define EHCI_CTRLDSSEGMENT 0x10
-#define EHCI_ASYNCLISTADDR 0x18
-#define EHCI_CONFIGFLAG 0x40
-#define EHCI_PORTSC 0x44
-#define EHCI_CMD_RUN (1U << 0)
-#define EHCI_CMD_RESET (1U << 1)
-#define EHCI_CMD_ASYNC_ENABLE (1U << 5)
-#define EHCI_STS_HALTED (1U << 12)
-#define EHCI_STS_ASYNC_STATUS (1U << 15)
-#define EHCI_PORT_CONNECT (1U << 0)
-#define EHCI_PORT_ENABLE (1U << 2)
-#define EHCI_PORT_RESET (1U << 8)
-#define EHCI_PORT_POWER (1U << 12)
-#define EHCI_PORT_OWNER (1U << 13)
-#define EHCI_PORT_CHANGE ((1U << 1) | (1U << 3) | (1U << 5))
-#define EHCI_QH_LINK_TYPE (1U << 1)
-#define EHCI_QH_HEAD (1U << 15)
-#define EHCI_QTD_TERMINATE 1U
-#define EHCI_QTD_ACTIVE (1U << 7)
-#define EHCI_QTD_IOC (1U << 15)
-#define EHCI_QTD_PID_OUT (0U << 8)
-#define EHCI_QTD_PID_IN (1U << 8)
-#define EHCI_QTD_PID_SETUP (2U << 8)
-#define EHCI_QTD_CERR3 (3U << 10)
-#define EHCI_QTD_TOGGLE (1U << 31)
-#define EHCI_CONTROL_BUFFER_MAX 0x4000U
-#define EHCI_DESCRIPTOR_CONFIGURATION 2U
-#define EHCI_DESCRIPTOR_INTERFACE 4U
-#define EHCI_DESCRIPTOR_ENDPOINT 5U
-#define EHCI_REQUEST_GET_DESCRIPTOR 6U
-#define EHCI_REQUEST_SET_ADDRESS 5U
+#define EHCI_MAX_CONTROLLERS           4
+#define EHCI_MAX_DEVICES               32
+#define EHCI_CAP_LENGTH                0x00
+#define EHCI_HCSPARAMS                 0x04
+#define EHCI_HCCPARAMS                 0x08
+#define EHCI_USBCMD                    0x00
+#define EHCI_USBSTS                    0x04
+#define EHCI_USBINTR                   0x08
+#define EHCI_CTRLDSSEGMENT             0x10
+#define EHCI_ASYNCLISTADDR             0x18
+#define EHCI_CONFIGFLAG                0x40
+#define EHCI_PORTSC                    0x44
+#define EHCI_CMD_RUN                   (1U << 0)
+#define EHCI_CMD_RESET                 (1U << 1)
+#define EHCI_CMD_ASYNC_ENABLE          (1U << 5)
+#define EHCI_STS_HALTED                (1U << 12)
+#define EHCI_STS_ASYNC_STATUS          (1U << 15)
+#define EHCI_PORT_CONNECT              (1U << 0)
+#define EHCI_PORT_ENABLE               (1U << 2)
+#define EHCI_PORT_RESET                (1U << 8)
+#define EHCI_PORT_POWER                (1U << 12)
+#define EHCI_PORT_OWNER                (1U << 13)
+#define EHCI_PORT_CHANGE               ((1U << 1) | (1U << 3) | (1U << 5))
+#define EHCI_QH_LINK_TYPE              (1U << 1)
+#define EHCI_QH_HEAD                   (1U << 15)
+#define EHCI_QTD_TERMINATE             1U
+#define EHCI_QTD_ACTIVE                (1U << 7)
+#define EHCI_QTD_IOC                   (1U << 15)
+#define EHCI_QTD_PID_OUT               (0U << 8)
+#define EHCI_QTD_PID_IN                (1U << 8)
+#define EHCI_QTD_PID_SETUP             (2U << 8)
+#define EHCI_QTD_CERR3                 (3U << 10)
+#define EHCI_QTD_TOGGLE                (1U << 31)
+#define EHCI_CONTROL_BUFFER_MAX        0x4000U
+#define EHCI_DESCRIPTOR_CONFIGURATION  2U
+#define EHCI_DESCRIPTOR_INTERFACE      4U
+#define EHCI_DESCRIPTOR_ENDPOINT       5U
+#define EHCI_REQUEST_GET_DESCRIPTOR    6U
+#define EHCI_REQUEST_SET_ADDRESS       5U
 #define EHCI_REQUEST_SET_CONFIGURATION 9U
-#define EHCI_REQUEST_GET_STATUS 0U
-#define EHCI_REQUEST_CLEAR_FEATURE 1U
-#define EHCI_REQUEST_SET_FEATURE 3U
-#define EHCI_DESCRIPTOR_HUB 0x29U
-#define EHCI_HUB_CLASS 9U
-#define EHCI_HUB_PORT_POWER 8U
-#define EHCI_HUB_PORT_RESET 4U
-#define EHCI_HUB_C_PORT_CONNECTION 16U
-#define EHCI_HUB_C_PORT_ENABLE 17U
-#define EHCI_HUB_C_PORT_RESET 20U
-#define EHCI_HUB_PORT_CONNECTION (1U << 0)
-#define EHCI_HUB_PORT_ENABLE (1U << 1)
-#define EHCI_HUB_PORT_RESETTING (1U << 4)
-#define EHCI_HUB_PORT_LOW_SPEED (1U << 9)
-#define EHCI_HUB_PORT_HIGH_SPEED (1U << 10)
-#define EHCI_HUB_MAX_PORTS 15U
+#define EHCI_REQUEST_GET_STATUS        0U
+#define EHCI_REQUEST_CLEAR_FEATURE     1U
+#define EHCI_REQUEST_SET_FEATURE       3U
+#define EHCI_DESCRIPTOR_HUB            0x29U
+#define EHCI_HUB_CLASS                 9U
+#define EHCI_HUB_PORT_POWER            8U
+#define EHCI_HUB_PORT_RESET            4U
+#define EHCI_HUB_C_PORT_CONNECTION     16U
+#define EHCI_HUB_C_PORT_ENABLE         17U
+#define EHCI_HUB_C_PORT_RESET          20U
+#define EHCI_HUB_PORT_CONNECTION       (1U << 0)
+#define EHCI_HUB_PORT_ENABLE           (1U << 1)
+#define EHCI_HUB_PORT_RESETTING        (1U << 4)
+#define EHCI_HUB_PORT_LOW_SPEED        (1U << 9)
+#define EHCI_HUB_PORT_HIGH_SPEED       (1U << 10)
+#define EHCI_HUB_MAX_PORTS             15U
 
 typedef struct __attribute__((packed, aligned(32))) {
     uint32_t horizontal;
@@ -575,7 +575,7 @@ static int ehci_hub_get_port_status(ehci_device_t *hub, uint8_t port,
             response, sizeof(response)) != 0)
         return -1;
     *status = (uint32_t)response[0] | ((uint32_t)response[1] << 8) |
-        ((uint32_t)response[2] << 16) | ((uint32_t)response[3] << 24);
+              ((uint32_t)response[2] << 16) | ((uint32_t)response[3] << 24);
     return 0;
 }
 
@@ -613,7 +613,8 @@ static int ehci_hub_initialize(ehci_device_t *entry) {
         power_ticks = 1;
     uint64_t power_deadline = pit_ticks + power_ticks;
     for (uint32_t wait = 0; wait < 100000000U &&
-            pit_ticks < power_deadline; ++wait)
+                            pit_ticks < power_deadline;
+        ++wait)
         __asm__ volatile("pause");
     entry->hub = 1;
     info("EHCI hub at address %u has %u powered ports", __FILE__,
@@ -658,7 +659,8 @@ static int ehci_enumerate(ehci_controller_t *ctrl, uint8_t root_port,
             *portsc = (status & (EHCI_PORT_POWER | EHCI_PORT_OWNER)) |
                       EHCI_PORT_CHANGE | EHCI_PORT_OWNER;
             warn("EHCI port %u routed to its companion controller "
-                 "(not supported)", __FILE__, root_port + 1U);
+                 "(not supported)",
+                __FILE__, root_port + 1U);
             return -1;
         }
     } else {
@@ -671,7 +673,8 @@ static int ehci_enumerate(ehci_controller_t *ctrl, uint8_t root_port,
             return -1;
         uint64_t reset_deadline = pit_ticks + 5U;
         for (uint32_t wait = 0; wait < 100000000U &&
-                pit_ticks < reset_deadline; ++wait)
+                                pit_ticks < reset_deadline;
+            ++wait)
             __asm__ volatile("pause");
         uint64_t timeout = pit_ticks + 10U;
         do {
@@ -893,7 +896,8 @@ static void ehci_poll_hubs(ehci_controller_t *ctrl) {
                     hub->hub_port_retry_tick[index] = pit_ticks + 100U;
                 } else {
                     error("EHCI stopped retrying hub %u port %u after "
-                          "%u attempts", __FILE__, hub->address, port,
+                          "%u attempts",
+                        __FILE__, hub->address, port,
                         hub->hub_port_attempts[index]);
                     hub->hub_port_enumerated[index] = 1;
                 }
@@ -903,13 +907,14 @@ static void ehci_poll_hubs(ehci_controller_t *ctrl) {
                 hub->hub_port_attempts[index] = 0;
                 hub->hub_port_retry_tick[index] = 0;
                 for (size_t child_index = 0;
-                        child_index < EHCI_MAX_DEVICES; ++child_index) {
+                    child_index < EHCI_MAX_DEVICES; ++child_index) {
                     ehci_device_t *child = &ehci_devices[child_index];
                     if (child->active && child->parent_hub == hub &&
                         child->parent_port == port) {
                         ehci_remove_device_tree(child);
                         info("EHCI USB device disconnected from hub %u "
-                             "port %u", __FILE__, hub->address, port);
+                             "port %u",
+                            __FILE__, hub->address, port);
                     }
                 }
             }

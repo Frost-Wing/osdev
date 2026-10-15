@@ -93,9 +93,9 @@ static void tty_push_cooked(tty_t *tty, char c) {
 }
 
 bool tty_init_terminals(struct flanterm_context *default_terminal,
-                        uint32_t *framebuffer, size_t width, size_t height,
-                        size_t pitch, const void *ssfn_font,
-                        size_t ssfn_font_size) {
+    uint32_t *framebuffer, size_t width, size_t height,
+    size_t pitch, const void *ssfn_font,
+    size_t ssfn_font_size) {
     /* Kept for API compatibility; the boot terminal already exists. */
     (void)framebuffer;
     (void)width;
@@ -147,7 +147,7 @@ void tty_input_char(char c) {
     }
 
     bool eof_char = tty->termios.c_cc[LINUX_VEOF] != 0 &&
-        (uint8_t)c == tty->termios.c_cc[LINUX_VEOF];
+                    (uint8_t)c == tty->termios.c_cc[LINUX_VEOF];
 
     /* -------- RAW MODE -------- */
     if (!(tty->termios.c_lflag & LINUX_ICANON)) {
@@ -228,15 +228,33 @@ void tty_input_char(char c) {
 void tty_input_key(int key) {
     const char *seq = NULL;
     switch (key) {
-        case CUR_UP:    seq = "\033[A";  break;
-        case CUR_DOWN:  seq = "\033[B";  break;
-        case CUR_RIGHT: seq = "\033[C";  break;
-        case CUR_LEFT:  seq = "\033[D";  break;
-        case KEY_HOME:  seq = "\033[H";  break;
-        case KEY_END:   seq = "\033[F";  break;
-        case KEY_DEL:   seq = "\033[3~"; break;
-        case KEY_PGUP:  seq = "\033[5~"; break;
-        case KEY_PGDN:  seq = "\033[6~"; break;
+        case CUR_UP:
+            seq = "\033[A";
+            break;
+        case CUR_DOWN:
+            seq = "\033[B";
+            break;
+        case CUR_RIGHT:
+            seq = "\033[C";
+            break;
+        case CUR_LEFT:
+            seq = "\033[D";
+            break;
+        case KEY_HOME:
+            seq = "\033[H";
+            break;
+        case KEY_END:
+            seq = "\033[F";
+            break;
+        case KEY_DEL:
+            seq = "\033[3~";
+            break;
+        case KEY_PGUP:
+            seq = "\033[5~";
+            break;
+        case KEY_PGDN:
+            seq = "\033[6~";
+            break;
     }
 
     if (!seq) {
@@ -318,11 +336,11 @@ int tty_read(char *buf, uint64_t count) {
         }
 
         if (eof)
-            break;                      /* returns 0 if nothing was read: EOF */
+            break; /* returns 0 if nothing was read: EOF */
         if (!canon && vtime != 0 && timer_started && pit_ticks >= deadline)
             break;
         if (!canon && vmin == 0 && vtime == 0)
-            break;                      /* VMIN=0, VTIME=0: poll */
+            break; /* VMIN=0, VTIME=0: poll */
 
         if (pit_ticks != last_tick) {
             last_tick = pit_ticks;
@@ -350,7 +368,7 @@ uint64_t tty_write(const char *buf, uint64_t count) {
     char output[256];
     size_t used = 0;
     bool translate_newline = (termios.c_oflag & LINUX_OPOST) &&
-        (termios.c_oflag & LINUX_ONLCR);
+                             (termios.c_oflag & LINUX_ONLCR);
 
     for (uint64_t i = 0; i < count; ++i) {
         char c = buf[i];

@@ -20,8 +20,8 @@
 #endif
 
 #define USERLAND_MAX_DEPTH 8
-#define USERLAND_ARGV_MAX 32
-#define USERLAND_ENV_MAX 32
+#define USERLAND_ARGV_MAX  32
+#define USERLAND_ENV_MAX   32
 
 typedef struct {
     uint64_t start;
@@ -119,8 +119,7 @@ static int userland_depth = 0;
 
 #define USERLAND_SYSCALL_STACK_SIZE 1 MiB
 
-__attribute__((aligned(16)))
-static uint8_t userland_syscall_stacks[USERLAND_MAX_DEPTH][USERLAND_SYSCALL_STACK_SIZE];
+__attribute__((aligned(16))) static uint8_t userland_syscall_stacks[USERLAND_MAX_DEPTH][USERLAND_SYSCALL_STACK_SIZE];
 
 /* ------------------------------------------------------------ cpu bits --- */
 
@@ -184,9 +183,10 @@ static inline __attribute__((noreturn)) void userland_iret(uint64_t entry, uint6
         :
         : "r"(r_stack), "r"(r_entry)
         : "memory", "rax", "rbx", "rcx", "rdx", "rsi", "rdi",
-          "r8", "r9", "r12", "r13", "r14", "r15");
+        "r8", "r9", "r12", "r13", "r14", "r15");
     __builtin_unreachable();
 }
+
 /* Implemented in assembly: it restores RBP/RSP and never returns to C. */
 extern void userland_jump_resume(const uint64_t *regs) __attribute__((noreturn));
 
@@ -475,7 +475,7 @@ __attribute__((noinline, noreturn)) static void userland_finish_exit(void) {
     }
 
     if (!still_in_userland)
-       tty_flush_input();
+        tty_flush_input();
     // printf(blue_color "\n[process exited with code %d]" reset_color, exit_code);
     asm volatile("sti");
 
@@ -807,8 +807,7 @@ bool userland_mmap_reserved_commit(uint64_t addr, uint64_t length, uint64_t prot
 
     if (missing_count > SIZE_MAX / sizeof(userland_new_page_t))
         return false;
-    userland_new_page_t *new_pages = missing_count ?
-        (userland_new_page_t *)kmalloc((size_t)missing_count * sizeof(userland_new_page_t)) : NULL;
+    userland_new_page_t *new_pages = missing_count ? (userland_new_page_t *)kmalloc((size_t)missing_count * sizeof(userland_new_page_t)) : NULL;
     if (missing_count && !new_pages)
         return false;
 
@@ -971,7 +970,7 @@ uint64_t userland_mmap_anon(uint64_t length) {
         for (uint64_t base = first; base <= limit - aligned_len; base += PAGE_SIZE) {
             uint64_t page = 0;
             while (page < pages &&
-                !(paging_user_page_flags(base + page * PAGE_SIZE) & PAGE_PRESENT))
+                   !(paging_user_page_flags(base + page * PAGE_SIZE) & PAGE_PRESENT))
                 ++page;
             if (page != pages) {
                 base += page * PAGE_SIZE;
@@ -1148,8 +1147,7 @@ static int userland_exec_fail(elf_image_info_t *info) {
     return 126;
 }
 
-__attribute__((noinline, used))
-int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_state_t *caller) {
+__attribute__((noinline, used)) int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_state_t *caller) {
     if (!ctx || !ctx->path || !caller)
         return -1;
 
@@ -1230,8 +1228,7 @@ int userland_exec_impl(const userland_exec_ctx_t *ctx, const userland_caller_sta
     userland_iret((uint64_t)entry, stack_top);
 }
 
-__attribute__((noinline, used))
-int userland_fork_impl(const userland_regs_t *regs,
+__attribute__((noinline, used)) int userland_fork_impl(const userland_regs_t *regs,
     const userland_caller_state_t *caller) {
     if (!regs || !caller || userland_depth == 0)
         return USERLAND_FORK_FAILED;

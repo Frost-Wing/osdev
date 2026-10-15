@@ -9,14 +9,14 @@
 #include <usb.h>
 #include <usb_keyboard.h>
 
-#define USB_HID_CLASS 3U
-#define USB_HID_BOOT_SUBCLASS 1U
-#define USB_HID_KEYBOARD_PROTOCOL 1U
-#define USB_HID_SET_IDLE 10U
-#define USB_HID_SET_PROTOCOL 11U
+#define USB_HID_CLASS                3U
+#define USB_HID_BOOT_SUBCLASS        1U
+#define USB_HID_KEYBOARD_PROTOCOL    1U
+#define USB_HID_SET_IDLE             10U
+#define USB_HID_SET_PROTOCOL         11U
 #define USB_HID_KEYBOARD_REPORT_SIZE 8U
-#define USB_HID_KEYBOARD_COUNT 16U
-#define USB_HID_POLL_TICKS 1U
+#define USB_HID_KEYBOARD_COUNT       16U
+#define USB_HID_POLL_TICKS           1U
 
 typedef struct {
     usb_device_t *device;
@@ -116,11 +116,9 @@ static int hid_usage_scancode(uint8_t usage, uint8_t *scancode,
     static const uint8_t letters[26] = {
         0x1E, 0x30, 0x2E, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24,
         0x25, 0x26, 0x32, 0x31, 0x18, 0x19, 0x10, 0x13, 0x1F, 0x14,
-        0x16, 0x2F, 0x11, 0x2D, 0x15, 0x2C
-    };
+        0x16, 0x2F, 0x11, 0x2D, 0x15, 0x2C};
     static const uint8_t digits[10] = {
-        0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B
-    };
+        0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B};
     *extended = 0;
 
     if (usage >= 0x04U && usage <= 0x1DU) {
@@ -133,45 +131,131 @@ static int hid_usage_scancode(uint8_t usage, uint8_t *scancode,
     }
 
     switch (usage) {
-        case 0x28: *scancode = 0x1C; return 1;
-        case 0x29: *scancode = 0x01; return 1;
-        case 0x2A: *scancode = 0x0E; return 1;
-        case 0x2B: *scancode = 0x0F; return 1;
-        case 0x2C: *scancode = 0x39; return 1;
-        case 0x2D: *scancode = 0x0C; return 1;
-        case 0x2E: *scancode = 0x0D; return 1;
-        case 0x2F: *scancode = 0x1A; return 1;
-        case 0x30: *scancode = 0x1B; return 1;
-        case 0x31: *scancode = 0x2B; return 1;
-        case 0x33: *scancode = 0x27; return 1;
-        case 0x34: *scancode = 0x28; return 1;
-        case 0x35: *scancode = 0x29; return 1;
-        case 0x36: *scancode = 0x33; return 1;
-        case 0x37: *scancode = 0x34; return 1;
-        case 0x38: *scancode = 0x35; return 1;
-        case 0x39: *scancode = 0x3A; return 1;
-        case 0x3A: *scancode = 0x3B; return 1;
-        case 0x3B: *scancode = 0x3C; return 1;
-        case 0x3C: *scancode = 0x3D; return 1;
-        case 0x3D: *scancode = 0x3E; return 1;
-        case 0x3E: *scancode = 0x3F; return 1;
-        case 0x3F: *scancode = 0x40; return 1;
-        case 0x40: *scancode = 0x41; return 1;
-        case 0x41: *scancode = 0x42; return 1;
-        case 0x42: *scancode = 0x43; return 1;
-        case 0x43: *scancode = 0x44; return 1;
-        case 0x44: *scancode = 0x57; return 1;
-        case 0x45: *scancode = 0x58; return 1;
-        case 0x4A: *scancode = 0x47; *extended = 1; return 1;
-        case 0x4B: *scancode = 0x49; *extended = 1; return 1;
-        case 0x4C: *scancode = 0x53; *extended = 1; return 1;
-        case 0x4D: *scancode = 0x4F; *extended = 1; return 1;
-        case 0x4E: *scancode = 0x51; *extended = 1; return 1;
-        case 0x4F: *scancode = 0x4D; *extended = 1; return 1;
-        case 0x50: *scancode = 0x4B; *extended = 1; return 1;
-        case 0x51: *scancode = 0x50; *extended = 1; return 1;
-        case 0x52: *scancode = 0x48; *extended = 1; return 1;
-        default: return 0;
+        case 0x28:
+            *scancode = 0x1C;
+            return 1;
+        case 0x29:
+            *scancode = 0x01;
+            return 1;
+        case 0x2A:
+            *scancode = 0x0E;
+            return 1;
+        case 0x2B:
+            *scancode = 0x0F;
+            return 1;
+        case 0x2C:
+            *scancode = 0x39;
+            return 1;
+        case 0x2D:
+            *scancode = 0x0C;
+            return 1;
+        case 0x2E:
+            *scancode = 0x0D;
+            return 1;
+        case 0x2F:
+            *scancode = 0x1A;
+            return 1;
+        case 0x30:
+            *scancode = 0x1B;
+            return 1;
+        case 0x31:
+            *scancode = 0x2B;
+            return 1;
+        case 0x33:
+            *scancode = 0x27;
+            return 1;
+        case 0x34:
+            *scancode = 0x28;
+            return 1;
+        case 0x35:
+            *scancode = 0x29;
+            return 1;
+        case 0x36:
+            *scancode = 0x33;
+            return 1;
+        case 0x37:
+            *scancode = 0x34;
+            return 1;
+        case 0x38:
+            *scancode = 0x35;
+            return 1;
+        case 0x39:
+            *scancode = 0x3A;
+            return 1;
+        case 0x3A:
+            *scancode = 0x3B;
+            return 1;
+        case 0x3B:
+            *scancode = 0x3C;
+            return 1;
+        case 0x3C:
+            *scancode = 0x3D;
+            return 1;
+        case 0x3D:
+            *scancode = 0x3E;
+            return 1;
+        case 0x3E:
+            *scancode = 0x3F;
+            return 1;
+        case 0x3F:
+            *scancode = 0x40;
+            return 1;
+        case 0x40:
+            *scancode = 0x41;
+            return 1;
+        case 0x41:
+            *scancode = 0x42;
+            return 1;
+        case 0x42:
+            *scancode = 0x43;
+            return 1;
+        case 0x43:
+            *scancode = 0x44;
+            return 1;
+        case 0x44:
+            *scancode = 0x57;
+            return 1;
+        case 0x45:
+            *scancode = 0x58;
+            return 1;
+        case 0x4A:
+            *scancode = 0x47;
+            *extended = 1;
+            return 1;
+        case 0x4B:
+            *scancode = 0x49;
+            *extended = 1;
+            return 1;
+        case 0x4C:
+            *scancode = 0x53;
+            *extended = 1;
+            return 1;
+        case 0x4D:
+            *scancode = 0x4F;
+            *extended = 1;
+            return 1;
+        case 0x4E:
+            *scancode = 0x51;
+            *extended = 1;
+            return 1;
+        case 0x4F:
+            *scancode = 0x4D;
+            *extended = 1;
+            return 1;
+        case 0x50:
+            *scancode = 0x4B;
+            *extended = 1;
+            return 1;
+        case 0x51:
+            *scancode = 0x50;
+            *extended = 1;
+            return 1;
+        case 0x52:
+            *scancode = 0x48;
+            *extended = 1;
+            return 1;
+        default:
+            return 0;
     }
 }
 
@@ -190,7 +274,7 @@ static void emit_usage(uint8_t usage, bool released) {
     if (extended)
         keyboard_process_scancode(0xE0U);
     keyboard_process_scancode((uint8_t)(scancode |
-        (released ? 0x80U : 0U)));
+                                        (released ? 0x80U : 0U)));
 }
 
 static void emit_modifier(uint8_t scancode, bool extended,
@@ -198,7 +282,7 @@ static void emit_modifier(uint8_t scancode, bool extended,
     if (extended)
         keyboard_process_scancode(0xE0U);
     keyboard_process_scancode((uint8_t)(scancode |
-        (released ? 0x80U : 0U)));
+                                        (released ? 0x80U : 0U)));
 }
 
 static void process_report(usb_hid_keyboard_t *keyboard,
@@ -210,8 +294,7 @@ static void process_report(usb_hid_keyboard_t *keyboard,
     }
 
     static const uint8_t modifier_scancodes[8] = {
-        0x1D, 0x2A, 0x38, 0, 0x1D, 0x36, 0x38, 0
-    };
+        0x1D, 0x2A, 0x38, 0, 0x1D, 0x36, 0x38, 0};
     for (uint8_t i = 0; i < 8; ++i) {
         uint8_t mask = (uint8_t)(1U << i);
         if ((keyboard->previous_report[0] & mask) &&

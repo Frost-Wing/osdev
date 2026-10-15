@@ -21,10 +21,10 @@
 #define NS_MAX_CHILDREN 128
 
 typedef struct {
-    const char    *name;   /* points into the entry's registered name */
-    size_t         len;    /* length of the child component */
-    bool           is_dir;
-    procfs_type_t  type;
+    const char *name; /* points into the entry's registered name */
+    size_t len;       /* length of the child component */
+    bool is_dir;
+    procfs_type_t type;
 } ns_child_t;
 
 /* Normalize `in` (strip trailing slashes, truncate to out_sz) into the
@@ -54,7 +54,7 @@ procfs_entry_t *ns_find(procfs_entry_t **entries, int count, const char *path);
  * from elsewhere in the VFS layer.
  */
 int ns_getdent(procfs_entry_t **entries, int count, const char *path,
-               uint64_t index, const char **out_name, procfs_type_t *out_type);
+    uint64_t index, const char **out_name, procfs_type_t *out_type);
 
 /* Print the direct children of `path`, colorized the way procfs_ls/sysfs_ls
  * always have (blue for dirs, green for files). */
