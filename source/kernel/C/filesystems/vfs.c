@@ -30,6 +30,73 @@
 
 char vfs_cwd[256] = "/";
 uint16_t vfs_cwd_cluster = 0;
+extern string current_user;
+
+static bool vfs_shadow_access_denied(const char *path) {
+    static const char *const protected_paths[] = {
+        "/etc/shadow",
+        "/etc/shadow.tmp"
+    };
+    if ((current_user && strcmp(current_user, "root") == 0) ||
+        (!current_user && !userland_is_running()))
+        return false;
+
+    for (size_t i = 0; i < sizeof(protected_paths) / sizeof(protected_paths[0]); ++i) {
+        if (strcasecmp(path, protected_paths[i]) == 0)
+            return true;
+    }
+
+    vfs_mount_res_t path_mount;
+    if (vfs_resolve_mount(path, &path_mount) != 0)
+        return false;
+    if (path_mount.mnt->type == FS_DEV)
+        return devfs_is_block_node(path_mount.rel_path);
+    if (path_mount.mnt->type != FS_EXT2)
+        return false;
+
+    uint32_t path_inode;
+    if (ext2_find_path((ext2_fs_t *)path_mount.mnt->fs,
+            path_mount.rel_path, &path_inode, NULL) != EXT2_OK)
+        return false;
+    for (size_t i = 0; i < 2; ++i) {
+        vfs_mount_res_t protected_mount;
+        uint32_t protected_inode;
+        if (vfs_resolve_mount(protected_paths[i], &protected_mount) == 0 &&
+            protected_mount.mnt == path_mount.mnt &&
+            ext2_find_path((ext2_fs_t *)protected_mount.mnt->fs,
+                protected_mount.rel_path, &protected_inode, NULL) == EXT2_OK &&
+            path_inode == protected_inode)
+            return true;
+    }
+    return false;
+}
+
+static bool vfs_shadow_file_access_denied(const vfs_file_t *file) {
+    if (!file || !file->mnt ||
+        (current_user && strcmp(current_user, "root") == 0) ||
+        (!current_user && !userland_is_running()))
+        return false;
+    if (file->mnt->type == FS_DEV)
+        return devfs_is_block_node(file->rel_path);
+    if (file->mnt->type != FS_EXT2)
+        return false;
+
+    static const char *const protected_paths[] = {
+        "/etc/shadow",
+        "/etc/shadow.tmp"
+    };
+    for (size_t i = 0; i < sizeof(protected_paths) / sizeof(protected_paths[0]); ++i) {
+        vfs_mount_res_t protected_mount;
+        uint32_t protected_inode;
+        if (vfs_resolve_mount(protected_paths[i], &protected_mount) == 0 &&
+            protected_mount.mnt == file->mnt &&
+            ext2_find_path((ext2_fs_t *)protected_mount.mnt->fs,
+                protected_mount.rel_path, &protected_inode, NULL) == EXT2_OK &&
+            file->f.ext2.ino == protected_inode)
+            return true;
+    }
+    return false;
+}
 
 static int path_matches_mount(const char *path, const char *mount) {
     if (!path || !mount)
@@ -163,6 +230,8 @@ static bool vfs_compat_mount_path(const char *path, const char **out_rel_path) {
 int vfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
     if (!file || !buf)
         return -1;
+    if (vfs_shadow_file_access_denied(file))
+        return -4;
 
     if (!(file->flags & VFS_RDONLY) &&
         !(file->flags & VFS_RDWR)) {
@@ -196,6 +265,8 @@ int vfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size) {
 int vfs_write(vfs_file_t *file, const uint8_t *buf, uint32_t size) {
     if (!file || !buf)
         return -1;
+    if (vfs_shadow_file_access_denied(file))
+        return -4;
 
     if (!(file->flags & VFS_WRONLY) &&
         !(file->flags & VFS_RDWR)) {
@@ -263,6 +334,8 @@ int vfs_readlink(const char *path, char *buf, uint32_t bufsiz) {
 
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
+    if (vfs_shadow_access_denied(norm))
         return -1;
 
     vfs_mount_res_t res;
@@ -358,6 +431,8 @@ int vfs_ls(const char *path) {
 
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
+    if (vfs_shadow_access_denied(norm))
         return -1;
 
     vfs_mount_res_t res;
@@ -504,6 +579,8 @@ int vfs_open(const char *path, int flags, vfs_file_t *out) {
 
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
+    if (vfs_shadow_access_denied(norm))
         return -1;
 
     vfs_mount_res_t res;
@@ -714,6 +791,8 @@ int vfs_mkdir(const char *path) {
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
         return -1;
+    if (vfs_shadow_access_denied(norm))
+        return -1;
 
     vfs_mount_res_t res;
     if (vfs_resolve_mount(norm, &res) != 0)
@@ -742,6 +821,8 @@ int vfs_mkdir(const char *path) {
 int vfs_rm_recursive(const char *path) {
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
+    if (strcmp(norm, "/etc") == 0 || vfs_shadow_access_denied(norm))
         return -1;
 
     vfs_mount_res_t res;
@@ -814,6 +895,8 @@ int vfs_cd(const char *path) {
 
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
+    if (vfs_shadow_access_denied(norm))
         return -1;
 
     vfs_mount_res_t res;
@@ -953,6 +1036,8 @@ int vfs_create_path(const char *path, uint8_t attr) {
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
         return -1;
+    if (vfs_shadow_access_denied(norm))
+        return -1;
 
     vfs_mount_res_t res;
     if (vfs_resolve_mount(norm, &res) != 0)
@@ -990,6 +1075,8 @@ int vfs_unlink(const char *path) {
     /* Normalize */
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0)
+        return -1;
+    if (strcmp(norm, "/etc") == 0 || vfs_shadow_access_denied(norm))
         return -1;
 
     /* Resolve mount */
@@ -1056,6 +1143,8 @@ int vfs_rmdir(const char *path) {
 
     char norm[256];
     if (vfs_normalize_path(path, norm, sizeof(norm)) != 0 || strcmp(norm, "/") == 0)
+        return -1;
+    if (strcmp(norm, "/etc") == 0 || vfs_shadow_access_denied(norm))
         return -1;
 
     vfs_mount_res_t res;
@@ -1124,6 +1213,10 @@ int vfs_mv(const char *src, const char *dst) {
         if (vfs_normalize_path(combined, dst_norm, sizeof(dst_norm)) != 0)
             return -1;
     }
+    if (strcmp(src_norm, "/etc") == 0 || strcmp(dst_norm, "/etc") == 0 ||
+        vfs_shadow_access_denied(src_norm) ||
+        vfs_shadow_access_denied(dst_norm))
+        return -1;
 
     vfs_mount_res_t src_res, dst_res;
     if (vfs_resolve_mount(src_norm, &src_res) != 0)

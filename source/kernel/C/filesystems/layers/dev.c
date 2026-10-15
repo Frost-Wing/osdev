@@ -36,7 +36,7 @@ static int devfs_disk_id_from_name(const char *name) {
     return -1;
 }
 
-static bool devfs_is_block_node(const char *name) {
+bool devfs_is_block_node(const char *name) {
     int id = devfs_disk_id_from_name(name);
     if (id >= 0)
         return true;

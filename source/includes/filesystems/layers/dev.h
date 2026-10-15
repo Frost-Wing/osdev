@@ -18,6 +18,9 @@ void devfs_init(void);
 /** @brief Open a device node through the VFS. */
 int devfs_open(vfs_file_t *file);
 
+/** @brief Return whether a device name represents a raw block device. */
+bool devfs_is_block_node(const char *name);
+
 /** @brief Read bytes from an open device node. */
 int devfs_read(vfs_file_t *file, uint8_t *buf, uint32_t size);
 

@@ -21,8 +21,12 @@
 #define MAX_PASSWORD_LENGTH 40
 
 /**
- * Load the persisted root verifier or perform first-boot setup on a writable
- * FAT16, FAT32, or ext2 root filesystem. The password itself is never stored.
+ * Load account names from /etc/passwd and password verifiers from /etc/shadow,
+ * or perform first-boot root setup on a writable FAT16, FAT32, or ext2 root
+ * filesystem. Existing /etc/fwauth.dat credentials are migrated on first boot.
+ * Shadow verifiers use FrostWing's $fwauth$ format and never store plaintext
+ * passwords. Ext2 stores /etc/shadow with mode 0600; FAT relies on kernel
+ * access checks instead.
  */
 int login_setup_first_user(void);
 

@@ -32,6 +32,8 @@ extern void shutdown();
 #define LINUX_SOCK_RAW 3
 #define LINUX_IPPROTO_ICMP 1
 
+extern string current_user;
+
 typedef struct {
     uint16_t family;
     uint16_t port;
@@ -104,6 +106,48 @@ static int linux_flags_to_vfs(int linux_flags) {
         vfs_flags |= VFS_APPEND;
 
     return vfs_flags;
+}
+
+static bool syscall_shadow_protected_path(const char *path) {
+    static const char *const protected_paths[] = {
+        "/etc/shadow",
+        "/etc/shadow.tmp"
+    };
+    for (size_t i = 0; i < sizeof(protected_paths) / sizeof(protected_paths[0]); ++i) {
+        if (strcasecmp(path, protected_paths[i]) == 0)
+            return true;
+    }
+
+    vfs_mount_res_t path_mount;
+    if (vfs_resolve_mount(path, &path_mount) != 0 ||
+        path_mount.mnt->type != FS_EXT2)
+        return false;
+
+    uint32_t path_inode;
+    if (ext2_find_path((ext2_fs_t *)path_mount.mnt->fs,
+            path_mount.rel_path, &path_inode, NULL) != EXT2_OK)
+        return false;
+    for (size_t i = 0; i < sizeof(protected_paths) / sizeof(protected_paths[0]); ++i) {
+        vfs_mount_res_t protected_mount;
+        uint32_t protected_inode;
+        if (vfs_resolve_mount(protected_paths[i], &protected_mount) == 0 &&
+            path_mount.mnt == protected_mount.mnt &&
+            ext2_find_path((ext2_fs_t *)protected_mount.mnt->fs,
+                protected_mount.rel_path, &protected_inode, NULL) == EXT2_OK) {
+            if (path_inode == protected_inode)
+                return true;
+        }
+    }
+    return false;
+}
+
+static bool syscall_shadow_directory(const char *path) {
+    return strcasecmp(path, "/etc") == 0;
+}
+
+static bool syscall_shadow_read_denied(const char *path) {
+    return syscall_shadow_protected_path(path) &&
+        (!current_user || strcmp(current_user, "root") != 0);
 }
 
 static void fill_stat_from_info(linux_stat_t *st, const vfs_stat_info_t *info) {
@@ -801,6 +845,8 @@ uint64 sys_unlinkat(int dirfd, const char *user_path, int flags) {
     char path[256];
     if (!resolve_path_at(dirfd, user_path, path, sizeof(path)))
         return -LINUX_EINVAL;
+    if (syscall_shadow_protected_path(path) || syscall_shadow_directory(path))
+        return -LINUX_EPERM;
 
     vfs_stat_info_t info;
     if (!fill_vfs_stat_for_path_at(LINUX_AT_FDCWD, path, &info))
@@ -882,6 +928,11 @@ uint64 sys_link(const char *oldpath, const char *newpath) {
     if (!resolve_path_at(LINUX_AT_FDCWD, oldpath, old_norm, sizeof(old_norm)) ||
         !resolve_path_at(LINUX_AT_FDCWD, newpath, new_norm, sizeof(new_norm)))
         return -LINUX_EINVAL;
+    if (syscall_shadow_protected_path(old_norm) ||
+        syscall_shadow_protected_path(new_norm) ||
+        syscall_shadow_directory(old_norm) ||
+        syscall_shadow_directory(new_norm))
+        return -LINUX_EPERM;
 
     vfs_mount_res_t old_mount, new_mount;
     if (vfs_resolve_mount(old_norm, &old_mount) != 0 ||
@@ -906,6 +957,8 @@ uint64 sys_symlink(const char *target, const char *linkpath) {
     if (!resolve_path_at(LINUX_AT_FDCWD, linkpath, link_norm,
             sizeof(link_norm)))
         return -LINUX_EINVAL;
+    if (syscall_shadow_protected_path(link_norm))
+        return -LINUX_EPERM;
 
     vfs_mount_res_t mount;
     if (vfs_resolve_mount(link_norm, &mount) != 0)
@@ -955,6 +1008,8 @@ uint64 sys_chmod(const char *user_path, uint64_t mode) {
     char path[256];
     if (!resolve_path_at(LINUX_AT_FDCWD, user_path, path, sizeof(path)))
         return -LINUX_EINVAL;
+    if (syscall_shadow_protected_path(path))
+        return -LINUX_EPERM;
 
     vfs_mount_res_t mount;
     if (vfs_resolve_mount(path, &mount) != 0)
@@ -982,6 +1037,9 @@ uint64 sys_fchmod(uint64_t fd, uint64_t mode) {
     vfs_file_t *file = fd_get_file((int)fd);
     if (!file || !file->mnt)
         return -LINUX_EBADF;
+    const char *path = fd_get_path((int)fd);
+    if (path && syscall_shadow_protected_path(path))
+        return -LINUX_EPERM;
     if (file->mnt->type != FS_EXT2)
         return file->mnt->type == FS_ISO9660 ?
             (uint64_t)-LINUX_EROFS : (uint64_t)-LINUX_EOPNOTSUPP;
@@ -1032,6 +1090,11 @@ uint64 sys_rename(const char *oldpath, const char *newpath) {
     if (!resolve_path_at(LINUX_AT_FDCWD, oldpath, old_norm, sizeof(old_norm)) ||
         !resolve_path_at(LINUX_AT_FDCWD, newpath, new_norm, sizeof(new_norm)))
         return -LINUX_EINVAL;
+    if (syscall_shadow_protected_path(old_norm) ||
+        syscall_shadow_protected_path(new_norm) ||
+        syscall_shadow_directory(old_norm) ||
+        syscall_shadow_directory(new_norm))
+        return -LINUX_EPERM;
 
     vfs_mount_res_t old_mount, new_mount;
     if (vfs_resolve_mount(old_norm, &old_mount) != 0 ||
@@ -1069,6 +1132,11 @@ uint64 sys_copy_file_range(uint64_t in_fd, int64_t *off_in,
     if (!in_file || !out_file || !in_file->mnt || !out_file->mnt ||
         !in_pos || !out_pos)
         return -LINUX_EBADF;
+    const char *in_path = fd_get_path((int)in_fd);
+    const char *out_path = fd_get_path((int)out_fd);
+    if ((in_path && syscall_shadow_read_denied(in_path)) ||
+        (out_path && syscall_shadow_protected_path(out_path)))
+        return -LINUX_EPERM;
     if (in_file == out_file)
         return -LINUX_EINVAL;
 
@@ -1098,8 +1166,6 @@ uint64 sys_copy_file_range(uint64_t in_fd, int64_t *off_in,
     if (len == 0)
         return 0;
 
-    const char *in_path = fd_get_path((int)in_fd);
-    const char *out_path = fd_get_path((int)out_fd);
     if (in_file->mnt == out_file->mnt && in_path && out_path &&
         strcmp(in_path, out_path) == 0 &&
         read_offset <= write_offset + len - 1 &&
@@ -1570,6 +1636,13 @@ uint64 sys_open_common(int dirfd, const char *path, int flags, int mode) {
     char resolved_path[256];
     if (!resolve_path_at(dirfd, path, resolved_path, sizeof(resolved_path)))
         return -LINUX_EINVAL;
+    if (syscall_shadow_protected_path(resolved_path)) {
+        if (!current_user || strcmp(current_user, "root") != 0)
+            return -LINUX_EACCES;
+        if ((flags & 0x3) != LINUX_O_RDONLY ||
+            (flags & (LINUX_O_CREAT | LINUX_O_TRUNC | LINUX_O_APPEND)))
+            return -LINUX_EPERM;
+    }
 
     int fd = fd_open(resolved_path, linux_flags_to_vfs(flags));
     if (fd == -1)
@@ -1812,6 +1885,9 @@ uint64 sys_read(uint64_t fd, char *buf, uint64_t count) {
         return sys_socket_read(fd, buf, count);
 
     vfs_file_t *file = fd_get_file((int)fd);
+    const char *path = fd_get_path((int)fd);
+    if (path && syscall_shadow_read_denied(path))
+        return -LINUX_EPERM;
     if (fd_is_tty((int)fd))
         return tty_read(buf, count);
 
@@ -1870,6 +1946,9 @@ uint64 sys_write(uint64_t fd, const char *buf, uint64_t count) {
         return sys_socket_write(fd, buf, count);
 
     vfs_file_t *file = fd_get_file((int)fd);
+    const char *path = fd_get_path((int)fd);
+    if (path && syscall_shadow_protected_path(path))
+        return -LINUX_EPERM;
     if (file == NULL) {
         for (uint64_t i = 0; i < count; ++i)
             putc(buf[i]);
