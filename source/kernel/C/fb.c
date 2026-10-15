@@ -130,11 +130,13 @@ static bool ssfn_draw_box(struct flanterm_fb_context *ctx,
     size_t cw = ctx->glyph_width, ch = ctx->glyph_height;
 
     bool up = false, down = false, left = false, right = false;
+    bool rounded_bottom_left = false;
     switch (u) {
     case 0x2502: up = down = true; break;            /* │ */
     case 0x2500: left = right = true; break;         /* ─ */
     case 0x2514: up = right = true; break;           /* └ */
     case 0x251c: up = down = right = true; break;    /* ├ */
+    case 0x2570: rounded_bottom_left = true; break;  /* ╰ */
     default: return false;
     }
 
@@ -147,6 +149,38 @@ static bool ssfn_draw_box(struct flanterm_fb_context *ctx,
 
     for (size_t i = 0; i < cw * ch; i++)
         out[i] = 0;
+
+    if (rounded_bottom_left) {
+        size_t cx = cx0;
+        size_t cy = cy0;
+        size_t radius = cw / 3;
+        if (radius > ch / 4)
+            radius = ch / 4;
+        if (radius == 0)
+            radius = 1;
+        if (radius > cy)
+            radius = cy;
+
+        for (size_t y = 0; y <= cy - radius; y++)
+            out[y * cw + cx] = 255;
+
+        size_t steps = cw + ch;
+        for (size_t i = 0; i <= steps; i++) {
+            size_t inv = steps - i;
+            size_t denom = steps * steps;
+            size_t x_num = inv * inv * cx +
+                2 * inv * i * cx + i * i * (cx + radius);
+            size_t y_num = inv * inv * (cy - radius) +
+                2 * inv * i * cy + i * i * cy;
+            size_t x = (x_num + denom / 2) / denom;
+            size_t y = (y_num + denom / 2) / denom;
+            out[y * cw + x] = 255;
+        }
+
+        for (size_t x = cx + radius; x < cw; x++)
+            out[cy * cw + x] = 255;
+        return true;
+    }
 
     for (size_t y = 0; y < ch; y++) {
         for (size_t x = 0; x < cw; x++) {
