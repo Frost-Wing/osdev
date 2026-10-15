@@ -59,6 +59,9 @@ FrostWing is a lightweight, flexible x86_64 operating system with a clean, aesth
 - PS/2
     - Keyboard
     - Mouse
+- Shell
+    - Interactive command editing and history
+    - Built-in command-name completion with Tab
 - Graphics
     - OpenGL Renderer
     - Terminal emulator

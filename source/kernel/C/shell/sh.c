@@ -233,6 +233,10 @@ static void shell_clear_line(size_t size, size_t cursor) {
     shell_move_cursor(size, 0);
 }
 
+static size_t shell_complete_command(char *command, size_t *command_size,
+                                     size_t capacity);
+static void shell_print_command_matches(const char *prefix, size_t prefix_size);
+
 int shell_main(int argc, char **argv) {
     running = true;
     char *command = kmalloc(BUFFER_SIZE);
@@ -262,6 +266,33 @@ int shell_main(int argc, char **argv) {
 
         if (c == 0)
             continue;
+
+        if (c == '\t') {
+            bool command_only = cursor == commandSize;
+            for (size_t i = 0; command_only && i < commandSize; ++i) {
+                if (command[i] == ' ' || command[i] == '\t')
+                    command_only = false;
+            }
+
+            if (command_only && commandSize != 0) {
+                size_t old_size = commandSize;
+                size_t matches = shell_complete_command(
+                    command, &commandSize, commandBufferSize);
+                cursor = commandSize;
+
+                if (commandSize > old_size) {
+                    shell_redraw_line(command, old_size, old_size,
+                                      commandSize, cursor);
+                } else if (matches > 0) {
+                    putc('\n');
+                    shell_print_command_matches(command, commandSize);
+                    putc('\n');
+                    show_prompt(argc, argv);
+                    print(command);
+                }
+            }
+            continue;
+        }
 
         if (c == 3 || c == 4) {
             tty_take_interrupt();
@@ -598,6 +629,61 @@ static command_t commands[] = {
     // { "fwfetch", cmd_fwfetch },
     // { "help", cmd_help },
 };
+
+static size_t shell_complete_command(char *command, size_t *command_size,
+                                     size_t capacity) {
+    const char *first_match = NULL;
+    size_t common_size = 0;
+    size_t matches = 0;
+
+    for (size_t i = 0; i < sizeof(commands) / sizeof(commands[0]); ++i) {
+        const char *name = commands[i].name;
+        if (strncmp(name, command, *command_size) != 0)
+            continue;
+
+        if (matches == 0) {
+            first_match = name;
+            common_size = strlen(name);
+        } else {
+            for (size_t j = 0; j < common_size; ++j) {
+                if (name[j] != first_match[j]) {
+                    common_size = j;
+                    break;
+                }
+            }
+        }
+        ++matches;
+    }
+
+    if (matches == 0)
+        return 0;
+
+    bool unique = matches == 1;
+    size_t completed_size = common_size;
+    if (unique)
+        completed_size = (size_t)strlen(first_match);
+    size_t new_size = completed_size + (unique ? 1 : 0);
+    if (new_size >= capacity)
+        return matches;
+
+    if (completed_size > *command_size)
+        memcpy(command, first_match, completed_size);
+    if (unique)
+        command[completed_size] = ' ';
+
+    *command_size = new_size;
+    command[new_size] = '\0';
+    return matches;
+}
+
+static void shell_print_command_matches(const char *prefix, size_t prefix_size) {
+    for (size_t i = 0; i < sizeof(commands) / sizeof(commands[0]); ++i) {
+        if (strncmp(commands[i].name, prefix, prefix_size) == 0) {
+            print(commands[i].name);
+            print("  ");
+        }
+    }
+}
 
 static int dispatch(int argc, char **argv) {
     if (argc == 0)
