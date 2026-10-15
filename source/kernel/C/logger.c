@@ -121,9 +121,9 @@ void __log_scope_exit(int *unused) {
 // #define TREE_END    "\xC0\xC4 "   /* └─  */
 
 
-#define TREE_TRUNK  " │   "
-#define TREE_END    " └── "      /* corner + two dashes, joins to the icon */
-// #define TREE_BRANCH " ├──"
+#define TREE_TRUNK  " \u2502   "
+#define TREE_END    " \u2570\u2500\u2500 "
+// #define TREE_BRANCH " \u251C\u2500\u2500 "
 
 static cstring strip_path(cstring file) {
     const char *slash = strrchr(file, '/');

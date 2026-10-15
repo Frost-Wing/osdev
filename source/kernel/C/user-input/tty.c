@@ -339,6 +339,10 @@ uint64_t tty_write(const char *buf, uint64_t count) {
     if (!buf || count == 0)
         return 0;
 
+    tty_t *tty = tty_get(tty_active_index());
+    if (!tty->display)
+        return 0;
+
     linux_termios_t termios;
     if (!tty_get_termios(&termios))
         return 0;
@@ -355,13 +359,13 @@ uint64_t tty_write(const char *buf, uint64_t count) {
         output[used++] = c;
 
         if (used > sizeof(output) - 2) {
-            terminal_write(output, used);
+            flanterm_write(tty->display, output, used);
             used = 0;
         }
     }
 
     if (used != 0)
-        terminal_write(output, used);
+        flanterm_write(tty->display, output, used);
     return count;
 }
 

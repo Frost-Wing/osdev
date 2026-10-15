@@ -1419,7 +1419,8 @@ static void flanterm_putchar(struct flanterm_context *ctx, uint8_t c) {
             uint32_t cp = (uint32_t)ctx->code_point;
             bool icon = (cp >= 0xE000 && cp <= 0xF8FF) ||
                         (cp >= 0xF0000 && cp <= 0xFFFFD);
-            if (icon) {
+            bool rounded_box_drawing = cp >= 0x256D && cp <= 0x2570;
+            if (icon || rounded_box_drawing) {
                 ctx->raw_putchar(ctx, cp);
             } else {
                 size_t replacement_width = (size_t)mk_wcwidth(cp);
