@@ -264,6 +264,9 @@ void print_bitmap(int x, int y, int w, int h, const bool *pixels, uint32 color);
  */
 void terminal_toggle_cursor(void);
 
+/** @brief Write bytes verbatim to the active framebuffer terminal. */
+void terminal_write(const char *buf, size_t len);
+
 /**
  * @brief Atomically select and redraw the framebuffer terminal used for console I/O.
  * @param context Terminal context to activate.

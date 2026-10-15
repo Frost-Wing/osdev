@@ -82,7 +82,7 @@ static bool login_read_line(const char *prompt, char *buffer, size_t capacity,
         char ch = (char)key;
         if (ch == '\n' || ch == '\r')
             break;
-        if (ch == '\b') {
+        if (ch == '\b' || ch == 127) {
             if (length) {
                 buffer[--length] = '\0';
                 print("\b \b");

@@ -51,6 +51,9 @@ void tty_input_char(char c);
  */
 int tty_read(char *buf, uint64_t count);
 
+/** @brief Write bytes to the terminal using its output processing settings. */
+uint64_t tty_write(const char *buf, uint64_t count);
+
 /** @brief Discard buffered terminal input. */
 void tty_flush_input(void);
 

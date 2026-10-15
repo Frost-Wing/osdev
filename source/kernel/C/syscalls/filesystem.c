@@ -1950,6 +1950,8 @@ uint64 sys_write(uint64_t fd, const char *buf, uint64_t count) {
     if (path && syscall_shadow_protected_path(path))
         return -LINUX_EPERM;
     if (file == NULL) {
+        if (fd_is_tty((int)fd))
+            return tty_write(buf, count);
         for (uint64_t i = 0; i < count; ++i)
             putc(buf[i]);
         return (uint64)count;

@@ -23,6 +23,20 @@ extern struct flanterm_context *ft_ctx;
 static stream_t printf_stream;
 static spinlock_t console_lock = SPINLOCK_INITIALIZER;
 
+static uint64_t console_lock_acquire(void) {
+    uint64_t flags;
+    __asm__ volatile("pushfq; popq %0; cli"
+        : "=r"(flags) : : "memory");
+    spinlock_lock(&console_lock);
+    return flags;
+}
+
+static void console_lock_release(uint64_t flags) {
+    spinlock_unlock(&console_lock);
+    __asm__ volatile("pushq %0; popfq"
+        : : "r"(flags) : "memory", "cc");
+}
+
 #define LINE_BUF_MAX 256
 
 static char   line_buf[LINE_BUF_MAX];
@@ -69,9 +83,9 @@ int log_depth = 0;
 bool log_tree_enabled = true;
 
 void log_tree_set(bool enabled) {
-    spinlock_lock(&console_lock);
+    uint64_t irq_flags = console_lock_acquire();
     log_tree_enabled = enabled;
-    spinlock_unlock(&console_lock);
+    console_lock_release(irq_flags);
 }
 
 bool log_tree_is_enabled(void) {
@@ -137,7 +151,7 @@ static void log_tree(int level, cstring icon, cstring color, cstring tag,
 
     file = strip_path(file);
 
-    spinlock_lock(&console_lock);
+    uint64_t irq_flags = console_lock_acquire();
     printf_stream = STDOUT;
 
     /* save whatever is currently on the line (prompt, half-typed input) */
@@ -161,7 +175,7 @@ static void log_tree(int level, cstring icon, cstring color, cstring tag,
     if (saved_len)
         print_unlocked(saved);
 
-    spinlock_unlock(&console_lock);
+    console_lock_release(irq_flags);
 
     /* serial/debug output and klog outside the console lock */
     debug_print(color); debug_print(icon); debug_print(" ");
@@ -202,9 +216,9 @@ void done(cstring fmt, cstring file, ...) {
 }
 
 void putc(char c) {
-    spinlock_lock(&console_lock);
+    uint64_t irq_flags = console_lock_acquire();
     putc_unlocked(c);
-    spinlock_unlock(&console_lock);
+    console_lock_release(irq_flags);
 }
 
 void vputc(char c) {
@@ -214,23 +228,23 @@ void vputc(char c) {
 }
 
 void terminal_toggle_cursor(void) {
-    spinlock_lock(&console_lock);
+    uint64_t irq_flags = console_lock_acquire();
     if (ft_ctx) {
         ft_ctx->cursor_enabled = !ft_ctx->cursor_enabled;
         ft_ctx->double_buffer_flush(ft_ctx);
         __asm__ volatile("sfence" ::: "memory");
     }
-    spinlock_unlock(&console_lock);
+    console_lock_release(irq_flags);
 }
 
 void terminal_switch_context(struct flanterm_context *context) {
     if (!context)
         return;
 
-    spinlock_lock(&console_lock);
+    uint64_t irq_flags = console_lock_acquire();
     ft_ctx = context;
     ft_ctx->full_refresh(ft_ctx);
-    spinlock_unlock(&console_lock);
+    console_lock_release(irq_flags);
 }
 
 /**
@@ -249,9 +263,9 @@ static void printbin_unlocked(uint8_t value) {
 }
 
 void printbin(uint8_t value) {
-    spinlock_lock(&console_lock);
+    uint64_t irq_flags = console_lock_acquire();
     printbin_unlocked(value);
-    spinlock_unlock(&console_lock);
+    console_lock_release(irq_flags);
 }
 
 static void printstr_fmt(const char *s, int width) {
@@ -270,7 +284,7 @@ static void printstr_fmt(const char *s, int width) {
 }
 
 void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, bool newline, cstring format, va_list argp) {
-    spinlock_lock(&console_lock);
+    uint64_t irq_flags = console_lock_acquire();
     if (enable_logging) {
         last_print_file = (string)file;
         last_print_func = (string)func;
@@ -381,7 +395,7 @@ void vprintf_internal(stream_t stream, cstring file, cstring func, uint64 line, 
     if (newline)
         print_unlocked("\n");
 
-    spinlock_unlock(&console_lock);
+    console_lock_release(irq_flags);
 }
 
 void printf_internal(cstring file, cstring func, uint64 line, cstring format, ...) {
@@ -623,18 +637,18 @@ void print(cstring s) {
     if (!s)
         return;
 
-    spinlock_lock(&console_lock);
+    uint64_t irq_flags = console_lock_acquire();
     print_unlocked(s);
-    spinlock_unlock(&console_lock);
+    console_lock_release(irq_flags);
 }
 
 void kprint(cstring msg) {
-    spinlock_lock(&console_lock);
+    uint64_t irq_flags = console_lock_acquire();
     if (msg == null) {
         flanterm_write(ft_ctx, "null", 4);
-        spinlock_unlock(&console_lock);
+        console_lock_release(irq_flags);
         return;
     }
     flanterm_write(ft_ctx, msg, strlen(msg));
-    spinlock_unlock(&console_lock);
+    console_lock_release(irq_flags);
 }

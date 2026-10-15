@@ -225,7 +225,7 @@ uint8_t modifiers = 0;
 
 static int keyboard_dispatch_scancode(uint8_t scancode) {
     int key = handle_char_from_scancode(scancode);
-    if (is_kbrb_ready && key != 0)
+    if (is_kbrb_ready && key != 0 && !userland_is_running())
         rb_push(&kb_rb, &key);
     if (key != 0)
         tty_input_key(key);
@@ -408,7 +408,7 @@ int handle_char_from_scancode(uint8_t data) {
             return '\n';
 
         case 0x0E: // Backspace
-            return '\b';
+            return 127;
     }
 
     /* Linux-style virtual terminal selection: Ctrl+Alt+F1 through F7. */
