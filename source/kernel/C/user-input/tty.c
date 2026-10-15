@@ -404,6 +404,9 @@ bool tty_interrupt_pending(void) {
 
 int tty_take_interrupt(void) {
     tty_t *tty = tty_get((uint8_t)multitasking_current_tty());
+    if (tty->interrupt_exit_code < 0)
+        return -1;
+
     uint64_t irq_flags = tty_lock(tty);
     int exit_code = tty->interrupt_exit_code;
     tty->interrupt_exit_code = -1;

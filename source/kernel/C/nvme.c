@@ -30,6 +30,7 @@
 #define NVME_NVM_OP_READ           0x02
 #define NVME_NVM_OP_FLUSH          0x00
 #define NVME_FEAT_NUM_QUEUES       0x07
+#define NVME_MAX_IO_BYTES 4096U
 
 nvme_controller_t nvme_controllers[NVME_MAX_CONTROLLERS];
 nvme_namespace_t nvme_namespaces[NVME_MAX_NAMESPACES];
@@ -213,34 +214,35 @@ static int nvme_init_controller(nvme_controller_t *ctrl) {
     return nvme_create_io_queues(ctrl);
 }
 
-static int nvme_buffer_needs_bounce(void *buffer, uint32_t lba_size) {
+static int nvme_buffer_needs_bounce(void *buffer, uint32_t bytes) {
     uintptr_t start = (uintptr_t)buffer;
-    uintptr_t end = start + lba_size;
 
-    if (start < heap_begin || start >= heap_end)
+    if (start < heap_begin || start >= heap_end ||
+        bytes > heap_end - start)
         return 1;
 
-    return ((start & 0xFFF) + lba_size) > 4096 || end > heap_end;
+    return ((start & 0xFFF) + bytes) > 4096;
 }
 
-static int nvme_read_write_one(nvme_namespace_t *ns, uint64_t lba, void *buffer, int is_write) {
+static int nvme_read_write_chunk(nvme_namespace_t *ns, uint64_t lba,
+    void *buffer, uint32_t sectors, int is_write) {
     nvme_controller_t *ctrl = &nvme_controllers[ns->controller_index];
     nvme_command_t cmd;
     uint8_t *io_buffer = (uint8_t *)buffer;
-    int use_bounce = nvme_buffer_needs_bounce(buffer, ns->lba_size);
+    uint32_t bytes = sectors * ns->lba_size;
+    int use_bounce = nvme_buffer_needs_bounce(buffer, bytes);
+
+    while (__sync_lock_test_and_set(&ctrl->io_lock, 1))
+        __asm__ __volatile__("pause");
 
     if (use_bounce) {
-        /*
-         * Filesystem probing commonly reads into stack buffers, while early
-         * partition probing often uses aligned heap buffers. Bounce only when
-         * the caller buffer is not DMA-safe for the controller.
-         */
-        if (!ctrl->bounce_buffer)
+        if (!ctrl->bounce_buffer) {
+            __sync_lock_release(&ctrl->io_lock);
             return -1;
-
+        }
         io_buffer = (uint8_t *)ctrl->bounce_buffer;
         if (is_write)
-            memcpy(io_buffer, buffer, ns->lba_size);
+            memcpy(io_buffer, buffer, bytes);
     }
 
     memset(&cmd, 0, sizeof(cmd));
@@ -249,13 +251,31 @@ static int nvme_read_write_one(nvme_namespace_t *ns, uint64_t lba, void *buffer,
     cmd.prp1 = fast_virt_to_phys(io_buffer);
     cmd.cdw10 = (uint32_t)lba;
     cmd.cdw11 = (uint32_t)(lba >> 32);
-    cmd.cdw12 = 0;
+    cmd.cdw12 = sectors - 1;
 
     int rc = nvme_submit_and_wait(ctrl, &ctrl->ioq, &cmd);
     if (rc == 0 && use_bounce && !is_write)
-        memcpy(buffer, io_buffer, ns->lba_size);
+        memcpy(buffer, io_buffer, bytes);
 
+    __sync_lock_release(&ctrl->io_lock);
     return rc;
+}
+
+static int nvme_read_write(nvme_namespace_t *ns, uint64_t lba,
+    void *buffer, uint32_t count, int is_write) {
+    uint8_t *ptr = (uint8_t *)buffer;
+    const uint32_t max_sectors = NVME_MAX_IO_BYTES / ns->lba_size;
+
+    while (count > 0) {
+        uint32_t sectors = count > max_sectors ? max_sectors : count;
+        if (nvme_read_write_chunk(ns, lba, ptr, sectors, is_write) != 0)
+            return -2;
+        lba += sectors;
+        ptr += (size_t)sectors * ns->lba_size;
+        count -= sectors;
+    }
+
+    return 0;
 }
 
 static void nvme_probe_namespaces(int controller_index) {
@@ -388,16 +408,15 @@ int nvme_read_sector(int namespace_index, uint64_t lba, void *buffer, uint32_t c
         return -1;
 
     nvme_namespace_t *ns = &nvme_namespaces[namespace_index];
-    if (!ns->present)
+    if (!ns->present || ns->lba_size == 0 ||
+        ns->lba_size > NVME_MAX_IO_BYTES)
+        return -1;
+    if (count == 0)
+        return 0;
+    if (lba >= ns->total_sectors || count > ns->total_sectors - lba)
         return -1;
 
-    uint8_t *ptr = (uint8_t *)buffer;
-    for (uint32_t i = 0; i < count; i++) {
-        if (nvme_read_write_one(ns, lba + i, ptr + i * ns->lba_size, 0) != 0)
-            return -2;
-    }
-
-    return 0;
+    return nvme_read_write(ns, lba, buffer, count, 0);
 }
 
 int nvme_write_sector(int namespace_index, uint64_t lba, void *buffer, uint32_t count) {
@@ -405,16 +424,15 @@ int nvme_write_sector(int namespace_index, uint64_t lba, void *buffer, uint32_t 
         return -1;
 
     nvme_namespace_t *ns = &nvme_namespaces[namespace_index];
-    if (!ns->present)
+    if (!ns->present || ns->lba_size == 0 ||
+        ns->lba_size > NVME_MAX_IO_BYTES)
+        return -1;
+    if (count == 0)
+        return 0;
+    if (lba >= ns->total_sectors || count > ns->total_sectors - lba)
         return -1;
 
-    uint8_t *ptr = (uint8_t *)buffer;
-    for (uint32_t i = 0; i < count; i++) {
-        if (nvme_read_write_one(ns, lba + i, ptr + i * ns->lba_size, 1) != 0)
-            return -2;
-    }
-
-    return 0;
+    return nvme_read_write(ns, lba, buffer, count, 1);
 }
 
 int nvme_flush_namespace(int namespace_index) {
@@ -434,5 +452,9 @@ int nvme_flush_namespace(int namespace_index) {
     memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = NVME_NVM_OP_FLUSH;
     cmd.nsid = ns->nsid;
-    return nvme_submit_and_wait(ctrl, &ctrl->ioq, &cmd);
+    while (__sync_lock_test_and_set(&ctrl->io_lock, 1))
+        __asm__ __volatile__("pause");
+    int rc = nvme_submit_and_wait(ctrl, &ctrl->ioq, &cmd);
+    __sync_lock_release(&ctrl->io_lock);
+    return rc;
 }

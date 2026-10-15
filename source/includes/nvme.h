@@ -70,6 +70,7 @@ typedef struct {
     nvme_queue_t adminq;
     nvme_queue_t ioq;
     void *bounce_buffer;
+    volatile int io_lock;
     int present;
 } nvme_controller_t;
 
