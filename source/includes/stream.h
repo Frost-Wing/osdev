@@ -76,6 +76,9 @@ void stream_putc(stream_t s, char c);
 
 /** @brief Initialize the process file-descriptor table. */
 void fd_table_init(void);
+/** @brief Preserve and restore the parent descriptors around synchronous fork. */
+bool fd_table_fork_enter(void);
+void fd_table_fork_leave(void);
 
 /** @brief Check whether a file descriptor refers to an open entry. */
 bool fd_valid(int fd);

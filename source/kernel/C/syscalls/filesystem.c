@@ -714,8 +714,9 @@ int build_toybox_argv(
 }
 
 static int emit_dirent(char *buf, uint64_t buflen, uint64_t *used, uint64_t ino, uint8_t type, const char *name, uint64_t next_off) {
+    const uint64_t name_offset = offsetof(linux_dirent64_t, d_name);
     uint64_t name_len = strlen(name) + 1;
-    uint64_t reclen = sizeof(linux_dirent64_t) + name_len;
+    uint64_t reclen = name_offset + name_len;
     reclen = (reclen + 7) & ~7ULL;
 
     if (*used + reclen > buflen)
@@ -726,8 +727,8 @@ static int emit_dirent(char *buf, uint64_t buflen, uint64_t *used, uint64_t ino,
     ent->d_off = next_off;
     ent->d_reclen = (uint16_t)reclen;
     ent->d_type = type;
+    memset((char *)ent + name_offset, 0, reclen - name_offset);
     memcpy(ent->d_name, name, name_len);
-    memset(((char *)ent) + sizeof(linux_dirent64_t) + name_len, 0, reclen - sizeof(linux_dirent64_t) - name_len);
     *used += reclen;
     return 1;
 }
@@ -1380,7 +1381,7 @@ done:
 }
 
 int sys_getdents64(uint64_t fd, char *buf, uint64_t buflen) {
-    if (!buf || buflen < sizeof(linux_dirent64_t))
+    if (!buf || buflen < offsetof(linux_dirent64_t, d_name) + 1)
         return -LINUX_EINVAL;
     if (!fd_valid((int)fd))
         return -LINUX_EBADF;

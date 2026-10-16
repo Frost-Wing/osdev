@@ -64,8 +64,12 @@ typedef struct {
     fd_object_t *object;
 } fd_entry_t;
 
+#define FD_FORK_SNAPSHOT_MAX 8
+
 static stream_impl_t streams[3];
 static fd_entry_t fd_table[STREAM_MAX_FDS];
+static fd_entry_t fd_fork_snapshots[FD_FORK_SNAPSHOT_MAX][STREAM_MAX_FDS];
+static size_t fd_fork_snapshot_depth;
 static fd_object_t fd_objects[STREAM_MAX_FDS];
 static fd_pipe_t fd_pipes[16];
 static bool fd_initialized = false;
@@ -213,6 +217,34 @@ void fd_table_init(void) {
     }
 
     fd_initialized = true;
+}
+
+bool fd_table_fork_enter(void) {
+    fd_table_init();
+    if (fd_fork_snapshot_depth >= FD_FORK_SNAPSHOT_MAX)
+        return false;
+
+    fd_entry_t *snapshot = fd_fork_snapshots[fd_fork_snapshot_depth++];
+    memcpy(snapshot, fd_table, sizeof(fd_table));
+    for (int fd = 0; fd < STREAM_MAX_FDS; ++fd) {
+        if (snapshot[fd].used)
+            fd_object_retain(snapshot[fd].object);
+    }
+    return true;
+}
+
+void fd_table_fork_leave(void) {
+    if (fd_fork_snapshot_depth == 0)
+        return;
+
+    fd_entry_t *snapshot = fd_fork_snapshots[--fd_fork_snapshot_depth];
+    for (int fd = 0; fd < STREAM_MAX_FDS; ++fd) {
+        if (fd_table[fd].used)
+            fd_object_release(fd_table[fd].object);
+    }
+
+    memcpy(fd_table, snapshot, sizeof(fd_table));
+    memset(snapshot, 0, sizeof(fd_table));
 }
 
 bool fd_valid(int fd) {

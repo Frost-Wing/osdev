@@ -221,9 +221,14 @@ uint64 sys_fork(void) {
     spec.tty_index = cur->tty_index;
     spec.fork_child = true; /* means "already running", see multitasking.c */
 
-    uint32_t child = multitasking_spawn_userland(NULL, &spec);
-    if (!child)
+    if (!fd_table_fork_enter())
         return -LINUX_EAGAIN;
+
+    uint32_t child = multitasking_spawn_userland(NULL, &spec);
+    if (!child) {
+        fd_table_fork_leave();
+        return -LINUX_EAGAIN;
+    }
     task_t *child_task = multitasking_find_task(child);
     if (child_task)
         memcpy(child_task->signal_actions, cur->signal_actions,
@@ -254,6 +259,7 @@ uint64 sys_fork(void) {
     multitasking_set_current_pid(child); /* getpid()/tty/execve now see the child */
     int rc = userland_fork(&regs);       /* returns only when the child has exited */
     multitasking_set_current_pid(parent_pid);
+    fd_table_fork_leave();
 
     if (rc == USERLAND_FORK_FAILED) {
         multitasking_exit_task(child, 127);

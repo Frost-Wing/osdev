@@ -809,14 +809,15 @@ static void shell_completion_collect(const char *command, size_t size,
             break;
 
         size_t offset = 0;
-        while (offset + sizeof(linux_dirent64_t) <= (size_t)bytes) {
+        const size_t name_offset = offsetof(linux_dirent64_t, d_name);
+        while (offset + name_offset <= (size_t)bytes) {
             linux_dirent64_t *entry = (linux_dirent64_t *)(buffer + offset);
             size_t record_size = entry->d_reclen;
-            if (record_size < sizeof(linux_dirent64_t) + 1 ||
+            if (record_size < name_offset + 1 ||
                 record_size > (size_t)bytes - offset)
                 break;
 
-            size_t name_capacity = record_size - sizeof(linux_dirent64_t);
+            size_t name_capacity = record_size - name_offset;
             size_t name_size = 0;
             while (name_size < name_capacity && entry->d_name[name_size] != '\0')
                 ++name_size;

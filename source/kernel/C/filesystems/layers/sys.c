@@ -8,8 +8,8 @@
  *
  * The static part of that tree (bus/, bus/pci/, bus/pci/devices/) is just
  * regular entries served by the same shared namespace engine procfs uses.
- * Device directories and attributes are generated on demand for PCI and USB
- * devices, so the dynamic lookup/getdent branches provide those live entries.
+ * Device directories and attributes are generated on demand for PCI, USB,
+ * block, and physical-memory entries.
  * ==========================================================================*/
 #include <basics.h>
 #include <filesystems/layers/namespace.h>
@@ -17,9 +17,11 @@
 #include <filesystems/layers/sys.h>
 #include <pci.h>
 #include <memory.h>
+#include <paging.h>
 #include <usb.h>
 
-#define SYSFS_STATIC_FILES 8
+#define SYSFS_STATIC_FILES 11
+#define SYSFS_MEMORY_BLOCK_SIZE (1 MiB)
 
 /* Attribute files that live inside bus/pci/devices/<addr>/ */
 enum { PCI_ATTR_VENDOR,
@@ -106,6 +108,21 @@ static procfs_entry_t sys_bus_usb_devices_dir = {
     .type = PROC_DIR,
 };
 
+static procfs_entry_t sys_devices = {
+    .name = "devices",
+    .type = PROC_DIR,
+};
+
+static procfs_entry_t sys_devices_system = {
+    .name = "devices/system",
+    .type = PROC_DIR,
+};
+
+static procfs_entry_t sys_devices_system_memory = {
+    .name = "devices/system/memory",
+    .type = PROC_DIR,
+};
+
 void sysfs_init(void) {
     sys_static_file_count = 0;
     memset(sys_static_files, 0, sizeof(sys_static_files));
@@ -117,6 +134,9 @@ void sysfs_init(void) {
     sys_static_files[sys_static_file_count++] = &sys_bus_pci_devices_dir;
     sys_static_files[sys_static_file_count++] = &sys_bus_usb;
     sys_static_files[sys_static_file_count++] = &sys_bus_usb_devices_dir;
+    sys_static_files[sys_static_file_count++] = &sys_devices;
+    sys_static_files[sys_static_file_count++] = &sys_devices_system;
+    sys_static_files[sys_static_file_count++] = &sys_devices_system_memory;
 }
 
 static void sysfs_pci_name(int i, char *out, size_t out_sz) {
@@ -548,6 +568,230 @@ static int sysfs_parse_decimal(const char *s) {
     return value;
 }
 
+static int sysfs_parse_u64(const char *s, uint64_t *value, const char **end) {
+    uint64_t parsed = 0;
+    const char *p = s;
+    if (!p || *p < '0' || *p > '9')
+        return 0;
+
+    do {
+        uint32_t digit = (uint32_t)(*p - '0');
+        if (parsed > (UINT64_MAX - digit) / 10)
+            return 0;
+        parsed = parsed * 10 + digit;
+        p++;
+    } while (*p >= '0' && *p <= '9');
+
+    *value = parsed;
+    if (end)
+        *end = p;
+    return 1;
+}
+
+static int sysfs_memory_range(const struct limine_memmap_entry *entry,
+    uint64_t *first, uint64_t *end) {
+    const uint64_t block_size = SYSFS_MEMORY_BLOCK_SIZE;
+    if (entry->type != LIMINE_MEMMAP_USABLE ||
+        entry->base > UINT64_MAX - entry->length)
+        return 0;
+
+    uint64_t range_end = entry->base + entry->length;
+    if (entry->base > UINT64_MAX - (block_size - 1))
+        return 0;
+    uint64_t aligned_start = (entry->base + block_size - 1) & ~(block_size - 1);
+    uint64_t aligned_end = range_end & ~(block_size - 1);
+    if (aligned_end <= aligned_start)
+        return 0;
+
+    *first = aligned_start / block_size;
+    *end = aligned_end / block_size;
+    return 1;
+}
+
+static int sysfs_memory_get_block(uint64_t ordinal, uint64_t *phys_index) {
+    if (!memmap || !phys_index)
+        return 0;
+
+    for (uint64_t i = 0; i < memmap->entry_count; i++) {
+        uint64_t first, end;
+        if (!sysfs_memory_range(memmap->entries[i], &first, &end))
+            continue;
+        uint64_t count = end - first;
+        if (ordinal < count) {
+            *phys_index = first + ordinal;
+            return 1;
+        }
+        ordinal -= count;
+    }
+    return 0;
+}
+
+static uint64_t sysfs_memory_block_count(void) {
+    uint64_t count = 0;
+    if (!memmap)
+        return 0;
+    for (uint64_t i = 0; i < memmap->entry_count; i++) {
+        uint64_t first, end;
+        if (!sysfs_memory_range(memmap->entries[i], &first, &end))
+            continue;
+        uint64_t range_count = end - first;
+        if (count > UINT64_MAX - range_count)
+            return UINT64_MAX;
+        count += range_count;
+    }
+    return count;
+}
+
+static int sysfs_memory_has_block(uint64_t phys_index) {
+    if (!memmap)
+        return 0;
+    for (uint64_t i = 0; i < memmap->entry_count; i++) {
+        uint64_t first, end;
+        if (sysfs_memory_range(memmap->entries[i], &first, &end) &&
+            phys_index >= first && phys_index < end)
+            return 1;
+    }
+    return 0;
+}
+
+static int sysfs_memory_parse(const char *path, uint64_t *phys_index,
+    const char **attr_name) {
+    static const char prefix[] = "devices/system/memory/memory";
+    if (strncmp(path, prefix, sizeof(prefix) - 1) != 0)
+        return 0;
+
+    const char *number = path + sizeof(prefix) - 1;
+    const char *end;
+    uint64_t index;
+    if (!sysfs_parse_u64(number, &index, &end) || !sysfs_memory_has_block(index))
+        return -1;
+    if (*end == '\0') {
+        if (phys_index)
+            *phys_index = index;
+        if (attr_name)
+            *attr_name = NULL;
+        return 1;
+    }
+    if (*end != '/' || !end[1] || strchr(end + 1, '/'))
+        return -1;
+
+    static const char *const attributes[] = {
+        "phys_index", "state", "valid_zones", "removable", "phys_device", "uevent"};
+    for (size_t i = 0; i < sizeof(attributes) / sizeof(attributes[0]); i++) {
+        if (strcmp(end + 1, attributes[i]) == 0) {
+            if (phys_index)
+                *phys_index = index;
+            if (attr_name)
+                *attr_name = attributes[i];
+            return 1;
+        }
+    }
+    return -1;
+}
+
+static int sysfs_memory_ranges(char *out, size_t capacity) {
+    if (!out || capacity == 0)
+        return -1;
+    out[0] = '\0';
+    if (!memmap)
+        return 0;
+
+    size_t used = 0;
+    uint64_t pending_first = 0, pending_end = 0;
+    int have_pending = 0;
+    for (uint64_t i = 0; i < memmap->entry_count; i++) {
+        uint64_t first, end;
+        if (!sysfs_memory_range(memmap->entries[i], &first, &end))
+            continue;
+        if (have_pending && first <= pending_end) {
+            if (end > pending_end)
+                pending_end = end;
+            continue;
+        }
+        if (have_pending) {
+            int len;
+            if (pending_end - pending_first == 1)
+                len = snprintf(out + used, capacity - used, "%s%llu",
+                    used ? "," : "", (unsigned long long)pending_first);
+            else
+                len = snprintf(out + used, capacity - used, "%s%llu-%llu",
+                    used ? "," : "", (unsigned long long)pending_first,
+                    (unsigned long long)(pending_end - 1));
+            if (len < 0 || (size_t)len >= capacity - used)
+                return -1;
+            used += (size_t)len;
+        }
+        pending_first = first;
+        pending_end = end;
+        have_pending = 1;
+    }
+    if (have_pending) {
+        int len;
+        if (pending_end - pending_first == 1)
+            len = snprintf(out + used, capacity - used, "%s%llu\n",
+                used ? "," : "", (unsigned long long)pending_first);
+        else
+            len = snprintf(out + used, capacity - used, "%s%llu-%llu\n",
+                used ? "," : "", (unsigned long long)pending_first,
+                (unsigned long long)(pending_end - 1));
+        if (len < 0 || (size_t)len >= capacity - used)
+            return -1;
+        used += (size_t)len;
+    }
+    return (int)used;
+}
+
+static int sysfs_memory_get_attr(const char *path, char *contents, size_t capacity) {
+    static const char prefix[] = "devices/system/memory/";
+    if (strncmp(path, prefix, sizeof(prefix) - 1) != 0)
+        return -1;
+
+    const char *name = path + sizeof(prefix) - 1;
+    if (strchr(name, '/') == NULL) {
+        if (strcmp(name, "block_size_bytes") == 0)
+            return snprintf(contents, capacity, "%llx\n",
+                (unsigned long long)SYSFS_MEMORY_BLOCK_SIZE);
+        if (strcmp(name, "auto_online_blocks") == 0)
+            return snprintf(contents, capacity, "offline\n");
+        if (strcmp(name, "valid_zones") == 0)
+            return snprintf(contents, capacity, "Normal\n");
+        if (strcmp(name, "offline") == 0)
+            return 0;
+        if (strcmp(name, "online") == 0 || strcmp(name, "possible") == 0 ||
+            strcmp(name, "present") == 0)
+            return sysfs_memory_ranges(contents, capacity);
+        return -1;
+    }
+
+    uint64_t phys_index;
+    const char *attr_name;
+    if (sysfs_memory_parse(path, &phys_index, &attr_name) != 1 || !attr_name)
+        return -1;
+    if (strcmp(attr_name, "phys_index") == 0)
+        return snprintf(contents, capacity, "%llu\n",
+            (unsigned long long)phys_index);
+    if (strcmp(attr_name, "state") == 0)
+        return snprintf(contents, capacity, "online\n");
+    if (strcmp(attr_name, "valid_zones") == 0)
+        return snprintf(contents, capacity, "Normal\n");
+    if (strcmp(attr_name, "removable") == 0 ||
+        strcmp(attr_name, "phys_device") == 0)
+        return snprintf(contents, capacity, "0\n");
+    if (strcmp(attr_name, "uevent") == 0)
+        return snprintf(contents, capacity, "DEVTYPE=memory\n");
+    return -1;
+}
+
+static int sysfs_memory_attr_read(vfs_file_t *file, uint8_t *buf,
+    uint32_t size, void *priv) {
+    (void)priv;
+    char contents[2048];
+    int len = sysfs_memory_get_attr(file->rel_path, contents, sizeof(contents));
+    if (len < 0)
+        return -1;
+    return ns_reply(file, buf, size, contents, len);
+}
+
 static int sysfs_block_parse(const char *normalized, int *major, int *minor) {
     static const char prefix[] = "dev/block/";
     size_t prefix_len = sizeof(prefix) - 1;
@@ -630,6 +874,33 @@ static procfs_entry_t *sysfs_find_dynamic(const char *normalized) {
             if (result < 0)
                 return NULL;
         }
+    }
+
+    uint64_t memory_index;
+    const char *memory_attr;
+    if (sysfs_memory_parse(normalized, &memory_index, &memory_attr) == 1) {
+        (void)memory_index;
+        strncpy(sys_pci_entry_name, normalized, sizeof(sys_pci_entry_name) - 1);
+        sys_pci_entry_name[sizeof(sys_pci_entry_name) - 1] = '\0';
+        sys_pci_entry.name = sys_pci_entry_name;
+        sys_pci_entry.type = memory_attr ? PROC_FILE : PROC_DIR;
+        sys_pci_entry.read = memory_attr ? sysfs_memory_attr_read : NULL;
+        sys_pci_entry.write = NULL;
+        sys_pci_entry.priv = NULL;
+        return &sys_pci_entry;
+    }
+
+    char memory_attr_contents[2048];
+    if (sysfs_memory_get_attr(normalized, memory_attr_contents,
+            sizeof(memory_attr_contents)) >= 0) {
+        strncpy(sys_pci_entry_name, normalized, sizeof(sys_pci_entry_name) - 1);
+        sys_pci_entry_name[sizeof(sys_pci_entry_name) - 1] = '\0';
+        sys_pci_entry.name = sys_pci_entry_name;
+        sys_pci_entry.type = PROC_FILE;
+        sys_pci_entry.read = sysfs_memory_attr_read;
+        sys_pci_entry.write = NULL;
+        sys_pci_entry.priv = NULL;
+        return &sys_pci_entry;
     }
 
     int disk_id = -1;
@@ -848,6 +1119,44 @@ int sysfs_getdent(const char *path, uint64_t index, const char **out_name, procf
         return 0;
     if (resolve_result == 1)
         strcpy(normalized, resolved);
+
+    static const char *const memory_root_attrs[] = {
+        "auto_online_blocks", "block_size_bytes", "offline", "online",
+        "possible", "present", "valid_zones"};
+    if (strcmp(normalized, "devices/system/memory") == 0) {
+        uint64_t block_count = sysfs_memory_block_count();
+        if (index < block_count) {
+            uint64_t phys_index;
+            if (!sysfs_memory_get_block(index, &phys_index))
+                return 0;
+            static char memory_name[32];
+            snprintf(memory_name, sizeof(memory_name), "memory%llu",
+                (unsigned long long)phys_index);
+            *out_name = memory_name;
+            *out_type = PROC_DIR;
+            return 1;
+        }
+        index -= block_count;
+        if (index >= sizeof(memory_root_attrs) / sizeof(memory_root_attrs[0]))
+            return 0;
+        *out_name = memory_root_attrs[index];
+        *out_type = PROC_FILE;
+        return 1;
+    }
+
+    uint64_t memory_index;
+    const char *memory_attr;
+    if (sysfs_memory_parse(normalized, &memory_index, &memory_attr) == 1 &&
+        !memory_attr) {
+        static const char *const memory_block_attrs[] = {
+            "phys_device", "phys_index", "removable", "state",
+            "uevent", "valid_zones"};
+        if (index >= sizeof(memory_block_attrs) / sizeof(memory_block_attrs[0]))
+            return 0;
+        *out_name = memory_block_attrs[index];
+        *out_type = PROC_FILE;
+        return 1;
+    }
 
     int disk_id = -1;
     int partition_index = -1;

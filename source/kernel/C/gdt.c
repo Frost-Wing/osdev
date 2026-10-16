@@ -79,4 +79,6 @@ void gdt_activate(void) {
         :
         : "m"(gdtp)
         : "rax", "memory");
+
+    done("GDT activated successfully", __FILE__);
 }
