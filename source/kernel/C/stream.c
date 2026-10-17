@@ -55,6 +55,8 @@ typedef struct {
     uint64_t eventfd_counter;
     bool epoll;
     fd_epoll_watch_t *epoll_watches;
+    bool pidfd;
+    uint32_t pidfd_pid;
     int flock_mode;
 } fd_object_t;
 
@@ -724,6 +726,37 @@ int fd_epoll_create(void) {
     fd_table[fd].close_on_exec = false;
     fd_table[fd].object = object;
     return fd;
+}
+
+int fd_pidfd_create(uint32_t pid) {
+    int fd = fd_alloc_slot();
+    if (fd < 0)
+        return -1;
+
+    fd_object_t *object = fd_object_alloc(NULL, false, VFS_RDWR);
+    if (!object)
+        return -1;
+
+    object->pidfd = true;
+    object->pidfd_pid = pid;
+    fd_table[fd].used = true;
+    fd_table[fd].close_on_exec = false;
+    fd_table[fd].object = object;
+    return fd;
+}
+
+bool fd_is_pidfd(int fd) {
+    return fd_valid(fd) && fd_table[fd].object &&
+           fd_table[fd].object->pidfd;
+}
+
+bool fd_pidfd_ready(int fd) {
+    if (!fd_is_pidfd(fd))
+        return false;
+
+    bool exited = true;
+    return !multitasking_get_process_ids(fd_table[fd].object->pidfd_pid,
+               NULL, NULL, NULL, &exited) || exited;
 }
 
 bool fd_is_epoll(int fd) {

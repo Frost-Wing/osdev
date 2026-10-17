@@ -42,6 +42,8 @@
  * - `munmap(2)`            -> `sys_munmap()`            -> validation + no-op (current VM model)
  * - `brk(2)`               -> `sys_brk()`               -> `userland_brk()`
  * - `eventfd2(2)`          -> `sys_eventfd2()`          -> shared counter descriptors with read/write/poll
+ * - `epoll_create(2)`      -> `sys_epoll_create()`      -> legacy size validation + epoll descriptors
+ * - `epoll_create1(2)`      -> `sys_epoll_create1()`     -> epoll descriptors with `EPOLL_CLOEXEC` support
  * - `membarrier(2)`        -> `sys_membarrier()`        -> query, registrations, and local memory/core barriers
  *
  * ## Process and thread compatibility
@@ -53,6 +55,7 @@
  * - `getresuid(2)` / `getresgid(2)` / `setfsuid(2)` / `setfsgid(2)` / `getgroups(2)` / `setgroups(2)` -> saved/filesystem IDs and supplementary groups
  * - `execve(2)` preserves credentials; fork-compatible children inherit all credential IDs and groups
  * - `wait4(2)`             -> `sys_wait4()`             -> multitasking task-state polling
+ * - `pidfd_open(2)`        -> `sys_pidfd_open()`        -> process descriptors pollable for process exit
  * - `set_tid_address(2)`   -> `sys_set_tid_address()`   -> kernel clear-child-tid bookkeeping
  * - `set_robust_list(2)`   -> `sys_set_robust_list()`   -> ABI validation
  * - `rt_sigsuspend(2)`     -> `sys_rt_sigsuspend()`     -> ABI validation; returns `EINTR` because catchable signal delivery is not implemented

@@ -199,6 +199,9 @@ void ksh_exec(void) {
     }
 }
 
+static linux_termios_t shell_default_termios;
+static bool shell_default_termios_valid;
+
 static void shell_set_echo(bool enabled) {
     linux_termios_t termios;
     if (!tty_get_termios(&termios))
@@ -206,8 +209,12 @@ static void shell_set_echo(bool enabled) {
 
     if (enabled)
         termios.c_lflag |= LINUX_ECHO;
-    else
+    else {
+        if (shell_default_termios_valid)
+            termios = shell_default_termios;
         termios.c_lflag &= (uint32_t)~LINUX_ECHO;
+        termios.c_lflag |= LINUX_ICANON | LINUX_ISIG;
+    }
 
     tty_set_termios(&termios, false);
 }
@@ -269,6 +276,11 @@ static void shell_print_command_matches(void);
 
 int shell_main(int argc, char **argv) {
     running = true;
+    shell_default_termios_valid = tty_get_termios(&shell_default_termios);
+    if (shell_default_termios_valid) {
+        shell_default_termios.c_lflag |= LINUX_ICANON | LINUX_ISIG;
+        shell_default_termios.c_lflag &= (uint32_t)~LINUX_ECHO;
+    }
     char *command = kmalloc(BUFFER_SIZE);
     size_t commandBufferSize = BUFFER_SIZE;
     size_t commandSize = 0;

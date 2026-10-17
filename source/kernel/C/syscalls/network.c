@@ -251,6 +251,10 @@ uint64 sys_poll(void *pollfds, uint64_t nfds, int timeout_ms) {
                                          (fds[i].events | LINUX_POLLERR | LINUX_POLLHUP));
             } else if (fd_is_eventfd(fds[i].fd)) {
                 fds[i].revents = (short)fd_eventfd_poll(fds[i].fd, fds[i].events);
+            } else if (fd_is_pidfd(fds[i].fd)) {
+                if (fd_pidfd_ready(fds[i].fd))
+                    fds[i].revents = (short)(fds[i].events &
+                        (LINUX_POLLIN | LINUX_POLLRDNORM));
             } else if (fd_is_epoll(fds[i].fd)) {
                 if ((fds[i].events & LINUX_POLLIN) &&
                     epoll_fd_has_ready_event(fds[i].fd))
@@ -291,6 +295,9 @@ static uint32_t epoll_ready_events(int fd, uint32_t events) {
                           (poll_events | LINUX_POLLERR | LINUX_POLLHUP));
     } else if (fd_is_eventfd(fd)) {
         revents = (short)fd_eventfd_poll(fd, poll_events);
+    } else if (fd_is_pidfd(fd)) {
+        if (fd_pidfd_ready(fd))
+            revents = poll_events & (LINUX_POLLIN | LINUX_POLLRDNORM);
     } else {
         revents = poll_events;
     }

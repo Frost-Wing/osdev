@@ -584,6 +584,11 @@ static bool fill_vfs_stat_for_fd(int fd, vfs_stat_info_t *info) {
         return true;
     }
 
+    if (fd_is_pidfd(fd)) {
+        info->mode = LINUX_S_IFREG | 0600;
+        return true;
+    }
+
     vfs_file_t *file = fd_get_file(fd);
     switch (file->mnt->type) {
         case FS_PROC:
@@ -1977,6 +1982,9 @@ uint64 sys_read(uint64_t fd, char *buf, uint64_t count) {
         }
     }
 
+    if (fd_is_pidfd((int)fd))
+        return -LINUX_EINVAL;
+
     if (sys_socket_is_fd((int)fd))
         return sys_socket_read(fd, buf, count);
 
@@ -2016,6 +2024,9 @@ uint64 sys_write(uint64_t fd, const char *buf, uint64_t count) {
             return -LINUX_EAGAIN;
         return wr < 0 ? (uint64)(-LINUX_EPIPE) : (uint64)wr;
     }
+
+    if (fd_is_pidfd((int)fd))
+        return -LINUX_EBADF;
 
     if (fd_is_eventfd((int)fd)) {
         if (count != sizeof(uint64_t))

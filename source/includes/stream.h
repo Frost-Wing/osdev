@@ -218,6 +218,9 @@ int fd_epoll_ctl(int epfd, int operation, int fd, uint32_t events,
     uint64_t data);
 bool fd_epoll_watch_get(int epfd, int index, fd_epoll_watch_t *watch);
 void fd_epoll_watch_update(int epfd, int fd, uint32_t ready, bool delivered);
+int fd_pidfd_create(uint32_t pid);
+bool fd_is_pidfd(int fd);
+bool fd_pidfd_ready(int fd);
 void fd_ext2_update_mode(uint32_t ino, uint16_t mode, uint32_t ctime);
 
 #endif

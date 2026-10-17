@@ -200,6 +200,24 @@ uint64 sys_clone3(const void *args, uint64_t size) {
     return sys_fork();
 }
 
+uint64 sys_pidfd_open(uint64_t pid, uint64_t flags) {
+    const uint64_t PIDFD_NONBLOCK = 0x800;
+    const uint64_t O_CLOEXEC = 0x80000;
+
+    if (pid == 0 || pid > UINT32_MAX ||
+        (flags & ~(PIDFD_NONBLOCK | O_CLOEXEC)) != 0)
+        return -LINUX_EINVAL;
+    if (!multitasking_get_process_ids((uint32_t)pid, NULL, NULL, NULL, NULL))
+        return -LINUX_ESRCH;
+
+    int fd = fd_pidfd_create((uint32_t)pid);
+    if (fd < 0)
+        return -LINUX_EMFILE;
+    if (flags & O_CLOEXEC)
+        fd_set_cloexec(fd, true);
+    return (uint64_t)fd;
+}
+
 uint64 sys_fork(void) {
     /* Read the frame BEFORE the child runs: the child's syscalls overwrite this global. */
     const syscall_frame_t *f = current_syscall_frame;

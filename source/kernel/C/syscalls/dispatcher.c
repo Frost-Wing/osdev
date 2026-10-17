@@ -507,6 +507,10 @@ uint64_t syscall_dispatch(
             return sys_eventfd2(arg1, arg2);
         case LINUX_SYS_EPOLL_CREATE1:
             return sys_epoll_create1(arg1);
+        case LINUX_SYS_EPOLL_CREATE:
+            return sys_epoll_create(arg1);
+        case LINUX_SYS_PIDFD_OPEN:
+            return sys_pidfd_open(arg1, arg2);
         case 201: // time
             return sys_time((int64_t *)arg1);
         case 439: // faccessat2

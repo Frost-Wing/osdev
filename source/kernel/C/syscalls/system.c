@@ -1201,6 +1201,14 @@ uint64 sys_epoll_create1(uint64_t flags) {
     return fd < 0 ? (uint64)(-LINUX_EMFILE) : (uint64)fd;
 }
 
+uint64 sys_epoll_create(uint64_t size) {
+    if (size == 0 || size > INT32_MAX)
+        return -LINUX_EINVAL;
+
+    int fd = fd_epoll_create();
+    return fd < 0 ? (uint64)(-LINUX_EMFILE) : (uint64)fd;
+}
+
 uint64 sys_flock(uint64_t fd, uint64_t operation) {
     if (fd >= STREAM_MAX_FDS)
         return -LINUX_EBADF;

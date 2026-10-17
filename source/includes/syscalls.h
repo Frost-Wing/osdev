@@ -151,6 +151,7 @@ typedef struct {
 #define LINUX_SYS_CLOCK_NANOSLEEP   230
 #define LINUX_SYS_EPOLL_WAIT        232
 #define LINUX_SYS_EPOLL_CTL         233
+#define LINUX_SYS_EPOLL_CREATE      213
 #define LINUX_SYS_OPENAT            257
 #define LINUX_SYS_NEWFSTATAT        262
 #define LINUX_SYS_UTIMENSAT         280
@@ -174,6 +175,7 @@ typedef struct {
 #define LINUX_SYS_MKDIRAT           258
 #define LINUX_SYS_EVENTFD2          290
 #define LINUX_SYS_EPOLL_CREATE1     291
+#define LINUX_SYS_PIDFD_OPEN        434
 #define LINUX_SYS_FTRUNCATE         77
 #define LINUX_SYS_CLONE3            435
 #define LINUX_SYS_CLOSE_RANGE       436

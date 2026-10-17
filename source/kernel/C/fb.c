@@ -813,7 +813,7 @@ static void flanterm_fb_set_text_fg_default(struct flanterm_context *_ctx) {
 static void flanterm_fb_set_text_bg_default(struct flanterm_context *_ctx) {
     struct flanterm_fb_context *ctx = (void *)_ctx;
 
-    ctx->text_bg = 0xffffffff;
+    ctx->text_bg = ctx->default_bg;
 }
 
 static void flanterm_fb_set_text_fg_default_bright(struct flanterm_context *_ctx) {
@@ -1074,7 +1074,7 @@ struct flanterm_context *flanterm_fb_init(
     }
 
     ctx->text_fg = ctx->default_fg;
-    ctx->text_bg = 0xffffffff;
+    ctx->text_bg = ctx->default_bg;
 
     ctx->framebuffer = (void *)framebuffer;
     ctx->width = width;

@@ -29,6 +29,7 @@ enum { PCI_ATTR_VENDOR,
     PCI_ATTR_CLASS,
     PCI_ATTR_REVISION,
     PCI_ATTR_UEVENT,
+    PCI_ATTR_CONFIG,
     PCI_ATTR_COUNT };
 
 enum {
@@ -45,7 +46,7 @@ enum {
 };
 
 static const char *pci_attr_names[PCI_ATTR_COUNT] = {
-    "vendor", "device", "class", "revision", "uevent"};
+    "vendor", "device", "class", "revision", "uevent", "config"};
 static const char *usb_attr_names[USB_ATTR_COUNT] = {
     "idVendor", "idProduct", "bDeviceClass", "bDeviceSubClass",
     "bDeviceProtocol", "busnum", "devnum", "speed", "uevent"};
@@ -248,6 +249,26 @@ static int sysfs_usb_attr_read(vfs_file_t *file, uint8_t *buf,
 static int sysfs_pci_attr_read(vfs_file_t *file, uint8_t *buf, uint32_t size, void *priv) {
     sysfs_pci_priv_t *p = priv;
     int i = p->index;
+
+    if (p->attr == PCI_ATTR_CONFIG) {
+        if (file->pos >= 256)
+            return 0;
+        uint32_t remaining = 256 - file->pos;
+        if (size > remaining)
+            size = remaining;
+        for (uint32_t n = 0; n < size; ++n) {
+            uint32_t offset = file->pos + n;
+            uint32_t value = pci_config_read_dword(
+                (uint8_t)pciLocations[i].bus,
+                (uint8_t)pciLocations[i].slot,
+                (uint8_t)pciLocations[i].func,
+                (uint8_t)(offset & ~3U));
+            buf[n] = (uint8_t)(value >> ((offset & 3U) * 8U));
+        }
+        file->pos += size;
+        return (int)size;
+    }
+
     char tmp[256];
     int len = 0;
 
@@ -676,7 +697,8 @@ static int sysfs_memory_parse(const char *path, uint64_t *phys_index,
         return -1;
 
     static const char *const attributes[] = {
-        "phys_index", "state", "valid_zones", "removable", "phys_device", "uevent"};
+        "online", "phys_index", "state", "valid_zones", "removable",
+        "phys_device", "uevent"};
     for (size_t i = 0; i < sizeof(attributes) / sizeof(attributes[0]); i++) {
         if (strcmp(end + 1, attributes[i]) == 0) {
             if (phys_index)
@@ -770,6 +792,8 @@ static int sysfs_memory_get_attr(const char *path, char *contents, size_t capaci
     if (strcmp(attr_name, "phys_index") == 0)
         return snprintf(contents, capacity, "%llu\n",
             (unsigned long long)phys_index);
+    if (strcmp(attr_name, "online") == 0)
+        return snprintf(contents, capacity, "1\n");
     if (strcmp(attr_name, "state") == 0)
         return snprintf(contents, capacity, "online\n");
     if (strcmp(attr_name, "valid_zones") == 0)
@@ -1149,7 +1173,7 @@ int sysfs_getdent(const char *path, uint64_t index, const char **out_name, procf
     if (sysfs_memory_parse(normalized, &memory_index, &memory_attr) == 1 &&
         !memory_attr) {
         static const char *const memory_block_attrs[] = {
-            "phys_device", "phys_index", "removable", "state",
+            "online", "phys_device", "phys_index", "removable", "state",
             "uevent", "valid_zones"};
         if (index >= sizeof(memory_block_attrs) / sizeof(memory_block_attrs[0]))
             return 0;

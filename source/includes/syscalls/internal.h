@@ -192,7 +192,9 @@ uint64 sys_umount2(const char *target, int flags);
 void sysinfo_mark_boot(void);
 uint64 sys_sysinfo(linux_sysinfo_t *info);
 uint64 sys_eventfd2(uint64_t initial_value, uint64_t flags);
+uint64 sys_epoll_create(uint64_t size);
 uint64 sys_epoll_create1(uint64_t flags);
+uint64 sys_pidfd_open(uint64_t pid, uint64_t flags);
 uint64 sys_epoll_ctl(uint64_t epfd, uint64_t operation, uint64_t fd,
     const void *event);
 uint64 sys_epoll_wait(uint64_t epfd, void *events, int maxevents, int timeout_ms);
