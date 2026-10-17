@@ -1186,28 +1186,13 @@ int vfs_rmdir(const char *path) {
     return -1;
 }
 
-int vfs_mv(const char *src, const char *dst) {
+int vfs_rename(const char *src, const char *dst) {
     char src_norm[256], dst_norm[256];
     if (vfs_normalize_path(src, src_norm, sizeof(src_norm)) != 0)
         return -1;
     if (vfs_normalize_path(dst, dst_norm, sizeof(dst_norm)) != 0)
         return -1;
 
-    /* If destination is an existing directory, move INTO it under the
-     * source's own basename (same convention as vfs_cp / standard 'mv'). */
-    if (vfs_path_is_dir(dst_norm) == 1) {
-        const char *base = vfs_basename(src_norm);
-        char combined[256];
-        size_t dlen = strlen(dst_norm);
-
-        if (dlen > 0 && dst_norm[dlen - 1] == '/')
-            snprintf(combined, sizeof(combined), "%s%s", dst_norm, base);
-        else
-            snprintf(combined, sizeof(combined), "%s/%s", dst_norm, base);
-
-        if (vfs_normalize_path(combined, dst_norm, sizeof(dst_norm)) != 0)
-            return -1;
-    }
     if (strcmp(src_norm, "/etc") == 0 || strcmp(dst_norm, "/etc") == 0 ||
         vfs_shadow_access_denied(src_norm) ||
         vfs_shadow_access_denied(dst_norm))
@@ -1218,38 +1203,8 @@ int vfs_mv(const char *src, const char *dst) {
         return -1;
     if (vfs_resolve_mount(dst_norm, &dst_res) != 0)
         return -1;
-
-    /* ---------- CROSS-DEVICE MOVE ---------- */
-    if (src_res.mnt != dst_res.mnt) {
-        int src_is_dir = vfs_path_is_dir(src_norm);
-        if (src_is_dir < 0) {
-            eprintf("mv: source path does not resolve: %s", src_norm);
-            return -1;
-        }
-        if (src_is_dir == 1) {
-            /* Would need recursive cross-fs copy, which needs a generic
-             * readdir() the VFS doesn't expose yet. */
-            eprintf("mv: cross-device move of directories is not supported");
-            return -1;
-        }
-
-        int ret = vfs_cp(src_norm, dst_norm);
-        if (ret != 0) {
-            eprintf("mv: cross-device copy failed (%d)", ret);
-            return ret;
-        }
-
-        if (vfs_unlink(src_norm) != 0) {
-            eprintf("mv: copied '%s' -> '%s' but failed to remove source",
-                src_norm, dst_norm);
-            return -10;
-        }
-
-        printf("mv: moved '%s' -> '%s' (cross-device)", src_norm, dst_norm);
-        return 0;
-    }
-
-    /* ---------- SAME-DEVICE MOVE (fast path) ---------- */
+    if (src_res.mnt != dst_res.mnt)
+        return -1;
 
     if (src_res.mnt->type == FS_FAT32) {
         fat32_fs_t *fs = (fat32_fs_t *)src_res.mnt->fs;
@@ -1318,6 +1273,60 @@ int vfs_mv(const char *src, const char *dst) {
 
     /* ---------- REAL MOVE ---------- */
     return fat16_mv(fs, src_parent, src_name, dst_parent, dst_name);
+}
+
+int vfs_mv(const char *src, const char *dst) {
+    char src_norm[256], dst_norm[256];
+    if (vfs_normalize_path(src, src_norm, sizeof(src_norm)) != 0 ||
+        vfs_normalize_path(dst, dst_norm, sizeof(dst_norm)) != 0)
+        return -1;
+
+    /* The shell mv helper treats an existing directory as a destination
+     * container; rename syscalls use vfs_rename() for exact-path semantics. */
+    if (vfs_path_is_dir(dst_norm) == 1) {
+        const char *base = vfs_basename(src_norm);
+        char combined[256];
+        int length = snprintf(combined, sizeof(combined), "%s/%s", dst_norm, base);
+        if (length <= 0 || (size_t)length >= sizeof(combined) ||
+            vfs_normalize_path(combined, dst_norm, sizeof(dst_norm)) != 0)
+            return -1;
+    }
+
+    vfs_mount_res_t src_res, dst_res;
+    if (vfs_resolve_mount(src_norm, &src_res) != 0 ||
+        vfs_resolve_mount(dst_norm, &dst_res) != 0)
+        return -1;
+    if (src_res.mnt == dst_res.mnt)
+        return vfs_rename(src_norm, dst_norm);
+
+    if (strcmp(src_norm, "/etc") == 0 || strcmp(dst_norm, "/etc") == 0 ||
+        vfs_shadow_access_denied(src_norm) ||
+        vfs_shadow_access_denied(dst_norm))
+        return -1;
+
+    int src_is_dir = vfs_path_is_dir(src_norm);
+    if (src_is_dir < 0) {
+        eprintf("mv: source path does not resolve: %s", src_norm);
+        return -1;
+    }
+    if (src_is_dir == 1) {
+        eprintf("mv: cross-device move of directories is not supported");
+        return -1;
+    }
+
+    int ret = vfs_cp(src_norm, dst_norm);
+    if (ret != 0) {
+        eprintf("mv: cross-device copy failed (%d)", ret);
+        return ret;
+    }
+    if (vfs_unlink(src_norm) != 0) {
+        eprintf("mv: copied '%s' -> '%s' but failed to remove source",
+            src_norm, dst_norm);
+        return -10;
+    }
+
+    printf("mv: moved '%s' -> '%s' (cross-device)", src_norm, dst_norm);
+    return 0;
 }
 
 const char *vfs_getcwd(void) {

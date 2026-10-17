@@ -172,6 +172,8 @@ int vfs_cp(const char *src, const char *dst);
  * @return 0 on success, negative on error.
  */
 int vfs_mv(const char *src, const char *dst);
+/** @brief Rename exact paths on the same mounted filesystem. */
+int vfs_rename(const char *src, const char *dst);
 
 /**
  * @brief Return the final path component.

@@ -467,6 +467,14 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_RENAME:
             return sys_rename((const char *)arg1, (const char *)arg2);
 
+        case LINUX_SYS_RENAMEAT:
+            return sys_renameat((int)arg1, (const char *)arg2,
+                (int)arg3, (const char *)arg4);
+
+        case LINUX_SYS_RENAMEAT2:
+            return sys_renameat2((int)arg1, (const char *)arg2,
+                (int)arg3, (const char *)arg4, (unsigned int)arg5);
+
         case LINUX_SYS_MOUNT:
             return sys_mount((const char *)arg1, (const char *)arg2,
                 (const char *)arg3, arg4, (const void *)arg5);

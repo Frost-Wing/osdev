@@ -114,6 +114,7 @@ typedef struct {
 #define LINUX_SYS_SYMLINK           88
 #define LINUX_SYS_UNLINK            87
 #define LINUX_SYS_UNLINKAT          263
+#define LINUX_SYS_RENAMEAT          264
 #define LINUX_SYS_READLINK          89
 #define LINUX_SYS_UMASK             95
 #define LINUX_SYS_ALARM             37
@@ -163,6 +164,7 @@ typedef struct {
 #define LINUX_SYS_STATX             332
 #define LINUX_SYS_RSEQ              334
 #define LINUX_SYS_RENAME            82
+#define LINUX_SYS_RENAMEAT2         316
 #define LINUX_SYS_MOUNT             165
 #define LINUX_SYS_UMOUNT2           166
 #define LINUX_SYS_COPY_FILE_RANGE   326
@@ -294,6 +296,10 @@ typedef struct {
 #define LINUX_AT_SYMLINK_NOFOLLOW 0x100
 #define LINUX_AT_REMOVEDIR        0x200
 #define LINUX_AT_EMPTY_PATH       0x1000
+
+#define LINUX_RENAME_NOREPLACE (1U << 0)
+#define LINUX_RENAME_EXCHANGE  (1U << 1)
+#define LINUX_RENAME_WHITEOUT  (1U << 2)
 
 #define LINUX_F_DUPFD         0
 #define LINUX_FD_CLOEXEC      1

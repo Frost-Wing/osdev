@@ -1077,35 +1077,137 @@ uint64 sys_fsync(uint64_t fd) {
     return -LINUX_EOPNOTSUPP;
 }
 
-uint64 sys_rename(const char *oldpath, const char *newpath) {
-    if (!oldpath || !newpath)
+static uint64 rename_error_for_mount(mount_entry_t *mount, int rc) {
+    if (mount->type == FS_EXT2) {
+        switch (rc) {
+            case EXT2_ERR_NOT_FOUND:
+                return -LINUX_ENOENT;
+            case EXT2_ERR_NOSPACE:
+                return -LINUX_ENOSPC;
+            case EXT2_ERR_EXISTS:
+                return -LINUX_EEXIST;
+            case EXT2_ERR_NOTDIR:
+                return -LINUX_ENOTDIR;
+            case EXT2_ERR_ISDIR:
+                return -LINUX_EISDIR;
+            case EXT2_ERR_INVAL:
+                return -LINUX_EINVAL;
+            case EXT2_ERR_NOTEMPTY:
+                return -LINUX_ENOTEMPTY;
+            default:
+                return -LINUX_EIO;
+        }
+    }
+
+    if (mount->type == FS_FAT16 || mount->type == FS_FAT32) {
+        switch (rc) {
+            case FAT_ERR_NOT_FOUND:
+                return -LINUX_ENOENT;
+            case FAT_ERR_EXISTS:
+                return -LINUX_EEXIST;
+            case FAT_ERR_NOT_DIR:
+                return -LINUX_ENOTDIR;
+            case FAT_ERR_IS_DIR:
+                return -LINUX_EISDIR;
+            case FAT_ERR_NOT_EMPTY:
+                return -LINUX_ENOTEMPTY;
+            case FAT_ERR_NO_SPACE:
+                return -LINUX_ENOSPC;
+            case FAT_ERR_INVALID:
+                return -LINUX_EINVAL;
+            default:
+                return -LINUX_EIO;
+        }
+    }
+
+    return mount->type == FS_ISO9660 ? -LINUX_EROFS : -LINUX_EOPNOTSUPP;
+}
+
+static uint64 renameat_path(int dirfd, const char *path, char *resolved) {
+    if (!path)
         return -LINUX_EFAULT;
+    if (path[0] == '\0')
+        return -LINUX_ENOENT;
+    if (path[0] != '/' && dirfd != LINUX_AT_FDCWD) {
+        if (!fd_valid(dirfd))
+            return -LINUX_EBADF;
+        const char *base = fd_get_path(dirfd);
+        if (!base || vfs_path_is_dir(base) != 1)
+            return -LINUX_ENOTDIR;
+    }
+    return resolve_path_at(dirfd, path, resolved, 256) ? 0 : -LINUX_EINVAL;
+}
+
+uint64 sys_renameat2(int olddirfd, const char *oldpath, int newdirfd,
+    const char *newpath, unsigned int flags) {
+    if (flags & ~(LINUX_RENAME_NOREPLACE | LINUX_RENAME_EXCHANGE |
+                    LINUX_RENAME_WHITEOUT))
+        return -LINUX_EINVAL;
+    if ((flags & LINUX_RENAME_EXCHANGE) &&
+        (flags & (LINUX_RENAME_NOREPLACE | LINUX_RENAME_WHITEOUT)))
+        return -LINUX_EINVAL;
+    if (flags & (LINUX_RENAME_EXCHANGE | LINUX_RENAME_WHITEOUT))
+        return -LINUX_EOPNOTSUPP;
 
     char old_norm[256], new_norm[256];
-    if (!resolve_path_at(LINUX_AT_FDCWD, oldpath, old_norm, sizeof(old_norm)) ||
-        !resolve_path_at(LINUX_AT_FDCWD, newpath, new_norm, sizeof(new_norm)))
-        return -LINUX_EINVAL;
+    uint64 rc = renameat_path(olddirfd, oldpath, old_norm);
+    if ((int64_t)rc < 0)
+        return rc;
+    rc = renameat_path(newdirfd, newpath, new_norm);
+    if ((int64_t)rc < 0)
+        return rc;
+
     if (syscall_shadow_protected_path(old_norm) ||
         syscall_shadow_protected_path(new_norm) ||
         syscall_shadow_directory(old_norm) ||
         syscall_shadow_directory(new_norm))
         return -LINUX_EPERM;
+    if (strcmp(old_norm, "/") == 0)
+        return -LINUX_EBUSY;
+
+    vfs_stat_info_t source_info;
+    if (!fill_vfs_lstat_for_path_at(LINUX_AT_FDCWD, old_norm, &source_info))
+        return -LINUX_ENOENT;
+    if (strcmp(old_norm, new_norm) == 0)
+        return 0;
+
+    vfs_stat_info_t destination_info;
+    bool destination_exists =
+        fill_vfs_lstat_for_path_at(LINUX_AT_FDCWD, new_norm, &destination_info);
+    if (destination_exists) {
+        if (flags & LINUX_RENAME_NOREPLACE)
+            return -LINUX_EEXIST;
+        if (source_info.is_dir && !destination_info.is_dir)
+            return -LINUX_ENOTDIR;
+        if (!source_info.is_dir && destination_info.is_dir)
+            return -LINUX_EISDIR;
+        return -LINUX_EEXIST;
+    }
 
     vfs_mount_res_t old_mount, new_mount;
     if (vfs_resolve_mount(old_norm, &old_mount) != 0 ||
         vfs_resolve_mount(new_norm, &new_mount) != 0)
         return -LINUX_ENOENT;
-    vfs_stat_info_t source_info;
-    if (!fill_vfs_stat_for_path_at(LINUX_AT_FDCWD, old_norm, &source_info))
-        return -LINUX_ENOENT;
-    if (strcmp(old_norm, new_norm) == 0)
-        return 0;
     if (old_mount.mnt != new_mount.mnt)
         return -LINUX_EXDEV;
-    if (vfs_path_is_dir(new_norm) == 1)
-        return -LINUX_EISDIR;
+    if (old_mount.mnt->type == FS_ISO9660)
+        return -LINUX_EROFS;
+    if (old_mount.mnt->type != FS_FAT16 &&
+        old_mount.mnt->type != FS_FAT32 &&
+        old_mount.mnt->type != FS_EXT2)
+        return -LINUX_EOPNOTSUPP;
 
-    return vfs_mv(old_norm, new_norm) == 0 ? 0 : -LINUX_EIO;
+    int result = vfs_rename(old_norm, new_norm);
+    return result == 0 ? 0 : rename_error_for_mount(old_mount.mnt, result);
+}
+
+uint64 sys_renameat(int olddirfd, const char *oldpath,
+    int newdirfd, const char *newpath) {
+    return sys_renameat2(olddirfd, oldpath, newdirfd, newpath, 0);
+}
+
+uint64 sys_rename(const char *oldpath, const char *newpath) {
+    return sys_renameat(LINUX_AT_FDCWD, oldpath, LINUX_AT_FDCWD, newpath);
 }
 
 uint64 sys_copy_file_range(uint64_t in_fd, int64_t *off_in,

@@ -180,6 +180,10 @@ int fill_statfs_for_mount(mount_entry_t *mnt, linux_statfs_t *out);
 uint64 sys_statfs(const char *path, linux_statfs_t *buf);
 uint64 sys_fstatfs(uint64_t fd, linux_statfs_t *buf);
 uint64 sys_rename(const char *oldpath, const char *newpath);
+uint64 sys_renameat(int olddirfd, const char *oldpath,
+    int newdirfd, const char *newpath);
+uint64 sys_renameat2(int olddirfd, const char *oldpath,
+    int newdirfd, const char *newpath, unsigned int flags);
 uint64 sys_copy_file_range(uint64_t in_fd, int64_t *off_in, uint64_t out_fd,
     int64_t *off_out, uint64_t len, uint64_t flags);
 uint64 sys_mount(const char *source, const char *target, const char *filesystem,
