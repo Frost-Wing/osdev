@@ -51,6 +51,9 @@ void tty_input_char(char c);
  */
 int tty_read(char *buf, uint64_t count);
 
+/** @brief Check whether terminal input is available to read. */
+bool tty_input_ready(void);
+
 /** @brief Write bytes to the terminal using its output processing settings. */
 uint64_t tty_write(const char *buf, uint64_t count);
 

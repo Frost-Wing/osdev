@@ -26,7 +26,9 @@
 #define LINUX_IP_TTL        2
 
 #define LINUX_POLLIN     0x001
+#define LINUX_POLLRDNORM 0x040
 #define LINUX_POLLOUT    0x004
+#define LINUX_POLLWRNORM 0x100
 #define LINUX_POLLHUP    0x010
 #define LINUX_POLLNVAL   0x020
 #define LINUX_POLLERR    0x008
@@ -253,6 +255,12 @@ uint64 sys_poll(void *pollfds, uint64_t nfds, int timeout_ms) {
                 if ((fds[i].events & LINUX_POLLIN) &&
                     epoll_fd_has_ready_event(fds[i].fd))
                     fds[i].revents = LINUX_POLLIN;
+            } else if (fd_is_tty(fds[i].fd)) {
+                if (tty_input_ready())
+                    fds[i].revents |= (short)(fds[i].events &
+                        (LINUX_POLLIN | LINUX_POLLRDNORM));
+                fds[i].revents |= (short)(fds[i].events &
+                    (LINUX_POLLOUT | LINUX_POLLWRNORM));
             } else {
                 fds[i].revents = fds[i].events; /* regular files/devices: always ready */
             }

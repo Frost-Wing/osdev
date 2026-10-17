@@ -358,6 +358,14 @@ int tty_read(char *buf, uint64_t count) {
     return (int)read;
 }
 
+bool tty_input_ready(void) {
+    tty_t *tty = tty_get((uint8_t)multitasking_current_tty());
+    uint64_t irq_flags = tty_lock(tty);
+    bool ready = tty->eof || rb_size(&tty->cooked_rb) != 0;
+    tty_unlock(tty, irq_flags);
+    return ready;
+}
+
 uint64_t tty_write(const char *buf, uint64_t count) {
     if (!buf || count == 0)
         return 0;

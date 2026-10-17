@@ -69,6 +69,19 @@ static login_shadow_entry_t shadow_entries[MAX_USERS_ALLOWED];
 static login_account_entry_t account_entries[MAX_USERS_ALLOWED];
 static uint32_t authenticated_uid;
 static uint32_t authenticated_gid;
+static const char *const login_database_paths[] = {
+    LOGIN_PASSWD_PATH,
+    LOGIN_SHADOW_PATH,
+    LOGIN_PASSWD_TEMP_PATH,
+    LOGIN_SHADOW_TEMP_PATH,
+};
+static const char *const login_database_backup_paths[] = {
+    "/etc/passwd.corrupt",
+    "/etc/shadow.corrupt",
+    "/etc/passwd.tmp.corrupt",
+    "/etc/shadow.tmp.corrupt",
+};
+static bool login_database_backed_up[4];
 
 static bool login_read_line(const char *prompt, char *buffer, size_t capacity,
     bool hide_input) {
@@ -235,8 +248,11 @@ static int login_read_text_file(const char *path, char *buffer, size_t capacity)
     }
     if (result == 1 && total == capacity - 1) {
         uint8_t extra;
-        if (vfs_read(&file, &extra, sizeof(extra)) != 0)
+        int read = vfs_read(&file, &extra, sizeof(extra));
+        if (read < 0)
             result = -1;
+        else if (read != 0)
+            result = -2;
     }
     vfs_close(&file);
 
@@ -244,7 +260,7 @@ static int login_read_text_file(const char *path, char *buffer, size_t capacity)
         return result;
     for (size_t i = 0; i < total; ++i) {
         if (buffer[i] == '\0')
-            return -1;
+            return -2;
     }
     buffer[total] = '\0';
     return 1;
@@ -365,6 +381,11 @@ static bool login_parse_id(const char *value, uint32_t *out) {
     return true;
 }
 
+static bool login_valid_shadow_number(const char *value) {
+    uint32_t parsed;
+    return !*value || login_parse_id(value, &parsed);
+}
+
 static int login_load_shadow_entries(char *contents) {
     memset(shadow_entries, 0, sizeof(shadow_entries));
     size_t count = 0;
@@ -378,31 +399,29 @@ static int login_load_shadow_entries(char *contents) {
             line[length - 1] = '\0';
 
         if (*line) {
-            char *username_end = strchr(line, ':');
-            if (!username_end)
-                return -1;
-            *username_end++ = '\0';
-            char *hash_end = strchr(username_end, ':');
-            if (!hash_end)
-                return -1;
-            *hash_end = '\0';
-
-            if (!login_valid_username(line))
-                return -1;
+            char *fields[9];
+            if (!login_split_fields(line, fields, 9) ||
+                !login_valid_username(fields[0]) ||
+                !login_valid_shadow_number(fields[2]) ||
+                !login_valid_shadow_number(fields[3]) ||
+                !login_valid_shadow_number(fields[4]) ||
+                !login_valid_shadow_number(fields[5]) ||
+                !login_valid_shadow_number(fields[6]) ||
+                !login_valid_shadow_number(fields[7]) ||
+                !login_valid_shadow_number(fields[8]))
+                return -2;
 
             login_shadow_entry_t parsed = {0};
-            parsed.usable = login_parse_shadow_hash(username_end,
+            parsed.usable = login_parse_shadow_hash(fields[1],
                 parsed.salt, parsed.password_hash);
-            if (parsed.usable) {
-                if (count >= MAX_USERS_ALLOWED)
-                    return -1;
-                for (size_t i = 0; i < count; ++i) {
-                    if (strcmp(shadow_entries[i].username, line) == 0)
-                        return -1;
-                }
-                strcpy(parsed.username, line);
-                shadow_entries[count++] = parsed;
+            if (!parsed.usable || count >= MAX_USERS_ALLOWED)
+                return -2;
+            for (size_t i = 0; i < count; ++i) {
+                if (strcmp(shadow_entries[i].username, fields[0]) == 0)
+                    return -2;
             }
+            strcpy(parsed.username, fields[0]);
+            shadow_entries[count++] = parsed;
         }
         if (!next)
             break;
@@ -432,19 +451,19 @@ static int login_load_passwd_entries(char *contents, int shadow_count) {
                 !login_valid_username(fields[0]) ||
                 !login_parse_id(fields[2], &uid) ||
                 !login_parse_id(fields[3], &gid)) {
-                return -1;
+                return -2;
             }
 
             if (strcmp(fields[0], "root") == 0) {
                 if (root_seen || uid != 0 || gid != 0)
-                    return -1;
+                    return -2;
                 root_seen = true;
             }
 
             for (int i = 0; i < users_index; ++i) {
                 if (strcmp(account_entries[i].username, fields[0]) == 0 ||
                     account_entries[i].uid == uid)
-                    return -1;
+                    return -2;
             }
 
             if (strcmp(fields[1], "x") == 0) {
@@ -462,17 +481,17 @@ static int login_load_passwd_entries(char *contents, int shadow_count) {
                     if (strcmp(fields[0], "root") == 0)
                         root_loaded = true;
                 } else {
-                    return -1;
+                    return -2;
                 }
             } else {
-                return -1;
+                return -2;
             }
         }
         if (!next)
             break;
         line = next + 1;
     }
-    return root_loaded ? 1 : -1;
+    return root_loaded ? 1 : -2;
 }
 
 static bool login_append_text(char *buffer, size_t capacity, size_t *length,
@@ -564,6 +583,70 @@ static bool login_write_account_database(bool passwd_first) {
            login_replace_text_file(LOGIN_PASSWD_TEMP_PATH, LOGIN_PASSWD_PATH);
 }
 
+static bool login_remove_file_if_present(const char *path) {
+    vfs_file_t file;
+    int opened = vfs_open(path, VFS_RDONLY, &file);
+    if (opened == -6)
+        return true;
+    if (opened != 0)
+        return false;
+    vfs_close(&file);
+    return vfs_unlink(path) == 0;
+}
+
+static bool login_restore_corrupt_database(bool remove_generated_files) {
+    for (size_t i = 0; i < sizeof(login_database_backed_up) /
+                            sizeof(login_database_backed_up[0]); ++i) {
+        if (!remove_generated_files && !login_database_backed_up[i])
+            continue;
+        if (!login_remove_file_if_present(login_database_paths[i]))
+            return false;
+    }
+
+    for (size_t i = sizeof(login_database_backed_up) /
+                        sizeof(login_database_backed_up[0]); i > 0; --i) {
+        size_t index = i - 1;
+        if (!login_database_backed_up[index])
+            continue;
+        if (vfs_mv(login_database_backup_paths[index],
+                login_database_paths[index]) != 0)
+            return false;
+        login_database_backed_up[index] = false;
+    }
+    return vfs_sync(true) == 0;
+}
+
+static bool login_backup_corrupt_database(void) {
+    memset(login_database_backed_up, 0, sizeof(login_database_backed_up));
+    for (size_t i = 0; i < sizeof(login_database_backed_up) /
+                            sizeof(login_database_backed_up[0]); ++i) {
+        vfs_file_t file;
+        int opened = vfs_open(login_database_paths[i], VFS_RDONLY, &file);
+        if (opened == -6)
+            continue;
+        if (opened != 0)
+            goto rollback;
+        vfs_close(&file);
+
+        opened = vfs_open(login_database_backup_paths[i], VFS_RDONLY, &file);
+        if (opened == 0) {
+            vfs_close(&file);
+            goto rollback;
+        }
+        if (opened != -6 ||
+            vfs_mv(login_database_paths[i], login_database_backup_paths[i]) != 0)
+            goto rollback;
+        login_database_backed_up[i] = true;
+    }
+    if (vfs_sync(true) == 0)
+        return true;
+
+rollback:
+    if (!login_restore_corrupt_database(false))
+        error("Could not restore account files after backup failed.", __FILE__);
+    return false;
+}
+
 static int login_load_existing_accounts(void) {
     int passwd_result = login_read_text_file(LOGIN_PASSWD_PATH,
         passwd_contents, sizeof(passwd_contents));
@@ -576,18 +659,21 @@ static int login_load_existing_accounts(void) {
 
     if (passwd_result == 0 && shadow_result == 0)
         return 0;
-    if (passwd_result != 1 || shadow_result != 1) {
-        error("Account database is incomplete; refusing password setup.", __FILE__);
-        return -1;
-    }
+    if (passwd_result < 0 || shadow_result < 0)
+        return passwd_result == -2 || shadow_result == -2 ? -2 : -1;
+    if (passwd_result != 1 || shadow_result != 1)
+        return -2;
 
     users_index = 0;
     int shadow_count = login_load_shadow_entries(shadow_contents);
-    if (shadow_count < 0 ||
-        login_load_passwd_entries(passwd_contents, shadow_count) != 1) {
+    if (shadow_count < 0) {
         users_index = 0;
-        error("Stored account database is invalid or has no usable root account.", __FILE__);
-        return -1;
+        return shadow_count;
+    }
+    int passwd_count = login_load_passwd_entries(passwd_contents, shadow_count);
+    if (passwd_count != 1 || users_index != shadow_count) {
+        users_index = 0;
+        return passwd_count == 1 ? -2 : passwd_count;
     }
     return 1;
 }
@@ -635,27 +721,16 @@ static int login_migrate_legacy_account(void) {
     return 1;
 }
 
-int login_setup_first_user(void) {
-    if (users_index != 0)
-        return 0;
-
-    if (!login_auth_filesystem_writable()) {
-        error("Root filesystem is not writable; cannot store the root password.", __FILE__);
-        return -1;
-    }
-
-    int loaded = login_load_existing_accounts();
-    if (loaded == 1)
-        return 0;
-    if (loaded < 0)
-        return -1;
-
-    loaded = login_migrate_legacy_account();
-    if (loaded == 1)
-        return 0;
-    if (loaded < 0) {
-        error("Cannot load stored root credentials; refusing insecure fallback.", __FILE__);
-        return -1;
+static int login_setup_root_account(bool recovering_corrupt_database) {
+    if (recovering_corrupt_database) {
+        print("Account database is malformed or incomplete.\n");
+        print("A new root password will be required. Existing account files will be "
+              "preserved as /etc/*.corrupt backups; other accounts will need to be "
+              "recreated.\n");
+        if (!login_backup_corrupt_database()) {
+            error("Could not safely back up the corrupt account files.", __FILE__);
+            return -1;
+        }
     }
 
     char password[MAX_PASSWORD_LENGTH + 1] = {0};
@@ -665,22 +740,19 @@ int login_setup_first_user(void) {
     static const char magic[8] = {'F', 'W', 'A', 'U', 'T', 'H', '1', '\0'};
 
     print("==========================\n");
-    info("No stored root account. Set a unique root password for this installation.", __FILE__);
+    if (!recovering_corrupt_database)
+        info("No stored root account. Set a unique root password for this installation.", __FILE__);
     if (!login_read_line("New root password (12-40 characters): ",
             password, sizeof(password), true) ||
         !login_read_line("Confirm password: ", confirmation,
             sizeof(confirmation), true)) {
         error("Unable to configure terminal input for password setup.", __FILE__);
-        login_clear_secret(password, sizeof(password));
-        login_clear_secret(confirmation, sizeof(confirmation));
-        return -1;
+        goto failed;
     }
 
     if (strlen(password) < 12 || strcmp(password, confirmation) != 0) {
         error("Password setup failed: use 12-40 characters and confirm it exactly.", __FILE__);
-        login_clear_secret(password, sizeof(password));
-        login_clear_secret(confirmation, sizeof(confirmation));
-        return -1;
+        goto failed;
     }
 
     memcpy(record.magic, magic, sizeof(magic));
@@ -696,8 +768,7 @@ int login_setup_first_user(void) {
     memset(account_entries, 0, sizeof(account_entries));
     if (!login_add_user(username_hash, record.salt, record.password_hash,
             "root", 0, 0)) {
-        memset(&record, 0, sizeof(record));
-        return -1;
+        goto failed;
     }
     strcpy(shadow_entries[0].username, "root");
     memcpy(shadow_entries[0].salt, record.salt, sizeof(record.salt));
@@ -705,17 +776,55 @@ int login_setup_first_user(void) {
         sizeof(record.password_hash));
     shadow_entries[0].usable = true;
     bool saved = login_write_account_database(false);
+    if (!saved) {
+        error("Could not persist root credentials; refusing login without them.", __FILE__);
+        goto failed;
+    }
+
+    int loaded = login_load_existing_accounts();
     login_clear_secret(password, sizeof(password));
     login_clear_secret(confirmation, sizeof(confirmation));
-    if (!saved) {
-        memset(&record, 0, sizeof(record));
-        error("Could not persist root credentials; refusing login without them.", __FILE__);
+    memset(&record, 0, sizeof(record));
+    if (loaded == 1)
+        return 0;
+    error("Could not verify the newly written account database.", __FILE__);
+    goto restore;
+
+failed:
+    login_clear_secret(password, sizeof(password));
+    login_clear_secret(confirmation, sizeof(confirmation));
+    memset(&record, 0, sizeof(record));
+restore:
+    if (recovering_corrupt_database && !login_restore_corrupt_database(true))
+        error("Could not restore the original corrupt account files.", __FILE__);
+    return -1;
+}
+
+int login_setup_first_user(void) {
+    if (users_index != 0)
+        return 0;
+
+    if (!login_auth_filesystem_writable()) {
+        error("Root filesystem is not writable; cannot store the root password.", __FILE__);
         return -1;
     }
 
-    loaded = login_load_existing_accounts();
-    memset(&record, 0, sizeof(record));
-    return loaded == 1 ? 0 : -1;
+    int loaded = login_load_existing_accounts();
+    if (loaded == 1)
+        return 0;
+    if (loaded == -2)
+        return login_setup_root_account(true);
+    if (loaded < 0)
+        return -1;
+
+    loaded = login_migrate_legacy_account();
+    if (loaded == 1)
+        return 0;
+    if (loaded < 0) {
+        error("Cannot load stored root credentials; refusing insecure fallback.", __FILE__);
+        return -1;
+    }
+    return login_setup_root_account(false);
 }
 
 int login_request(char *userbuf, int max) {
