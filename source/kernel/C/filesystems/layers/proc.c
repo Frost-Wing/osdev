@@ -668,7 +668,17 @@ static int proc_pid_stat(const task_info_t *ti, char *buf, size_t sz) {
 
 static int proc_pid_status(const task_info_t *ti, char *buf, size_t sz) {
     char comm[16];
+    char groups[TASK_SUPPLEMENTARY_GROUPS * 11 + 1];
+    size_t groups_len = 0;
     proc_comm(ti, comm);
+    groups[0] = '\0';
+    for (uint8_t i = 0; i < ti->supplementary_group_count; ++i) {
+        int written = snprintf(groups + groups_len, sizeof(groups) - groups_len,
+            "%s%u", i ? " " : "", ti->supplementary_groups[i]);
+        if (written < 0 || (size_t)written >= sizeof(groups) - groups_len)
+            break;
+        groups_len += (size_t)written;
+    }
 
     return snprintf(buf, sz,
         "Name:\t%s\n"
@@ -679,10 +689,10 @@ static int proc_pid_status(const task_info_t *ti, char *buf, size_t sz) {
         "Pid:\t%u\n"
         "PPid:\t%u\n"
         "TracerPid:\t0\n"
-        "Uid:\t0\t0\t0\t0\n"
-        "Gid:\t0\t0\t0\t0\n"
+        "Uid:\t%u\t%u\t%u\t%u\n"
+        "Gid:\t%u\t%u\t%u\t%u\n"
         "FDSize:\t64\n"
-        "Groups:\t\n"
+        "Groups:\t%s\n"
         "VmSize:\t0 kB\n"
         "VmRSS:\t0 kB\n"
         "Threads:\t1\n"
@@ -695,7 +705,9 @@ static int proc_pid_status(const task_info_t *ti, char *buf, size_t sz) {
         "Cpus_allowed_list:\t0\n"
         "voluntary_ctxt_switches:\t0\n"
         "nonvoluntary_ctxt_switches:\t0\n",
-        comm, proc_state_long(ti->state), ti->pid, ti->pid, ti->parent_pid);
+        comm, proc_state_long(ti->state), ti->pid, ti->pid, ti->parent_pid,
+        ti->uid, ti->euid, ti->suid, ti->fsuid,
+        ti->gid, ti->egid, ti->sgid, ti->fsgid, groups);
 }
 
 static const struct {

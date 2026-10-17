@@ -55,6 +55,204 @@ static bool syscall_user_range_accessible(uint64_t addr, uint64_t length) {
            paging_validate_user_range(addr, length, true);
 }
 
+static bool syscall_user_range_readable(uint64_t addr, uint64_t length) {
+    return userland_is_running() &&
+           paging_validate_user_range(addr, length, false);
+}
+
+static bool syscall_uid_allowed(const task_t *task, uint32_t id) {
+    return id == task->uid || id == task->euid || id == task->suid;
+}
+
+static bool syscall_gid_allowed(const task_t *task, uint32_t id) {
+    return id == task->gid || id == task->egid || id == task->sgid;
+}
+
+static bool syscall_valid_optional_user_output(const void *ptr, size_t size) {
+    return !ptr || syscall_user_range_accessible((uint64_t)ptr, size);
+}
+
+uint64 sys_setuid(uint32_t uid) {
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_EPERM;
+    if (task->euid == 0) {
+        task->uid = task->euid = task->suid = task->fsuid = uid;
+        return 0;
+    }
+    if (uid != task->uid && uid != task->suid)
+        return -LINUX_EPERM;
+    task->euid = task->fsuid = uid;
+    return 0;
+}
+
+uint64 sys_setgid(uint32_t gid) {
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_EPERM;
+    if (task->euid == 0) {
+        task->gid = task->egid = task->sgid = task->fsgid = gid;
+        return 0;
+    }
+    if (gid != task->gid && gid != task->sgid)
+        return -LINUX_EPERM;
+    task->egid = task->fsgid = gid;
+    return 0;
+}
+
+uint64 sys_setreuid(uint32_t ruid, uint32_t euid) {
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_EPERM;
+    bool privileged = task->euid == 0;
+    if (!privileged &&
+        ((ruid != UINT32_MAX && ruid != task->uid && ruid != task->euid) ||
+            (euid != UINT32_MAX && !syscall_uid_allowed(task, euid))))
+        return -LINUX_EPERM;
+    if (ruid != UINT32_MAX)
+        task->uid = ruid;
+    if (euid != UINT32_MAX)
+        task->euid = euid;
+    if (ruid != UINT32_MAX || euid != UINT32_MAX)
+        task->suid = task->euid;
+    task->fsuid = task->euid;
+    return 0;
+}
+
+uint64 sys_setregid(uint32_t rgid, uint32_t egid) {
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_EPERM;
+    bool privileged = task->euid == 0;
+    if (!privileged &&
+        ((rgid != UINT32_MAX && rgid != task->gid && rgid != task->egid) ||
+            (egid != UINT32_MAX && !syscall_gid_allowed(task, egid))))
+        return -LINUX_EPERM;
+    if (rgid != UINT32_MAX)
+        task->gid = rgid;
+    if (egid != UINT32_MAX)
+        task->egid = egid;
+    if (rgid != UINT32_MAX || egid != UINT32_MAX)
+        task->sgid = task->egid;
+    task->fsgid = task->egid;
+    return 0;
+}
+
+uint64 sys_setresuid(uint32_t ruid, uint32_t euid, uint32_t suid) {
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_EPERM;
+    bool privileged = task->euid == 0;
+    if (!privileged &&
+        ((ruid != UINT32_MAX && !syscall_uid_allowed(task, ruid)) ||
+            (euid != UINT32_MAX && !syscall_uid_allowed(task, euid)) ||
+            (suid != UINT32_MAX && !syscall_uid_allowed(task, suid))))
+        return -LINUX_EPERM;
+    if (ruid != UINT32_MAX)
+        task->uid = ruid;
+    if (euid != UINT32_MAX)
+        task->euid = euid;
+    if (suid != UINT32_MAX)
+        task->suid = suid;
+    task->fsuid = task->euid;
+    return 0;
+}
+
+uint64 sys_getresuid(uint32_t *ruid, uint32_t *euid, uint32_t *suid) {
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_ESRCH;
+    if (!syscall_valid_optional_user_output(ruid, sizeof(*ruid)) ||
+        !syscall_valid_optional_user_output(euid, sizeof(*euid)) ||
+        !syscall_valid_optional_user_output(suid, sizeof(*suid)))
+        return -LINUX_EFAULT;
+    if (ruid)
+        *ruid = task->uid;
+    if (euid)
+        *euid = task->euid;
+    if (suid)
+        *suid = task->suid;
+    return 0;
+}
+
+uint64 sys_setresgid(uint32_t rgid, uint32_t egid, uint32_t sgid) {
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_EPERM;
+    bool privileged = task->euid == 0;
+    if (!privileged &&
+        ((rgid != UINT32_MAX && !syscall_gid_allowed(task, rgid)) ||
+            (egid != UINT32_MAX && !syscall_gid_allowed(task, egid)) ||
+            (sgid != UINT32_MAX && !syscall_gid_allowed(task, sgid))))
+        return -LINUX_EPERM;
+    if (rgid != UINT32_MAX)
+        task->gid = rgid;
+    if (egid != UINT32_MAX)
+        task->egid = egid;
+    if (sgid != UINT32_MAX)
+        task->sgid = sgid;
+    task->fsgid = task->egid;
+    return 0;
+}
+
+uint64 sys_getresgid(uint32_t *rgid, uint32_t *egid, uint32_t *sgid) {
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_ESRCH;
+    if (!syscall_valid_optional_user_output(rgid, sizeof(*rgid)) ||
+        !syscall_valid_optional_user_output(egid, sizeof(*egid)) ||
+        !syscall_valid_optional_user_output(sgid, sizeof(*sgid)))
+        return -LINUX_EFAULT;
+    if (rgid)
+        *rgid = task->gid;
+    if (egid)
+        *egid = task->egid;
+    if (sgid)
+        *sgid = task->sgid;
+    return 0;
+}
+
+uint64 sys_setgroups(size_t size, const uint32_t *groups) {
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_EPERM;
+    if (task->euid != 0)
+        return -LINUX_EPERM;
+    if (size > TASK_SUPPLEMENTARY_GROUPS)
+        return -LINUX_EINVAL;
+    if (size && (!groups ||
+                    !syscall_user_range_readable((uint64_t)groups,
+                        size * sizeof(*groups))))
+        return -LINUX_EFAULT;
+    if (size)
+        memcpy(task->supplementary_groups, groups, size * sizeof(*groups));
+    if (size < TASK_SUPPLEMENTARY_GROUPS)
+        memset(task->supplementary_groups + size, 0,
+            (TASK_SUPPLEMENTARY_GROUPS - size) * sizeof(*groups));
+    task->supplementary_group_count = (uint8_t)size;
+    return 0;
+}
+
+uint64 sys_setfsuid(uint32_t uid) {
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_EPERM;
+    uint32_t previous = task->fsuid;
+    if (task->euid == 0 || syscall_uid_allowed(task, uid))
+        task->fsuid = uid;
+    return previous;
+}
+
+uint64 sys_setfsgid(uint32_t gid) {
+    task_t *task = multitasking_get_current_task();
+    if (!task)
+        return -LINUX_EPERM;
+    uint32_t previous = task->fsgid;
+    if (task->euid == 0 || syscall_gid_allowed(task, gid))
+        task->fsgid = gid;
+    return previous;
+}
+
 uint64 sys_sched_getaffinity(int64_t pid, uint64_t cpusetsize, void *mask) {
     if (pid < 0)
         return -LINUX_EINVAL;

@@ -30,6 +30,17 @@
  */
 int login_setup_first_user(void);
 
+/** @brief Resolve an account name to its numeric UID and primary GID. */
+bool login_lookup_user(const char *username, uint32_t *uid, uint32_t *gid);
+
+/** @brief Return the authenticated shell's UID and primary GID. */
+uint32_t login_current_uid(void);
+uint32_t login_current_gid(void);
+
+/** @brief Create or remove an account, prompting for a password on creation. */
+int login_create_user(const char *username);
+int login_remove_user(const char *username);
+
 /**
  * @brief Read a login name into a caller-provided buffer.
  * @param userbuf Destination buffer.

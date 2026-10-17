@@ -262,6 +262,9 @@ void ext2_unmount(ext2_fs_t *fs);
 
 /** @brief Resolve a path and return its inode and inode metadata. */
 int ext2_find_path(ext2_fs_t *fs, const char *path, uint32_t *out_ino, ext2_inode_t *out_inode);
+uint32_t ext2_inode_uid(const ext2_inode_t *inode);
+uint32_t ext2_inode_gid(const ext2_inode_t *inode);
+int ext2_chown_inode(ext2_fs_t *fs, uint32_t ino, uint32_t uid, uint32_t gid);
 
 /** @brief Resolve a path with control over following the final symbolic link. */
 int ext2_find_path_ex(ext2_fs_t *fs, const char *path, uint32_t *out_ino, ext2_inode_t *out_inode, bool follow_final);

@@ -10,6 +10,7 @@
  */
 
 #include <commands/commands.h>
+#include <commands/login.h>
 #include <executables/elf.h>
 #include <graphics.h>
 #include <keyboard.h>
@@ -71,6 +72,9 @@ int cmd_exec(int argc, char **argv) {
     for (int i = 0; global_envp[i] && i < 31; i++)
         spec.envp[i] = global_envp[i];
     spec.parent_pid = 0;
+    spec.has_credentials = true;
+    spec.uid = login_current_uid();
+    spec.gid = login_current_gid();
     /* Keep a program's stdin on the shell terminal that launched it. */
     spec.tty_index = multitasking_current_tty();
 

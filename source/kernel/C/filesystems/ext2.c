@@ -22,12 +22,42 @@
 #include <graphics.h>
 #include <heap.h>
 #include <memory.h>
+#include <multitasking.h>
 #include <rtc.h>
 #include <strings.h>
 
 #define EXT2_MAX_BLOCK_SIZE     4096U
 #define EXT2_PTRS_PER_BLOCK_MAX (EXT2_MAX_BLOCK_SIZE / 4)
 #define EXT2_READ_BATCH_SIZE    (64U * 1024U)
+
+uint32_t ext2_inode_uid(const ext2_inode_t *inode) {
+    uint16_t high = 0;
+    if (inode)
+        memcpy(&high, inode->i_osd2 + 4, sizeof(high));
+    return inode ? ((uint32_t)high << 16) | inode->i_uid : 0;
+}
+
+uint32_t ext2_inode_gid(const ext2_inode_t *inode) {
+    uint16_t high = 0;
+    if (inode)
+        memcpy(&high, inode->i_osd2 + 6, sizeof(high));
+    return inode ? ((uint32_t)high << 16) | inode->i_gid : 0;
+}
+
+static void ext2_set_inode_owner_ids(ext2_inode_t *inode, uint32_t uid,
+    uint32_t gid) {
+    uint16_t uid_high = (uint16_t)(uid >> 16);
+    uint16_t gid_high = (uint16_t)(gid >> 16);
+    inode->i_uid = (uint16_t)uid;
+    inode->i_gid = (uint16_t)gid;
+    memcpy(inode->i_osd2 + 4, &uid_high, sizeof(uid_high));
+    memcpy(inode->i_osd2 + 6, &gid_high, sizeof(gid_high));
+}
+
+static void ext2_set_inode_owner(ext2_inode_t *inode) {
+    ext2_set_inode_owner_ids(inode, multitasking_current_euid(),
+        multitasking_current_egid());
+}
 
 /* ===================== Low level block I/O ===================== */
 
@@ -297,6 +327,17 @@ int ext2_chmod_inode(ext2_fs_t *fs, uint32_t ino, uint16_t mode,
     if (updated_inode)
         *updated_inode = inode;
     return EXT2_OK;
+}
+
+int ext2_chown_inode(ext2_fs_t *fs, uint32_t ino, uint32_t uid, uint32_t gid) {
+    if (!fs || ino == 0 || ino > fs->sb.s_inodes_count)
+        return EXT2_ERR_INVAL;
+    ext2_inode_t inode;
+    if (ext2_read_inode(fs, ino, &inode) != EXT2_OK)
+        return EXT2_ERR_IO;
+    ext2_set_inode_owner_ids(&inode, uid, gid);
+    inode.i_ctime = ext2_now();
+    return ext2_write_inode(fs, ino, &inode);
 }
 
 /* ===================== Bitmap allocation ===================== */
@@ -1312,6 +1353,7 @@ int ext2_create(ext2_fs_t *fs, const char *path, uint16_t mode, ext2_file_t *f) 
 
     ext2_inode_t inode;
     memset(&inode, 0, sizeof(inode));
+    ext2_set_inode_owner(&inode);
     inode.i_mode = EXT2_S_IFREG | (mode & 0x0FFF);
     inode.i_links_count = 1;
     inode.i_ctime = inode.i_atime = inode.i_mtime = ext2_now();
@@ -1421,6 +1463,7 @@ int ext2_symlink_path(ext2_fs_t *fs, const char *target_path,
     ext2_inode_t inode;
     memset(&inode, 0, sizeof(inode));
     inode.i_mode = EXT2_S_IFLNK | 0777;
+    ext2_set_inode_owner(&inode);
     inode.i_links_count = 1;
     inode.i_size = (uint32_t)target_len;
     inode.i_atime = inode.i_mtime = inode.i_ctime = ext2_now();
@@ -1680,6 +1723,7 @@ int ext2_mkdir(ext2_fs_t *fs, const char *path) {
 
     ext2_inode_t inode;
     memset(&inode, 0, sizeof(inode));
+    ext2_set_inode_owner(&inode);
     inode.i_mode = EXT2_S_IFDIR | 0755;
     inode.i_links_count = 2; /* '.' and parent's entry */
     inode.i_ctime = inode.i_atime = inode.i_mtime = ext2_now();

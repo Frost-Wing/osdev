@@ -30,6 +30,9 @@ typedef struct user_task_spec {
     const char *argv[32];
     const char *envp[32];
     bool has_envp;
+    bool has_credentials;
+    uint32_t uid;
+    uint32_t gid;
     uint32_t parent_pid;
     bool fork_child;
     /* TTY_INDEX_CURRENT inherits the spawning task's terminal. */
@@ -49,6 +52,16 @@ typedef struct task_info {
     uint32_t parent_pid;
     uint32_t process_group_id;
     uint32_t session_id;
+    uint32_t uid;
+    uint32_t euid;
+    uint32_t suid;
+    uint32_t fsuid;
+    uint32_t gid;
+    uint32_t egid;
+    uint32_t sgid;
+    uint32_t fsgid;
+    uint32_t supplementary_groups[TASK_SUPPLEMENTARY_GROUPS];
+    uint8_t supplementary_group_count;
     uint8_t tty_index;
     char name[64];
     char exe_path[128];
@@ -88,6 +101,14 @@ typedef struct task {
     uint32_t parent_pid;
     uint32_t process_group_id;
     uint32_t session_id;
+    uint32_t uid;
+    uint32_t euid;
+    uint32_t suid;
+    uint32_t fsuid;
+    uint32_t gid;
+    uint32_t egid;
+    uint32_t sgid;
+    uint32_t fsgid;
     bool fork_child;
     uint8_t tty_index;
     char name[64];
@@ -187,6 +208,10 @@ bool multitasking_get_task(uint32_t pid, task_info_t *out_info);
 
 /** @brief Return the current task identifier. */
 uint32_t multitasking_current_pid(void);
+uint32_t multitasking_current_uid(void);
+uint32_t multitasking_current_euid(void);
+uint32_t multitasking_current_gid(void);
+uint32_t multitasking_current_egid(void);
 /**
  * @brief Return the current task's terminal, or the visible terminal if none is active.
  */

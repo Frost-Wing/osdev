@@ -35,6 +35,11 @@ int cmd_pwd(int argc, char **argv);
 int cmd_cd(int argc, char **argv);
 /** @brief Print the current user name. */
 int cmd_whoami(int argc, char **argv);
+/** @brief Create or remove local accounts. */
+int cmd_useradd(int argc, char **argv);
+int cmd_userdel(int argc, char **argv);
+/** @brief Return to the account login prompt. */
+int cmd_logout(int argc, char **argv);
 /** @brief Shut down the system. */
 int cmd_shutdown(int argc, char **argv);
 /** @brief Reboot the system. */

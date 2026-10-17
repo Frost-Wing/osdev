@@ -9,6 +9,7 @@
 #include <stream.h>
 #include <syscalls.h>
 #include <sys/resource.h>
+#include <commands/login.h>
 
 #define ARGV_MAX 32
 #define ENVP_MAX 32
@@ -181,6 +182,17 @@ static void fill_info(const task_t *task, task_info_t *info) {
     info->parent_pid = task->parent_pid;
     info->process_group_id = task->process_group_id;
     info->session_id = task->session_id;
+    info->uid = task->uid;
+    info->euid = task->euid;
+    info->suid = task->suid;
+    info->fsuid = task->fsuid;
+    info->gid = task->gid;
+    info->egid = task->egid;
+    info->sgid = task->sgid;
+    info->fsgid = task->fsgid;
+    memcpy(info->supplementary_groups, task->supplementary_groups,
+        sizeof(info->supplementary_groups));
+    info->supplementary_group_count = task->supplementary_group_count;
     info->tty_index = task->tty_index;
     snprintf(info->name, sizeof(info->name), "%s", task->name);
     snprintf(info->exe_path, sizeof(info->exe_path), "%s", task->user_spec.path ? task->user_spec.path : "");
@@ -270,6 +282,26 @@ uint32_t multitasking_current_pid(void) {
     return g_current_pid;
 }
 
+uint32_t multitasking_current_uid(void) {
+    task_t *task = multitasking_get_current_task();
+    return task ? task->uid : login_current_uid();
+}
+
+uint32_t multitasking_current_euid(void) {
+    task_t *task = multitasking_get_current_task();
+    return task ? task->euid : login_current_uid();
+}
+
+uint32_t multitasking_current_gid(void) {
+    task_t *task = multitasking_get_current_task();
+    return task ? task->gid : login_current_gid();
+}
+
+uint32_t multitasking_current_egid(void) {
+    task_t *task = multitasking_get_current_task();
+    return task ? task->egid : login_current_gid();
+}
+
 void multitasking_set_current_pid(uint32_t pid) {
     IRQ_GUARD();
     g_current_pid = pid;
@@ -311,6 +343,14 @@ static uint32_t spawn_kernel(const char *name, kernel_task_fn_t fn, void *ctx, b
         memcpy(task->supplementary_groups, parent->supplementary_groups,
             sizeof(task->supplementary_groups));
         task->supplementary_group_count = parent->supplementary_group_count;
+        task->uid = parent->uid;
+        task->euid = parent->euid;
+        task->suid = parent->suid;
+        task->fsuid = parent->fsuid;
+        task->gid = parent->gid;
+        task->egid = parent->egid;
+        task->sgid = parent->sgid;
+        task->fsgid = parent->fsgid;
         task->dumpable = parent->dumpable;
         task->no_new_privileges = parent->no_new_privileges;
     } else {
@@ -327,6 +367,14 @@ static uint32_t spawn_kernel(const char *name, kernel_task_fn_t fn, void *ctx, b
         task->resource_limits[LINUX_RLIMIT_NPROC][0] = 256;
         task->resource_limits[LINUX_RLIMIT_NPROC][1] = 256;
         task->dumpable = 1;
+        task->uid = login_current_uid();
+        task->euid = task->uid;
+        task->suid = task->uid;
+        task->fsuid = task->uid;
+        task->gid = login_current_gid();
+        task->egid = task->gid;
+        task->sgid = task->gid;
+        task->fsgid = task->gid;
     }
     snprintf(task->comm, sizeof(task->comm), "%s",
         name ? name : "kernel-task");
@@ -383,6 +431,14 @@ uint32_t multitasking_spawn_userland(const char *name, const user_task_spec_t *s
         memcpy(task->supplementary_groups, parent->supplementary_groups,
             sizeof(task->supplementary_groups));
         task->supplementary_group_count = parent->supplementary_group_count;
+        task->uid = parent->uid;
+        task->euid = parent->euid;
+        task->suid = parent->suid;
+        task->fsuid = parent->fsuid;
+        task->gid = parent->gid;
+        task->egid = parent->egid;
+        task->sgid = parent->sgid;
+        task->fsgid = parent->fsgid;
         task->dumpable = parent->dumpable;
         task->no_new_privileges = parent->no_new_privileges;
     } else {
@@ -399,6 +455,14 @@ uint32_t multitasking_spawn_userland(const char *name, const user_task_spec_t *s
         task->resource_limits[LINUX_RLIMIT_NPROC][0] = 256;
         task->resource_limits[LINUX_RLIMIT_NPROC][1] = 256;
         task->dumpable = 1;
+        task->uid = spec->has_credentials ? spec->uid : login_current_uid();
+        task->euid = task->uid;
+        task->suid = task->uid;
+        task->fsuid = task->uid;
+        task->gid = spec->has_credentials ? spec->gid : login_current_gid();
+        task->egid = task->gid;
+        task->sgid = task->gid;
+        task->fsgid = task->gid;
     }
     snprintf(task->comm, sizeof(task->comm), "%s", task->name);
     return pid;

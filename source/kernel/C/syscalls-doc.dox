@@ -43,7 +43,10 @@
  * - `execve(2)`            -> `sys_execve()`            -> `userland_exec()` / `execute_chain()`
  * - `fork(2)` / `clone(2)` -> `sys_fork()`              -> fork-compatible clone arguments; child-TID flags are accepted but not tracked
  * - `clone3(2)`            -> `sys_clone3()`            -> restricted fork-compatible clone arguments; child-TID flags are accepted but not tracked
- * - `setfsuid(2)` / `setfsgid(2)` -> accept changes while all processes use root credentials
+ * - `getuid(2)` / `geteuid(2)` / `getgid(2)` / `getegid(2)` -> per-task real/effective IDs
+ * - `setuid(2)` / `setgid(2)` / `setreuid(2)` / `setregid(2)` / `setresuid(2)` / `setresgid(2)` -> per-task credential transitions
+ * - `getresuid(2)` / `getresgid(2)` / `setfsuid(2)` / `setfsgid(2)` / `getgroups(2)` / `setgroups(2)` -> saved/filesystem IDs and supplementary groups
+ * - `execve(2)` preserves credentials; fork-compatible children inherit all credential IDs and groups
  * - `wait4(2)`             -> `sys_wait4()`             -> multitasking task-state polling
  * - `set_tid_address(2)`   -> `sys_set_tid_address()`   -> kernel clear-child-tid bookkeeping
  * - `set_robust_list(2)`   -> `sys_set_robust_list()`   -> ABI validation

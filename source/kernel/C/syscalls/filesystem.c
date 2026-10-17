@@ -30,8 +30,6 @@ extern void shutdown();
 #define LINUX_SOCK_RAW     3
 #define LINUX_IPPROTO_ICMP 1
 
-extern string current_user;
-
 typedef struct {
     uint16_t family;
     uint16_t port;
@@ -144,7 +142,7 @@ static bool syscall_shadow_directory(const char *path) {
 
 static bool syscall_shadow_read_denied(const char *path) {
     return syscall_shadow_protected_path(path) &&
-           (!current_user || strcmp(current_user, "root") != 0);
+           multitasking_current_euid() != 0;
 }
 
 static void fill_stat_from_info(linux_stat_t *st, const vfs_stat_info_t *info) {
@@ -156,8 +154,8 @@ static void fill_stat_from_info(linux_stat_t *st, const vfs_stat_info_t *info) {
     st->st_ino = info->inode;
     st->st_nlink = info->is_dir ? 2 : 1;
     st->st_mode = info->mode;
-    st->st_uid = 0;
-    st->st_gid = 0;
+    st->st_uid = info->uid;
+    st->st_gid = info->gid;
     st->st_rdev = info->rdev ? info->rdev : (info->is_dir ? 0 : 1);
     st->st_size = (int64_t)info->size;
     st->st_blksize = 512;
@@ -537,6 +535,8 @@ static bool fill_vfs_stat_for_path_at_impl(int dirfd, const char *path, vfs_stat
         info->size = inode.i_size;
         /* ext2 i_mode uses the same bits as Linux st_mode */
         info->mode = inode.i_mode;
+        info->uid = ext2_inode_uid(&inode);
+        info->gid = ext2_inode_gid(&inode);
         set_stat_times(info, inode.i_atime, inode.i_mtime, inode.i_ctime);
         if ((info->mode & 0xF000) == 0)
             info->mode |= info->is_dir ? LINUX_S_IFDIR : LINUX_S_IFREG;
@@ -1631,7 +1631,7 @@ uint64 sys_open_common(int dirfd, const char *path, int flags, int mode) {
     if (!resolve_path_at(dirfd, path, resolved_path, sizeof(resolved_path)))
         return -LINUX_EINVAL;
     if (syscall_shadow_protected_path(resolved_path)) {
-        if (!current_user || strcmp(current_user, "root") != 0)
+        if (multitasking_current_euid() != 0)
             return -LINUX_EACCES;
         if ((flags & 0x3) != LINUX_O_RDONLY ||
             (flags & (LINUX_O_CREAT | LINUX_O_TRUNC | LINUX_O_APPEND)))

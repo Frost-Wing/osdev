@@ -266,6 +266,37 @@ uint64_t syscall_dispatch(
         case LINUX_SYS_GETGROUPS:
             return sys_getgroups((int)arg1, (uint32_t *)arg2);
 
+        case LINUX_SYS_SETGROUPS:
+            return sys_setgroups((size_t)arg1, (const uint32_t *)arg2);
+
+        case LINUX_SYS_SETUID:
+            return sys_setuid((uint32_t)arg1);
+
+        case LINUX_SYS_SETGID:
+            return sys_setgid((uint32_t)arg1);
+
+        case LINUX_SYS_SETREUID:
+            return sys_setreuid((uint32_t)arg1, (uint32_t)arg2);
+
+        case LINUX_SYS_SETREGID:
+            return sys_setregid((uint32_t)arg1, (uint32_t)arg2);
+
+        case LINUX_SYS_SETRESUID:
+            return sys_setresuid((uint32_t)arg1, (uint32_t)arg2,
+                (uint32_t)arg3);
+
+        case LINUX_SYS_GETRESUID:
+            return sys_getresuid((uint32_t *)arg1, (uint32_t *)arg2,
+                (uint32_t *)arg3);
+
+        case LINUX_SYS_SETRESGID:
+            return sys_setresgid((uint32_t)arg1, (uint32_t)arg2,
+                (uint32_t)arg3);
+
+        case LINUX_SYS_GETRESGID:
+            return sys_getresgid((uint32_t *)arg1, (uint32_t *)arg2,
+                (uint32_t *)arg3);
+
         case LINUX_SYS_GETPGID:
             return sys_getpgid(arg1);
 
@@ -302,9 +333,10 @@ uint64_t syscall_dispatch(
                 (linux_timezone_t *)arg2);
 
         case LINUX_SYS_SETFSUID:
+            return sys_setfsuid((uint32_t)arg1);
+
         case LINUX_SYS_SETFSGID:
-            /* This kernel currently runs all processes with root credentials. */
-            return 0;
+            return sys_setfsgid((uint32_t)arg1);
 
         case LINUX_SYS_PSELECT6:
             return sys_pselect6((int)arg1, (uint64_t *)arg2,
@@ -315,10 +347,16 @@ uint64_t syscall_dispatch(
             return sys_utimes((const char *)arg1, (const void *)arg2);
 
         case LINUX_SYS_GETUID:
+            return multitasking_current_uid();
+
         case LINUX_SYS_GETEUID:
+            return multitasking_current_euid();
+
         case LINUX_SYS_GETGID:
+            return multitasking_current_gid();
+
         case LINUX_SYS_GETEGID:
-            return 0;
+            return multitasking_current_egid();
 
         case LINUX_SYS_GETPPID: {
             task_info_t info = {0};

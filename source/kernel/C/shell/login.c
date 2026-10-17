@@ -17,6 +17,7 @@
 #include <graphics.h>
 #include <keyboard.h>
 #include <memory.h>
+#include <stdarg.h>
 #include <strings.h>
 #include <tty.h>
 
@@ -47,6 +48,12 @@ typedef struct {
     bool usable;
 } login_shadow_entry_t;
 
+typedef struct {
+    char username[MAX_USERNAME_LENGTH + 1];
+    uint32_t uid;
+    uint32_t gid;
+} login_account_entry_t;
+
 _Static_assert(sizeof(login_auth_record_t) == 72, "Unexpected auth record size");
 
 extern struct flanterm_context *ft_ctx;
@@ -59,6 +66,9 @@ int users_index = 0;
 static char passwd_contents[LOGIN_DB_MAX_BYTES];
 static char shadow_contents[LOGIN_DB_MAX_BYTES];
 static login_shadow_entry_t shadow_entries[MAX_USERS_ALLOWED];
+static login_account_entry_t account_entries[MAX_USERS_ALLOWED];
+static uint32_t authenticated_uid;
+static uint32_t authenticated_gid;
 
 static bool login_read_line(const char *prompt, char *buffer, size_t capacity,
     bool hide_input) {
@@ -112,7 +122,8 @@ static void login_clear_secret(char *secret, size_t length) {
 }
 
 static bool login_add_user(uint64 name_hash, const uint8_t salt[PASSWORD_SALT_SIZE],
-    const uint8_t password_hash[PASSWORD_HASH_SIZE]) {
+    const uint8_t password_hash[PASSWORD_HASH_SIZE], const char *username,
+    uint32_t uid, uint32_t gid) {
     if (users_index >= MAX_USERS_ALLOWED) {
         error("Too many user accounts!", __FILE__);
         return false;
@@ -129,6 +140,10 @@ static bool login_add_user(uint64 name_hash, const uint8_t salt[PASSWORD_SALT_SI
     usernames_total[users_index] = name_hash;
     memcpy(password_salts[users_index], salt, PASSWORD_SALT_SIZE);
     memcpy(passwords_total[users_index], password_hash, PASSWORD_HASH_SIZE);
+    snprintf(account_entries[users_index].username,
+        sizeof(account_entries[users_index].username), "%s", username);
+    account_entries[users_index].uid = uid;
+    account_entries[users_index].gid = gid;
     users_index++;
     return true;
 }
@@ -193,8 +208,17 @@ static bool login_set_private_file_mode(const char *path) {
 static int login_read_text_file(const char *path, char *buffer, size_t capacity) {
     vfs_file_t file;
     int opened = vfs_open(path, VFS_RDONLY, &file);
+    if (opened == -6) {
+        char temp_path[64];
+        int length = snprintf(temp_path, sizeof(temp_path), "%s.tmp", path);
+        if (length <= 0 || (size_t)length >= sizeof(temp_path))
+            return -1;
+        opened = vfs_open(temp_path, VFS_RDONLY, &file);
+        if (opened == -6)
+            return 0;
+    }
     if (opened != 0)
-        return opened == -6 ? 0 : -1;
+        return -1;
 
     size_t total = 0;
     int result = 1;
@@ -325,6 +349,22 @@ static bool login_split_fields(char *line, char **fields, size_t expected_count)
     return count == expected_count;
 }
 
+static bool login_parse_id(const char *value, uint32_t *out) {
+    if (!value || !*value || !out)
+        return false;
+    uint32_t result = 0;
+    for (const char *p = value; *p; ++p) {
+        if (*p < '0' || *p > '9')
+            return false;
+        uint32_t digit = (uint32_t)(*p - '0');
+        if (result > (UINT32_MAX - digit) / 10)
+            return false;
+        result = result * 10 + digit;
+    }
+    *out = result;
+    return true;
+}
+
 static int login_load_shadow_entries(char *contents) {
     memset(shadow_entries, 0, sizeof(shadow_entries));
     size_t count = 0;
@@ -374,6 +414,7 @@ static int login_load_shadow_entries(char *contents) {
 static int login_load_passwd_entries(char *contents, int shadow_count) {
     bool root_loaded = false;
     bool root_seen = false;
+    memset(account_entries, 0, sizeof(account_entries));
     char *line = contents;
     while (*line) {
         char *next = strchr(line, '\n');
@@ -385,16 +426,25 @@ static int login_load_passwd_entries(char *contents, int shadow_count) {
 
         if (*line) {
             char *fields[7];
+            uint32_t uid;
+            uint32_t gid;
             if (!login_split_fields(line, fields, 7) ||
-                !login_valid_username(fields[0])) {
+                !login_valid_username(fields[0]) ||
+                !login_parse_id(fields[2], &uid) ||
+                !login_parse_id(fields[3], &gid)) {
                 return -1;
             }
 
             if (strcmp(fields[0], "root") == 0) {
-                if (root_seen || strcmp(fields[2], "0") != 0 ||
-                    strcmp(fields[3], "0") != 0)
+                if (root_seen || uid != 0 || gid != 0)
                     return -1;
                 root_seen = true;
+            }
+
+            for (int i = 0; i < users_index; ++i) {
+                if (strcmp(account_entries[i].username, fields[0]) == 0 ||
+                    account_entries[i].uid == uid)
+                    return -1;
             }
 
             if (strcmp(fields[1], "x") == 0) {
@@ -407,11 +457,15 @@ static int login_load_passwd_entries(char *contents, int shadow_count) {
                 }
                 if (credential && credential->usable) {
                     if (!login_add_user(baranium_hash(fields[0]), credential->salt,
-                            credential->password_hash))
+                            credential->password_hash, fields[0], uid, gid))
                         return -1;
                     if (strcmp(fields[0], "root") == 0)
                         root_loaded = true;
+                } else {
+                    return -1;
                 }
+            } else {
+                return -1;
             }
         }
         if (!next)
@@ -421,32 +475,93 @@ static int login_load_passwd_entries(char *contents, int shadow_count) {
     return root_loaded ? 1 : -1;
 }
 
-static bool login_write_account_database(const login_auth_record_t *record) {
-    char salt_hex[LOGIN_SHADOW_SALT_HEX_SIZE + 1];
-    char hash_hex[LOGIN_SHADOW_HASH_HEX_SIZE + 1];
-    char shadow_text[256];
-    char passwd_text[128];
-    login_encode_hex(record->salt, sizeof(record->salt), salt_hex);
-    login_encode_hex(record->password_hash, sizeof(record->password_hash), hash_hex);
-
-    int shadow_length = snprintf(shadow_text, sizeof(shadow_text),
-        "root:" LOGIN_SHADOW_HASH_PREFIX "%s$%s::0:99999:7:::\n",
-        salt_hex, hash_hex);
-    int passwd_length = snprintf(passwd_text, sizeof(passwd_text),
-        "root:x:0:0:root:/root:/bin/sh\n");
-    if (shadow_length <= 0 || (size_t)shadow_length >= sizeof(shadow_text) ||
-        passwd_length <= 0 || (size_t)passwd_length >= sizeof(passwd_text))
+static bool login_append_text(char *buffer, size_t capacity, size_t *length,
+    const char *format, ...) {
+    if (*length >= capacity)
         return false;
-
-    if (!login_write_text_file(LOGIN_SHADOW_TEMP_PATH, shadow_text) ||
-        vfs_mv(LOGIN_SHADOW_TEMP_PATH, LOGIN_SHADOW_PATH) != 0 ||
-        vfs_sync(true) != 0)
+    va_list args;
+    va_start(args, format);
+    int written = vsnprintf(buffer + *length, capacity - *length, format, args);
+    va_end(args);
+    if (written < 0 || (size_t)written >= capacity - *length)
         return false;
-    if (!login_write_text_file(LOGIN_PASSWD_TEMP_PATH, passwd_text) ||
-        vfs_mv(LOGIN_PASSWD_TEMP_PATH, LOGIN_PASSWD_PATH) != 0 ||
-        vfs_sync(true) != 0)
-        return false;
+    *length += (size_t)written;
     return true;
+}
+
+static bool login_replace_text_file(const char *temporary_path,
+    const char *destination_path) {
+    vfs_file_t existing;
+    int opened = vfs_open(destination_path, VFS_RDONLY, &existing);
+    if (opened == 0) {
+        vfs_close(&existing);
+        if (vfs_unlink(destination_path) != 0)
+            return false;
+    } else if (opened != -6) {
+        return false;
+    }
+    return vfs_mv(temporary_path, destination_path) == 0 &&
+           vfs_sync(true) == 0;
+}
+
+static bool login_write_account_database(bool passwd_first) {
+    char shadow_text[LOGIN_DB_MAX_BYTES];
+    char passwd_text[LOGIN_DB_MAX_BYTES];
+    size_t shadow_length = 0;
+    size_t passwd_length = 0;
+    shadow_text[0] = '\0';
+    passwd_text[0] = '\0';
+
+    for (int i = 0; i < users_index; ++i) {
+        login_shadow_entry_t *credential = NULL;
+        for (int j = 0; j < MAX_USERS_ALLOWED; ++j) {
+            if (shadow_entries[j].usable &&
+                strcmp(shadow_entries[j].username, account_entries[i].username) == 0) {
+                credential = &shadow_entries[j];
+                break;
+            }
+        }
+        if (!credential)
+            return false;
+
+        char salt_hex[LOGIN_SHADOW_SALT_HEX_SIZE + 1];
+        char hash_hex[LOGIN_SHADOW_HASH_HEX_SIZE + 1];
+        login_encode_hex(credential->salt, sizeof(credential->salt), salt_hex);
+        login_encode_hex(credential->password_hash,
+            sizeof(credential->password_hash), hash_hex);
+        if (!login_append_text(shadow_text, sizeof(shadow_text), &shadow_length,
+                "%s:" LOGIN_SHADOW_HASH_PREFIX "%s$%s::0:99999:7:::\n",
+                account_entries[i].username, salt_hex, hash_hex))
+            return false;
+
+        const char *home = account_entries[i].uid == 0
+                               ? "/root"
+                               : NULL;
+        if (home) {
+            if (!login_append_text(passwd_text, sizeof(passwd_text), &passwd_length,
+                    "%s:x:%u:%u:root:%s:/bin/sh\n",
+                    account_entries[i].username, account_entries[i].uid,
+                    account_entries[i].gid, home))
+                return false;
+        } else {
+            if (!login_append_text(passwd_text, sizeof(passwd_text), &passwd_length,
+                    "%s:x:%u:%u::/home/%s:/bin/sh\n",
+                    account_entries[i].username, account_entries[i].uid,
+                    account_entries[i].gid, account_entries[i].username))
+                return false;
+        }
+    }
+
+    if (shadow_length == 0 || passwd_length == 0)
+        return false;
+    if (!login_write_text_file(LOGIN_SHADOW_TEMP_PATH, shadow_text) ||
+        !login_write_text_file(LOGIN_PASSWD_TEMP_PATH, passwd_text))
+        return false;
+    if (passwd_first)
+        return login_replace_text_file(LOGIN_PASSWD_TEMP_PATH, LOGIN_PASSWD_PATH) &&
+               login_replace_text_file(LOGIN_SHADOW_TEMP_PATH, LOGIN_SHADOW_PATH);
+    return login_replace_text_file(LOGIN_SHADOW_TEMP_PATH, LOGIN_SHADOW_PATH) &&
+           login_replace_text_file(LOGIN_PASSWD_TEMP_PATH, LOGIN_PASSWD_PATH);
 }
 
 static int login_load_existing_accounts(void) {
@@ -492,7 +607,20 @@ static int login_migrate_legacy_account(void) {
         return -1;
     }
 
-    if (!login_write_account_database(&record)) {
+    users_index = 0;
+    memset(shadow_entries, 0, sizeof(shadow_entries));
+    memset(account_entries, 0, sizeof(account_entries));
+    if (!login_add_user(record.username_hash, record.salt, record.password_hash,
+            "root", 0, 0)) {
+        memset(&record, 0, sizeof(record));
+        return -1;
+    }
+    strcpy(shadow_entries[0].username, "root");
+    memcpy(shadow_entries[0].salt, record.salt, sizeof(record.salt));
+    memcpy(shadow_entries[0].password_hash, record.password_hash,
+        sizeof(record.password_hash));
+    shadow_entries[0].usable = true;
+    if (!login_write_account_database(false)) {
         memset(&record, 0, sizeof(record));
         error("Could not migrate root credentials to /etc/passwd and /etc/shadow.", __FILE__);
         return -1;
@@ -563,7 +691,20 @@ int login_setup_first_user(void) {
     password_derive_key((const uint8_t *)password, strlen(password),
         record.salt, record.iterations, record.password_hash);
 
-    bool saved = login_write_account_database(&record);
+    users_index = 0;
+    memset(shadow_entries, 0, sizeof(shadow_entries));
+    memset(account_entries, 0, sizeof(account_entries));
+    if (!login_add_user(username_hash, record.salt, record.password_hash,
+            "root", 0, 0)) {
+        memset(&record, 0, sizeof(record));
+        return -1;
+    }
+    strcpy(shadow_entries[0].username, "root");
+    memcpy(shadow_entries[0].salt, record.salt, sizeof(record.salt));
+    memcpy(shadow_entries[0].password_hash, record.password_hash,
+        sizeof(record.password_hash));
+    shadow_entries[0].usable = true;
+    bool saved = login_write_account_database(false);
     login_clear_secret(password, sizeof(password));
     login_clear_secret(confirmation, sizeof(confirmation));
     if (!saved) {
@@ -608,8 +749,12 @@ int login_request(char *userbuf, int max) {
                        login_hash_matches(passwords_total[i], password_hash);
         memset(password_hash, 0, sizeof(password_hash));
         if (matches) {
-
             snprintf(userbuf, (size_t)max, "%s", username);
+            if (!login_lookup_user(username, &authenticated_uid, &authenticated_gid)) {
+                login_clear_secret(password, sizeof(password));
+                memset(username, 0, sizeof(username));
+                return -1;
+            }
             login_clear_secret(password, sizeof(password));
             memset(username, 0, sizeof(username));
             return 0;
@@ -631,13 +776,11 @@ int ask_password(const char *username) {
         return 1;
     }
     putc('\n');
-
-    for (int i = 0; i < users_index; i++) {
-        uint64 current_username = usernames_total[i];
+    for (int i = 0; i < users_index; ++i) {
         uint8_t password_hash[PASSWORD_HASH_SIZE];
         password_derive_key((const uint8_t *)password, strlen(password),
             password_salts[i], LOGIN_KDF_ITERATIONS, password_hash);
-        bool matches = current_username == username_hash &&
+        bool matches = usernames_total[i] == username_hash &&
                        login_hash_matches(passwords_total[i], password_hash);
         memset(password_hash, 0, sizeof(password_hash));
         if (matches) {
@@ -645,7 +788,215 @@ int ask_password(const char *username) {
             return 0;
         }
     }
-
     login_clear_secret(password, sizeof(password));
     return 1;
+}
+
+bool login_lookup_user(const char *username, uint32_t *uid, uint32_t *gid) {
+    if (!username)
+        return false;
+    for (int i = 0; i < users_index; ++i) {
+        if (strcmp(account_entries[i].username, username) == 0) {
+            if (uid)
+                *uid = account_entries[i].uid;
+            if (gid)
+                *gid = account_entries[i].gid;
+            return true;
+        }
+    }
+    return false;
+}
+
+uint32_t login_current_uid(void) {
+    return authenticated_uid;
+}
+
+uint32_t login_current_gid(void) {
+    return authenticated_gid;
+}
+
+static bool login_reload_accounts(void) {
+    users_index = 0;
+    memset(usernames_total, 0, sizeof(usernames_total));
+    memset(passwords_total, 0, sizeof(passwords_total));
+    memset(password_salts, 0, sizeof(password_salts));
+    memset(shadow_entries, 0, sizeof(shadow_entries));
+    memset(account_entries, 0, sizeof(account_entries));
+    return login_load_existing_accounts() == 1;
+}
+
+static bool login_create_home(const char *username, uint32_t uid, uint32_t gid,
+    char *home_path, size_t home_path_size, bool *created_home_parent,
+    bool *created_home) {
+    int parent_status = vfs_path_is_dir("/home");
+    *created_home_parent = false;
+    *created_home = false;
+    if (parent_status == 0) {
+        if (vfs_mkdir("/home") != 0)
+            return false;
+        *created_home_parent = true;
+    } else if (parent_status != 1) {
+        return false;
+    }
+
+    int length = snprintf(home_path, home_path_size, "/home/%s", username);
+    if (length <= 0 || (size_t)length >= home_path_size ||
+        vfs_path_is_dir(home_path) != 0 || vfs_mkdir(home_path) != 0)
+        return false;
+    *created_home = true;
+
+    vfs_mount_res_t mount;
+    uint32_t inode_number;
+    if (vfs_resolve_mount(home_path, &mount) != 0 ||
+        (mount.mnt->type == FS_EXT2 &&
+            (ext2_find_path((ext2_fs_t *)mount.mnt->fs, mount.rel_path,
+                 &inode_number, NULL) != EXT2_OK ||
+                ext2_chown_inode((ext2_fs_t *)mount.mnt->fs,
+                    inode_number, uid, gid) != EXT2_OK))) {
+        vfs_rmdir(home_path);
+        *created_home = false;
+        if (*created_home_parent)
+            vfs_rmdir("/home");
+        return false;
+    }
+    return vfs_sync(true) == 0;
+}
+
+static void login_remove_empty_home(const char *home_path, bool created_home,
+    bool created_home_parent) {
+    if (created_home && home_path && home_path[0])
+        vfs_rmdir(home_path);
+    if (created_home_parent)
+        vfs_rmdir("/home");
+}
+
+int login_create_user(const char *username) {
+    if (authenticated_uid != 0 || !login_valid_username(username) ||
+        users_index >= MAX_USERS_ALLOWED)
+        return -1;
+    for (int i = 0; i < users_index; ++i) {
+        if (strcmp(account_entries[i].username, username) == 0)
+            return -1;
+    }
+    if (!login_auth_filesystem_writable())
+        return -1;
+
+    uint32_t new_id = 1000;
+    for (;;) {
+        bool used = false;
+        for (int i = 0; i < users_index; ++i) {
+            if (account_entries[i].uid == new_id) {
+                used = true;
+                break;
+            }
+        }
+        if (!used)
+            break;
+        if (new_id == UINT32_MAX)
+            return -1;
+        ++new_id;
+    }
+
+    char password[MAX_PASSWORD_LENGTH + 1] = {0};
+    char confirmation[MAX_PASSWORD_LENGTH + 1] = {0};
+    if (!login_read_line("New password (12-40 characters): ",
+            password, sizeof(password), true) ||
+        !login_read_line("Confirm password: ",
+            confirmation, sizeof(confirmation), true)) {
+        login_clear_secret(password, sizeof(password));
+        login_clear_secret(confirmation, sizeof(confirmation));
+        return -1;
+    }
+    if (strlen(password) < 12 || strcmp(password, confirmation) != 0) {
+        login_clear_secret(password, sizeof(password));
+        login_clear_secret(confirmation, sizeof(confirmation));
+        return -1;
+    }
+
+    uint8_t salt[PASSWORD_SALT_SIZE];
+    uint8_t password_hash[PASSWORD_HASH_SIZE];
+    uint64_t username_hash = baranium_hash(username);
+    login_make_salt(username_hash, salt);
+    password_derive_key((const uint8_t *)password, strlen(password),
+        salt, LOGIN_KDF_ITERATIONS, password_hash);
+    login_clear_secret(password, sizeof(password));
+    login_clear_secret(confirmation, sizeof(confirmation));
+
+    int shadow_slot = -1;
+    for (int i = 0; i < MAX_USERS_ALLOWED; ++i) {
+        if (!shadow_entries[i].usable) {
+            shadow_slot = i;
+            break;
+        }
+    }
+    char home_path[64] = {0};
+    bool created_home_parent = false;
+    bool created_home = false;
+    if (shadow_slot < 0 ||
+        !login_create_home(username, new_id, new_id, home_path,
+            sizeof(home_path), &created_home_parent, &created_home) ||
+        !login_add_user(username_hash, salt, password_hash, username,
+            new_id, new_id)) {
+        login_remove_empty_home(home_path, created_home, created_home_parent);
+        memset(salt, 0, sizeof(salt));
+        memset(password_hash, 0, sizeof(password_hash));
+        return -1;
+    }
+    login_shadow_entry_t *credential = &shadow_entries[shadow_slot];
+    snprintf(credential->username, sizeof(credential->username), "%s", username);
+    memcpy(credential->salt, salt, sizeof(salt));
+    memcpy(credential->password_hash, password_hash, sizeof(password_hash));
+    credential->usable = true;
+    memset(salt, 0, sizeof(salt));
+    memset(password_hash, 0, sizeof(password_hash));
+
+    if (!login_write_account_database(false)) {
+        login_reload_accounts();
+        login_remove_empty_home(home_path, created_home, created_home_parent);
+        return -1;
+    }
+    if (!login_reload_accounts())
+        return -1;
+    return 0;
+}
+
+int login_remove_user(const char *username) {
+    if (authenticated_uid != 0 || !username ||
+        strcmp(username, "root") == 0)
+        return -1;
+
+    int account_index = -1;
+    for (int i = 0; i < users_index; ++i) {
+        if (strcmp(account_entries[i].username, username) == 0) {
+            account_index = i;
+            break;
+        }
+    }
+    if (account_index < 0 || !login_auth_filesystem_writable())
+        return -1;
+
+    for (int i = 0; i < MAX_USERS_ALLOWED; ++i) {
+        if (shadow_entries[i].usable &&
+            strcmp(shadow_entries[i].username, username) == 0) {
+            memset(&shadow_entries[i], 0, sizeof(shadow_entries[i]));
+            break;
+        }
+    }
+    for (int i = account_index; i + 1 < users_index; ++i) {
+        account_entries[i] = account_entries[i + 1];
+        usernames_total[i] = usernames_total[i + 1];
+        memcpy(password_salts[i], password_salts[i + 1], PASSWORD_SALT_SIZE);
+        memcpy(passwords_total[i], passwords_total[i + 1], PASSWORD_HASH_SIZE);
+    }
+    --users_index;
+    memset(&account_entries[users_index], 0, sizeof(account_entries[users_index]));
+    usernames_total[users_index] = 0;
+    memset(password_salts[users_index], 0, PASSWORD_SALT_SIZE);
+    memset(passwords_total[users_index], 0, PASSWORD_HASH_SIZE);
+
+    if (!login_write_account_database(true) || !login_reload_accounts()) {
+        login_reload_accounts();
+        return -1;
+    }
+    return 0;
 }

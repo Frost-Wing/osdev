@@ -275,6 +275,17 @@ int shell_main(int argc, char **argv) {
     size_t cursor = 0;
 
     current_user = argv[0];
+    uint32_t uid = 0;
+    uint32_t gid = 0;
+    if (!login_lookup_user(argv[0], &uid, &gid)) {
+        eprintf("fsh: account no longer exists");
+        return 1;
+    }
+    (void)gid;
+    if (uid == 0)
+        snprintf(global_home_env, sizeof(global_home_env), "HOME=/root");
+    else
+        snprintf(global_home_env, sizeof(global_home_env), "HOME=/home/%s", argv[0]);
 
     done("Successfully logged in!", __FILE__);
     print("\x1b[2J\x1b[H");
@@ -667,6 +678,11 @@ static command_t commands[] = {
     {"pwd", cmd_pwd},
     {"cd", cmd_cd},
     {"whoami", cmd_whoami},
+    {"useradd", cmd_useradd},
+    {"adduser", cmd_useradd},
+    {"userdel", cmd_userdel},
+    {"deluser", cmd_userdel},
+    {"logout", cmd_logout},
     {"shutdown", cmd_shutdown},
     {"lspci", cmd_lspci},
     {"lsblk", cmd_lsblk},

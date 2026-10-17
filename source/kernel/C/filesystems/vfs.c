@@ -30,14 +30,12 @@
 
 char vfs_cwd[256] = "/";
 uint16_t vfs_cwd_cluster = 0;
-extern string current_user;
 
 static bool vfs_shadow_access_denied(const char *path) {
     static const char *const protected_paths[] = {
         "/etc/shadow",
         "/etc/shadow.tmp"};
-    if ((current_user && strcmp(current_user, "root") == 0) ||
-        (!current_user && !userland_is_running()))
+    if (multitasking_current_euid() == 0)
         return false;
 
     for (size_t i = 0; i < sizeof(protected_paths) / sizeof(protected_paths[0]); ++i) {
@@ -72,8 +70,7 @@ static bool vfs_shadow_access_denied(const char *path) {
 
 static bool vfs_shadow_file_access_denied(const vfs_file_t *file) {
     if (!file || !file->mnt ||
-        (current_user && strcmp(current_user, "root") == 0) ||
-        (!current_user && !userland_is_running()))
+        multitasking_current_euid() == 0)
         return false;
     if (file->mnt->type == FS_DEV)
         return devfs_is_block_node(file->rel_path);
