@@ -196,6 +196,9 @@ void flanterm_fb_scrollback_up(struct flanterm_context *ctx);
 /** Display the next newer line of retained framebuffer output. */
 void flanterm_fb_scrollback_down(struct flanterm_context *ctx);
 
+/** Return the framebuffer terminal to its live output view. */
+void flanterm_fb_scrollback_to_live(struct flanterm_context *ctx);
+
 #ifndef FLANTERM_FB_DISABLE_BUMP_ALLOC
 /**
  * @brief Initialize a framebuffer-based terminal context with simple settings.

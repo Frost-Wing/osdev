@@ -639,6 +639,15 @@ void flanterm_fb_scrollback_down(struct flanterm_context *_ctx) {
         scrollback_redraw(_ctx);
 }
 
+void flanterm_fb_scrollback_to_live(struct flanterm_context *_ctx) {
+    struct flanterm_fb_context *ctx = (void *)_ctx;
+    if (ctx == NULL || ctx->scrollback_offset == 0)
+        return;
+
+    ctx->scrollback_offset = 0;
+    _ctx->full_refresh(_ctx);
+}
+
 static void flanterm_fb_revscroll(struct flanterm_context *_ctx) {
     struct flanterm_fb_context *ctx = (void *)_ctx;
 

@@ -9,6 +9,7 @@
  *
  */
 #include <debugger.h>
+#include <fb.h>
 #include <flanterm/flanterm.h>
 #include <graphics.h>
 #include <klog.h>
@@ -248,6 +249,27 @@ void terminal_toggle_cursor(void) {
         ft_ctx->double_buffer_flush(ft_ctx);
         __asm__ volatile("sfence" ::: "memory");
     }
+    console_lock_release(irq_flags);
+}
+
+void terminal_scrollback_up(void) {
+    uint64_t irq_flags = console_lock_acquire();
+    if (ft_ctx)
+        flanterm_fb_scrollback_up(ft_ctx);
+    console_lock_release(irq_flags);
+}
+
+void terminal_scrollback_down(void) {
+    uint64_t irq_flags = console_lock_acquire();
+    if (ft_ctx)
+        flanterm_fb_scrollback_down(ft_ctx);
+    console_lock_release(irq_flags);
+}
+
+void terminal_scrollback_to_live(void) {
+    uint64_t irq_flags = console_lock_acquire();
+    if (ft_ctx)
+        flanterm_fb_scrollback_to_live(ft_ctx);
     console_lock_release(irq_flags);
 }
 

@@ -226,6 +226,17 @@ void tty_input_char(char c) {
 }
 
 void tty_input_key(int key) {
+    if (key == KEY_PGUP) {
+        terminal_scrollback_up();
+        return;
+    }
+    if (key == KEY_PGDN) {
+        terminal_scrollback_down();
+        return;
+    }
+
+    terminal_scrollback_to_live();
+
     const char *seq = NULL;
     switch (key) {
         case CUR_UP:
@@ -248,12 +259,6 @@ void tty_input_key(int key) {
             break;
         case KEY_DEL:
             seq = "\033[3~";
-            break;
-        case KEY_PGUP:
-            seq = "\033[5~";
-            break;
-        case KEY_PGDN:
-            seq = "\033[6~";
             break;
     }
 

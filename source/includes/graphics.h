@@ -264,6 +264,12 @@ void print_bitmap(int x, int y, int w, int h, const bool *pixels, uint32 color);
  */
 void terminal_toggle_cursor(void);
 
+/** @brief Scroll the active framebuffer terminal by one retained line. */
+void terminal_scrollback_up(void);
+void terminal_scrollback_down(void);
+/** @brief Return the active framebuffer terminal to its live output view. */
+void terminal_scrollback_to_live(void);
+
 /** @brief Write bytes verbatim to the active framebuffer terminal. */
 void terminal_write(const char *buf, size_t len);
 
