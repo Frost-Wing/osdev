@@ -70,8 +70,9 @@ uint64 sys_execve(const char *target,
 
     int rc;
     uint32_t current_pid = multitasking_current_pid();
+    bool target_is_elf = path_is_loadable_elf(ctx.path);
 
-    if (should_route_to_toybox(target)) {
+    if (!target_is_elf && should_route_to_toybox(target)) {
         const char *toybox_argv[32];
         int toybox_argc = build_toybox_argv(
             target,
@@ -100,7 +101,7 @@ uint64 sys_execve(const char *target,
 
         rc = userland_exec_replace(&tb_ctx);
     } else {
-        if (!path_is_loadable_elf(ctx.path)) {
+        if (!target_is_elf) {
             vfs_file_t file;
             if (vfs_open(ctx.path, VFS_RDONLY, &file) != 0) {
                 free_copied_string_array(copied_argv, argc);

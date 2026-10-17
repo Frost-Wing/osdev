@@ -61,7 +61,8 @@
 #define EXT2_TIND_BLOCK  14
 #define EXT2_N_BLOCKS    15
 
-#define EXT2_NAME_LEN 255
+#define EXT2_NAME_LEN            255
+#define EXT2_BLOCK_CACHE_ENTRIES 16
 
 #define EXT2_VALID_FS 0x0001
 #define EXT2_ERROR_FS 0x0002
@@ -212,6 +213,12 @@ typedef struct {
 
 #define EXT2_DIR_ENTRY_FIXED_SIZE 8 /* inode + rec_len + name_len + file_type, on disk */
 
+typedef struct {
+    uint32_t block;
+    uint8_t valid;
+    uint8_t data[4096];
+} ext2_block_cache_entry_t;
+
 /* ===================== Runtime structures ===================== */
 
 typedef struct {
@@ -235,6 +242,8 @@ typedef struct {
     int sb_dirty;
     uint16_t mount_state; /* s_state as found at mount time */
     int was_clean;        /* filesystem was cleanly unmounted before this mount */
+    uint32_t block_cache_next;
+    ext2_block_cache_entry_t block_cache[EXT2_BLOCK_CACHE_ENTRIES];
 } ext2_fs_t;
 
 typedef struct {

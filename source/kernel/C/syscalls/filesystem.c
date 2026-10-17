@@ -691,10 +691,7 @@ bool should_route_to_toybox(const char *target) {
     if (strcmp(applet, "gpg") == 0)
         return false;
 
-    if (!path_is_loadable_elf("/bin/toybox"))
-        return false;
-
-    return !path_is_loadable_elf(target);
+    return path_is_loadable_elf("/bin/toybox");
 }
 
 int build_toybox_argv(

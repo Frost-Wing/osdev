@@ -65,6 +65,22 @@ static inline uint32_t ext2_block_to_lba(ext2_fs_t *fs, uint32_t block) {
     return fs->partition_lba + block * fs->sectors_per_block;
 }
 
+static ext2_block_cache_entry_t *ext2_cache_find(ext2_fs_t *fs,
+    uint32_t block) {
+    for (size_t i = 0; i < EXT2_BLOCK_CACHE_ENTRIES; ++i) {
+        ext2_block_cache_entry_t *entry = &fs->block_cache[i];
+        if (entry->valid && entry->block == block)
+            return entry;
+    }
+    return NULL;
+}
+
+static void ext2_cache_invalidate(ext2_fs_t *fs, uint32_t block) {
+    ext2_block_cache_entry_t *entry = ext2_cache_find(fs, block);
+    if (entry)
+        entry->valid = 0;
+}
+
 /* ===================== Time helper ===================== */
 
 static uint32_t ext2_now(void) {
@@ -76,12 +92,24 @@ static int ext2_read_block(ext2_fs_t *fs, uint32_t block, void *buf) {
         memset(buf, 0, fs->block_size);
         return EXT2_OK;
     }
+    ext2_block_cache_entry_t *cached = ext2_cache_find(fs, block);
+    if (cached) {
+        memcpy(buf, cached->data, fs->block_size);
+        return EXT2_OK;
+    }
+
     uint32_t lba = ext2_block_to_lba(fs, block);
     int rc = ahci_read_sector(fs->portno, lba, buf, fs->sectors_per_block);
     if (rc != 0) {
         eprintf("ext2: read failed for block %u (LBA %u, rc %d)", block, lba, rc);
         return EXT2_ERR_IO;
     }
+
+    ext2_block_cache_entry_t *entry =
+        &fs->block_cache[fs->block_cache_next++ % EXT2_BLOCK_CACHE_ENTRIES];
+    entry->block = block;
+    memcpy(entry->data, buf, fs->block_size);
+    entry->valid = 1;
     return EXT2_OK;
 }
 
@@ -90,6 +118,9 @@ static int ext2_write_block(ext2_fs_t *fs, uint32_t block, const void *buf) {
         return EXT2_ERR_INVAL;
     if (ahci_write_sector(fs->portno, ext2_block_to_lba(fs, block), (void *)buf, fs->sectors_per_block) != 0)
         return EXT2_ERR_IO;
+    ext2_block_cache_entry_t *cached = ext2_cache_find(fs, block);
+    if (cached)
+        memcpy(cached->data, buf, fs->block_size);
     return EXT2_OK;
 }
 
@@ -112,6 +143,13 @@ static int ext2_write_superblock(ext2_fs_t *fs) {
 
     if (ahci_write_sector(fs->portno, sb_sector, buf, 2) != 0)
         return EXT2_ERR_IO;
+
+    uint32_t first_block = (EXT2_SUPERBLOCK_OFFSET / 512) /
+                           fs->sectors_per_block;
+    uint32_t last_block = (EXT2_SUPERBLOCK_OFFSET / 512 + 1) /
+                          fs->sectors_per_block;
+    ext2_cache_invalidate(fs, first_block);
+    ext2_cache_invalidate(fs, last_block);
 
     fs->sb_dirty = 0;
     return EXT2_OK;

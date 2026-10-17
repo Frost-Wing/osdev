@@ -31,6 +31,9 @@
 
 extern struct limine_memmap_response *memmap;
 
+typedef bool (*paging_user_page_callback_t)(uint64_t virt, uint64_t flags,
+    void *context);
+
 /**
  * @brief Function to map userland pages
  *
@@ -73,6 +76,13 @@ bool paging_map_mmio(uintptr_t phys, size_t size);
 
 /** @brief Return the page-table flags for a user virtual address. */
 uint64_t paging_user_page_flags(uint64_t virt);
+
+/** @brief Visit present user-page mappings in a virtual range. */
+bool paging_for_each_user_page(uint64_t start, uint64_t end,
+    paging_user_page_callback_t callback, void *context);
+
+/** @brief Unmap present pages in a virtual range while skipping empty tables. */
+void paging_unmap_user_range(uint64_t start, uint64_t end);
 
 /** @brief Check that every page in a user range is mapped with the requested access. */
 bool paging_validate_user_range(uint64_t addr, uint64_t length, bool writable);

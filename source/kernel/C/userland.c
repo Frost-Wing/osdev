@@ -194,11 +194,7 @@ extern void userland_jump_resume(const uint64_t *regs) __attribute__((noreturn))
 /* -------------------------------------------------------- page mapping --- */
 
 static void unmap_user_range(uint64_t start, uint64_t end) {
-    uint64_t a = start & ~(uint64_t)(PAGE_SIZE - 1);
-    uint64_t b = (end + PAGE_SIZE - 1) & ~(uint64_t)(PAGE_SIZE - 1);
-
-    for (uint64_t vaddr = a; vaddr < b; vaddr += PAGE_SIZE)
-        unmap_user_page(vaddr);
+    paging_unmap_user_range(start, end);
 }
 
 /* Maps zeroed pages. On failure everything mapped by this call is undone. */
@@ -263,29 +259,35 @@ static void userland_free_snapshot(saved_user_page_t *pages) {
     }
 }
 
-static bool userland_snapshot_range(saved_user_page_t **list, uint64_t start, uint64_t end) {
-    for (uint64_t vaddr = start; vaddr < end; vaddr += PAGE_SIZE) {
-        uint64_t flags = paging_user_page_flags(vaddr);
-        if (!(flags & PAGE_PRESENT))
-            continue;
+typedef struct {
+    saved_user_page_t **pages;
+} userland_snapshot_ctx_t;
 
-        saved_user_page_t *page = (saved_user_page_t *)kmalloc(sizeof(saved_user_page_t));
-        if (!page)
-            return false;
+static bool userland_snapshot_page(uint64_t vaddr, uint64_t flags,
+    void *context) {
+    userland_snapshot_ctx_t *ctx = (userland_snapshot_ctx_t *)context;
+    saved_user_page_t *page = (saved_user_page_t *)kmalloc(sizeof(*page));
+    if (!page)
+        return false;
 
-        page->data_phys = allocate_page();
-        if (!page->data_phys) {
-            kfree(page);
-            return false;
-        }
-        page->vaddr = vaddr;
-        page->flags = flags;
-        memcpy(paging_phys_to_virt(page->data_phys), (const void *)vaddr,
-            PAGE_SIZE);
-        page->next = *list;
-        *list = page;
+    page->data_phys = allocate_page();
+    if (!page->data_phys) {
+        kfree(page);
+        return false;
     }
+    page->vaddr = vaddr;
+    page->flags = flags;
+    memcpy(paging_phys_to_virt(page->data_phys), (const void *)vaddr,
+        PAGE_SIZE);
+    page->next = *ctx->pages;
+    *ctx->pages = page;
     return true;
+}
+
+static bool userland_snapshot_range(saved_user_page_t **list, uint64_t start,
+    uint64_t end) {
+    userland_snapshot_ctx_t ctx = {.pages = list};
+    return paging_for_each_user_page(start, end, userland_snapshot_page, &ctx);
 }
 
 /* All-or-nothing: a partial snapshot would corrupt the process on restore. */
