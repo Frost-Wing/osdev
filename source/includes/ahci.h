@@ -89,6 +89,8 @@ typedef struct {
     ahci_cmd_header_t *cmd_list;
     ahci_cmd_table_t *cmd_tables[32];
     void *fis;
+    void *dma_buffer;
+    size_t dma_buffer_size;
 } ahci_port_mem_t;
 
 extern ahci_port_mem_t port_mem[32];

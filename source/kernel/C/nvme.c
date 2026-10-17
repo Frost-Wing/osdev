@@ -30,7 +30,8 @@
 #define NVME_NVM_OP_READ           0x02
 #define NVME_NVM_OP_FLUSH          0x00
 #define NVME_FEAT_NUM_QUEUES       0x07
-#define NVME_MAX_IO_BYTES 4096U
+#define NVME_MAX_IO_BYTES (64U * 1024U)
+#define NVME_PRP_LIST_ENTRIES (PAGE_SIZE / sizeof(uint64_t))
 
 nvme_controller_t nvme_controllers[NVME_MAX_CONTROLLERS];
 nvme_namespace_t nvme_namespaces[NVME_MAX_NAMESPACES];
@@ -62,6 +63,7 @@ static int nvme_submit_and_wait(nvme_controller_t *ctrl, nvme_queue_t *q, nvme_c
     q->sq[q->sq_tail] = *cmd;
 
     q->sq_tail = (uint16_t)((q->sq_tail + 1U) % q->depth);
+    __sync_synchronize();
     *nvme_sq_doorbell(ctrl, q->qid) = q->sq_tail;
 
     for (int spin = 0; spin < NVME_COMMAND_TIMEOUT_MS * 1000; spin++) {
@@ -201,12 +203,16 @@ static int nvme_init_controller(nvme_controller_t *ctrl) {
 
     ctrl->ioq.sq = kmalloc_aligned(sizeof(nvme_command_t) * ctrl->ioq.depth, 4096);
     ctrl->ioq.cq = kmalloc_aligned(sizeof(nvme_completion_t) * ctrl->ioq.depth, 4096);
-    ctrl->bounce_buffer = kmalloc_aligned(4096, 4096);
-    if (!ctrl->ioq.sq || !ctrl->ioq.cq || !ctrl->bounce_buffer)
+    ctrl->bounce_buffer = kmalloc_aligned(NVME_MAX_IO_BYTES, 4096);
+    ctrl->prp_list = kmalloc_aligned(PAGE_SIZE, PAGE_SIZE);
+    ctrl->max_io_bytes = NVME_MAX_IO_BYTES;
+    if (!ctrl->ioq.sq || !ctrl->ioq.cq || !ctrl->bounce_buffer ||
+        !ctrl->prp_list)
         return -4;
 
     memset(ctrl->ioq.sq, 0, sizeof(nvme_command_t) * ctrl->ioq.depth);
     memset(ctrl->ioq.cq, 0, sizeof(nvme_completion_t) * ctrl->ioq.depth);
+    memset(ctrl->prp_list, 0, PAGE_SIZE);
     ctrl->ioq.sq_tail = 0;
     ctrl->ioq.cq_head = 0;
     ctrl->ioq.phase = 1;
@@ -221,7 +227,7 @@ static int nvme_buffer_needs_bounce(void *buffer, uint32_t bytes) {
         bytes > heap_end - start)
         return 1;
 
-    return ((start & 0xFFF) + bytes) > 4096;
+    return 0;
 }
 
 static int nvme_read_write_chunk(nvme_namespace_t *ns, uint64_t lba,
@@ -231,12 +237,14 @@ static int nvme_read_write_chunk(nvme_namespace_t *ns, uint64_t lba,
     uint8_t *io_buffer = (uint8_t *)buffer;
     uint32_t bytes = sectors * ns->lba_size;
     int use_bounce = nvme_buffer_needs_bounce(buffer, bytes);
+    uint64_t io_phys;
+    uint32_t prp_pages;
 
     while (__sync_lock_test_and_set(&ctrl->io_lock, 1))
         __asm__ __volatile__("pause");
 
     if (use_bounce) {
-        if (!ctrl->bounce_buffer) {
+        if (!ctrl->bounce_buffer || bytes > NVME_MAX_IO_BYTES) {
             __sync_lock_release(&ctrl->io_lock);
             return -1;
         }
@@ -245,10 +253,31 @@ static int nvme_read_write_chunk(nvme_namespace_t *ns, uint64_t lba,
             memcpy(io_buffer, buffer, bytes);
     }
 
+    io_phys = fast_virt_to_phys(io_buffer);
+    prp_pages = (uint32_t)((((io_phys & (PAGE_SIZE - 1)) + bytes +
+                                PAGE_SIZE - 1) /
+                               PAGE_SIZE) -
+        1);
+    if (prp_pages > NVME_PRP_LIST_ENTRIES) {
+        __sync_lock_release(&ctrl->io_lock);
+        return -1;
+    }
+
     memset(&cmd, 0, sizeof(cmd));
     cmd.opcode = is_write ? NVME_NVM_OP_WRITE : NVME_NVM_OP_READ;
     cmd.nsid = ns->nsid;
-    cmd.prp1 = fast_virt_to_phys(io_buffer);
+    cmd.prp1 = io_phys;
+    if (prp_pages == 1) {
+        cmd.prp2 = (io_phys & ~((uint64_t)PAGE_SIZE - 1)) + PAGE_SIZE;
+    } else if (prp_pages > 1) {
+        uintptr_t first_virtual_page =
+            (uintptr_t)io_buffer & ~(uintptr_t)(PAGE_SIZE - 1);
+        for (uint32_t i = 0; i < prp_pages; i++) {
+            ctrl->prp_list[i] = fast_virt_to_phys(
+                (void *)(first_virtual_page + (size_t)(i + 1) * PAGE_SIZE));
+        }
+        cmd.prp2 = fast_virt_to_phys(ctrl->prp_list);
+    }
     cmd.cdw10 = (uint32_t)lba;
     cmd.cdw11 = (uint32_t)(lba >> 32);
     cmd.cdw12 = sectors - 1;
@@ -264,7 +293,13 @@ static int nvme_read_write_chunk(nvme_namespace_t *ns, uint64_t lba,
 static int nvme_read_write(nvme_namespace_t *ns, uint64_t lba,
     void *buffer, uint32_t count, int is_write) {
     uint8_t *ptr = (uint8_t *)buffer;
-    const uint32_t max_sectors = NVME_MAX_IO_BYTES / ns->lba_size;
+    nvme_controller_t *ctrl = &nvme_controllers[ns->controller_index];
+    uint32_t max_io_bytes = ctrl->max_io_bytes;
+    if (max_io_bytes > NVME_MAX_IO_BYTES)
+        max_io_bytes = NVME_MAX_IO_BYTES;
+    const uint32_t max_sectors = max_io_bytes / ns->lba_size;
+    if (max_sectors == 0)
+        return -1;
 
     while (count > 0) {
         uint32_t sectors = count > max_sectors ? max_sectors : count;
@@ -289,6 +324,10 @@ static void nvme_probe_namespaces(int controller_index) {
         kfree(identify_buf);
         return;
     }
+
+    uint8_t mdts = identify_buf[77];
+    if (mdts != 0 && mdts < 4)
+        ctrl->max_io_bytes = PAGE_SIZE << mdts;
 
     ctrl->nn = ((uint32_t *)identify_buf)[129];
     if (ctrl->nn == 0)

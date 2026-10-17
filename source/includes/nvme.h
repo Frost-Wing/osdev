@@ -67,9 +67,11 @@ typedef struct {
     uint32_t doorbell_stride;
     uint32_t controller_id;
     uint32_t nn;
+    uint32_t max_io_bytes;
     nvme_queue_t adminq;
     nvme_queue_t ioq;
     void *bounce_buffer;
+    uint64_t *prp_list;
     volatile int io_lock;
     int present;
 } nvme_controller_t;

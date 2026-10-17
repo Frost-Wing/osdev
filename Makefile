@@ -183,8 +183,8 @@ QEMU_COMMON = \
     -device ahci,id=ahci \
     -drive if=none,media=cdrom,format=raw,file=$(ISO_FILE),id=cd0 \
     -device ide-cd,drive=cd0,bus=ahci.0 \
-	-drive if=none,format=raw,file=$(DISK_IMG),id=nvmedisk \
-    -device nvme,drive=nvmedisk,serial=FROSTNVME0 \
+	-drive if=none,format=raw,file=$(DISK_IMG),id=disk \
+    -device ide-hd,drive=disk,bus=ahci.1 \
     -rtc base=localtime,clock=host \
     -boot order=d \
 	-monitor tcp:127.0.0.1:4444,server,nowait \

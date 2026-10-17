@@ -543,8 +543,26 @@ static int __attribute__((unused)) ahci_wait_slot0_ready(ahci_port_t *port) {
 static int ahci_read_sector_raw(int portno, uint64_t lba, void *buffer, uint32_t count) {
     int rc = 0;
     void *dma_buf = NULL;
+    size_t bytes = (size_t)count * 512;
     ahci_port_t *port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t *mem = &port_mem[portno];
+
+    if (!buffer || !count)
+        return -1;
+    if (count > PRDT_MAX_BYTES / 512) {
+        uint8_t *ptr = (uint8_t *)buffer;
+        while (count > 0) {
+            uint32_t sectors = count > PRDT_MAX_BYTES / 512 ?
+                PRDT_MAX_BYTES / 512 : count;
+            rc = ahci_read_sector_raw(portno, lba, ptr, sectors);
+            if (rc != 0)
+                return rc;
+            lba += sectors;
+            ptr += (size_t)sectors * 512;
+            count -= sectors;
+        }
+        return 0;
+    }
 
     ahci_lock_port_io(portno);
 
@@ -568,15 +586,21 @@ static int ahci_read_sector_raw(int portno, uint64_t lba, void *buffer, uint32_t
     memset(tbl->cfis, 0, 64);
     memset(tbl->prdt, 0, sizeof(tbl->prdt));
 
-    dma_buf = kmalloc_aligned(count * 512, 4096);
-    if (!dma_buf) {
-        rc = -10;
-        goto out;
+    if (mem->dma_buffer_size < bytes) {
+        void *new_buffer = kmalloc_aligned(bytes, 4096);
+        if (!new_buffer) {
+            rc = -10;
+            goto out;
+        }
+        kfree(mem->dma_buffer);
+        mem->dma_buffer = new_buffer;
+        mem->dma_buffer_size = bytes;
     }
+    dma_buf = mem->dma_buffer;
 
     tbl->prdt[0].dba = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
-    tbl->prdt[0].dbc = (count * 512 - 1) | (1U << 31);
+    tbl->prdt[0].dbc = (uint32_t)(bytes - 1) | (1U << 31);
 
     uint8_t *cfis = tbl->cfis;
     cfis[0] = 0x27;
@@ -610,11 +634,8 @@ static int ahci_read_sector_raw(int portno, uint64_t lba, void *buffer, uint32_t
     port->is = 0xFFFFFFFF;
 
 out:
-    if (dma_buf) {
-        if (rc == 0)
-            memcpy(buffer, dma_buf, count * 512);
-        kfree(dma_buf);
-    }
+    if (dma_buf && rc == 0)
+        memcpy(buffer, dma_buf, bytes);
     ahci_unlock_port_io(portno);
     return rc;
 }
@@ -622,8 +643,26 @@ out:
 static int ahci_write_sector_raw(int portno, uint64_t lba, void *buffer, uint32_t count) {
     int rc = 0;
     void *dma_buf = NULL;
+    size_t bytes = (size_t)count * 512;
     ahci_port_t *port = &global_ahci_ctrl->ports[portno];
     ahci_port_mem_t *mem = &port_mem[portno];
+
+    if (!buffer || !count)
+        return -1;
+    if (count > PRDT_MAX_BYTES / 512) {
+        uint8_t *ptr = (uint8_t *)buffer;
+        while (count > 0) {
+            uint32_t sectors = count > PRDT_MAX_BYTES / 512 ?
+                PRDT_MAX_BYTES / 512 : count;
+            rc = ahci_write_sector_raw(portno, lba, ptr, sectors);
+            if (rc != 0)
+                return rc;
+            lba += sectors;
+            ptr += (size_t)sectors * 512;
+            count -= sectors;
+        }
+        return 0;
+    }
 
     ahci_lock_port_io(portno);
 
@@ -647,16 +686,22 @@ static int ahci_write_sector_raw(int portno, uint64_t lba, void *buffer, uint32_
     memset(tbl->cfis, 0, 64);
     memset(tbl->prdt, 0, sizeof(tbl->prdt));
 
-    dma_buf = kmalloc_aligned(count * 512, 4096);
-    if (!dma_buf) {
-        rc = -10;
-        goto out;
+    if (mem->dma_buffer_size < bytes) {
+        void *new_buffer = kmalloc_aligned(bytes, 4096);
+        if (!new_buffer) {
+            rc = -10;
+            goto out;
+        }
+        kfree(mem->dma_buffer);
+        mem->dma_buffer = new_buffer;
+        mem->dma_buffer_size = bytes;
     }
-    memcpy(dma_buf, buffer, count * 512);
+    dma_buf = mem->dma_buffer;
+    memcpy(dma_buf, buffer, bytes);
 
     tbl->prdt[0].dba = (uint32_t)(uintptr_t)dma_buf;
     tbl->prdt[0].dbau = 0;
-    tbl->prdt[0].dbc = (count * 512 - 1) | (1U << 31);
+    tbl->prdt[0].dbc = (uint32_t)(bytes - 1) | (1U << 31);
 
     uint8_t *cfis = tbl->cfis;
     cfis[0] = 0x27;
@@ -690,8 +735,6 @@ static int ahci_write_sector_raw(int portno, uint64_t lba, void *buffer, uint32_
     port->is = 0xFFFFFFFF;
 
 out:
-    if (dma_buf)
-        kfree(dma_buf);
     ahci_unlock_port_io(portno);
     return rc;
 }
