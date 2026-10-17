@@ -264,6 +264,10 @@ void print_bitmap(int x, int y, int w, int h, const bool *pixels, uint32 color);
  */
 void terminal_toggle_cursor(void);
 
+/** @brief Serialize framebuffer terminal rendering and preserve interrupt state. */
+uint64_t console_lock_acquire(void);
+void console_lock_release(uint64_t flags);
+
 /** @brief Scroll the active framebuffer terminal by one retained line. */
 void terminal_scrollback_up(void);
 void terminal_scrollback_down(void);

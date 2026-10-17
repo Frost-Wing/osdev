@@ -383,6 +383,7 @@ uint64_t tty_write(const char *buf, uint64_t count) {
     bool translate_newline = (termios.c_oflag & LINUX_OPOST) &&
                              (termios.c_oflag & LINUX_ONLCR);
 
+    uint64_t console_flags = console_lock_acquire();
     for (uint64_t i = 0; i < count; ++i) {
         char c = buf[i];
         if (translate_newline && c == '\n')
@@ -397,6 +398,7 @@ uint64_t tty_write(const char *buf, uint64_t count) {
 
     if (used != 0)
         flanterm_write(tty->display, output, used);
+    console_lock_release(console_flags);
     return count;
 }
 

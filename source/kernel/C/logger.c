@@ -24,7 +24,7 @@ extern struct flanterm_context *ft_ctx;
 static stream_t printf_stream;
 static spinlock_t console_lock = SPINLOCK_INITIALIZER;
 
-static uint64_t console_lock_acquire(void) {
+uint64_t console_lock_acquire(void) {
     uint64_t flags;
     __asm__ volatile("pushfq; popq %0; cli"
         : "=r"(flags) : : "memory");
@@ -32,7 +32,7 @@ static uint64_t console_lock_acquire(void) {
     return flags;
 }
 
-static void console_lock_release(uint64_t flags) {
+void console_lock_release(uint64_t flags) {
     spinlock_unlock(&console_lock);
     __asm__ volatile("pushq %0; popfq"
         : : "r"(flags) : "memory", "cc");
