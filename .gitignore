@@ -35,3 +35,8 @@ disk.img
 
 FrostWing.img
 *.img
+
+.github
+!.github/workflows/build.yml
+.vscode
+!.vscode/settings.json
