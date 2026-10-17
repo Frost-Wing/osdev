@@ -38,6 +38,10 @@ static void log_page_fault_details(InterruptFrame *frame) {
 }
 
 void exceptionHandler(InterruptFrame *frame) {
+    if (frame && frame->int_no == 14 && (frame->cs & 0x3) == 0x3 &&
+        userland_handle_stack_page_fault(getCR2(), frame->err_code, frame->rsp))
+        return;
+
     enable_logging = false; // disables logger as fast as it can to get the last instance of panic.
     log_page_fault_details(frame);
 

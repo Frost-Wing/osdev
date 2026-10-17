@@ -41,6 +41,7 @@ static userland_mmap_range_t user_mmap_reservations[USER_MMAP_RESERVATION_MAX];
 static userland_mmap_range_t user_mmap_commits[USER_MMAP_COMMIT_MAX];
 static size_t user_mmap_reservation_count;
 static size_t user_mmap_commit_count;
+static uint64_t user_stack_low = USER_STACK_TOP;
 
 static volatile bool userland_running = false;
 static uint64_t userland_saved_kernel_stack_top = 0;
@@ -92,6 +93,7 @@ typedef struct {
     int last_exit_code;
     uint64_t heap_break;
     uint64_t heap_mapped_end;
+    uint64_t stack_low;
     uint64_t mmap_cursor;
     uint64_t mmap_end;
     userland_mmap_range_t mmap_reservations[USER_MMAP_RESERVATION_MAX];
@@ -109,7 +111,6 @@ typedef struct {
 /* Code/interp, heap, mmap, TLS and PHDR are contiguous; the stack is separate. */
 static const user_region_t user_regions[] = {
     {USER_CODE_VADDR, USER_PHDR_VADDR + USER_PHDR_REGION_SIZE},
-    {USER_STACK_TOP - USER_STACK_SIZE, USER_STACK_TOP},
 };
 #define USER_REGION_COUNT (sizeof(user_regions) / sizeof(user_regions[0]))
 
@@ -225,12 +226,22 @@ static bool map_user_range(uint64_t start, uint64_t end, uint64_t flags) {
 }
 
 static bool map_user_stack(void) {
-    return map_user_range(USER_STACK_TOP - USER_STACK_SIZE, USER_STACK_TOP, USER_DATA_FLAGS);
+    unmap_user_range(user_stack_low, USER_STACK_TOP);
+    user_stack_low = USER_STACK_TOP;
+
+    uint64_t start = USER_STACK_TOP - USER_STACK_INITIAL_SIZE;
+    if (!map_user_range(start, USER_STACK_TOP, USER_DATA_FLAGS))
+        return false;
+    user_stack_low = start;
+    return true;
 }
 
 static void userland_unmap_all(void) {
     for (size_t i = 0; i < USER_REGION_COUNT; i++)
         unmap_user_range(user_regions[i].start, user_regions[i].end);
+
+    unmap_user_range(user_stack_low, USER_STACK_TOP);
+    user_stack_low = USER_STACK_TOP;
 
     for (size_t i = 0; i < user_mmap_commit_count; i++)
         unmap_user_range(user_mmap_commits[i].start, user_mmap_commits[i].end);
@@ -288,6 +299,11 @@ static bool userland_snapshot_mappings(saved_user_page_t **out) {
         }
     }
 
+    if (!userland_snapshot_range(&pages, user_stack_low, USER_STACK_TOP)) {
+        userland_free_snapshot(pages);
+        return false;
+    }
+
     for (size_t i = 0; i < user_mmap_commit_count; i++) {
         if (!userland_snapshot_range(&pages, user_mmap_commits[i].start, user_mmap_commits[i].end)) {
             userland_free_snapshot(pages);
@@ -299,7 +315,7 @@ static bool userland_snapshot_mappings(saved_user_page_t **out) {
     return true;
 }
 
-static void userland_restore_snapshot(saved_user_page_t *pages) {
+static void userland_restore_snapshot(saved_user_page_t *pages, uint64_t stack_low) {
     userland_unmap_all();
 
     for (saved_user_page_t *page = pages; page; page = page->next) {
@@ -327,6 +343,7 @@ static void userland_restore_snapshot(saved_user_page_t *pages) {
         }
         memcpy(paging_phys_to_virt(phys), paging_phys_to_virt(page->data_phys), PAGE_SIZE);
     }
+    user_stack_low = stack_low;
 }
 
 /* -------------------------------------------------------------- frames --- */
@@ -359,6 +376,7 @@ static int userland_push_frame(bool fresh_space) {
     f->last_exit_code = userland_last_exit_code;
     f->heap_break = user_heap_break;
     f->heap_mapped_end = user_heap_mapped_end;
+    f->stack_low = user_stack_low;
     f->mmap_cursor = user_mmap_cursor;
     f->mmap_end = user_mmap_end;
     memcpy(f->mmap_reservations, user_mmap_reservations, sizeof(user_mmap_reservations));
@@ -426,7 +444,9 @@ static bool userland_pop_frame(void) {
     user_mmap_cursor = f->mmap_cursor;
     user_mmap_end = f->mmap_end;
     if (f->user_pages)
-        userland_restore_snapshot(f->user_pages);
+        userland_restore_snapshot(f->user_pages, f->stack_low);
+    else
+        user_stack_low = f->stack_low;
     memcpy(user_mmap_reservations, f->mmap_reservations, sizeof(user_mmap_reservations));
     memcpy(user_mmap_commits, f->mmap_commits, sizeof(user_mmap_commits));
     user_mmap_reservation_count = f->mmap_reservation_count;
@@ -1059,6 +1079,35 @@ void userland_abort_from_exception(uint64_t int_no, uint64_t err_code, uint64_t 
     userland_jump_resume(regs);
 }
 
+bool userland_handle_stack_page_fault(uint64_t address, uint64_t error_code,
+    uint64_t user_rsp) {
+    const uint64_t stack_start = USER_STACK_TOP - USER_STACK_SIZE;
+    const uint64_t page_mask = ~(uint64_t)(PAGE_SIZE - 1);
+    const uint64_t max_rsp_gap = 1ULL << 20;
+    uint64_t page = address & page_mask;
+
+    if (!userland_running || (error_code & 0x5) != 0x4 ||
+        address < stack_start || address >= USER_STACK_TOP ||
+        page >= user_stack_low || address > user_rsp ||
+        user_rsp - address > max_rsp_gap)
+        return false;
+
+    uint64_t old_stack_low = user_stack_low;
+    for (uint64_t vaddr = page; vaddr < old_stack_low; vaddr += PAGE_SIZE) {
+        uint64_t phys = allocate_page();
+        if (!phys || !map_user_page(vaddr, phys, USER_DATA_FLAGS)) {
+            if (phys)
+                free_page(phys);
+            unmap_user_range(page, vaddr);
+            return false;
+        }
+        memset((void *)vaddr, 0, PAGE_SIZE);
+    }
+
+    user_stack_low = page;
+    return true;
+}
+
 void userland_abort_from_keyboard(int exit_code) {
     if (!userland_running || !userland_resume_rip || !userland_resume_rsp)
         hcf2();
@@ -1347,6 +1396,7 @@ int userland_exec_replace(const userland_exec_ctx_t *ctx) {
     userland_mmap_range_t saved_commits[USER_MMAP_COMMIT_MAX];
     size_t saved_reservation_count = user_mmap_reservation_count;
     size_t saved_commit_count = user_mmap_commit_count;
+    uint64_t saved_stack_low = user_stack_low;
     memcpy(saved_reservations, user_mmap_reservations, sizeof(saved_reservations));
     memcpy(saved_commits, user_mmap_commits, sizeof(saved_commits));
 
@@ -1374,7 +1424,7 @@ int userland_exec_replace(const userland_exec_ctx_t *ctx) {
     /* Failed after the point of no return: put the old image back. */
     if (image_info.tls_template)
         kfree(image_info.tls_template);
-    userland_restore_snapshot(backup);
+    userland_restore_snapshot(backup, saved_stack_low);
     memcpy(user_mmap_reservations, saved_reservations, sizeof(saved_reservations));
     memcpy(user_mmap_commits, saved_commits, sizeof(saved_commits));
     user_mmap_reservation_count = saved_reservation_count;

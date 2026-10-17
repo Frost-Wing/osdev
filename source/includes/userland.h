@@ -16,6 +16,7 @@
 #include <syscalls.h>
 
 #define USER_STACK_SIZE           (8 MiB) // Matches Linux default stack size limit
+#define USER_STACK_INITIAL_SIZE   (64 KiB)
 #define USER_HEAP_SIZE            (512 MiB)
 #define USER_MMAP_SIZE            (1 GiB)
 #define USER_MMAP_RESERVE_VADDR   0x0000500000000000ULL
@@ -210,6 +211,7 @@ bool userland_is_running(void);
 
 /** @brief Abort userland execution after a processor exception. */
 void userland_abort_from_exception(uint64_t int_no, uint64_t err_code, uint64_t fault_rip) __attribute__((noreturn));
+bool userland_handle_stack_page_fault(uint64_t address, uint64_t error_code, uint64_t user_rsp);
 
 /** @brief Abort userland execution after a keyboard-requested exit. */
 void userland_abort_from_keyboard(int exit_code) __attribute__((noreturn));
