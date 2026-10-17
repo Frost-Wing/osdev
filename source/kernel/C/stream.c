@@ -750,6 +750,14 @@ bool fd_is_pidfd(int fd) {
            fd_table[fd].object->pidfd;
 }
 
+bool fd_pidfd_get_pid(int fd, uint32_t *pid) {
+    if (!pid || !fd_is_pidfd(fd))
+        return false;
+
+    *pid = fd_table[fd].object->pidfd_pid;
+    return true;
+}
+
 bool fd_pidfd_ready(int fd) {
     if (!fd_is_pidfd(fd))
         return false;

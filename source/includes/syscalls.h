@@ -175,6 +175,7 @@ typedef struct {
 #define LINUX_SYS_MKDIRAT           258
 #define LINUX_SYS_EVENTFD2          290
 #define LINUX_SYS_EPOLL_CREATE1     291
+#define LINUX_SYS_PIDFD_SEND_SIGNAL 424
 #define LINUX_SYS_PIDFD_OPEN        434
 #define LINUX_SYS_FTRUNCATE         77
 #define LINUX_SYS_CLONE3            435

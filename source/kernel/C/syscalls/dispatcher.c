@@ -509,6 +509,8 @@ uint64_t syscall_dispatch(
             return sys_epoll_create1(arg1);
         case LINUX_SYS_EPOLL_CREATE:
             return sys_epoll_create(arg1);
+        case LINUX_SYS_PIDFD_SEND_SIGNAL:
+            return sys_pidfd_send_signal(arg1, arg2, (const void *)arg3, arg4);
         case LINUX_SYS_PIDFD_OPEN:
             return sys_pidfd_open(arg1, arg2);
         case 201: // time

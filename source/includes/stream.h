@@ -221,6 +221,7 @@ void fd_epoll_watch_update(int epfd, int fd, uint32_t ready, bool delivered);
 int fd_pidfd_create(uint32_t pid);
 bool fd_is_pidfd(int fd);
 bool fd_pidfd_ready(int fd);
+bool fd_pidfd_get_pid(int fd, uint32_t *pid);
 void fd_ext2_update_mode(uint32_t ino, uint16_t mode, uint32_t ctime);
 
 #endif

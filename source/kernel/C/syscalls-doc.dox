@@ -56,6 +56,7 @@
  * - `execve(2)` preserves credentials; fork-compatible children inherit all credential IDs and groups
  * - `wait4(2)`             -> `sys_wait4()`             -> multitasking task-state polling
  * - `pidfd_open(2)`        -> `sys_pidfd_open()`        -> process descriptors pollable for process exit
+ * - `pidfd_send_signal(2)` -> `sys_pidfd_send_signal()` -> signal delivery through a validated pidfd; flags must be zero and siginfo is unsupported
  * - `set_tid_address(2)`   -> `sys_set_tid_address()`   -> kernel clear-child-tid bookkeeping
  * - `set_robust_list(2)`   -> `sys_set_robust_list()`   -> ABI validation
  * - `rt_sigsuspend(2)`     -> `sys_rt_sigsuspend()`     -> ABI validation; returns `EINTR` because catchable signal delivery is not implemented

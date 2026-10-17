@@ -218,6 +218,28 @@ uint64 sys_pidfd_open(uint64_t pid, uint64_t flags) {
     return (uint64_t)fd;
 }
 
+uint64 sys_pidfd_send_signal(uint64_t pidfd, uint64_t signal,
+    const void *info, uint64_t flags) {
+    if (flags != 0)
+        return -LINUX_EINVAL;
+    if (signal > 64)
+        return -LINUX_EINVAL;
+    if (pidfd >= STREAM_MAX_FDS || !fd_valid((int)pidfd) ||
+        !fd_is_pidfd((int)pidfd))
+        return -LINUX_EBADF;
+    if (info)
+        return -LINUX_EOPNOTSUPP;
+
+    uint32_t target_pid;
+    bool exited = true;
+    if (!fd_pidfd_get_pid((int)pidfd, &target_pid) ||
+        !multitasking_get_process_ids(target_pid, NULL, NULL, NULL, &exited) ||
+        exited)
+        return -LINUX_ESRCH;
+
+    return (uint64_t)(int64_t)sys_kill((int)target_pid, (int)signal);
+}
+
 uint64 sys_fork(void) {
     /* Read the frame BEFORE the child runs: the child's syscalls overwrite this global. */
     const syscall_frame_t *f = current_syscall_frame;
