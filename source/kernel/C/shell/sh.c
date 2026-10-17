@@ -95,19 +95,19 @@ void welcome_message(void) {
     printf(blue_color "| |  | | | (_) \\__ \\ ||  __/ (_| |____) | | | |  __/ | |");
     printf(blue_color "|_|  |_|  \\___/|___/\\__\\___|\\__,_|_____/|_| |_|\\___|_|_|" reset_color "\n");
 
-    printf(green_color "Welcome to frosted shell!" reset_color " This is an custom implementation of " blue_color "sh" reset_color ".");
+    printf(green_color "\uF120 Welcome to frosted shell!" reset_color " This is an custom implementation of " blue_color "sh" reset_color ".");
 
-    printf("Wiki    : " blue_color "https://github.com/Frost-Wing/osdev/wiki" reset_color "");
-    printf("Github  : " blue_color "https://github.com/Frost-Wing" reset_color "\n");
+    printf("\uF02D Wiki    : " blue_color "https://frost-wing.github.io/wiki/" reset_color "");
+    printf("\uF09B Github  : " blue_color "https://github.com/Frost-Wing" reset_color "\n");
 
-    printf(blue_color "This shell is under kernel mode (ring-0) you are responsible for your actions.");
-    printf(blue_color "Root (/) and other VFS are not mounted, you need to mount them by youself. Check out" red_color " wiki " blue_color "for more details.\n" reset_color);
+    printf(blue_color "\uF023 This shell is under kernel mode (ring-0) you are responsible for your actions.");
+    printf(blue_color "To learn more, check out" red_color " wiki " blue_color "for more details.\n" reset_color);
 
     uint8_t second, minute, hour, day, month;
     uint16_t year;
     update_system_time(&second, &minute, &hour, &day, &month, &year);
 
-    printf("Time    : %02d:%02d:%02d %02d/%02d/%02d",
+    printf("\uF017 Time    : %02d:%02d:%02d %02d/%02d/%02d",
         hour, minute, second, day, month, year);
 }
 
@@ -133,19 +133,22 @@ int show_prompt(int argc, char **argv) {
     (void)argc;
 
     if (last_status_code == 0)
-        printfnoln("[" green_color "%d" reset_color "] ", (int64_t)last_status_code);
+        printfnoln(green_color "[%d]" reset_color " ", (int64_t)last_status_code);
     else
-        printfnoln("[" red_color "%d" reset_color "] ", (int64_t)last_status_code);
+        printfnoln(red_color "[%d]" reset_color " ", (int64_t)last_status_code);
 
+    print("\uF07C ");
     print(vfs_getcwd());
     print(" @ ");
 
     if (strcmp(argv[0], "root") == 0) {
         print(red_color);
+        print("\uF023 ");
         print(argv[0]);
         print(reset_color);
     } else {
         print(green_color);
+        print("\uF007 ");
         print(argv[0]);
         print(reset_color);
     }

@@ -187,7 +187,7 @@ void main(void) {
     isBufferReady = yes;
 
     if (framebuffer_request.response->framebuffer_count > 1) {
-        info("Multiple framebuffers detected! using the first one.", __FILE__);
+        info("\uF108 Multiple framebuffers detected; using the first one.", __FILE__);
     }
 
     terminal_rows = (int)ft_ctx->rows;
@@ -240,7 +240,7 @@ void main(void) {
 
     log_public_key();
 
-    info("Display Resolution: %dx%d (%d) pixels. Pitch: %d", __FILE__, framebuffer->width, framebuffer->height, framebuffer->width * framebuffer->height, framebuffer->pitch);
+    info("\uF108 Display Resolution: %dx%d (%d) pixels. Pitch: %d", __FILE__, framebuffer->width, framebuffer->height, framebuffer->width * framebuffer->height, framebuffer->pitch);
 
     info("Memory Values begin! ===", __FILE__);
     display_memory_formatted(limine_memory_ctx);
@@ -252,7 +252,7 @@ void main(void) {
     if (smp_request.response == null) {
         warn("Limine did not provide SMP topology; continuing on the BSP.", __FILE__);
     } else {
-        info("Total CPU(s): %d", __FILE__, smp_request.response->cpu_count);
+        info("\uF2DB Total CPU(s): %d", __FILE__, smp_request.response->cpu_count);
         for (uint64_t i = 0; i < smp_request.response->cpu_count; i++) {
             print_processor_id(i, smp_request.response->cpus[i]->processor_id, smp_request.response->cpus[i]->lapic_id);
         }
@@ -279,6 +279,7 @@ void main(void) {
         net_ipv4_from_octets(255, 255, 255, 0),
         net_ipv4_from_octets(10, 0, 2, 2),
         net_ipv4_from_octets(10, 0, 2, 3));
+    info("Network configured: 10.0.2.15/24 via 10.0.2.2", __FILE__);
 
     init_hashing();
 
@@ -301,7 +302,7 @@ void main(void) {
     char bootdisk[64];
 
     if (cmdline_get(cmdline, "rootdisk", rootdisk, sizeof(rootdisk))) {
-        info("Mounting root disk from cmdline: %s", __FILE__, rootdisk);
+        info("\uF0A0 Mounting root disk from cmdline: %s", __FILE__, rootdisk);
         int ret = vfs_mount(rootdisk, "/", true);
         if (ret != 0) {
             error("Failed to mount root disk '%s' specified via cmdline.", __FILE__, rootdisk);
@@ -316,7 +317,7 @@ void main(void) {
     }
 
     if (cmdline_get(cmdline, "bootdisk", bootdisk, sizeof(bootdisk))) {
-        info("Mounting boot disk from cmdline: %s", __FILE__, bootdisk);
+        info("\uF07C Mounting boot disk from cmdline: %s", __FILE__, bootdisk);
         int ret = vfs_mount(bootdisk, "/boot", true);
         if (ret != 0) {
             error("Failed to mount boot disk '%s' specified via cmdline.", __FILE__, bootdisk);

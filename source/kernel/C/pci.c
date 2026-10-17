@@ -269,11 +269,11 @@ void probe_pci(void) {
 
                 // info("%9s : Device : %9s -- Class : %9s", __FILE__, vendorName, deviceName, className);
 
-                info("Vendor : %9s", __FILE__, vendorName);
+                info("\uF19C Vendor : %9s", __FILE__, vendorName);
                 LOG_BLOCK {
-                    info("Device : %9s", __FILE__, deviceName);
+                    info("\uF2DB Device : %9s", __FILE__, deviceName);
                     LOG_BLOCK {
-                        info("Class : %9s", __FILE__, className);
+                        info("\uF1B3 Class : %9s", __FILE__, className);
                     }
                 }
 

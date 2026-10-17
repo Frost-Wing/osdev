@@ -101,6 +101,7 @@ int cmd_lsblk(int argc, char **argv) {
     (void)argc;
     (void)argv;
 
+    printf("\uF0A0 Block devices");
     cell("Name", COL_NAME);
     cell("Size", COL_SIZE);
     cell("Type", COL_TYPE);

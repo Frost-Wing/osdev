@@ -41,6 +41,7 @@ int cmd_lsusb(int argc, char **argv) {
     (void)argc;
     (void)argv;
 
+    printf("\uF287 USB devices");
     cell("Bus", COL_BUS);
     cell("Port", COL_PORT);
     cell("Slot", COL_SLOT);
